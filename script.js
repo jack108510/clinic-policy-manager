@@ -365,6 +365,8 @@ function generateAIPolicy() {
     const topic = document.getElementById('aiPolicyTopic').value;
     const type = document.getElementById('aiPolicyType').value;
     const clinics = Array.from(document.getElementById('aiClinicApplicability').selectedOptions).map(option => option.value);
+    const keyPoints = document.getElementById('aiKeyPoints').value;
+    const previousDocuments = document.getElementById('aiPreviousDocuments').value;
     const requirements = document.getElementById('aiAdditionalRequirements').value;
 
     // Show loading with research simulation
@@ -377,6 +379,8 @@ function generateAIPolicy() {
         "AI is researching industry best practices...",
         "Analyzing veterinary care standards...",
         "Reviewing AAHA and AVMA guidelines...",
+        "Incorporating key points and descriptions...",
+        "Reviewing previous documents and references...",
         "Incorporating CSI-specific requirements...",
         "Generating comprehensive policy content..."
     ];
@@ -393,31 +397,33 @@ function generateAIPolicy() {
     // Simulate AI research and generation (in a real app, this would call an AI API)
     setTimeout(() => {
         clearInterval(messageInterval);
-        const generatedPolicy = generatePolicyContent(topic, type, clinics, requirements);
+        const generatedPolicy = generatePolicyContent(topic, type, clinics, requirements, keyPoints, previousDocuments);
         displayAIPolicy(generatedPolicy);
-    }, 2000);
+    }, 2800);
 }
 
-function generatePolicyContent(topic, type, clinics, requirements) {
+function generatePolicyContent(topic, type, clinics, requirements, keyPoints = '', previousDocuments = '') {
     const clinicNames = getClinicNames(clinics).join(', ');
     const typeLabel = getTypeLabel(type);
     const currentDate = new Date().toISOString().split('T')[0];
     
     // Generate comprehensive, topic-specific policy content with proper CSI headers
-    const policyContent = generateCSIPolicyWithHeaders(topic, type, requirements, currentDate);
+    const policyContent = generateCSIPolicyWithHeaders(topic, type, requirements, currentDate, keyPoints, previousDocuments);
     
     return {
         ...policyContent,
         type: type,
         clinics: clinics,
         additionalRequirements: requirements,
+        keyPoints: keyPoints,
+        previousDocuments: previousDocuments,
         clinicNames: clinicNames,
         typeLabel: typeLabel
     };
 }
 
 // NEW: Generate policies with proper CSI headers and filled content
-function generateCSIPolicyWithHeaders(topic, type, requirements, currentDate) {
+function generateCSIPolicyWithHeaders(topic, type, requirements, currentDate, keyPoints = '', previousDocuments = '') {
     if (type === 'admin') {
         return {
             title: `${topic} Admin Policy`,
@@ -426,14 +432,14 @@ function generateCSIPolicyWithHeaders(topic, type, requirements, currentDate) {
             lastReviewed: currentDate,
             approvedBy: "CSI Clinical Director",
             version: "1.0",
-            purpose: generatePurpose(topic, type),
+            purpose: generatePurpose(topic, type, keyPoints, previousDocuments),
             scope: generateScope(topic, type, requirements),
             policyStatement: generatePolicyStatement(topic, type),
             definitions: generateDefinitions(topic, type),
             procedure: generateProcedure(topic, type),
             roles: generateRoles(topic, type),
             compliance: generateCompliance(topic, type),
-            relatedDocuments: generateRelatedDocuments(topic, type),
+            relatedDocuments: generateRelatedDocuments(topic, type, previousDocuments),
             reviewApproval: generateReviewApproval(topic, type, currentDate)
         };
     } else if (type === 'sog') {
@@ -470,7 +476,7 @@ function generateCSIPolicyWithHeaders(topic, type, requirements, currentDate) {
 }
 
 // Content generation functions for each CSI header field
-function generatePurpose(topic, type) {
+function generatePurpose(topic, type, keyPoints = '', previousDocuments = '') {
     const purposes = {
         'fire evacuation': 'This policy establishes comprehensive fire evacuation procedures to ensure the safety of all staff, patients, and clients in the event of a fire emergency. This policy incorporates NFPA (National Fire Protection Association) guidelines and local fire safety regulations.',
         'hand hygiene': 'This policy establishes standardized hand hygiene protocols to prevent the transmission of infectious diseases and maintain a safe, sterile environment for patient care.',
@@ -483,14 +489,25 @@ function generatePurpose(topic, type) {
         'documentation': 'This policy establishes comprehensive documentation standards to ensure accurate, complete, and compliant medical records and administrative documentation.'
     };
     
+    let basePurpose = '';
     const topicLower = topic.toLowerCase();
     for (const key in purposes) {
         if (topicLower.includes(key)) {
-            return purposes[key];
+            basePurpose = purposes[key];
+            break;
         }
     }
     
-    return `This policy establishes comprehensive guidelines for ${topic.toLowerCase()} to ensure consistent, safe, and effective operations across all clinic locations.`;
+    if (!basePurpose) {
+        basePurpose = `This policy establishes comprehensive guidelines for ${topic.toLowerCase()} to ensure consistent, safe, and effective operations across all clinic locations.`;
+    }
+    
+    // Incorporate key points if provided
+    if (keyPoints && keyPoints.trim()) {
+        basePurpose += ` Key considerations include: ${keyPoints}.`;
+    }
+    
+    return basePurpose;
 }
 
 function generateScope(topic, type, requirements) {
@@ -969,7 +986,7 @@ ENFORCEMENT:
 - Continuous improvement planning`;
 }
 
-function generateRelatedDocuments(topic, type) {
+function generateRelatedDocuments(topic, type, previousDocuments = '') {
     const documents = {
         'fire evacuation': 'NFPA 101: Life Safety Code, Local Fire Department Regulations, CSI Emergency Response Plan, CSI Patient Safety Protocols, OSHA Fire Safety Standards',
         'hand hygiene': 'CDC Hand Hygiene Guidelines, OSHA Bloodborne Pathogens Standard, CSI Infection Control Policy, CSI Patient Safety Protocols, AVMA Infection Control Guidelines',
@@ -982,14 +999,25 @@ function generateRelatedDocuments(topic, type) {
         'documentation': 'AVMA Medical Record Guidelines, HIPAA Documentation Requirements, CSI Quality Assurance Program, CSI Patient Safety Protocols, Veterinary Practice Standards'
     };
     
+    let baseDocuments = '';
     const topicLower = topic.toLowerCase();
     for (const key in documents) {
         if (topicLower.includes(key)) {
-            return documents[key];
+            baseDocuments = documents[key];
+            break;
         }
     }
     
-    return `CSI Quality Assurance Program, CSI Patient Safety Protocols, Veterinary Practice Standards, Industry Best Practices, Regulatory Compliance Guidelines`;
+    if (!baseDocuments) {
+        baseDocuments = `CSI Quality Assurance Program, CSI Patient Safety Protocols, Veterinary Practice Standards, Industry Best Practices, Regulatory Compliance Guidelines`;
+    }
+    
+    // Incorporate previous documents if provided
+    if (previousDocuments && previousDocuments.trim()) {
+        baseDocuments += `, ${previousDocuments}`;
+    }
+    
+    return baseDocuments;
 }
 
 function generateReviewApproval(topic, type, currentDate) {
@@ -2499,6 +2527,16 @@ function displayAIPolicy(policy) {
         <div class="info-item">
             <strong>Applicable Clinics:</strong> ${policy.clinicNames}
         </div>
+        ${policy.keyPoints ? `
+        <div class="info-item">
+            <strong>Key Points:</strong> ${policy.keyPoints}
+        </div>
+        ` : ''}
+        ${policy.previousDocuments ? `
+        <div class="info-item">
+            <strong>Previous Documents:</strong> ${policy.previousDocuments}
+        </div>
+        ` : ''}
         ${policy.additionalRequirements ? `
         <div class="info-item">
             <strong>Additional Requirements:</strong> ${policy.additionalRequirements}
@@ -2800,6 +2838,174 @@ function formatPolicyContent(content, type) {
             </div>
         </div>`;
     }
+}
+
+// Update AI form fields based on policy type selection
+function updateAIFormFields() {
+    const policyType = document.getElementById('aiPolicyType').value;
+    const dynamicFields = document.getElementById('dynamicAIFormFields');
+    
+    if (!policyType) {
+        dynamicFields.innerHTML = '';
+        return;
+    }
+    
+    let fieldsHTML = '';
+    
+    if (policyType === 'admin') {
+        // LEVEL 1 - ADMIN POLICY HEADERS
+        fieldsHTML = `
+            <div class="form-group">
+                <label for="aiEffectiveDate">Effective Date</label>
+                <input type="date" id="aiEffectiveDate" required>
+            </div>
+            <div class="form-group">
+                <label for="aiLastReviewed">Last Reviewed</label>
+                <input type="date" id="aiLastReviewed" required>
+            </div>
+            <div class="form-group">
+                <label for="aiApprovedBy">Approved By</label>
+                <input type="text" id="aiApprovedBy" placeholder="CSI Clinical Director" required>
+            </div>
+            <div class="form-group">
+                <label for="aiVersion">Version #</label>
+                <input type="text" id="aiVersion" placeholder="1.0" required>
+            </div>
+            <div class="form-group">
+                <label for="aiPurpose">Purpose</label>
+                <textarea id="aiPurpose" rows="3" placeholder="Describe the purpose and objectives of this policy..."></textarea>
+            </div>
+            <div class="form-group">
+                <label for="aiScope">Scope</label>
+                <textarea id="aiScope" rows="3" placeholder="Define the scope and applicability of this policy..."></textarea>
+            </div>
+            <div class="form-group">
+                <label for="aiPolicyStatement">Policy Statement</label>
+                <textarea id="aiPolicyStatement" rows="3" placeholder="State the official policy statement..."></textarea>
+            </div>
+            <div class="form-group">
+                <label for="aiDefinitions">Definitions</label>
+                <textarea id="aiDefinitions" rows="3" placeholder="Define key terms and concepts used in this policy..."></textarea>
+            </div>
+            <div class="form-group">
+                <label for="aiProcedure">Procedure / Implementation</label>
+                <textarea id="aiProcedure" rows="5" placeholder="Describe the detailed procedures and implementation steps..."></textarea>
+            </div>
+            <div class="form-group">
+                <label for="aiRoles">Responsibilities</label>
+                <textarea id="aiRoles" rows="4" placeholder="Define roles and responsibilities for different staff members..."></textarea>
+            </div>
+            <div class="form-group">
+                <label for="aiCompliance">Consequences / Accountability</label>
+                <textarea id="aiCompliance" rows="3" placeholder="Describe compliance requirements and accountability measures..."></textarea>
+            </div>
+            <div class="form-group">
+                <label for="aiRelatedDocuments">Related Documents</label>
+                <textarea id="aiRelatedDocuments" rows="2" placeholder="List related policies, procedures, or reference documents..."></textarea>
+            </div>
+            <div class="form-group">
+                <label for="aiReviewApproval">Review & Approval</label>
+                <textarea id="aiReviewApproval" rows="2" placeholder="Define review schedule and approval process..."></textarea>
+            </div>
+        `;
+    } else if (policyType === 'sog') {
+        // LEVEL 2 - STANDARD OPERATING GUIDELINE HEADERS
+        fieldsHTML = `
+            <div class="form-group">
+                <label for="aiEffectiveDate">Effective Date</label>
+                <input type="date" id="aiEffectiveDate" required>
+            </div>
+            <div class="form-group">
+                <label for="aiAuthor">Author</label>
+                <input type="text" id="aiAuthor" placeholder="CSI Clinical Staff" required>
+            </div>
+            <div class="form-group">
+                <label for="aiApprovedBy">Approved By</label>
+                <input type="text" id="aiApprovedBy" placeholder="CSI Medical Director" required>
+            </div>
+            <div class="form-group">
+                <label for="aiVersion">Version #</label>
+                <input type="text" id="aiVersion" placeholder="1.0" required>
+            </div>
+            <div class="form-group">
+                <label for="aiObjective">Objective</label>
+                <textarea id="aiObjective" rows="3" placeholder="Define the objective and goals of these guidelines..."></textarea>
+            </div>
+            <div class="form-group">
+                <label for="aiPrinciples">Guiding Principles</label>
+                <textarea id="aiPrinciples" rows="3" placeholder="List the guiding principles that inform these guidelines..."></textarea>
+            </div>
+            <div class="form-group">
+                <label for="aiProcedure">Recommended Approach / Procedure</label>
+                <textarea id="aiProcedure" rows="5" placeholder="Describe the recommended approach and procedures..."></textarea>
+            </div>
+            <div class="form-group">
+                <label for="aiDefinitions">Definitions</label>
+                <textarea id="aiDefinitions" rows="3" placeholder="Define key terms and concepts used in these guidelines..."></textarea>
+            </div>
+            <div class="form-group">
+                <label for="aiExamples">Examples / Scenarios</label>
+                <textarea id="aiExamples" rows="4" placeholder="Provide examples and scenarios to illustrate the guidelines..."></textarea>
+            </div>
+            <div class="form-group">
+                <label for="aiRoles">Responsibilities</label>
+                <textarea id="aiRoles" rows="4" placeholder="Define roles and responsibilities for different staff members..."></textarea>
+            </div>
+            <div class="form-group">
+                <label for="aiEscalation">Escalation / Support</label>
+                <textarea id="aiEscalation" rows="3" placeholder="Describe escalation procedures and support resources..."></textarea>
+            </div>
+            <div class="form-group">
+                <label for="aiReview">Review & Revision</label>
+                <textarea id="aiReview" rows="2" placeholder="Define review schedule and revision process..."></textarea>
+            </div>
+        `;
+    } else if (policyType === 'memo') {
+        // LEVEL 3 - COMMUNICATION MEMO HEADERS
+        fieldsHTML = `
+            <div class="form-group">
+                <label for="aiDate">Date</label>
+                <input type="date" id="aiDate" required>
+            </div>
+            <div class="form-group">
+                <label for="aiFrom">From</label>
+                <input type="text" id="aiFrom" placeholder="CSI Management" required>
+            </div>
+            <div class="form-group">
+                <label for="aiTo">To</label>
+                <input type="text" id="aiTo" placeholder="All Staff" required>
+            </div>
+            <div class="form-group">
+                <label for="aiSubject">Subject</label>
+                <input type="text" id="aiSubject" placeholder="Enter the subject line for this memo..." required>
+            </div>
+            <div class="form-group">
+                <label for="aiMessage">Message</label>
+                <textarea id="aiMessage" rows="6" placeholder="Write the main message content for this memo..."></textarea>
+            </div>
+            <div class="form-group">
+                <label for="aiEffectivePeriod">Effective Period (if applicable)</label>
+                <textarea id="aiEffectivePeriod" rows="2" placeholder="Define when this memo is effective and any expiration dates..."></textarea>
+            </div>
+            <div class="form-group">
+                <label for="aiNextSteps">Next Steps / Action Required</label>
+                <textarea id="aiNextSteps" rows="3" placeholder="List the next steps and actions required from recipients..."></textarea>
+            </div>
+            <div class="form-group">
+                <label for="aiContact">Contact for Questions</label>
+                <textarea id="aiContact" rows="2" placeholder="Provide contact information for questions about this memo..."></textarea>
+            </div>
+        `;
+    }
+    
+    dynamicFields.innerHTML = fieldsHTML;
+    
+    // Set default dates
+    const today = new Date().toISOString().split('T')[0];
+    const dateInputs = dynamicFields.querySelectorAll('input[type="date"]');
+    dateInputs.forEach(input => {
+        input.value = today;
+    });
 }
 
 // Update manual form fields based on policy type selection

@@ -234,7 +234,7 @@
                     </div>
                     <div class="form-group">
                         <label for="aiPolicyType">Policy Type</label>
-                        <select id="aiPolicyType" required>
+                        <select id="aiPolicyType" required onchange="updateAIFormFields()">
                             <option value="">Select Type</option>
                             <option value="admin">Admin Policy</option>
                             <option value="sog">Standard Operating Guidelines</option>
@@ -250,9 +250,23 @@
                             <option value="upc">UPC</option>
                         </select>
                     </div>
+                    
+                    <!-- Dynamic AI form fields based on policy type -->
+                    <div id="dynamicAIFormFields">
+                        <!-- Fields will be populated based on policy type selection -->
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="aiKeyPoints">Key Points / Descriptions</label>
+                        <textarea id="aiKeyPoints" rows="4" placeholder="Describe the key points, objectives, and important aspects of this policy..."></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label for="aiPreviousDocuments">Reference Previous Documents (Optional)</label>
+                        <textarea id="aiPreviousDocuments" rows="3" placeholder="List any existing policies, procedures, or documents that should be referenced or updated..."></textarea>
+                    </div>
                     <div class="form-group">
                         <label for="aiAdditionalRequirements">Additional Requirements (Optional)</label>
-                        <textarea id="aiAdditionalRequirements" rows="3" placeholder="Any specific requirements, regulations, or considerations..."></textarea>
+                        <textarea id="aiAdditionalRequirements" rows="3" placeholder="Any specific requirements, regulations, compliance needs, or considerations..."></textarea>
                     </div>
                     <div class="ai-actions">
                         <button type="button" class="btn btn-secondary" onclick="closeAIModal()">Cancel</button>

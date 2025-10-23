@@ -375,61 +375,956 @@ function generateAIPolicy() {
 }
 
 function generatePolicyContent(topic, type, clinics, requirements) {
-    // This is a sophisticated policy generator that creates realistic healthcare policies
     const clinicNames = getClinicNames(clinics).join(', ');
     const typeLabel = getTypeLabel(type);
     
-    // Policy templates based on type
-    const policyTemplates = {
-        admin: {
-            purpose: `This administrative policy establishes guidelines for ${topic.toLowerCase()} within our healthcare facilities.`,
-            procedure: `All staff members must follow the established procedures for ${topic.toLowerCase()} to ensure consistent, safe, and effective operations across all clinic locations.`,
-            roles: `Administrative staff are responsible for implementing and monitoring compliance with this policy. Clinical staff must adhere to all established procedures.`,
-            compliance: `Compliance with this policy is mandatory for all staff members. Regular audits will be conducted to ensure adherence to established guidelines.`
-        },
-        sog: {
-            purpose: `These standard operating guidelines provide detailed procedures for ${topic.toLowerCase()} to ensure patient safety and quality care delivery.`,
-            procedure: `Step-by-step procedures for ${topic.toLowerCase()} must be followed by all clinical staff. These guidelines are based on current best practices and regulatory requirements.`,
-            roles: `Clinical staff are responsible for following these guidelines during patient care. Supervisors must ensure proper training and compliance monitoring.`,
-            compliance: `All clinical staff must complete training on these guidelines before implementation. Regular competency assessments will be conducted.`
-        },
-        memos: {
-            purpose: `This communication memo provides important information regarding ${topic.toLowerCase()} for all staff members.`,
-            procedure: `Please review the following information regarding ${topic.toLowerCase()}. All staff members are required to acknowledge receipt and understanding of this communication.`,
-            roles: `All staff members must read and understand this communication. Department heads are responsible for ensuring their teams are informed.`,
-            compliance: `Acknowledgment of this communication is required within 48 hours of receipt. Please contact your supervisor if you have any questions.`
-        }
-    };
-
-    const template = policyTemplates[type];
+    // Generate comprehensive, topic-specific policy content
+    const policyContent = generateComprehensivePolicy(topic, type, requirements);
     
-    // Enhanced content based on topic
-    let enhancedProcedure = template.procedure;
-    let enhancedRoles = template.roles;
-    
-    // Add topic-specific enhancements
-    if (topic.toLowerCase().includes('hand hygiene')) {
-        enhancedProcedure = `Hand hygiene is the most effective way to prevent healthcare-associated infections. All staff must perform hand hygiene before and after patient contact, before donning gloves, after removing gloves, and when hands are visibly soiled. Use alcohol-based hand sanitizer or soap and water as appropriate.`;
-        enhancedRoles = `All healthcare workers are responsible for proper hand hygiene. Infection control staff monitor compliance and provide education.`;
-    } else if (topic.toLowerCase().includes('patient safety')) {
-        enhancedProcedure = `Patient safety is our top priority. All staff must identify and report potential safety hazards immediately. Follow established protocols for patient identification, medication administration, and fall prevention.`;
-        enhancedRoles = `All staff members are responsible for maintaining a safe environment. Quality improvement teams review incidents and implement corrective actions.`;
-    } else if (topic.toLowerCase().includes('data security')) {
-        enhancedProcedure = `Protect patient information by following HIPAA guidelines. Use strong passwords, secure workstations, and report any suspected breaches immediately.`;
-        enhancedRoles = `All staff must complete HIPAA training. IT staff maintain security systems and investigate potential breaches.`;
-    }
-
     return {
-        title: topic,
+        title: policyContent.title,
         type: type,
         clinics: clinics,
-        purpose: template.purpose,
-        procedure: enhancedProcedure,
-        roles: enhancedRoles,
-        compliance: template.compliance,
+        purpose: policyContent.purpose,
+        procedure: policyContent.procedure,
+        roles: policyContent.roles,
+        compliance: policyContent.compliance,
         additionalRequirements: requirements,
         clinicNames: clinicNames,
         typeLabel: typeLabel
+    };
+}
+
+function generateComprehensivePolicy(topic, type, requirements) {
+    const topicLower = topic.toLowerCase();
+    
+    // Handle specific topics with detailed, realistic content
+    if (topicLower.includes('drop off') || topicLower.includes('dropoff') || topicLower.includes('unattended')) {
+        return generateDropOffPolicy(topic, type, requirements);
+    } else if (topicLower.includes('hand hygiene') || topicLower.includes('handwashing')) {
+        return generateHandHygienePolicy(topic, type, requirements);
+    } else if (topicLower.includes('patient safety')) {
+        return generatePatientSafetyPolicy(topic, type, requirements);
+    } else if (topicLower.includes('data security') || topicLower.includes('hipaa') || topicLower.includes('privacy')) {
+        return generateDataSecurityPolicy(topic, type, requirements);
+    } else if (topicLower.includes('emergency') || topicLower.includes('crisis')) {
+        return generateEmergencyPolicy(topic, type, requirements);
+    } else if (topicLower.includes('medication') || topicLower.includes('drug')) {
+        return generateMedicationPolicy(topic, type, requirements);
+    } else if (topicLower.includes('infection control') || topicLower.includes('infection prevention')) {
+        return generateInfectionControlPolicy(topic, type, requirements);
+    } else if (topicLower.includes('appointment') || topicLower.includes('scheduling')) {
+        return generateAppointmentPolicy(topic, type, requirements);
+    } else if (topicLower.includes('documentation') || topicLower.includes('charting') || topicLower.includes('records')) {
+        return generateDocumentationPolicy(topic, type, requirements);
+    } else {
+        return generateGenericPolicy(topic, type, requirements);
+    }
+}
+
+function generateDropOffPolicy(topic, type, requirements) {
+    const purpose = `This policy establishes comprehensive procedures for managing drop-off patients (unattended appointments) to ensure optimal care delivery, patient safety, and efficient clinic operations. Drop-off patients require special protocols due to the absence of the client during the appointment.`;
+    
+    const procedure = `PROCEDURE FOR DROP-OFF PATIENTS:
+
+1. RECEPTION PROTOCOL:
+   - Verify patient identity and appointment details
+   - Obtain written consent from client for drop-off procedures
+   - Collect emergency contact information and preferred communication method
+   - Document any special instructions or concerns from the client
+   - Provide estimated pick-up time and procedures for updates
+
+2. MEDICAL ASSESSMENT:
+   - Perform comprehensive physical examination
+   - Document all findings thoroughly in patient records
+   - Conduct any necessary diagnostic tests or procedures
+   - Assess patient comfort and stress levels throughout visit
+   - Monitor for any signs of distress or complications
+
+3. TREATMENT EXECUTION:
+   - Follow standard treatment protocols
+   - Document all treatments, medications, and procedures performed
+   - Ensure patient safety and comfort during all procedures
+   - Monitor patient response to treatments
+   - Prepare detailed discharge instructions
+
+4. COMMUNICATION WITH CLIENT:
+   - Contact client immediately for any urgent findings or complications
+   - Provide regular updates as requested by client
+   - Schedule follow-up appointments if necessary
+   - Document all client communications in patient records
+
+5. DISCHARGE PROCESS:
+   - Prepare comprehensive discharge summary
+   - Provide written instructions for home care
+   - Schedule follow-up appointments if needed
+   - Ensure client is contacted for pick-up
+   - Document discharge time and client pick-up confirmation
+
+DIFFERENCES FROM ATTENDED APPOINTMENTS:
+- Enhanced documentation requirements due to client absence
+- Mandatory client communication protocols
+- Additional consent and authorization procedures
+- Extended monitoring and comfort measures for patient stress
+- Comprehensive discharge planning and client education`;
+    
+    const roles = `ROLES AND RESPONSIBILITIES:
+
+RECEPTION STAFF:
+- Verify drop-off authorization and collect all required information
+- Maintain communication log with clients
+- Coordinate pick-up scheduling and notifications
+
+VETERINARY STAFF:
+- Perform comprehensive medical assessments and treatments
+- Maintain detailed documentation of all procedures
+- Monitor patient comfort and stress levels
+- Communicate findings and recommendations to clients
+
+TECHNICIANS:
+- Assist with patient handling and restraint
+- Support medical procedures and treatments
+- Monitor patient vital signs and behavior
+- Maintain clean and safe environment
+
+CLINIC MANAGER:
+- Ensure compliance with drop-off procedures
+- Handle escalated client concerns or complaints
+- Monitor staff training and competency
+- Review and update procedures as needed`;
+    
+    const compliance = `COMPLIANCE REQUIREMENTS:
+
+TRAINING:
+- All staff must complete drop-off patient management training
+- Annual competency assessments required
+- Ongoing education on stress reduction techniques
+
+DOCUMENTATION:
+- All drop-off appointments must have written client consent
+- Complete medical records with detailed procedure documentation
+- Mandatory client communication log maintenance
+- Regular audit of drop-off procedures and outcomes
+
+MONITORING:
+- Monthly review of drop-off patient satisfaction
+- Quarterly assessment of procedure compliance
+- Annual evaluation of policy effectiveness
+- Continuous improvement based on client and staff feedback
+
+QUALITY ASSURANCE:
+- Regular review of medical outcomes for drop-off patients
+- Comparison of drop-off vs. attended appointment satisfaction
+- Monitoring of patient stress indicators and comfort measures
+- Documentation of any incidents or complications`;
+    
+    return {
+        title: topic,
+        purpose: purpose,
+        procedure: procedure,
+        roles: roles,
+        compliance: compliance
+    };
+}
+
+function generateHandHygienePolicy(topic, type, requirements) {
+    const purpose = `This policy establishes comprehensive hand hygiene protocols to prevent healthcare-associated infections and ensure patient safety across all clinic locations. Proper hand hygiene is the most critical infection prevention measure in healthcare settings.`;
+    
+    const procedure = `HAND HYGIENE PROCEDURES:
+
+1. HANDWASHING TECHNIQUE:
+   - Wet hands with warm water
+   - Apply soap and lather for at least 20 seconds
+   - Scrub all surfaces: palms, backs, fingers, fingernails, wrists
+   - Rinse thoroughly with warm water
+   - Dry with clean paper towel or air dryer
+   - Use paper towel to turn off faucet
+
+2. ALCOHOL-BASED HAND SANITIZER:
+   - Apply sanitizer to palm of one hand
+   - Rub hands together covering all surfaces
+   - Continue rubbing until hands are dry (approximately 20 seconds)
+   - Ensure sanitizer contains at least 60% alcohol
+
+3. WHEN TO PERFORM HAND HYGIENE:
+   - Before and after patient contact
+   - Before and after wearing gloves
+   - After contact with patient environment
+   - Before eating or drinking
+   - After using restroom
+   - Before and after handling medications
+   - After contact with contaminated surfaces
+   - Before and after handling food
+
+4. GLOVE USE PROTOCOLS:
+   - Gloves do not replace hand hygiene
+   - Perform hand hygiene before putting on gloves
+   - Change gloves between patients
+   - Remove gloves carefully to avoid contamination
+   - Perform hand hygiene immediately after glove removal`;
+    
+    const roles = `RESPONSIBILITIES:
+
+ALL STAFF:
+- Perform hand hygiene at all required times
+- Use proper technique for handwashing and sanitizer
+- Report hand hygiene compliance issues
+- Participate in training and competency assessments
+
+INFECTION CONTROL COORDINATOR:
+- Monitor hand hygiene compliance
+- Provide education and training
+- Investigate infection control breaches
+- Maintain compliance records
+
+SUPERVISORS:
+- Ensure staff compliance with protocols
+- Provide feedback and coaching
+- Support infection control initiatives
+- Address non-compliance issues`;
+    
+    const compliance = `COMPLIANCE REQUIREMENTS:
+
+TRAINING:
+- Initial hand hygiene training for all new staff
+- Annual competency assessments
+- Ongoing education and updates
+- Documentation of training completion
+
+MONITORING:
+- Regular compliance audits
+- Direct observation of hand hygiene practices
+- Feedback to staff on compliance rates
+- Monthly compliance reporting
+
+ENFORCEMENT:
+- Progressive discipline for repeated non-compliance
+- Recognition programs for excellent compliance
+- Regular policy updates based on best practices
+- Integration with performance evaluations`;
+    
+    return {
+        title: topic,
+        purpose: purpose,
+        procedure: procedure,
+        roles: roles,
+        compliance: compliance
+    };
+}
+
+function generatePatientSafetyPolicy(topic, type, requirements) {
+    const purpose = `This policy establishes comprehensive patient safety protocols to minimize risks, prevent adverse events, and ensure the highest quality of care delivery across all clinic locations. Patient safety is our top priority in all clinical operations.`;
+    
+    const procedure = `PATIENT SAFETY PROTOCOLS:
+
+1. PATIENT IDENTIFICATION:
+   - Verify patient identity using two identifiers (name and ID number)
+   - Confirm correct patient before any procedure
+   - Use patient ID bands when available
+   - Double-check patient information on all forms and records
+
+2. MEDICATION SAFETY:
+   - Verify medication name, dose, route, and timing
+   - Check for allergies and contraindications
+   - Use standardized medication administration protocols
+   - Document all medications given
+   - Report any medication errors immediately
+
+3. PROCEDURE SAFETY:
+   - Follow standardized protocols for all procedures
+   - Use time-out procedures before invasive treatments
+   - Verify correct procedure and patient
+   - Ensure proper equipment and supplies
+   - Monitor patient throughout procedure
+
+4. ENVIRONMENTAL SAFETY:
+   - Maintain clean, organized treatment areas
+   - Ensure proper lighting and ventilation
+   - Keep floors dry and clear of obstacles
+   - Store hazardous materials properly
+   - Maintain emergency equipment and supplies
+
+5. COMMUNICATION SAFETY:
+   - Use clear, standardized communication protocols
+   - Document all patient communications
+   - Provide written instructions for home care
+   - Ensure client understanding of treatments
+   - Use interpreter services when needed`;
+    
+    const roles = `SAFETY RESPONSIBILITIES:
+
+ALL STAFF:
+- Follow all safety protocols
+- Report safety concerns immediately
+- Participate in safety training
+- Maintain safe work environment
+
+SAFETY OFFICER:
+- Monitor compliance with safety protocols
+- Investigate safety incidents
+- Provide safety education and training
+- Maintain safety records and reports
+
+CLINIC MANAGER:
+- Ensure adequate safety resources
+- Support safety initiatives
+- Address safety concerns promptly
+- Review safety performance regularly`;
+    
+    const compliance = `SAFETY COMPLIANCE:
+
+TRAINING:
+- Annual safety training for all staff
+- Procedure-specific safety training
+- Emergency response training
+- Documentation of all training
+
+MONITORING:
+- Regular safety audits
+- Incident reporting and investigation
+- Safety committee meetings
+- Performance improvement activities
+
+QUALITY ASSURANCE:
+- Regular review of safety metrics
+- Benchmarking against industry standards
+- Continuous improvement initiatives
+- Client satisfaction monitoring`;
+    
+    return {
+        title: topic,
+        purpose: purpose,
+        procedure: procedure,
+        roles: roles,
+        compliance: compliance
+    };
+}
+
+function generateDataSecurityPolicy(topic, type, requirements) {
+    const purpose = `This policy establishes comprehensive data security protocols to protect patient information, ensure HIPAA compliance, and maintain the confidentiality, integrity, and availability of all electronic and physical health records.`;
+    
+    const procedure = `DATA SECURITY PROCEDURES:
+
+1. ACCESS CONTROL:
+   - Unique user IDs and strong passwords for all systems
+   - Role-based access permissions
+   - Regular password updates (every 90 days)
+   - Automatic account lockout after failed attempts
+   - Multi-factor authentication for sensitive systems
+
+2. WORKSTATION SECURITY:
+   - Automatic screen lock after 15 minutes of inactivity
+   - Secure workstation placement to prevent unauthorized viewing
+   - Regular software updates and security patches
+   - Antivirus and anti-malware protection
+   - Encrypted hard drives for all workstations
+
+3. DATA TRANSMISSION:
+   - Encrypted email for patient information
+   - Secure file transfer protocols
+   - No patient information in unsecured communications
+   - Regular security assessments of transmission methods
+
+4. PHYSICAL SECURITY:
+   - Locked filing cabinets for paper records
+   - Restricted access to server rooms
+   - Secure disposal of sensitive documents
+   - Visitor access controls and monitoring
+
+5. INCIDENT RESPONSE:
+   - Immediate reporting of security breaches
+   - Investigation and documentation of incidents
+   - Notification procedures for affected patients
+   - Corrective action implementation`;
+    
+    const roles = `SECURITY RESPONSIBILITIES:
+
+ALL STAFF:
+- Follow all security protocols
+- Report security incidents immediately
+- Complete annual security training
+- Protect passwords and access credentials
+
+IT SECURITY OFFICER:
+- Monitor security systems and access logs
+- Investigate security incidents
+- Provide security training and education
+- Maintain security documentation
+
+PRIVACY OFFICER:
+- Ensure HIPAA compliance
+- Handle privacy complaints and breaches
+- Provide privacy training
+- Maintain privacy documentation`;
+    
+    const compliance = `SECURITY COMPLIANCE:
+
+TRAINING:
+- Annual HIPAA and security training
+- Role-specific security training
+- Incident response training
+- Documentation of training completion
+
+MONITORING:
+- Regular security audits and assessments
+- Access log reviews
+- Vulnerability assessments
+- Compliance reporting
+
+ENFORCEMENT:
+- Progressive discipline for security violations
+- Regular policy updates
+- Integration with performance evaluations
+- Recognition for security excellence`;
+    
+    return {
+        title: topic,
+        purpose: purpose,
+        procedure: procedure,
+        roles: roles,
+        compliance: compliance
+    };
+}
+
+function generateEmergencyPolicy(topic, type, requirements) {
+    const purpose = `This policy establishes comprehensive emergency response procedures to ensure rapid, effective response to medical emergencies, natural disasters, and other critical situations that may occur in our clinic facilities.`;
+    
+    const procedure = `EMERGENCY RESPONSE PROCEDURES:
+
+1. MEDICAL EMERGENCIES:
+   - Immediate assessment of patient condition
+   - Call 911 for life-threatening emergencies
+   - Begin appropriate emergency medical care
+   - Notify attending veterinarian immediately
+   - Document all emergency interventions
+   - Contact client/owner as soon as possible
+
+2. FIRE EMERGENCIES:
+   - Activate fire alarm system
+   - Evacuate all personnel and patients
+   - Call 911 from safe location
+   - Account for all staff and patients
+   - Follow established evacuation routes
+   - Do not re-enter building until cleared by fire department
+
+3. SEVERE WEATHER:
+   - Monitor weather alerts and warnings
+   - Secure outdoor equipment and supplies
+   - Move patients to safe interior locations
+   - Close clinic if severe weather warning issued
+   - Maintain emergency supplies and equipment
+
+4. POWER OUTAGES:
+   - Switch to emergency power if available
+   - Prioritize critical patient care equipment
+   - Use battery-powered lighting and equipment
+   - Contact utility company for updates
+   - Implement manual record-keeping procedures
+
+5. SECURITY INCIDENTS:
+   - Secure all staff and patients
+   - Contact law enforcement if necessary
+   - Document incident details
+   - Follow lockdown procedures if required
+   - Provide support to affected staff and clients`;
+    
+    const roles = `EMERGENCY RESPONSIBILITIES:
+
+EMERGENCY COORDINATOR:
+- Direct emergency response efforts
+- Communicate with emergency services
+- Coordinate staff assignments
+- Maintain emergency contact information
+
+ALL STAFF:
+- Follow emergency procedures
+- Assist with patient evacuation
+- Maintain calm and professional demeanor
+- Document emergency events
+
+CLINIC MANAGER:
+- Ensure adequate emergency supplies
+- Coordinate with emergency services
+- Provide post-emergency support
+- Review and update emergency procedures`;
+    
+    const compliance = `EMERGENCY COMPLIANCE:
+
+TRAINING:
+- Annual emergency response training
+- Fire safety and evacuation training
+- CPR and first aid certification
+- Emergency equipment training
+
+PREPAREDNESS:
+- Regular emergency drills and exercises
+- Emergency supply inventory and maintenance
+- Emergency contact list updates
+- Emergency procedure reviews
+
+DOCUMENTATION:
+- Emergency incident reporting
+- Training completion records
+- Emergency drill evaluations
+- Continuous improvement planning`;
+    
+    return {
+        title: topic,
+        purpose: purpose,
+        procedure: procedure,
+        roles: roles,
+        compliance: compliance
+    };
+}
+
+function generateMedicationPolicy(topic, type, requirements) {
+    const purpose = `This policy establishes comprehensive medication management protocols to ensure safe, accurate, and effective medication administration while preventing medication errors and ensuring regulatory compliance.`;
+    
+    const procedure = `MEDICATION MANAGEMENT PROCEDURES:
+
+1. MEDICATION STORAGE:
+   - Store medications in designated, locked areas
+   - Maintain proper temperature and humidity controls
+   - Separate controlled substances with additional security
+   - Regular inventory of all medications
+   - Proper labeling and expiration date monitoring
+
+2. MEDICATION ADMINISTRATION:
+   - Verify patient identity before administration
+   - Check medication name, dose, route, and timing
+   - Review patient allergies and contraindications
+   - Use standardized administration protocols
+   - Document all medications administered
+
+3. CONTROLLED SUBSTANCES:
+   - Maintain controlled substance logs
+   - Require two-person verification for administration
+   - Regular controlled substance audits
+   - Secure storage and disposal procedures
+   - Compliance with DEA regulations
+
+4. MEDICATION ERRORS:
+   - Immediate reporting of any medication errors
+   - Assessment of patient impact
+   - Documentation of error details
+   - Implementation of corrective actions
+   - Root cause analysis and prevention measures
+
+5. MEDICATION EDUCATION:
+   - Provide client education on medications
+   - Explain proper administration techniques
+   - Discuss potential side effects and monitoring
+   - Provide written medication information
+   - Schedule follow-up appointments as needed`;
+    
+    const roles = `MEDICATION RESPONSIBILITIES:
+
+VETERINARIANS:
+- Prescribe medications appropriately
+- Monitor patient response to medications
+- Adjust dosages as needed
+- Provide medication education to clients
+
+TECHNICIANS:
+- Administer medications as prescribed
+- Monitor patient response
+- Document medication administration
+- Maintain medication inventory
+
+PHARMACY STAFF:
+- Prepare and dispense medications
+- Maintain medication inventory
+- Provide medication counseling
+- Ensure regulatory compliance`;
+    
+    const compliance = `MEDICATION COMPLIANCE:
+
+TRAINING:
+- Annual medication safety training
+- Controlled substance training
+- Medication error prevention training
+- Documentation of training completion
+
+MONITORING:
+- Regular medication audits
+- Medication error reporting and analysis
+- Controlled substance compliance reviews
+- Client satisfaction with medication services
+
+QUALITY ASSURANCE:
+- Regular review of medication practices
+- Benchmarking against industry standards
+- Continuous improvement initiatives
+- Integration with quality management systems`;
+    
+    return {
+        title: topic,
+        purpose: purpose,
+        procedure: procedure,
+        roles: roles,
+        compliance: compliance
+    };
+}
+
+function generateInfectionControlPolicy(topic, type, requirements) {
+    const purpose = `This policy establishes comprehensive infection prevention and control measures to protect patients, staff, and clients from healthcare-associated infections and ensure a safe clinical environment.`;
+    
+    const procedure = `INFECTION CONTROL PROCEDURES:
+
+1. STANDARD PRECAUTIONS:
+   - Hand hygiene before and after patient contact
+   - Use of personal protective equipment (PPE)
+   - Proper handling and disposal of sharps
+   - Environmental cleaning and disinfection
+   - Respiratory hygiene and cough etiquette
+
+2. TRANSMISSION-BASED PRECAUTIONS:
+   - Contact precautions for infectious diseases
+   - Droplet precautions for respiratory infections
+   - Airborne precautions for highly contagious diseases
+   - Isolation procedures when indicated
+   - Special handling of infectious waste
+
+3. ENVIRONMENTAL CLEANING:
+   - Regular cleaning and disinfection of all surfaces
+   - Use of EPA-approved disinfectants
+   - Proper cleaning equipment and procedures
+   - Regular maintenance of cleaning equipment
+   - Documentation of cleaning activities
+
+4. WASTE MANAGEMENT:
+   - Proper segregation of medical waste
+   - Secure storage of infectious waste
+   - Regular waste collection and disposal
+   - Compliance with waste regulations
+   - Documentation of waste management
+
+5. OUTBREAK MANAGEMENT:
+   - Early detection of potential outbreaks
+   - Immediate investigation and reporting
+   - Implementation of control measures
+   - Communication with public health authorities
+   - Documentation and follow-up`;
+    
+    const roles = `INFECTION CONTROL RESPONSIBILITIES:
+
+INFECTION CONTROL COORDINATOR:
+- Develop and implement infection control programs
+- Monitor compliance with protocols
+- Investigate infection control incidents
+- Provide education and training
+
+ALL STAFF:
+- Follow all infection control protocols
+- Report potential infections immediately
+- Participate in training programs
+- Maintain clean work environment
+
+CLINIC MANAGER:
+- Ensure adequate infection control resources
+- Support infection control initiatives
+- Address compliance issues promptly
+- Review infection control performance`;
+    
+    const compliance = `INFECTION CONTROL COMPLIANCE:
+
+TRAINING:
+- Annual infection control training
+- Role-specific training programs
+- New employee orientation
+- Documentation of training completion
+
+MONITORING:
+- Regular infection control audits
+- Surveillance of healthcare-associated infections
+- Compliance monitoring and reporting
+- Performance improvement activities
+
+QUALITY ASSURANCE:
+- Regular review of infection control metrics
+- Benchmarking against industry standards
+- Continuous improvement initiatives
+- Integration with quality management systems`;
+    
+    return {
+        title: topic,
+        purpose: purpose,
+        procedure: procedure,
+        roles: roles,
+        compliance: compliance
+    };
+}
+
+function generateAppointmentPolicy(topic, type, requirements) {
+    const purpose = `This policy establishes comprehensive appointment scheduling and management procedures to ensure efficient clinic operations, optimal patient care, and excellent client service across all clinic locations.`;
+    
+    const procedure = `APPOINTMENT MANAGEMENT PROCEDURES:
+
+1. SCHEDULING PROTOCOLS:
+   - Standard appointment time allocations based on service type
+   - Buffer time between appointments for documentation
+   - Priority scheduling for urgent cases
+   - Advance scheduling for routine care
+   - Confirmation calls 24-48 hours before appointments
+
+2. APPOINTMENT TYPES:
+   - Wellness exams: 30 minutes
+   - Sick visits: 45 minutes
+   - Surgical consultations: 60 minutes
+   - Emergency appointments: As needed
+   - Follow-up appointments: 15-30 minutes
+
+3. CLIENT COMMUNICATION:
+   - Clear appointment instructions and preparation requirements
+   - Reminder calls and confirmations
+   - Wait time notifications if delays occur
+   - Rescheduling procedures and policies
+   - No-show and cancellation policies
+
+4. SCHEDULE MANAGEMENT:
+   - Daily schedule reviews and adjustments
+   - Emergency appointment integration
+   - Overbooking prevention strategies
+   - Staff scheduling coordination
+   - Resource allocation planning
+
+5. QUALITY ASSURANCE:
+   - Regular review of scheduling efficiency
+   - Client satisfaction monitoring
+   - Staff feedback collection
+   - Continuous improvement initiatives
+   - Performance metrics tracking`;
+    
+    const roles = `APPOINTMENT RESPONSIBILITIES:
+
+RECEPTION STAFF:
+- Schedule appointments according to protocols
+- Confirm appointments and communicate with clients
+- Manage schedule changes and cancellations
+- Provide excellent client service
+
+VETERINARY STAFF:
+- Maintain appointment schedules
+- Provide timely and quality patient care
+- Communicate schedule changes to reception
+- Document all patient interactions
+
+CLINIC MANAGER:
+- Oversee appointment system efficiency
+- Address scheduling conflicts and issues
+- Monitor client satisfaction
+- Implement scheduling improvements`;
+    
+    const compliance = `APPOINTMENT COMPLIANCE:
+
+TRAINING:
+- Appointment scheduling training for all staff
+- Customer service training
+- System training for scheduling software
+- Documentation of training completion
+
+MONITORING:
+- Regular review of scheduling metrics
+- Client satisfaction surveys
+- Staff performance evaluations
+- System efficiency assessments
+
+QUALITY ASSURANCE:
+- Monthly scheduling performance reviews
+- Client feedback analysis
+- Continuous improvement planning
+- Integration with quality management systems`;
+    
+    return {
+        title: topic,
+        purpose: purpose,
+        procedure: procedure,
+        roles: roles,
+        compliance: compliance
+    };
+}
+
+function generateDocumentationPolicy(topic, type, requirements) {
+    const purpose = `This policy establishes comprehensive medical record documentation standards to ensure accurate, complete, and timely recording of patient care, legal compliance, and continuity of care across all clinic locations.`;
+    
+    const procedure = `DOCUMENTATION PROCEDURES:
+
+1. MEDICAL RECORD REQUIREMENTS:
+   - Complete patient identification information
+   - Detailed history and physical examination findings
+   - Accurate diagnosis and treatment plans
+   - All medications prescribed and administered
+   - Client communications and instructions
+
+2. DOCUMENTATION TIMELINES:
+   - Initial examination notes: Within 24 hours
+   - Treatment notes: Immediately after procedures
+   - Discharge instructions: Before patient departure
+   - Follow-up notes: Within 48 hours
+   - Emergency cases: Immediately after stabilization
+
+3. RECORD FORMAT AND STANDARDS:
+   - Use standardized templates and forms
+   - Clear, legible handwriting or electronic entry
+   - Objective, factual language
+   - Proper medical terminology
+   - Chronological organization of entries
+
+4. ELECTRONIC RECORD MANAGEMENT:
+   - Secure access controls and user authentication
+   - Regular backup and disaster recovery procedures
+   - Audit trails for all record access and modifications
+   - Integration with practice management systems
+   - Compliance with electronic record regulations
+
+5. RECORD RETENTION AND DISPOSAL:
+   - Minimum 7-year retention for adult patients
+   - Extended retention for minors until age of majority
+   - Secure disposal of expired records
+   - Compliance with legal and regulatory requirements
+   - Documentation of record destruction`;
+    
+    const roles = `DOCUMENTATION RESPONSIBILITIES:
+
+VETERINARIANS:
+- Complete accurate medical record documentation
+- Review and sign all medical records
+- Ensure compliance with documentation standards
+- Provide supervision for staff documentation
+
+TECHNICIANS:
+- Document technical procedures and observations
+- Assist with medical record maintenance
+- Follow documentation protocols
+- Participate in documentation training
+
+RECEPTION STAFF:
+- Maintain client information accuracy
+- Process medical record requests
+- Ensure proper record filing and organization
+- Assist with record management procedures`;
+    
+    const compliance = `DOCUMENTATION COMPLIANCE:
+
+TRAINING:
+- Annual documentation training for all staff
+- Medical terminology education
+- Legal requirements training
+- Documentation of training completion
+
+MONITORING:
+- Regular medical record audits
+- Documentation quality assessments
+- Compliance monitoring and reporting
+- Performance improvement activities
+
+QUALITY ASSURANCE:
+- Monthly documentation reviews
+- Benchmarking against industry standards
+- Continuous improvement initiatives
+- Integration with quality management systems`;
+    
+    return {
+        title: topic,
+        purpose: purpose,
+        procedure: procedure,
+        roles: roles,
+        compliance: compliance
+    };
+}
+
+function generateGenericPolicy(topic, type, requirements) {
+    const purpose = `This policy establishes comprehensive guidelines for ${topic.toLowerCase()} to ensure consistent, safe, and effective operations across all clinic locations. This policy addresses the specific requirements and best practices for ${topic.toLowerCase()} in our healthcare environment.`;
+    
+    const procedure = `PROCEDURES FOR ${topic.toUpperCase()}:
+
+1. INITIAL ASSESSMENT:
+   - Evaluate current practices and identify areas for improvement
+   - Assess staff knowledge and training needs
+   - Review existing protocols and procedures
+   - Identify potential risks and safety concerns
+   - Establish baseline metrics for performance
+
+2. IMPLEMENTATION PROTOCOLS:
+   - Develop standardized procedures for ${topic.toLowerCase()}
+   - Provide comprehensive staff training
+   - Establish monitoring and quality assurance measures
+   - Create documentation and reporting systems
+   - Implement continuous improvement processes
+
+3. STAFF RESPONSIBILITIES:
+   - Follow established protocols and procedures
+   - Participate in training and competency assessments
+   - Report any issues or concerns immediately
+   - Maintain accurate documentation
+   - Support continuous improvement efforts
+
+4. QUALITY ASSURANCE:
+   - Regular monitoring of compliance and outcomes
+   - Performance metrics tracking and analysis
+   - Client and staff feedback collection
+   - Regular policy review and updates
+   - Benchmarking against industry standards
+
+5. CONTINUOUS IMPROVEMENT:
+   - Regular evaluation of policy effectiveness
+   - Identification of improvement opportunities
+   - Implementation of best practices
+   - Staff education and training updates
+   - Integration with overall quality management systems`;
+    
+    const roles = `RESPONSIBILITIES FOR ${topic.toUpperCase()}:
+
+ALL STAFF:
+- Follow established protocols and procedures
+- Participate in training and competency assessments
+- Report issues and concerns promptly
+- Maintain accurate documentation
+- Support continuous improvement efforts
+
+SUPERVISORS:
+- Ensure staff compliance with protocols
+- Provide training and support to staff
+- Monitor performance and outcomes
+- Address compliance issues promptly
+- Support quality improvement initiatives
+
+CLINIC MANAGER:
+- Ensure adequate resources for policy implementation
+- Support staff training and development
+- Monitor overall policy effectiveness
+- Address systemic issues and barriers
+- Integrate policy with overall clinic operations`;
+    
+    const compliance = `COMPLIANCE REQUIREMENTS FOR ${topic.toUpperCase()}:
+
+TRAINING:
+- Initial training for all staff on policy requirements
+- Annual competency assessments and updates
+- Role-specific training for different staff positions
+- Documentation of all training completion
+- Ongoing education and skill development
+
+MONITORING:
+- Regular audits of policy compliance
+- Performance metrics tracking and reporting
+- Client and staff satisfaction monitoring
+- Incident reporting and investigation
+- Quality assurance activities
+
+ENFORCEMENT:
+- Progressive discipline for non-compliance
+- Recognition programs for excellent performance
+- Regular policy reviews and updates
+- Integration with performance evaluations
+- Continuous improvement planning`;
+    
+    return {
+        title: topic,
+        purpose: purpose,
+        procedure: procedure,
+        roles: roles,
+        compliance: compliance
     };
 }
 

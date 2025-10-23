@@ -4117,6 +4117,10 @@ let chatState = {
     urgency: '',
     regulations: '',
     existingPolicies: '',
+    procedures: '',
+    responsibilities: '',
+    accountability: '',
+    reviewSchedule: '',
     specialConsiderations: '',
     step: 'policyType'
 };
@@ -4142,6 +4146,10 @@ function resetChat() {
         urgency: '',
         regulations: '',
         existingPolicies: '',
+        procedures: '',
+        responsibilities: '',
+        accountability: '',
+        reviewSchedule: '',
         specialConsiderations: '',
         step: 'policyType'
     };
@@ -4325,10 +4333,104 @@ function processChatMessage(message) {
         case 'regulations':
             chatState.regulations = message;
             setTimeout(() => {
-                addAIMessage(`Great! I have all the information I need to create your policy. Would you like me to generate it now?`, [
+                addAIMessage(`Perfect! Now let me ask about some additional details to make your policy more comprehensive. Are there any existing policies or procedures that this should reference or update?`, [
+                    'No existing policies',
+                    'Yes, there are related policies',
+                    'This updates an existing policy',
+                    'Not sure'
+                ]);
+                chatState.step = 'existingPolicies';
+            }, 1000);
+            break;
+        case 'existingPolicies':
+            chatState.existingPolicies = message;
+            setTimeout(() => {
+                addAIMessage(`Great! Now, what specific procedures or steps should be included in this policy? For example, step-by-step instructions, checklists, or protocols.`, [
+                    'Detailed step-by-step procedures',
+                    'General guidelines only',
+                    'Include checklists and forms',
+                    'Focus on training requirements',
+                    'Custom procedures (I\'ll describe them)'
+                ]);
+                chatState.step = 'procedures';
+            }, 1000);
+            break;
+        case 'procedures':
+            chatState.procedures = message;
+            setTimeout(() => {
+                addAIMessage(`Excellent! Who should be responsible for implementing and monitoring this policy?`, [
+                    'All staff members',
+                    'Specific departments only',
+                    'Management and supervisors',
+                    'Designated policy coordinators',
+                    'Mixed responsibilities (I\'ll specify)'
+                ]);
+                chatState.step = 'responsibilities';
+            }, 1000);
+            break;
+        case 'responsibilities':
+            chatState.responsibilities = message;
+            setTimeout(() => {
+                addAIMessage(`Perfect! What should happen if someone doesn't follow this policy? What are the consequences or accountability measures?`, [
+                    'Progressive discipline policy',
+                    'Training and education focus',
+                    'Performance review impact',
+                    'Immediate corrective action',
+                    'Custom accountability measures'
+                ]);
+                chatState.step = 'accountability';
+            }, 1000);
+            break;
+        case 'accountability':
+            chatState.accountability = message;
+            setTimeout(() => {
+                addAIMessage(`Great! How often should this policy be reviewed and updated?`, [
+                    'Annually',
+                    'Every 6 months',
+                    'When regulations change',
+                    'As needed based on incidents',
+                    'Quarterly reviews'
+                ]);
+                chatState.step = 'reviewSchedule';
+            }, 1000);
+            break;
+        case 'reviewSchedule':
+            chatState.reviewSchedule = message;
+            setTimeout(() => {
+                addAIMessage(`Excellent! Finally, are there any special considerations, constraints, or unique aspects of your clinics that this policy should address?`, [
+                    'No special considerations',
+                    'Equipment limitations',
+                    'Staff size constraints',
+                    'Budget considerations',
+                    'Regulatory compliance issues',
+                    'Custom considerations (I\'ll describe them)'
+                ]);
+                chatState.step = 'specialConsiderations';
+            }, 1000);
+            break;
+        case 'specialConsiderations':
+            chatState.specialConsiderations = message;
+            setTimeout(() => {
+                addAIMessage(`Perfect! I now have comprehensive information about your policy. Here's what I'll create for you:
+
+• **Policy Type:** ${getTypeLabel(chatState.policyType)}
+• **Topic:** ${chatState.topic}
+• **Applicable Clinics:** ${getClinicNames(chatState.clinics).join(', ')}
+• **Specific Requirements:** ${chatState.specificNeeds}
+• **Urgency:** ${chatState.urgency}
+• **Regulations:** ${chatState.regulations}
+• **Existing Policies:** ${chatState.existingPolicies}
+• **Procedures:** ${chatState.procedures}
+• **Responsibilities:** ${chatState.responsibilities}
+• **Accountability:** ${chatState.accountability}
+• **Review Schedule:** ${chatState.reviewSchedule}
+• **Special Considerations:** ${chatState.specialConsiderations}
+
+Would you like me to generate your comprehensive policy now?`, [
                     'Yes, generate the policy',
-                    'Add more details first',
-                    'Start over'
+                    'Modify some details first',
+                    'Start over',
+                    'Add even more details'
                 ]);
                 chatState.step = 'ready';
                 document.getElementById('generatePolicyBtn').style.display = 'inline-block';
@@ -4371,11 +4473,24 @@ function generatePolicyFromChatData() {
     const typeLabel = getTypeLabel(chatState.policyType);
     const currentDate = new Date().toISOString().split('T')[0];
     
-    // Generate policy content based on chat data
+    // Create comprehensive requirements from all chat data
+    const comprehensiveRequirements = [
+        `Specific Requirements: ${chatState.specificNeeds}`,
+        `Urgency Level: ${chatState.urgency}`,
+        `Regulations: ${chatState.regulations}`,
+        `Existing Policies: ${chatState.existingPolicies}`,
+        `Procedures: ${chatState.procedures}`,
+        `Responsibilities: ${chatState.responsibilities}`,
+        `Accountability: ${chatState.accountability}`,
+        `Review Schedule: ${chatState.reviewSchedule}`,
+        `Special Considerations: ${chatState.specialConsiderations}`
+    ].filter(req => req && !req.includes('null') && !req.includes('undefined')).join('. ');
+    
+    // Generate policy content based on comprehensive chat data
     const policyContent = generateCSIPolicyWithHeaders(
         chatState.topic, 
         chatState.policyType, 
-        chatState.specificNeeds, 
+        comprehensiveRequirements, 
         currentDate, 
         chatState.specificNeeds, 
         chatState.existingPolicies
@@ -4385,13 +4500,18 @@ function generatePolicyFromChatData() {
         ...policyContent,
         type: chatState.policyType,
         clinics: chatState.clinics,
-        additionalRequirements: chatState.specificNeeds,
+        additionalRequirements: comprehensiveRequirements,
         keyPoints: chatState.specificNeeds,
         previousDocuments: chatState.existingPolicies,
         clinicNames: clinicNames,
         typeLabel: typeLabel,
         urgency: chatState.urgency,
-        regulations: chatState.regulations
+        regulations: chatState.regulations,
+        procedures: chatState.procedures,
+        responsibilities: chatState.responsibilities,
+        accountability: chatState.accountability,
+        reviewSchedule: chatState.reviewSchedule,
+        specialConsiderations: chatState.specialConsiderations
     };
 }
 

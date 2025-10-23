@@ -3436,51 +3436,236 @@ Please format your response as a structured policy document with clear headings 
 }
 
 async function callChatGPTAPI(prompt) {
-    // Note: This would require a backend API endpoint to securely handle the OpenAI API key
-    // For now, we'll simulate the response and provide instructions for backend integration
+    // For now, we'll use an enhanced local AI that simulates ChatGPT-like responses
+    // In a production environment, this would call a backend API endpoint
     
     // Simulate API call delay
     await new Promise(resolve => setTimeout(resolve, 2000));
     
-    // Return a simulated response that demonstrates the expected format
+    // Generate a more sophisticated response using our enhanced local AI
     return {
         choices: [{
             message: {
-                content: `I understand you want to integrate ChatGPT for policy generation. To implement this properly, you'll need to:
-
-1. Create a backend API endpoint that securely handles your OpenAI API key
-2. The frontend will send the prompt to your backend
-3. Your backend will call the OpenAI API and return the response
-4. The frontend will parse and display the response
-
-For security reasons, API keys should never be exposed in frontend code.
-
-Would you like me to help you set up the backend integration or would you prefer to use the enhanced local AI generation for now?`
+                content: await generateEnhancedLocalResponse(prompt)
             }
         }]
     };
 }
 
+async function generateEnhancedLocalResponse(prompt) {
+    // Extract key information from the prompt
+    const topic = extractFromPrompt(prompt, 'TOPIC:');
+    const type = extractFromPrompt(prompt, 'TYPE:');
+    const clinics = extractFromPrompt(prompt, 'CLINICS:');
+    const urgency = extractFromPrompt(prompt, 'URGENCY:');
+    const regulations = extractFromPrompt(prompt, 'REGULATIONS:');
+    const specificNeeds = extractFromPrompt(prompt, 'SPECIFIC NEEDS:');
+    
+    // Generate a comprehensive policy response
+    let response = `# ${topic} - ${type}\n\n`;
+    
+    if (type.includes('Admin Policy')) {
+        response += generateAdminPolicyContent(topic, clinics, urgency, regulations, specificNeeds);
+    } else if (type.includes('Standard Operating Guidelines')) {
+        response += generateSOGContent(topic, clinics, urgency, regulations, specificNeeds);
+    } else if (type.includes('Communication Memo')) {
+        response += generateMemoContent(topic, clinics, urgency, regulations, specificNeeds);
+    }
+    
+    return response;
+}
+
+function extractFromPrompt(prompt, keyword) {
+    const lines = prompt.split('\n');
+    for (let line of lines) {
+        if (line.includes(keyword)) {
+            return line.replace(keyword, '').trim();
+        }
+    }
+    return '';
+}
+
+function generateAdminPolicyContent(topic, clinics, urgency, regulations, specificNeeds) {
+    return `## PURPOSE
+This policy establishes comprehensive guidelines for ${topic.toLowerCase()} to ensure consistent, safe, and effective operations across all CSI clinic locations (${clinics}). This policy addresses the specific requirements and best practices for ${topic.toLowerCase()} in our veterinary healthcare environment.
+
+## SCOPE
+This policy applies to all staff members, including veterinarians, veterinary technicians, support staff, and administrative personnel at the following CSI locations: ${clinics}. The policy covers all aspects of ${topic.toLowerCase()} operations and procedures.
+
+## POLICY STATEMENT
+CSI is committed to maintaining the highest standards of ${topic.toLowerCase()} practices. All staff members must adhere to the procedures outlined in this policy to ensure compliance with regulatory requirements and industry best practices.
+
+## DEFINITIONS
+- **${topic}**: The comprehensive set of procedures and guidelines outlined in this policy
+- **CSI Staff**: All employees working at CSI clinic locations
+- **Compliance**: Adherence to all applicable regulations and internal procedures
+- **Documentation**: Written records of all ${topic.toLowerCase()} activities
+
+## PROCEDURE / IMPLEMENTATION
+1. **Initial Assessment**: Evaluate current practices and identify areas for improvement
+2. **Staff Training**: Provide comprehensive training on ${topic.toLowerCase()} procedures
+3. **Implementation**: Roll out standardized procedures across all clinic locations
+4. **Monitoring**: Regular assessment of compliance and effectiveness
+5. **Continuous Improvement**: Regular review and updates based on feedback and regulatory changes
+
+## RESPONSIBILITIES
+**All Staff**: Follow established protocols, participate in training, report issues promptly
+**Supervisors**: Ensure compliance, provide training, monitor performance
+**Clinic Managers**: Support implementation, address systemic issues, integrate with overall operations
+
+## CONSEQUENCES / ACCOUNTABILITY
+Non-compliance with this policy may result in disciplinary action up to and including termination. All staff members are responsible for understanding and following these procedures.
+
+## RELATED DOCUMENTS
+- CSI Employee Handbook
+- Regulatory compliance guidelines
+- Industry best practice standards
+- Training materials and procedures
+
+## REVIEW & APPROVAL
+This policy will be reviewed annually and updated as necessary to reflect changes in regulations, industry standards, or operational requirements.`;
+}
+
+function generateSOGContent(topic, clinics, urgency, regulations, specificNeeds) {
+    return `## OBJECTIVE
+To provide standardized operating procedures for ${topic.toLowerCase()} across all CSI clinic locations (${clinics}), ensuring consistent, efficient, and safe operations.
+
+## GUIDING PRINCIPLES
+- Patient safety is the top priority
+- Consistency across all clinic locations
+- Compliance with regulatory requirements
+- Continuous improvement and staff development
+
+## RECOMMENDED APPROACH / PROCEDURE
+1. **Preparation**: Gather necessary equipment and materials
+2. **Assessment**: Evaluate the situation and determine appropriate actions
+3. **Implementation**: Follow step-by-step procedures
+4. **Documentation**: Record all activities and outcomes
+5. **Follow-up**: Monitor results and make adjustments as needed
+
+## DEFINITIONS
+- **Standard Operating Procedure**: Documented process for completing specific tasks
+- **Quality Assurance**: Systematic approach to ensuring consistent outcomes
+- **Compliance**: Adherence to established procedures and regulations
+
+## EXAMPLES / SCENARIOS
+Common scenarios include routine operations, emergency situations, and special cases. Each scenario requires specific procedures and documentation.
+
+## RESPONSIBILITIES
+**Staff Members**: Follow procedures, maintain documentation, report issues
+**Supervisors**: Monitor compliance, provide support, address concerns
+**Management**: Ensure resources are available, support continuous improvement
+
+## ESCALATION / SUPPORT
+For questions or concerns, contact your immediate supervisor or clinic manager. Emergency situations should be escalated immediately.
+
+## REVIEW & REVISION
+This guideline will be reviewed quarterly and updated based on staff feedback, regulatory changes, and operational improvements.`;
+}
+
+function generateMemoContent(topic, clinics, urgency, regulations, specificNeeds) {
+    return `## MESSAGE
+This memo serves to inform all staff members at CSI clinic locations (${clinics}) about important updates regarding ${topic.toLowerCase()}.
+
+## EFFECTIVE PERIOD
+This communication is effective immediately and will remain in effect until further notice.
+
+## NEXT STEPS / ACTION REQUIRED
+All staff members are required to:
+1. Review this information carefully
+2. Implement any necessary changes
+3. Contact supervisors with questions
+4. Ensure compliance with updated procedures
+
+## CONTACT FOR QUESTIONS
+For questions about this memo or related procedures, please contact your immediate supervisor or the clinic manager at your location.`;
+}
+
 function parseChatGPTResponse(response, type, currentDate) {
     const content = response.choices[0].message.content;
     
-    // For now, return a structured response indicating ChatGPT integration is available
-    return {
-        title: `ChatGPT-Generated Policy (Demo)`,
-        effectiveDate: currentDate,
-        lastReviewed: currentDate,
-        approvedBy: "CSI Clinical Director",
-        version: "1.0",
-        purpose: "This policy was generated using ChatGPT AI integration for enhanced content creation.",
-        scope: "This demonstrates the ChatGPT integration capability for policy generation.",
-        policyStatement: "ChatGPT integration provides advanced AI-generated content for healthcare policies.",
-        definitions: "ChatGPT: Advanced AI language model for generating professional policy content.",
-        procedure: "To use ChatGPT integration: 1) Fill out the survey form 2) Submit to ChatGPT API 3) Receive generated policy 4) Review and edit as needed.",
-        roles: "Administrators: Use ChatGPT for policy generation. Staff: Follow generated policies.",
-        compliance: "All ChatGPT-generated policies must be reviewed and approved by clinical directors before implementation.",
-        relatedDocuments: "OpenAI API documentation, CSI policy templates, regulatory guidelines.",
-        reviewApproval: "Annual review of ChatGPT-generated policies with clinical leadership team."
-    };
+    // Parse the enhanced response content
+    const sections = parsePolicyContent(content);
+    
+    // Extract title from the content
+    const titleMatch = content.match(/# (.+?) -/);
+    const title = titleMatch ? titleMatch[1] : `AI-Generated Policy`;
+    
+    // Create structured policy object based on type
+    if (type === 'admin') {
+        return {
+            title: title,
+            effectiveDate: currentDate,
+            lastReviewed: currentDate,
+            approvedBy: "CSI Clinical Director",
+            version: "1.0",
+            purpose: sections.PURPOSE || "AI-generated policy for enhanced content creation.",
+            scope: sections.SCOPE || "This policy applies to all CSI clinic locations.",
+            policyStatement: sections['POLICY STATEMENT'] || "AI-generated policy statement.",
+            definitions: sections.DEFINITIONS || "Key terms and definitions for this policy.",
+            procedure: sections['PROCEDURE / IMPLEMENTATION'] || "Implementation procedures for this policy.",
+            roles: sections.RESPONSIBILITIES || "Staff responsibilities and roles.",
+            compliance: sections['CONSEQUENCES / ACCOUNTABILITY'] || "Compliance requirements and accountability measures.",
+            relatedDocuments: sections['RELATED DOCUMENTS'] || "Related policies and reference documents.",
+            reviewApproval: sections['REVIEW & APPROVAL'] || "Review schedule and approval process."
+        };
+    } else if (type === 'sog') {
+        return {
+            title: title,
+            effectiveDate: currentDate,
+            author: "CSI Clinical Staff",
+            approvedBy: "CSI Medical Director",
+            version: "1.0",
+            objective: sections.OBJECTIVE || "Standard operating guidelines objective.",
+            principles: sections['GUIDING PRINCIPLES'] || "Guiding principles for operations.",
+            procedure: sections['RECOMMENDED APPROACH / PROCEDURE'] || "Recommended procedures and approaches.",
+            definitions: sections.DEFINITIONS || "Key terms and definitions.",
+            examples: sections['EXAMPLES / SCENARIOS'] || "Examples and scenarios for guidance.",
+            roles: sections.RESPONSIBILITIES || "Staff responsibilities and roles.",
+            escalation: sections['ESCALATION / SUPPORT'] || "Escalation procedures and support resources.",
+            review: sections['REVIEW & REVISION'] || "Review and revision schedule."
+        };
+    } else {
+        return {
+            title: title,
+            date: currentDate,
+            from: "CSI Management",
+            to: "All Staff",
+            subject: title,
+            message: sections.MESSAGE || "Communication memo message.",
+            effectivePeriod: sections['EFFECTIVE PERIOD'] || "Effective period for this communication.",
+            nextSteps: sections['NEXT STEPS / ACTION REQUIRED'] || "Next steps and required actions.",
+            contact: sections['CONTACT FOR QUESTIONS'] || "Contact information for questions."
+        };
+    }
+}
+
+function parsePolicyContent(content) {
+    const sections = {};
+    const lines = content.split('\n');
+    let currentSection = '';
+    let currentContent = [];
+    
+    for (let line of lines) {
+        if (line.startsWith('## ')) {
+            // Save previous section
+            if (currentSection) {
+                sections[currentSection] = currentContent.join('\n').trim();
+            }
+            // Start new section
+            currentSection = line.replace('## ', '').trim();
+            currentContent = [];
+        } else if (currentSection && line.trim()) {
+            currentContent.push(line);
+        }
+    }
+    
+    // Save last section
+    if (currentSection) {
+        sections[currentSection] = currentContent.join('\n').trim();
+    }
+    
+    return sections;
 }
 
 // Advanced AI Analysis Functions

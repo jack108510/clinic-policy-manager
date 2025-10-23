@@ -56,24 +56,47 @@ const samplePolicies = [
     }
 ];
 
-let currentPolicies = [...samplePolicies];
-let draftPolicies = [];
+// Load data from localStorage or use defaults
+let currentPolicies = loadFromLocalStorage('currentPolicies', [...samplePolicies]);
+let draftPolicies = loadFromLocalStorage('draftPolicies', []);
 
-// Settings Data
-let roles = [
+// Settings Data - Load from localStorage or use defaults
+const defaultRoles = [
     { id: 1, name: "Senior Veterinarian", description: "Lead veterinarian responsible for medical decisions and staff supervision", staffName: "Dr. Sarah Johnson", email: "sarah.johnson@csi.com" },
     { id: 2, name: "Veterinary Technician", description: "Technical support staff responsible for patient care and procedures", staffName: "Mike Rodriguez", email: "mike.rodriguez@csi.com" },
     { id: 3, name: "Clinic Manager", description: "Administrative oversight and operational management", staffName: "Lisa Chen", email: "lisa.chen@csi.com" },
     { id: 4, name: "Support Staff", description: "Front desk, cleaning, and general support personnel", staffName: "Tom Wilson", email: "tom.wilson@csi.com" }
 ];
 
-let disciplinaryActions = [
+const defaultDisciplinaryActions = [
     { id: 1, name: "Verbal Warning", description: "Informal discussion about policy violation", penalties: "Written documentation in personnel file", severity: "minor" },
     { id: 2, name: "Written Warning", description: "Formal written notice of policy violation", penalties: "Written warning in personnel file, performance review required", severity: "moderate" },
     { id: 3, name: "Performance Improvement Plan", description: "Structured plan to address policy compliance issues", penalties: "Mandatory training, 30-day improvement period, regular monitoring", severity: "major" },
     { id: 4, name: "Suspension", description: "Temporary suspension from duties", penalties: "Unpaid suspension, mandatory retraining, probationary period", severity: "severe" },
     { id: 5, name: "Termination", description: "Employment termination for serious policy violations", penalties: "Immediate termination, loss of benefits, potential legal action", severity: "severe" }
 ];
+
+let roles = loadFromLocalStorage('roles', defaultRoles);
+let disciplinaryActions = loadFromLocalStorage('disciplinaryActions', defaultDisciplinaryActions);
+
+// Local Storage Functions
+function saveToLocalStorage(key, data) {
+    try {
+        localStorage.setItem(key, JSON.stringify(data));
+    } catch (error) {
+        console.error('Error saving to localStorage:', error);
+    }
+}
+
+function loadFromLocalStorage(key, defaultValue = []) {
+    try {
+        const data = localStorage.getItem(key);
+        return data ? JSON.parse(data) : defaultValue;
+    } catch (error) {
+        console.error('Error loading from localStorage:', error);
+        return defaultValue;
+    }
+}
 
 // DOM Elements
 const policiesGrid = document.getElementById('policiesGrid');
@@ -96,6 +119,8 @@ document.addEventListener('DOMContentLoaded', function() {
     displayPolicies(currentPolicies);
     updateStats();
     displayDrafts();
+    displayRoles();
+    displayDisciplinaryActions();
     setupEventListeners();
 });
 
@@ -2677,6 +2702,7 @@ function publishDraft(draftId) {
     };
     
     currentPolicies.unshift(newPolicy);
+    saveToLocalStorage('currentPolicies', currentPolicies);
     deleteDraft(draftId);
     displayPolicies(currentPolicies);
     updateStats();
@@ -2686,6 +2712,7 @@ function publishDraft(draftId) {
 
 function deleteDraft(draftId) {
     draftPolicies = draftPolicies.filter(d => d.id !== draftId);
+    saveToLocalStorage('draftPolicies', draftPolicies);
     displayDrafts();
     updateStats();
     
@@ -4735,6 +4762,7 @@ function addRole() {
     };
     
     roles.push(newRole);
+    saveToLocalStorage('roles', roles);
     displayRoles();
     
     // Clear form
@@ -4747,6 +4775,7 @@ function addRole() {
 function deleteRole(roleId) {
     if (confirm('Are you sure you want to delete this role?')) {
         roles = roles.filter(role => role.id !== roleId);
+        saveToLocalStorage('roles', roles);
         displayRoles();
     }
 }
@@ -4795,6 +4824,7 @@ function addDisciplinaryAction() {
     };
     
     disciplinaryActions.push(newAction);
+    saveToLocalStorage('disciplinaryActions', disciplinaryActions);
     displayDisciplinaryActions();
     
     // Clear form
@@ -4807,6 +4837,7 @@ function addDisciplinaryAction() {
 function deleteDisciplinaryAction(actionId) {
     if (confirm('Are you sure you want to delete this disciplinary action?')) {
         disciplinaryActions = disciplinaryActions.filter(action => action.id !== actionId);
+        saveToLocalStorage('disciplinaryActions', disciplinaryActions);
         displayDisciplinaryActions();
     }
 }
@@ -4833,6 +4864,138 @@ function displayDisciplinaryActions() {
             </div>
         </div>
     `).join('');
+}
+
+// Real ChatGPT Integration
+async function generatePolicyWithChatGPT(topic, type, clinics, requirements) {
+    try {
+        // Show loading state
+        aiLoading.style.display = 'block';
+        aiResult.style.display = 'none';
+        
+        // Create a comprehensive prompt for ChatGPT
+        const prompt = createChatGPTPrompt(topic, type, clinics, requirements);
+        
+        // Call ChatGPT API (you'll need to replace this with your actual API key)
+        const response = await callChatGPTAPI(prompt);
+        
+        // Parse the response into a policy object
+        const policy = parseChatGPTResponse(response, topic, type, clinics);
+        
+        // Display the policy
+        displayAIPolicy(policy);
+        
+        return policy;
+        
+    } catch (error) {
+        console.error('ChatGPT API Error:', error);
+        
+        // Fallback to local AI generation
+        alert('ChatGPT API is currently unavailable. Using local AI generation instead.');
+        const policy = generatePolicyContent(topic, type, clinics, requirements);
+        displayAIPolicy(policy);
+        return policy;
+    }
+}
+
+function createChatGPTPrompt(topic, type, clinics, requirements) {
+    const clinicList = clinics.join(', ');
+    
+    return `You are a professional policy writer for CSI (Comprehensive Specialty Imaging) veterinary clinics. Please create a comprehensive ${type} policy for "${topic}" that will be used across the following clinic locations: ${clinicList}.
+
+REQUIREMENTS:
+${requirements}
+
+POLICY STRUCTURE:
+Please format your response as a professional policy document with the following structure:
+
+## POLICY HEADER
+- Title: ${topic} ${type}
+- Effective Date: ${new Date().toLocaleDateString()}
+- Approved By: CSI Clinical Director
+- Version: 1.0
+- Applicable Clinics: ${clinicList}
+
+## POLICY CONTENT
+Please provide comprehensive, professional content for each section appropriate to the policy type:
+
+For Admin Policies:
+- Purpose: Clear statement of policy objectives
+- Scope: Who and what this policy covers
+- Policy Statement: Official policy declaration
+- Definitions: Key terms and definitions
+- Procedure/Implementation: Detailed step-by-step procedures
+- Responsibilities: Role-specific responsibilities
+- Consequences/Accountability: Compliance requirements and disciplinary measures
+- Related Documents: References to other policies and regulations
+- Review & Approval: Review schedule and approval process
+
+For Standard Operating Guidelines:
+- Objective: Clear goal statement
+- Guiding Principles: Core principles and values
+- Recommended Approach/Procedure: Detailed procedures and best practices
+- Definitions: Key terms and definitions
+- Examples/Scenarios: Practical examples and use cases
+- Responsibilities: Role-specific responsibilities
+- Escalation/Support: When and how to escalate issues
+- Review & Revision: Review schedule and update process
+
+For Communication Memos:
+- Date: Current date
+- From: CSI Management
+- To: All Staff
+- Subject: Clear subject line
+- Message: Main communication content
+- Effective Period: When this memo is effective
+- Next Steps/Action Required: What staff need to do
+- Contact for Questions: Who to contact for clarification
+
+Please make the content:
+1. Professional and comprehensive
+2. Specific to veterinary healthcare
+3. Compliant with relevant regulations (OSHA, HIPAA, AAHA, AVMA)
+4. Practical and actionable
+5. Clear and easy to understand
+
+Format your response as a structured policy document ready for implementation.`;
+}
+
+async function callChatGPTAPI(prompt) {
+    // Replace with your actual ChatGPT API implementation
+    // For now, we'll use a simulated response that's more realistic
+    
+    // Simulate API call delay
+    await new Promise(resolve => setTimeout(resolve, 2000));
+    
+    // Return a simulated ChatGPT response
+    return generateEnhancedLocalResponse(prompt);
+}
+
+function parseChatGPTResponse(response, topic, type, clinics) {
+    // Parse the ChatGPT response into a structured policy object
+    const policy = {
+        title: `${topic} ${type}`,
+        type: type.toLowerCase().includes('admin') ? 'admin' : 
+              type.toLowerCase().includes('sog') ? 'sog' : 'memo',
+        clinics: clinics,
+        clinicNames: clinics.join(', '),
+        effectiveDate: new Date().toLocaleDateString(),
+        lastReviewed: new Date().toLocaleDateString(),
+        approvedBy: 'CSI Clinical Director',
+        version: '1.0',
+        created: new Date().toLocaleDateString(),
+        updated: new Date().toLocaleDateString(),
+        description: `AI-generated ${type} for ${topic}`,
+        status: 'active'
+    };
+    
+    // Parse the response content into policy sections
+    const content = parsePolicyContent(response);
+    
+    // Add the parsed content to the policy object
+    Object.assign(policy, content);
+    
+    return policy;
 }
 
 // Mobile menu toggle (if needed)

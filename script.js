@@ -4108,18 +4108,305 @@ function closeCreateModal() {
     document.getElementById('dynamicManualFormFields').innerHTML = '';
 }
 
+// Chat-based AI Policy Creation System
+let chatState = {
+    policyType: null,
+    topic: null,
+    clinics: [],
+    specificNeeds: '',
+    urgency: '',
+    regulations: '',
+    existingPolicies: '',
+    specialConsiderations: '',
+    step: 'policyType'
+};
+
 function openAIModal() {
     document.getElementById('aiModal').style.display = 'block';
-    document.getElementById('step1').classList.add('active');
-    document.getElementById('step2').classList.remove('active');
     document.getElementById('aiResult').style.display = 'none';
     document.getElementById('aiLoading').style.display = 'none';
+    resetChat();
 }
 
 function closeAIModal() {
     document.getElementById('aiModal').style.display = 'none';
-    document.getElementById('aiSurveyForm').reset();
-    document.getElementById('dynamicAIFormFields').innerHTML = '';
+    resetChat();
+}
+
+function resetChat() {
+    chatState = {
+        policyType: null,
+        topic: null,
+        clinics: [],
+        specificNeeds: '',
+        urgency: '',
+        regulations: '',
+        existingPolicies: '',
+        specialConsiderations: '',
+        step: 'policyType'
+    };
+    
+    const chatMessages = document.getElementById('chatMessages');
+    chatMessages.innerHTML = `
+        <div class="message ai-message">
+            <div class="message-avatar">
+                <i class="fas fa-robot"></i>
+            </div>
+            <div class="message-content">
+                <p>Hello! I'm your AI Policy Assistant. I'll help you create a professional healthcare policy step by step.</p>
+                <p>Let's start with the basics. What type of policy would you like to create?</p>
+                <div class="quick-options">
+                    <button class="btn btn-sm btn-outline" onclick="selectPolicyType('admin')">Admin Policy</button>
+                    <button class="btn btn-sm btn-outline" onclick="selectPolicyType('sog')">Standard Operating Guidelines</button>
+                    <button class="btn btn-sm btn-outline" onclick="selectPolicyType('memo')">Communication Memo</button>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    document.getElementById('generatePolicyBtn').style.display = 'none';
+    document.getElementById('chatInput').value = '';
+}
+
+function selectPolicyType(type) {
+    chatState.policyType = type;
+    const typeLabel = getTypeLabel(type);
+    
+    addUserMessage(`I want to create a ${typeLabel}`);
+    
+    setTimeout(() => {
+        addAIMessage(`Great choice! A ${typeLabel} is perfect for your needs. Now, what specific topic or subject should this policy cover?`, [
+            'Patient Safety',
+            'Hand Hygiene',
+            'Fire Evacuation',
+            'Data Security',
+            'Emergency Procedures',
+            'Other (type your own)'
+        ]);
+        chatState.step = 'topic';
+    }, 1000);
+}
+
+function addUserMessage(message) {
+    const chatMessages = document.getElementById('chatMessages');
+    const messageDiv = document.createElement('div');
+    messageDiv.className = 'message user-message';
+    messageDiv.innerHTML = `
+        <div class="message-avatar">
+            <i class="fas fa-user"></i>
+        </div>
+        <div class="message-content">
+            <p>${message}</p>
+        </div>
+    `;
+    chatMessages.appendChild(messageDiv);
+    chatMessages.scrollTop = chatMessages.scrollHeight;
+}
+
+function addAIMessage(message, quickOptions = null) {
+    const chatMessages = document.getElementById('chatMessages');
+    const messageDiv = document.createElement('div');
+    messageDiv.className = 'message ai-message';
+    
+    let quickOptionsHTML = '';
+    if (quickOptions) {
+        quickOptionsHTML = '<div class="quick-options">';
+        quickOptions.forEach(option => {
+            quickOptionsHTML += `<button class="btn btn-sm btn-outline" onclick="selectQuickOption('${option}')">${option}</button>`;
+        });
+        quickOptionsHTML += '</div>';
+    }
+    
+    messageDiv.innerHTML = `
+        <div class="message-avatar">
+            <i class="fas fa-robot"></i>
+        </div>
+        <div class="message-content">
+            <p>${message}</p>
+            ${quickOptionsHTML}
+        </div>
+    `;
+    chatMessages.appendChild(messageDiv);
+    chatMessages.scrollTop = chatMessages.scrollHeight;
+}
+
+function selectQuickOption(option) {
+    if (option === 'Other (type your own)') {
+        document.getElementById('chatInput').focus();
+        return;
+    }
+    
+    document.getElementById('chatInput').value = option;
+    sendChatMessage();
+}
+
+function handleChatKeyPress(event) {
+    if (event.key === 'Enter') {
+        sendChatMessage();
+    }
+}
+
+function sendChatMessage() {
+    const input = document.getElementById('chatInput');
+    const message = input.value.trim();
+    
+    if (!message) return;
+    
+    addUserMessage(message);
+    input.value = '';
+    
+    // Process the message based on current step
+    processChatMessage(message);
+}
+
+function processChatMessage(message) {
+    switch (chatState.step) {
+        case 'policyType':
+            // This should be handled by selectPolicyType
+            break;
+        case 'topic':
+            chatState.topic = message;
+            setTimeout(() => {
+                addAIMessage(`Perfect! So we're creating a policy about "${message}". Which clinics should this policy apply to?`, [
+                    'All clinics',
+                    'Tudor Glen',
+                    'River Valley',
+                    'Rosslyn',
+                    'UPC'
+                ]);
+                chatState.step = 'clinics';
+            }, 1000);
+            break;
+        case 'clinics':
+            if (message.toLowerCase().includes('all')) {
+                chatState.clinics = ['tudor-glen', 'river-valley', 'rosslyn', 'upc'];
+            } else {
+                const clinicMap = {
+                    'tudor glen': 'tudor-glen',
+                    'river valley': 'river-valley',
+                    'rosslyn': 'rosslyn',
+                    'upc': 'upc'
+                };
+                chatState.clinics = [clinicMap[message.toLowerCase()] || 'tudor-glen'];
+            }
+            setTimeout(() => {
+                addAIMessage(`Got it! This policy will apply to ${getClinicNames(chatState.clinics).join(', ')}. What specific requirements or key points should be included in this policy?`);
+                chatState.step = 'specificNeeds';
+            }, 1000);
+            break;
+        case 'specificNeeds':
+            chatState.specificNeeds = message;
+            setTimeout(() => {
+                addAIMessage(`Excellent! Now, how urgent is this policy?`, [
+                    'Immediate (need it right away)',
+                    'High priority (within a week)',
+                    'Medium priority (within a month)',
+                    'Low priority (when convenient)'
+                ]);
+                chatState.step = 'urgency';
+            }, 1000);
+            break;
+        case 'urgency':
+            chatState.urgency = message.toLowerCase().includes('immediate') ? 'immediate' : 
+                                message.toLowerCase().includes('high') ? 'high' :
+                                message.toLowerCase().includes('medium') ? 'medium' : 'low';
+            setTimeout(() => {
+                addAIMessage(`Perfect! Are there any specific regulations this policy needs to comply with? (e.g., OSHA, HIPAA, AAHA, AVMA)`, [
+                    'No specific regulations',
+                    'OSHA',
+                    'HIPAA',
+                    'AAHA',
+                    'AVMA',
+                    'Multiple regulations'
+                ]);
+                chatState.step = 'regulations';
+            }, 1000);
+            break;
+        case 'regulations':
+            chatState.regulations = message;
+            setTimeout(() => {
+                addAIMessage(`Great! I have all the information I need to create your policy. Would you like me to generate it now?`, [
+                    'Yes, generate the policy',
+                    'Add more details first',
+                    'Start over'
+                ]);
+                chatState.step = 'ready';
+                document.getElementById('generatePolicyBtn').style.display = 'inline-block';
+            }, 1000);
+            break;
+        case 'ready':
+            if (message.toLowerCase().includes('yes') || message.toLowerCase().includes('generate')) {
+                generatePolicyFromChat();
+            } else if (message.toLowerCase().includes('more')) {
+                addAIMessage(`What additional details would you like to include?`);
+                chatState.step = 'additional';
+            } else if (message.toLowerCase().includes('start over')) {
+                resetChat();
+            }
+            break;
+        case 'additional':
+            chatState.specialConsiderations = message;
+            setTimeout(() => {
+                addAIMessage(`Perfect! Now I have everything I need. Ready to generate your policy?`);
+                chatState.step = 'ready';
+            }, 1000);
+            break;
+    }
+}
+
+function generatePolicyFromChat() {
+    // Hide chat and show loading
+    document.querySelector('.chat-container').style.display = 'none';
+    document.getElementById('aiLoading').style.display = 'block';
+    
+    // Simulate AI generation
+    setTimeout(() => {
+        const generatedPolicy = generatePolicyFromChatData();
+        displayAIPolicy(generatedPolicy);
+    }, 3000);
+}
+
+function generatePolicyFromChatData() {
+    const clinicNames = getClinicNames(chatState.clinics).join(', ');
+    const typeLabel = getTypeLabel(chatState.policyType);
+    const currentDate = new Date().toISOString().split('T')[0];
+    
+    // Generate policy content based on chat data
+    const policyContent = generateCSIPolicyWithHeaders(
+        chatState.topic, 
+        chatState.policyType, 
+        chatState.specificNeeds, 
+        currentDate, 
+        chatState.specificNeeds, 
+        chatState.existingPolicies
+    );
+    
+    return {
+        ...policyContent,
+        type: chatState.policyType,
+        clinics: chatState.clinics,
+        additionalRequirements: chatState.specificNeeds,
+        keyPoints: chatState.specificNeeds,
+        previousDocuments: chatState.existingPolicies,
+        clinicNames: clinicNames,
+        typeLabel: typeLabel,
+        urgency: chatState.urgency,
+        regulations: chatState.regulations
+    };
+}
+
+function continueChat() {
+    // Hide result and show chat again
+    document.getElementById('aiResult').style.display = 'none';
+    document.querySelector('.chat-container').style.display = 'block';
+    
+    addAIMessage(`Great! Your policy has been generated. Is there anything else you'd like to modify or add?`, [
+        'Modify the policy content',
+        'Add more details',
+        'Create another policy',
+        'Save and finish'
+    ]);
+    chatState.step = 'modify';
 }
 
 // Mobile menu toggle (if needed)

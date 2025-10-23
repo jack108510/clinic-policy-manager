@@ -281,29 +281,50 @@
         </div>
     </div>
 
-    <!-- AI Policy Generator Modal -->
+    <!-- AI Policy Chat Modal -->
     <div id="aiModal" class="modal">
-        <div class="modal-content">
+        <div class="modal-content chat-modal">
             <div class="modal-header">
-                <h3><i class="fas fa-robot"></i> AI Policy Generator</h3>
+                <h3><i class="fas fa-comments"></i> AI Policy Assistant</h3>
                 <span class="close" onclick="closeAIModal()">&times;</span>
             </div>
             <div class="modal-body">
-                <div class="ai-intro">
-                    <p>Let AI generate professional healthcare policies for you. Simply provide the topic and requirements.</p>
-                    <div class="ai-options">
-                        <label class="ai-toggle">
-                            <input type="checkbox" id="useChatGPT" onchange="toggleAIMode()">
-                            <span class="toggle-slider"></span>
-                            <span class="toggle-label">Use ChatGPT (Advanced AI)</span>
-                        </label>
-                        <div class="ai-mode-info" id="aiModeInfo">
-                            <small>Local AI: Fast, secure, works offline</small>
+                <div class="chat-container">
+                    <div class="chat-messages" id="chatMessages">
+                        <div class="message ai-message">
+                            <div class="message-avatar">
+                                <i class="fas fa-robot"></i>
+                            </div>
+                            <div class="message-content">
+                                <p>Hello! I'm your AI Policy Assistant. I'll help you create a professional healthcare policy step by step.</p>
+                                <p>Let's start with the basics. What type of policy would you like to create?</p>
+                                <div class="quick-options">
+                                    <button class="btn btn-sm btn-outline" onclick="selectPolicyType('admin')">Admin Policy</button>
+                                    <button class="btn btn-sm btn-outline" onclick="selectPolicyType('sog')">Standard Operating Guidelines</button>
+                                    <button class="btn btn-sm btn-outline" onclick="selectPolicyType('memo')">Communication Memo</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="chat-input-container">
+                        <div class="chat-input">
+                            <input type="text" id="chatInput" placeholder="Type your message here..." onkeypress="handleChatKeyPress(event)">
+                            <button onclick="sendChatMessage()" class="btn btn-primary">
+                                <i class="fas fa-paper-plane"></i>
+                            </button>
+                        </div>
+                        <div class="chat-actions">
+                            <button onclick="resetChat()" class="btn btn-sm btn-secondary">
+                                <i class="fas fa-refresh"></i> Start Over
+                            </button>
+                            <button onclick="generatePolicyFromChat()" class="btn btn-sm btn-success" id="generatePolicyBtn" style="display: none;">
+                                <i class="fas fa-magic"></i> Generate Policy
+                            </button>
                         </div>
                     </div>
                 </div>
-                <!-- AI Survey Form -->
-                <div id="aiSurveyForm">
+                <!-- Loading and Result Sections -->
+                <div id="aiSurveyForm" style="display: none;">
                     <div class="survey-step active" id="step1">
                         <h4>Step 1: Policy Overview</h4>
                         <div class="form-group">
@@ -380,7 +401,7 @@
                     <div id="aiGeneratedContent"></div>
                     <div class="ai-result-actions">
                         <button class="btn btn-secondary" onclick="storeDraft()">Store Draft</button>
-                        <button class="btn btn-outline" onclick="regeneratePolicy()">Ask AI Again</button>
+                        <button class="btn btn-outline" onclick="continueChat()">Continue Chat</button>
                         <button class="btn btn-secondary" onclick="editAIPolicy()">Edit Manually</button>
                         <button class="btn btn-success" onclick="exportPolicy('pdf')">
                             <i class="fas fa-file-pdf"></i> Export PDF

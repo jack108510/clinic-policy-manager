@@ -79,6 +79,15 @@ const defaultDisciplinaryActions = [
 let roles = loadFromLocalStorage('roles', defaultRoles);
 let disciplinaryActions = loadFromLocalStorage('disciplinaryActions', defaultDisciplinaryActions);
 
+// User Management Data
+const defaultUsers = [
+    { id: 1, username: 'admin', email: 'admin@csi.com', company: 'CSI', role: 'admin', accessCode: '123', created: new Date().toISOString().split('T')[0] }
+];
+
+let users = loadFromLocalStorage('users', defaultUsers);
+let currentUser = loadFromLocalStorage('currentUser', null);
+let currentCompany = loadFromLocalStorage('currentCompany', null);
+
 // Local Storage Functions
 function saveToLocalStorage(key, data) {
     try {
@@ -121,7 +130,9 @@ document.addEventListener('DOMContentLoaded', function() {
     displayDrafts();
     displayRoles();
     displayDisciplinaryActions();
+    displayUsers();
     setupEventListeners();
+    updateUserInterface();
 });
 
 // Event Listeners
@@ -286,6 +297,20 @@ function updateStats() {
     
     recentUpdatesElement.textContent = recentUpdates;
     draftCountElement.textContent = draftPolicies.length;
+    
+    // Update admin stats
+    const adminTotalPolicies = document.getElementById('adminTotalPolicies');
+    const adminDraftCount = document.getElementById('adminDraftCount');
+    const adminUserCount = document.getElementById('adminUserCount');
+    const adminCompanyCount = document.getElementById('adminCompanyCount');
+    
+    if (adminTotalPolicies) adminTotalPolicies.textContent = currentPolicies.length;
+    if (adminDraftCount) adminDraftCount.textContent = draftPolicies.length;
+    if (adminUserCount) adminUserCount.textContent = users.length;
+    if (adminCompanyCount) {
+        const uniqueCompanies = [...new Set(users.map(user => user.company))];
+        adminCompanyCount.textContent = uniqueCompanies.length;
+    }
 }
 
 // Helper Functions
@@ -4998,6 +5023,264 @@ function parseChatGPTResponse(response, topic, type, clinics) {
     return policy;
 }
 
+// User Management Functions
+function showSignupModal() {
+    document.getElementById('signupModal').style.display = 'block';
+}
+
+function closeSignupModal() {
+    document.getElementById('signupModal').style.display = 'none';
+    document.getElementById('signupForm').reset();
+    document.getElementById('signup-error-message').style.display = 'none';
+}
+
+function showLoginModal() {
+    document.getElementById('loginModal').style.display = 'block';
+}
+
+function closeLoginModal() {
+    document.getElementById('loginModal').style.display = 'none';
+    document.getElementById('loginForm').reset();
+    document.getElementById('login-error-message').style.display = 'none';
+}
+
+function signupUser(event) {
+    event.preventDefault();
+    
+    const username = document.getElementById('signupUsername').value.trim();
+    const email = document.getElementById('signupEmail').value.trim();
+    const company = document.getElementById('signupCompany').value.trim();
+    const accessCode = document.getElementById('signupAccessCode').value.trim();
+    
+    // Validate access code
+    if (accessCode !== '123') {
+        showSignupError('Invalid access code. Use 123 for CSI access.');
+        return;
+    }
+    
+    // Check if username already exists
+    if (users.find(user => user.username === username)) {
+        showSignupError('Username already exists. Please choose a different username.');
+        return;
+    }
+    
+    // Check if email already exists
+    if (users.find(user => user.email === email)) {
+        showSignupError('Email already exists. Please use a different email.');
+        return;
+    }
+    
+    // Create new user
+    const newUser = {
+        id: Date.now(),
+        username: username,
+        email: email,
+        company: company,
+        role: 'user',
+        accessCode: accessCode,
+        created: new Date().toISOString().split('T')[0]
+    };
+    
+    users.push(newUser);
+    saveToLocalStorage('users', users);
+    
+    // Auto-login the new user
+    currentUser = newUser;
+    currentCompany = company;
+    saveToLocalStorage('currentUser', currentUser);
+    saveToLocalStorage('currentCompany', currentCompany);
+    
+    // Update UI
+    updateUserInterface();
+    closeSignupModal();
+    
+    alert('Account created successfully! You are now logged in.');
+}
+
+function loginUser(event) {
+    event.preventDefault();
+    
+    const username = document.getElementById('loginUsername').value.trim();
+    const company = document.getElementById('loginCompany').value.trim();
+    
+    // Find user
+    const user = users.find(u => u.username === username && u.company === company);
+    
+    if (!user) {
+        showLoginError('Invalid username or company. Please try again.');
+        return;
+    }
+    
+    // Set current user and company
+    currentUser = user;
+    currentCompany = company;
+    saveToLocalStorage('currentUser', currentUser);
+    saveToLocalStorage('currentCompany', currentCompany);
+    
+    // Update UI
+    updateUserInterface();
+    closeLoginModal();
+    
+    alert('Login successful!');
+}
+
+function logoutUser() {
+    currentUser = null;
+    currentCompany = null;
+    saveToLocalStorage('currentUser', null);
+    saveToLocalStorage('currentCompany', null);
+    
+    updateUserInterface();
+    alert('Logged out successfully!');
+}
+
+function updateUserInterface() {
+    const navMenu = document.querySelector('.nav-menu');
+    
+    if (currentUser) {
+        // User is logged in
+        navMenu.innerHTML = `
+            <a href="#home" class="nav-link">Home</a>
+            <a href="#policies" class="nav-link">All Policies</a>
+            <div class="dropdown">
+                <a href="#" class="nav-link dropdown-toggle">Policy Types <i class="fas fa-chevron-down"></i></a>
+                <div class="dropdown-content">
+                    <a href="#admin">Admin Policies</a>
+                    <a href="#sog">Standard Operating Guidelines</a>
+                    <a href="#memos">Communication Memos</a>
+                </div>
+            </div>
+            <span class="nav-link">Welcome, ${currentUser.username} (${currentCompany})</span>
+            <a href="#" onclick="logoutUser()" class="nav-link">Logout</a>
+            ${currentUser.role === 'admin' ? '<a href="#" onclick="openPasswordModal()" class="nav-link">Admin Dashboard</a>' : ''}
+        `;
+        
+        // Filter policies by company
+        filterPoliciesByCompany();
+    } else {
+        // User is not logged in
+        navMenu.innerHTML = `
+            <a href="#home" class="nav-link">Home</a>
+            <a href="#policies" class="nav-link">All Policies</a>
+            <div class="dropdown">
+                <a href="#" class="nav-link dropdown-toggle">Policy Types <i class="fas fa-chevron-down"></i></a>
+                <div class="dropdown-content">
+                    <a href="#admin">Admin Policies</a>
+                    <a href="#sog">Standard Operating Guidelines</a>
+                    <a href="#memos">Communication Memos</a>
+                </div>
+            </div>
+            <a href="#" onclick="showLoginModal()" class="nav-link">Login</a>
+            <a href="#" onclick="showSignupModal()" class="nav-link">Sign Up</a>
+            <a href="#" onclick="openPasswordModal()" class="nav-link">Admin Dashboard</a>
+        `;
+    }
+}
+
+function filterPoliciesByCompany() {
+    if (currentCompany) {
+        const companyPolicies = currentPolicies.filter(policy => 
+            policy.company === currentCompany || !policy.company
+        );
+        displayPolicies(companyPolicies);
+    } else {
+        displayPolicies(currentPolicies);
+    }
+}
+
+function showSignupError(message) {
+    const errorElement = document.getElementById('signup-error-message');
+    errorElement.textContent = message;
+    errorElement.style.display = 'block';
+}
+
+function showLoginError(message) {
+    const errorElement = document.getElementById('login-error-message');
+    errorElement.textContent = message;
+    errorElement.style.display = 'block';
+}
+
+// User Management in Admin Settings
+function addUser() {
+    const username = document.getElementById('newUserName').value.trim();
+    const email = document.getElementById('newUserEmail').value.trim();
+    const company = document.getElementById('newUserCompany').value.trim();
+    const role = document.getElementById('newUserRole').value;
+    
+    if (!username || !email || !company) {
+        alert('Please fill in all fields.');
+        return;
+    }
+    
+    // Check if username already exists
+    if (users.find(user => user.username === username)) {
+        alert('Username already exists. Please choose a different username.');
+        return;
+    }
+    
+    // Check if email already exists
+    if (users.find(user => user.email === email)) {
+        alert('Email already exists. Please use a different email.');
+        return;
+    }
+    
+    const newUser = {
+        id: Date.now(),
+        username: username,
+        email: email,
+        company: company,
+        role: role,
+        accessCode: '123',
+        created: new Date().toISOString().split('T')[0]
+    };
+    
+    users.push(newUser);
+    saveToLocalStorage('users', users);
+    displayUsers();
+    
+    // Clear form
+    document.getElementById('newUserName').value = '';
+    document.getElementById('newUserEmail').value = '';
+    document.getElementById('newUserCompany').value = '';
+    document.getElementById('newUserRole').value = 'user';
+    
+    alert('User added successfully!');
+}
+
+function deleteUser(userId) {
+    if (confirm('Are you sure you want to delete this user?')) {
+        users = users.filter(user => user.id !== userId);
+        saveToLocalStorage('users', users);
+        displayUsers();
+        alert('User deleted successfully!');
+    }
+}
+
+function displayUsers() {
+    const usersList = document.getElementById('usersList');
+    
+    if (users.length === 0) {
+        usersList.innerHTML = '<p class="no-items">No users found. Add your first user above.</p>';
+        return;
+    }
+    
+    usersList.innerHTML = users.map(user => `
+        <div class="user-card">
+            <div class="user-info">
+                <h4>${user.username} <span class="user-role ${user.role}">${user.role}</span></h4>
+                <p><strong>Email:</strong> ${user.email}</p>
+                <p><strong>Company:</strong> ${user.company}</p>
+                <p><strong>Created:</strong> ${user.created}</p>
+            </div>
+            <div class="user-actions">
+                <button onclick="deleteUser(${user.id})" class="btn btn-sm btn-danger">
+                    <i class="fas fa-trash"></i> Delete
+                </button>
+            </div>
+        </div>
+    `).join('');
+}
+
 // Mobile menu toggle (if needed)
 document.addEventListener('DOMContentLoaded', function() {
     const navToggle = document.querySelector('.nav-toggle');
@@ -5008,4 +5291,7 @@ document.addEventListener('DOMContentLoaded', function() {
             navMenu.classList.toggle('active');
         });
     }
+    
+    // Initialize user interface
+    updateUserInterface();
 });

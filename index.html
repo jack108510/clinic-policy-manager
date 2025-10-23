@@ -26,6 +26,8 @@
                         <a href="#memos">Communication Memos</a>
                     </div>
                 </div>
+                <a href="#" onclick="showLoginModal()" class="nav-link">Login</a>
+                <a href="#" onclick="showSignupModal()" class="nav-link">Sign Up</a>
                 <a href="#" onclick="openPasswordModal()" class="nav-link">Admin Dashboard</a>
             </div>
             <div class="nav-toggle">
@@ -432,6 +434,220 @@
                             <i class="fas fa-file-word"></i> Export Word
                         </button>
                         <button class="btn btn-primary" onclick="saveAIPolicy()">Save Final Policy</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- User Signup Modal -->
+    <div id="signupModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>User Signup</h3>
+                <span class="close" onclick="closeSignupModal()">&times;</span>
+            </div>
+            <div class="modal-body">
+                <form id="signupForm" onsubmit="signupUser(event)">
+                    <div class="form-group">
+                        <label for="signupUsername">Username:</label>
+                        <input type="text" id="signupUsername" placeholder="Enter username" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="signupEmail">Email:</label>
+                        <input type="email" id="signupEmail" placeholder="Enter email" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="signupCompany">Company Name:</label>
+                        <input type="text" id="signupCompany" placeholder="Enter company name" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="signupAccessCode">Access Code:</label>
+                        <input type="password" id="signupAccessCode" placeholder="Enter access code" required>
+                        <small class="form-help">Use access code 123 for CSI</small>
+                    </div>
+                    <div id="signup-error-message" class="error-message"></div>
+                    <button type="submit" class="btn btn-primary">Sign Up</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Login Modal -->
+    <div id="loginModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>User Login</h3>
+                <span class="close" onclick="closeLoginModal()">&times;</span>
+            </div>
+            <div class="modal-body">
+                <form id="loginForm" onsubmit="loginUser(event)">
+                    <div class="form-group">
+                        <label for="loginUsername">Username:</label>
+                        <input type="text" id="loginUsername" placeholder="Enter username" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="loginCompany">Company:</label>
+                        <input type="text" id="loginCompany" placeholder="Enter company name" required>
+                    </div>
+                    <div id="login-error-message" class="error-message"></div>
+                    <button type="submit" class="btn btn-primary">Login</button>
+                </form>
+                <p class="login-help">Don't have an account? <a href="#" onclick="showSignupModal()">Sign up here</a></p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Password Modal -->
+    <div id="passwordModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Admin Access</h3>
+                <span class="close" onclick="closePasswordModal()">&times;</span>
+            </div>
+            <div class="modal-body">
+                <form id="passwordForm" onsubmit="checkAdminPassword(event)">
+                    <div class="form-group">
+                        <label for="adminPassword">Enter Admin Password:</label>
+                        <input type="password" id="adminPassword" placeholder="Enter password" required>
+                        <div id="error-message" class="error-message"></div>
+                    </div>
+                    <button type="submit" class="btn btn-primary">Access Admin</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Admin Modal -->
+    <div id="adminModal" class="modal">
+        <div class="modal-content admin-modal-content">
+            <div class="modal-header">
+                <h3>Admin Dashboard</h3>
+                <span class="close" onclick="closeAdminModal()">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div class="admin-stats">
+                    <div class="stat-card">
+                        <i class="fas fa-file-alt"></i>
+                        <h3 id="adminTotalPolicies">0</h3>
+                        <p>Total Policies</p>
+                    </div>
+                    <div class="stat-card">
+                        <i class="fas fa-edit"></i>
+                        <h3 id="adminDraftCount">0</h3>
+                        <p>Draft Policies</p>
+                    </div>
+                    <div class="stat-card">
+                        <i class="fas fa-users"></i>
+                        <h3 id="adminUserCount">0</h3>
+                        <p>Total Users</p>
+                    </div>
+                    <div class="stat-card">
+                        <i class="fas fa-building"></i>
+                        <h3 id="adminCompanyCount">0</h3>
+                        <p>Companies</p>
+                    </div>
+                </div>
+                
+                <div class="admin-actions">
+                    <button class="btn btn-primary" onclick="openCreateModal()">
+                        <i class="fas fa-plus"></i> Create New Policy
+                    </button>
+                    <button class="btn btn-secondary" onclick="openAIModal()">
+                        <i class="fas fa-robot"></i> AI Policy Generator
+                    </button>
+                    <button class="btn btn-info" onclick="openSettingsModal()">
+                        <i class="fas fa-cog"></i> Settings
+                    </button>
+                </div>
+                
+                <!-- Draft Management Section -->
+                <div class="draft-management">
+                    <h3>Draft Policies</h3>
+                    <div id="adminDraftList" class="draft-list">
+                        <!-- Drafts will be displayed here -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Settings Modal -->
+    <div id="settingsModal" class="modal">
+        <div class="modal-content settings-modal-content">
+            <div class="modal-header">
+                <h3>Settings</h3>
+                <span class="close" onclick="closeSettingsModal()">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div class="settings-tabs">
+                    <button class="tab-btn active" onclick="showSettingsTab('roles')">Roles & Responsibilities</button>
+                    <button class="tab-btn" onclick="showSettingsTab('disciplinary')">Disciplinary Actions</button>
+                    <button class="tab-btn" onclick="showSettingsTab('users')">User Management</button>
+                </div>
+                
+                <!-- Roles Tab -->
+                <div id="rolesTab" class="settings-tab active">
+                    <div class="settings-section">
+                        <h3>Manage Roles & Responsibilities</h3>
+                        <div class="add-item-form">
+                            <input type="text" id="newRoleName" placeholder="Role name (e.g., Senior Veterinarian)">
+                            <input type="text" id="newRoleDescription" placeholder="Role description">
+                            <input type="text" id="newRoleStaffName" placeholder="Staff member name">
+                            <input type="email" id="newRoleEmail" placeholder="Staff email">
+                            <button onclick="addRole()" class="btn btn-primary">
+                                <i class="fas fa-plus"></i> Add Role
+                            </button>
+                        </div>
+                        <div class="items-list" id="rolesList">
+                            <!-- Roles will be displayed here -->
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Disciplinary Actions Tab -->
+                <div id="disciplinaryTab" class="settings-tab">
+                    <div class="settings-section">
+                        <h3>Manage Disciplinary Actions</h3>
+                        <div class="add-item-form">
+                            <input type="text" id="newActionName" placeholder="Action name (e.g., Verbal Warning)">
+                            <input type="text" id="newActionDescription" placeholder="Action description">
+                            <input type="text" id="newActionPenalties" placeholder="Penalties (e.g., Written warning, Performance review)">
+                            <select id="newActionSeverity">
+                                <option value="minor">Minor</option>
+                                <option value="moderate">Moderate</option>
+                                <option value="major">Major</option>
+                                <option value="severe">Severe</option>
+                            </select>
+                            <button onclick="addDisciplinaryAction()" class="btn btn-primary">
+                                <i class="fas fa-plus"></i> Add Action
+                            </button>
+                        </div>
+                        <div class="items-list" id="disciplinaryList">
+                            <!-- Disciplinary actions will be displayed here -->
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- User Management Tab -->
+                <div id="usersTab" class="settings-tab">
+                    <div class="settings-section">
+                        <h3>User Management</h3>
+                        <div class="add-item-form">
+                            <input type="text" id="newUserName" placeholder="Username">
+                            <input type="email" id="newUserEmail" placeholder="Email">
+                            <input type="text" id="newUserCompany" placeholder="Company">
+                            <select id="newUserRole">
+                                <option value="user">User</option>
+                                <option value="admin">Admin</option>
+                            </select>
+                            <button onclick="addUser()" class="btn btn-primary">
+                                <i class="fas fa-plus"></i> Add User
+                            </button>
+                        </div>
+                        <div class="items-list" id="usersList">
+                            <!-- Users will be displayed here -->
+                        </div>
                     </div>
                 </div>
             </div>

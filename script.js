@@ -403,74 +403,735 @@ function generatePolicyContent(topic, type, clinics, requirements) {
     const typeLabel = getTypeLabel(type);
     const currentDate = new Date().toISOString().split('T')[0];
     
-    // Generate comprehensive, topic-specific policy content
-    const policyContent = generateComprehensivePolicy(topic, type, requirements);
+    // Generate comprehensive, topic-specific policy content with proper CSI headers
+    const policyContent = generateCSIPolicyWithHeaders(topic, type, requirements, currentDate);
     
-    // Add proper headers based on policy type
+    return {
+        ...policyContent,
+        type: type,
+        clinics: clinics,
+        additionalRequirements: requirements,
+        clinicNames: clinicNames,
+        typeLabel: typeLabel
+    };
+}
+
+// NEW: Generate policies with proper CSI headers and filled content
+function generateCSIPolicyWithHeaders(topic, type, requirements, currentDate) {
     if (type === 'admin') {
         return {
-            title: policyContent.title,
-            type: type,
-            clinics: clinics,
+            title: `${topic} Admin Policy`,
             // LEVEL 1 - ADMIN POLICY HEADERS
             effectiveDate: currentDate,
             lastReviewed: currentDate,
             approvedBy: "CSI Clinical Director",
             version: "1.0",
-            purpose: policyContent.purpose,
-            scope: policyContent.scope,
-            policyStatement: policyContent.policyStatement,
-            definitions: policyContent.definitions,
-            procedure: policyContent.procedure,
-            roles: policyContent.roles,
-            compliance: policyContent.compliance,
-            relatedDocuments: policyContent.relatedDocuments,
-            reviewApproval: policyContent.reviewApproval,
-            additionalRequirements: requirements,
-            clinicNames: clinicNames,
-            typeLabel: typeLabel
+            purpose: generatePurpose(topic, type),
+            scope: generateScope(topic, type, requirements),
+            policyStatement: generatePolicyStatement(topic, type),
+            definitions: generateDefinitions(topic, type),
+            procedure: generateProcedure(topic, type),
+            roles: generateRoles(topic, type),
+            compliance: generateCompliance(topic, type),
+            relatedDocuments: generateRelatedDocuments(topic, type),
+            reviewApproval: generateReviewApproval(topic, type, currentDate)
         };
     } else if (type === 'sog') {
         return {
-            title: policyContent.title,
-            type: type,
-            clinics: clinics,
+            title: `${topic} Standard Operating Guidelines`,
             // LEVEL 2 - STANDARD OPERATING GUIDELINE HEADERS
             effectiveDate: currentDate,
             author: "CSI Clinical Staff",
             approvedBy: "CSI Medical Director",
             version: "1.0",
-            objective: policyContent.objective,
-            principles: policyContent.principles,
-            procedure: policyContent.procedure,
-            definitions: policyContent.definitions,
-            examples: policyContent.examples,
-            roles: policyContent.roles,
-            escalation: policyContent.escalation,
-            review: policyContent.review,
-            additionalRequirements: requirements,
-            clinicNames: clinicNames,
-            typeLabel: typeLabel
+            objective: generateObjective(topic, type),
+            principles: generatePrinciples(topic, type),
+            procedure: generateProcedure(topic, type),
+            definitions: generateDefinitions(topic, type),
+            examples: generateExamples(topic, type),
+            roles: generateRoles(topic, type),
+            escalation: generateEscalation(topic, type),
+            review: generateReview(topic, type, currentDate)
         };
     } else {
         return {
-            title: policyContent.title,
-            type: type,
-            clinics: clinics,
+            title: `${topic} Communication Memo`,
             // LEVEL 3 - COMMUNICATION MEMO HEADERS
             date: currentDate,
             from: "CSI Management",
             to: "All Staff",
-            subject: policyContent.title,
-            message: policyContent.message,
-            effectivePeriod: policyContent.effectivePeriod,
-            nextSteps: policyContent.nextSteps,
-            contact: policyContent.contact,
-            additionalRequirements: requirements,
-            clinicNames: clinicNames,
-            typeLabel: typeLabel
+            subject: topic,
+            message: generateMessage(topic, type),
+            effectivePeriod: generateEffectivePeriod(topic, type, currentDate),
+            nextSteps: generateNextSteps(topic, type),
+            contact: generateContact(topic, type)
         };
     }
+}
+
+// Content generation functions for each CSI header field
+function generatePurpose(topic, type) {
+    const purposes = {
+        'fire evacuation': 'This policy establishes comprehensive fire evacuation procedures to ensure the safety of all staff, patients, and clients in the event of a fire emergency. This policy incorporates NFPA (National Fire Protection Association) guidelines and local fire safety regulations.',
+        'hand hygiene': 'This policy establishes standardized hand hygiene protocols to prevent the transmission of infectious diseases and maintain a safe, sterile environment for patient care.',
+        'patient safety': 'This policy establishes comprehensive patient safety protocols to ensure the highest quality of care and prevent adverse events in our veterinary facilities.',
+        'data security': 'This policy establishes data security and privacy protection measures to ensure compliance with HIPAA regulations and protect sensitive patient and client information.',
+        'emergency response': 'This policy establishes comprehensive emergency response procedures to ensure rapid, effective response to medical emergencies, natural disasters, and other critical situations.',
+        'medication management': 'This policy establishes standardized medication management procedures to ensure safe, accurate, and compliant handling of all pharmaceuticals in our veterinary facilities.',
+        'infection control': 'This policy establishes comprehensive infection control protocols to prevent the spread of infectious diseases and maintain a safe environment for patients, staff, and clients.',
+        'appointment management': 'This policy establishes standardized appointment scheduling and management procedures to ensure efficient, organized, and client-friendly service delivery.',
+        'documentation': 'This policy establishes comprehensive documentation standards to ensure accurate, complete, and compliant medical records and administrative documentation.'
+    };
+    
+    const topicLower = topic.toLowerCase();
+    for (const key in purposes) {
+        if (topicLower.includes(key)) {
+            return purposes[key];
+        }
+    }
+    
+    return `This policy establishes comprehensive guidelines for ${topic.toLowerCase()} to ensure consistent, safe, and effective operations across all clinic locations.`;
+}
+
+function generateScope(topic, type, requirements) {
+    const scopeText = `This policy applies to all CSI clinic locations (Tudor Glen, River Valley, Rosslyn, UPC) and covers all staff members, contractors, clients, and patients.`;
+    
+    if (requirements && requirements.trim()) {
+        return `${scopeText} ${requirements}`;
+    }
+    
+    return scopeText;
+}
+
+function generatePolicyStatement(topic, type) {
+    return `CSI clinics will maintain the highest standards of ${topic.toLowerCase()} procedures. All staff must be trained and prepared to execute these protocols in accordance with industry best practices and regulatory requirements.`;
+}
+
+function generateDefinitions(topic, type) {
+    const definitions = {
+        'fire evacuation': 'FIRE ALARM: Audible and visual warning system that activates upon detection of smoke or fire. EVACUATION ROUTE: Designated pathway for safe exit from the building during emergency. ASSEMBLY POINT: Designated safe location outside the building where staff and occupants gather after evacuation. FIRE WARDEN: Designated staff member responsible for coordinating evacuation procedures.',
+        'hand hygiene': 'HAND HYGIENE: The process of cleaning hands to remove dirt, debris, and microorganisms. ANTISEPTIC: Chemical agent that kills or inhibits the growth of microorganisms. CONTAMINATION: The presence of harmful microorganisms on surfaces or objects.',
+        'patient safety': 'ADVERSE EVENT: An unintended injury or complication resulting from medical care. NEAR MISS: An event that could have resulted in patient harm but was prevented. QUALITY ASSURANCE: Systematic activities to ensure that patient care meets established standards.',
+        'data security': 'PHI (Protected Health Information): Individually identifiable health information that is protected under HIPAA. ENCRYPTION: Process of converting data into a secure format. BREACH: Unauthorized access, use, or disclosure of protected health information.',
+        'emergency response': 'EMERGENCY: A serious, unexpected situation requiring immediate action. CRISIS: A time of intense difficulty or danger. EMERGENCY COORDINATOR: Designated staff member responsible for coordinating emergency response efforts.',
+        'medication management': 'CONTROLLED SUBSTANCE: Medication regulated by the DEA due to potential for abuse. PRESCRIPTION: Written authorization for medication dispensing. DRUG INTERACTION: When one medication affects the action of another medication.',
+        'infection control': 'PATHOGEN: Microorganism that can cause disease. DISINFECTION: Process of killing most microorganisms on surfaces. STERILIZATION: Process of killing all microorganisms including spores.',
+        'appointment management': 'SCHEDULING: Process of arranging appointments and managing clinic calendar. NO-SHOW: Patient who fails to arrive for scheduled appointment. DOUBLE-BOOKING: Scheduling two appointments at the same time slot.',
+        'documentation': 'MEDICAL RECORD: Comprehensive documentation of patient care. CHARTING: Process of recording patient information and care provided. AUDIT TRAIL: Record of all access and modifications to patient records.'
+    };
+    
+    const topicLower = topic.toLowerCase();
+    for (const key in definitions) {
+        if (topicLower.includes(key)) {
+            return definitions[key];
+        }
+    }
+    
+    return `${topic.toUpperCase()}: Key terms and definitions related to this policy will be established by the clinical team and updated as needed.`;
+}
+
+function generateProcedure(topic, type) {
+    const procedures = {
+        'fire evacuation': `FIRE EVACUATION PROCEDURES:
+
+1. IMMEDIATE RESPONSE (0-30 seconds):
+   - Upon hearing fire alarm or seeing fire/smoke, immediately activate manual fire alarm if not already activated
+   - Call 911 from a safe location and provide exact address and nature of emergency
+   - Announce "FIRE EMERGENCY - EVACUATE NOW" throughout the facility
+   - Begin immediate evacuation of all personnel and patients
+
+2. EVACUATION PROTOCOL (30 seconds - 5 minutes):
+   - Fire Wardens take control of evacuation procedures
+   - Direct all occupants to nearest safe exit route
+   - Check all rooms and areas to ensure complete evacuation
+   - Assist mobility-impaired individuals and patients
+   - Close all doors behind you to slow fire spread
+   - Do not use elevators - use stairs only
+
+3. PATIENT EVACUATION PRIORITIES:
+   - Critical patients: Evacuate first with medical equipment if possible
+   - Non-critical patients: Evacuate using carriers or leashes
+   - If patient evacuation is impossible, secure animals in carriers and evacuate
+   - Document any patients left behind and their location
+
+4. ASSEMBLY AND ACCOUNTABILITY:
+   - Proceed to designated assembly point (parking lot area)
+   - Fire Wardens conduct headcount of all staff and occupants
+   - Account for all patients and document any missing
+   - Do not re-enter building until cleared by fire department
+   - Maintain distance from building (minimum 100 feet)
+
+5. POST-EVACUATION PROTOCOL:
+   - Notify emergency contacts and management
+   - Provide information to fire department upon arrival
+   - Document incident details and any injuries
+   - Coordinate with emergency services for patient care needs
+   - Follow fire department instructions for re-entry`,
+        'hand hygiene': `HAND HYGIENE PROCEDURES:
+
+1. HANDWASHING PROTOCOL:
+   - Wet hands with clean, running water
+   - Apply soap and lather for at least 20 seconds
+   - Scrub all surfaces including backs of hands, between fingers, and under nails
+   - Rinse thoroughly with clean water
+   - Dry with clean towel or air dryer
+
+2. HAND SANITIZER USE:
+   - Apply alcohol-based hand sanitizer to palm of one hand
+   - Rub hands together covering all surfaces
+   - Continue rubbing until hands are dry (approximately 20 seconds)
+   - Use only when hands are not visibly soiled
+
+3. TIMING REQUIREMENTS:
+   - Before and after patient contact
+   - Before and after handling medical equipment
+   - After contact with contaminated surfaces
+   - Before eating or drinking
+   - After using restroom facilities
+
+4. SPECIAL CONSIDERATIONS:
+   - Use antimicrobial soap for surgical procedures
+   - Remove jewelry before handwashing
+   - Keep fingernails short and clean
+   - Report any skin irritation or cuts immediately`,
+        'patient safety': `PATIENT SAFETY PROCEDURES:
+
+1. PATIENT IDENTIFICATION:
+   - Verify patient identity using at least two identifiers
+   - Check patient name and date of birth
+   - Confirm owner/client information
+   - Use identification bands when available
+
+2. MEDICATION SAFETY:
+   - Verify medication name, dose, and route
+   - Check for allergies and drug interactions
+   - Use proper medication administration techniques
+   - Document all medications administered
+
+3. PROCEDURE SAFETY:
+   - Follow standard operating procedures
+   - Use appropriate personal protective equipment
+   - Maintain sterile technique when required
+   - Monitor patient throughout procedure
+
+4. COMMUNICATION:
+   - Use clear, concise communication
+   - Repeat back critical information
+   - Document all care provided
+   - Report any concerns immediately`,
+        'data security': `DATA SECURITY PROCEDURES:
+
+1. ACCESS CONTROL:
+   - Use unique usernames and strong passwords
+   - Log out of systems when not in use
+   - Do not share login credentials
+   - Report any unauthorized access attempts
+
+2. DATA PROTECTION:
+   - Encrypt sensitive data in transit and at rest
+   - Use secure networks for data transmission
+   - Implement regular data backups
+   - Maintain audit trails of data access
+
+3. PHYSICAL SECURITY:
+   - Secure workstations when unattended
+   - Lock filing cabinets containing patient records
+   - Dispose of sensitive documents properly
+   - Restrict access to server rooms and data centers
+
+4. INCIDENT RESPONSE:
+   - Report security incidents immediately
+   - Document all security events
+   - Follow breach notification procedures
+   - Coordinate with IT security team`,
+        'emergency response': `EMERGENCY RESPONSE PROCEDURES:
+
+1. MEDICAL EMERGENCIES:
+   - Immediate assessment of patient condition
+   - Call 911 for life-threatening emergencies
+   - Begin appropriate emergency medical care
+   - Notify attending veterinarian immediately
+   - Document all emergency interventions
+   - Contact client/owner as soon as possible
+
+2. FIRE EMERGENCIES:
+   - Activate fire alarm system
+   - Evacuate all personnel and patients
+   - Call 911 from safe location
+   - Account for all staff and patients
+   - Follow established evacuation routes
+   - Do not re-enter building until cleared by fire department
+
+3. SEVERE WEATHER:
+   - Monitor weather alerts and warnings
+   - Secure outdoor equipment and supplies
+   - Move patients to safe interior locations
+   - Close clinic if severe weather warning issued
+   - Maintain emergency supplies and equipment
+
+4. POWER OUTAGES:
+   - Switch to emergency power if available
+   - Prioritize critical patient care equipment
+   - Use battery-powered lighting and equipment
+   - Contact utility company for updates
+   - Implement manual record-keeping procedures
+
+5. SECURITY INCIDENTS:
+   - Secure all staff and patients
+   - Contact law enforcement if necessary
+   - Document incident details
+   - Follow lockdown procedures if required
+   - Provide support to affected staff and clients`
+    };
+    
+    const topicLower = topic.toLowerCase();
+    for (const key in procedures) {
+        if (topicLower.includes(key)) {
+            return procedures[key];
+        }
+    }
+    
+    return `${topic.toUpperCase()} PROCEDURES:
+
+1. INITIAL ASSESSMENT:
+   - Evaluate current practices and identify areas for improvement
+   - Assess staff knowledge and training needs
+   - Review existing protocols and procedures
+   - Identify potential risks and safety concerns
+   - Establish baseline metrics for performance
+
+2. IMPLEMENTATION PROTOCOLS:
+   - Develop standardized procedures for ${topic.toLowerCase()}
+   - Provide comprehensive staff training
+   - Establish monitoring and quality assurance measures
+   - Create documentation and reporting systems
+   - Implement continuous improvement processes
+
+3. STAFF RESPONSIBILITIES:
+   - Follow established protocols and procedures
+   - Participate in training and competency assessments
+   - Report any issues or concerns immediately
+   - Maintain accurate documentation
+   - Support continuous improvement efforts
+
+4. QUALITY ASSURANCE:
+   - Regular monitoring of compliance and outcomes
+   - Performance metrics tracking and analysis
+   - Client and staff feedback collection
+   - Regular policy review and updates
+   - Benchmarking against industry standards
+
+5. CONTINUOUS IMPROVEMENT:
+   - Regular evaluation of policy effectiveness
+   - Identification of improvement opportunities
+   - Implementation of best practices
+   - Staff education and training updates
+   - Integration with overall quality management systems`;
+}
+
+function generateRoles(topic, type) {
+    const roles = {
+        'fire evacuation': `FIRE EVACUATION RESPONSIBILITIES:
+
+FIRE WARDENS (Designated staff):
+- Coordinate evacuation procedures
+- Ensure complete evacuation of assigned areas
+- Conduct headcount at assembly point
+- Communicate with emergency services
+- Maintain evacuation records
+
+ALL STAFF:
+- Follow evacuation procedures immediately
+- Assist with patient evacuation
+- Close doors behind them during evacuation
+- Report to assembly point for accountability
+- Assist mobility-impaired individuals
+
+CLINIC MANAGER:
+- Ensure fire safety equipment is maintained
+- Coordinate with fire department
+- Provide post-incident support
+- Review and update evacuation procedures
+- Conduct regular fire drills
+
+EMERGENCY COORDINATOR:
+- Activate emergency response procedures
+- Communicate with emergency services
+- Coordinate staff assignments
+- Maintain emergency contact information`,
+        'hand hygiene': `HAND HYGIENE RESPONSIBILITIES:
+
+ALL STAFF:
+- Follow hand hygiene protocols at all times
+- Use appropriate hand hygiene products
+- Report any hand hygiene violations
+- Participate in hand hygiene training
+- Maintain clean, dry hands
+
+SUPERVISORS:
+- Monitor hand hygiene compliance
+- Provide training and education
+- Ensure adequate supplies are available
+- Address non-compliance issues
+- Support quality improvement initiatives
+
+CLINIC MANAGER:
+- Ensure adequate hand hygiene supplies
+- Support staff training and development
+- Monitor overall compliance rates
+- Address systemic barriers to compliance
+- Integrate hand hygiene with overall quality management`,
+        'patient safety': `PATIENT SAFETY RESPONSIBILITIES:
+
+ALL STAFF:
+- Follow patient safety protocols
+- Report any safety concerns immediately
+- Participate in safety training
+- Maintain accurate documentation
+- Support continuous improvement efforts
+
+VETERINARY STAFF:
+- Ensure safe medication administration
+- Follow proper procedure protocols
+- Communicate effectively with team
+- Monitor patient condition closely
+- Document all care provided
+
+CLINIC MANAGER:
+- Ensure adequate resources for patient safety
+- Support staff training and development
+- Monitor overall safety outcomes
+- Address systemic safety issues
+- Integrate safety with overall clinic operations`,
+        'data security': `DATA SECURITY RESPONSIBILITIES:
+
+ALL STAFF:
+- Follow data security protocols
+- Use secure login credentials
+- Report security incidents immediately
+- Protect patient and client information
+- Participate in security training
+
+IT STAFF:
+- Maintain secure systems and networks
+- Monitor for security threats
+- Provide security training and support
+- Implement security updates and patches
+- Coordinate incident response
+
+CLINIC MANAGER:
+- Ensure adequate security resources
+- Support security training and awareness
+- Monitor overall security posture
+- Address systemic security issues
+- Integrate security with overall operations`
+    };
+    
+    const topicLower = topic.toLowerCase();
+    for (const key in roles) {
+        if (topicLower.includes(key)) {
+            return roles[key];
+        }
+    }
+    
+    return `${topic.toUpperCase()} RESPONSIBILITIES:
+
+ALL STAFF:
+- Follow established protocols and procedures
+- Participate in training and competency assessments
+- Report any issues or concerns promptly
+- Maintain accurate documentation
+- Support continuous improvement efforts
+
+SUPERVISORS:
+- Ensure staff compliance with protocols
+- Provide training and support to staff
+- Monitor performance and outcomes
+- Address compliance issues promptly
+- Support quality improvement initiatives
+
+CLINIC MANAGER:
+- Ensure adequate resources for policy implementation
+- Support staff training and development
+- Monitor overall policy effectiveness
+- Address systemic issues and barriers
+- Integrate policy with overall clinic operations`;
+}
+
+function generateCompliance(topic, type) {
+    const compliance = {
+        'fire evacuation': `FIRE SAFETY COMPLIANCE:
+
+TRAINING REQUIREMENTS:
+- Annual fire safety training for all staff (4 hours)
+- Quarterly fire drill exercises
+- Fire Warden certification training
+- Documentation of all training completion
+
+EQUIPMENT MAINTENANCE:
+- Monthly fire alarm system testing
+- Quarterly fire extinguisher inspections
+- Annual sprinkler system maintenance
+- Regular evacuation route inspections
+
+MONITORING AND AUDITS:
+- Monthly fire safety equipment checks
+- Quarterly evacuation drill evaluations
+- Annual fire safety compliance audits
+- Continuous improvement based on drill outcomes`,
+        'hand hygiene': `HAND HYGIENE COMPLIANCE:
+
+TRAINING REQUIREMENTS:
+- Annual hand hygiene training for all staff
+- Competency assessments and updates
+- Role-specific training for different positions
+- Documentation of all training completion
+
+MONITORING:
+- Regular compliance audits and observations
+- Performance metrics tracking and reporting
+- Client and staff satisfaction monitoring
+- Incident reporting and investigation
+
+ENFORCEMENT:
+- Progressive discipline for non-compliance
+- Recognition programs for excellent performance
+- Regular policy reviews and updates
+- Integration with performance evaluations`,
+        'patient safety': `PATIENT SAFETY COMPLIANCE:
+
+TRAINING REQUIREMENTS:
+- Annual patient safety training for all staff
+- Competency assessments and updates
+- Role-specific training for different positions
+- Documentation of all training completion
+
+MONITORING:
+- Regular safety audits and observations
+- Performance metrics tracking and reporting
+- Client and staff satisfaction monitoring
+- Incident reporting and investigation
+
+ENFORCEMENT:
+- Progressive discipline for non-compliance
+- Recognition programs for excellent performance
+- Regular policy reviews and updates
+- Integration with performance evaluations`,
+        'data security': `DATA SECURITY COMPLIANCE:
+
+TRAINING REQUIREMENTS:
+- Annual data security training for all staff
+- Competency assessments and updates
+- Role-specific training for different positions
+- Documentation of all training completion
+
+MONITORING:
+- Regular security audits and assessments
+- Performance metrics tracking and reporting
+- Incident reporting and investigation
+- Compliance monitoring and reporting
+
+ENFORCEMENT:
+- Progressive discipline for non-compliance
+- Recognition programs for excellent performance
+- Regular policy reviews and updates
+- Integration with performance evaluations`
+    };
+    
+    const topicLower = topic.toLowerCase();
+    for (const key in compliance) {
+        if (topicLower.includes(key)) {
+            return compliance[key];
+        }
+    }
+    
+    return `${topic.toUpperCase()} COMPLIANCE:
+
+TRAINING:
+- Initial training for all staff on policy requirements
+- Annual competency assessments and updates
+- Role-specific training for different staff positions
+- Documentation of all training completion
+- Ongoing education and skill development
+
+MONITORING:
+- Regular audits of policy compliance
+- Performance metrics tracking and reporting
+- Client and staff satisfaction monitoring
+- Incident reporting and investigation
+- Quality assurance activities
+
+ENFORCEMENT:
+- Progressive discipline for non-compliance
+- Recognition programs for excellent performance
+- Regular policy reviews and updates
+- Integration with performance evaluations
+- Continuous improvement planning`;
+}
+
+function generateRelatedDocuments(topic, type) {
+    const documents = {
+        'fire evacuation': 'NFPA 101: Life Safety Code, Local Fire Department Regulations, CSI Emergency Response Plan, CSI Patient Safety Protocols, OSHA Fire Safety Standards',
+        'hand hygiene': 'CDC Hand Hygiene Guidelines, OSHA Bloodborne Pathogens Standard, CSI Infection Control Policy, CSI Patient Safety Protocols, AVMA Infection Control Guidelines',
+        'patient safety': 'AVMA Patient Safety Guidelines, OSHA Workplace Safety Standards, CSI Quality Assurance Program, CSI Incident Reporting Procedures, Veterinary Practice Standards',
+        'data security': 'HIPAA Privacy and Security Rules, AVMA Data Security Guidelines, CSI Privacy Policy, CSI Incident Response Plan, Cybersecurity Best Practices',
+        'emergency response': 'CSI Emergency Response Plan, Local Emergency Services Contacts, CSI Patient Safety Protocols, OSHA Emergency Response Standards, Veterinary Emergency Guidelines',
+        'medication management': 'DEA Controlled Substances Regulations, AVMA Medication Guidelines, CSI Pharmacy Policy, CSI Patient Safety Protocols, Veterinary Drug Administration Standards',
+        'infection control': 'CDC Infection Control Guidelines, OSHA Bloodborne Pathogens Standard, AVMA Infection Control Guidelines, CSI Patient Safety Protocols, Veterinary Practice Standards',
+        'appointment management': 'CSI Scheduling Policy, CSI Client Communication Guidelines, CSI Quality Assurance Program, CSI Patient Safety Protocols, Veterinary Practice Standards',
+        'documentation': 'AVMA Medical Record Guidelines, HIPAA Documentation Requirements, CSI Quality Assurance Program, CSI Patient Safety Protocols, Veterinary Practice Standards'
+    };
+    
+    const topicLower = topic.toLowerCase();
+    for (const key in documents) {
+        if (topicLower.includes(key)) {
+            return documents[key];
+        }
+    }
+    
+    return `CSI Quality Assurance Program, CSI Patient Safety Protocols, Veterinary Practice Standards, Industry Best Practices, Regulatory Compliance Guidelines`;
+}
+
+function generateReviewApproval(topic, type, currentDate) {
+    const nextReviewDate = new Date(Date.now() + 365*24*60*60*1000).toISOString().split('T')[0];
+    return `Policy reviewed annually by Safety Committee. Updated based on regulatory changes and best practices. Approved by Fire Safety Officer and Clinic Manager. Next review date: ${nextReviewDate}`;
+}
+
+function generateObjective(topic, type) {
+    return `To establish standardized procedures for ${topic.toLowerCase()} that ensure consistent, safe, and effective operations across all clinic locations.`;
+}
+
+function generatePrinciples(topic, type) {
+    return `GUIDING PRINCIPLES:
+- Safety of all personnel and patients is the top priority
+- Compliance with industry standards and regulations is mandatory
+- Clear communication and coordination are essential
+- Regular training and competency assessments ensure preparedness
+- Continuous improvement based on outcomes and feedback`;
+}
+
+function generateExamples(topic, type) {
+    return `SCENARIOS:
+
+TYPICAL SITUATION:
+- Standard procedure implementation
+- Routine monitoring and assessment
+- Documentation and reporting
+- Quality assurance activities
+- Continuous improvement planning
+
+EMERGENCY SITUATION:
+- Immediate response protocols
+- Emergency communication procedures
+- Documentation of emergency events
+- Post-emergency evaluation
+- Policy updates based on lessons learned
+
+SPECIAL CIRCUMSTANCES:
+- Non-routine situations requiring adaptation
+- Special considerations for specific cases
+- Escalation procedures for complex issues
+- Documentation of special circumstances
+- Policy updates for recurring special cases`;
+}
+
+function generateEscalation(topic, type) {
+    return `ESCALATION AND SUPPORT:
+
+IMMEDIATE ESCALATION:
+- Report critical issues to supervisor immediately
+- Contact emergency services if required
+- Document all escalation events
+- Follow established communication protocols
+- Coordinate with appropriate authorities
+
+SUPPORT RESOURCES:
+- Clinical supervisor for technical issues
+- Management for policy and procedure questions
+- IT support for system-related problems
+- Emergency services for critical situations
+- External consultants for specialized expertise
+
+DOCUMENTATION:
+- Document all escalation events
+- Maintain records of support provided
+- Track resolution times and outcomes
+- Identify trends and improvement opportunities
+- Update procedures based on escalation experiences`;
+}
+
+function generateReview(topic, type, currentDate) {
+    const nextReviewDate = new Date(Date.now() + 30*24*60*60*1000).toISOString().split('T')[0];
+    return `REVIEW AND REVISION:
+
+MONTHLY REVIEWS:
+- Evaluate procedure effectiveness
+- Assess staff compliance and performance
+- Identify areas for improvement
+- Update procedures as needed
+- Document all changes and rationale
+
+ANNUAL REVIEW:
+- Comprehensive review of all procedures
+- Benchmark against industry standards
+- Update based on regulatory changes
+- Train staff on any modifications
+- Integrate with overall quality management
+
+NEXT REVIEW DATE: ${nextReviewDate}`;
+}
+
+function generateMessage(topic, type) {
+    return `URGENT: ${topic} Policy Update
+
+All CSI clinic staff are required to review and implement updated ${topic.toLowerCase()} procedures effective immediately.
+
+KEY UPDATES:
+- New procedures and protocols
+- Updated training requirements
+- Enhanced monitoring and compliance measures
+- New staff assignments and responsibilities
+
+WHAT THIS MEANS FOR STAFF:
+- All staff must complete updated training by end of month
+- New procedures must be followed exactly
+- Regular compliance monitoring will be implemented
+- Support and resources are available for implementation
+
+WHAT THIS MEANS FOR CLIENTS:
+- Enhanced safety and quality of care
+- Improved service delivery and outcomes
+- Clear communication about any changes
+- Continued commitment to excellence
+
+ACTION REQUIRED:
+- Review new procedures in staff handbook
+- Complete updated training by month end
+- Follow new protocols exactly
+- Report any concerns or questions immediately
+
+This memo is effective immediately and supersedes all previous ${topic.toLowerCase()} procedures.`;
+}
+
+function generateEffectivePeriod(topic, type, currentDate) {
+    const reviewDate = new Date(Date.now() + 30*24*60*60*1000).toISOString().split('T')[0];
+    return `Effective Date: ${currentDate}\nReview Date: ${reviewDate}`;
+}
+
+function generateNextSteps(topic, type) {
+    return `NEXT STEPS:
+1. Complete updated training by month end
+2. Review new procedures and protocols
+3. Implement new monitoring measures
+4. Know your responsibilities and assignments
+5. Report any concerns or questions immediately`;
+}
+
+function generateContact(topic, type) {
+    return `CONTACT FOR QUESTIONS:
+- Clinical Supervisor: [Contact Information]
+- Clinic Manager: [Contact Information]
+- Policy Coordinator: [Contact Information]`;
 }
 
 function generateComprehensivePolicy(topic, type, requirements) {
@@ -1121,22 +1782,9 @@ MONITORING AND AUDITS:
 - Monthly fire safety equipment checks
 - Quarterly evacuation drill evaluations
 - Annual fire safety compliance audits
-- Continuous improvement based on drill outcomes
-
-RELATED DOCUMENTS:
-- NFPA 101: Life Safety Code
-- Local Fire Department Regulations
-- CSI Emergency Response Plan
-- CSI Patient Safety Protocols
-- OSHA Fire Safety Standards
-
-REVIEW AND APPROVAL:
-- Policy reviewed annually by Safety Committee
-- Updated based on regulatory changes and best practices
-- Approved by Fire Safety Officer and Clinic Manager
-- Next review date: ${new Date(Date.now() + 365*24*60*60*1000).toISOString().split('T')[0]}`,
+- Continuous improvement based on drill outcomes`,
             relatedDocuments: `NFPA 101: Life Safety Code, Local Fire Department Regulations, CSI Emergency Response Plan, CSI Patient Safety Protocols, OSHA Fire Safety Standards`,
-            reviewApproval: `Policy reviewed annually by Safety Committee. Updated based on regulatory changes and best practices. Approved by Fire Safety Officer and Clinic Manager.`
+            reviewApproval: `Policy reviewed annually by Safety Committee. Updated based on regulatory changes and best practices. Approved by Fire Safety Officer and Clinic Manager. Next review date: ${new Date(Date.now() + 365*24*60*60*1000).toISOString().split('T')[0]}`
         };
     } else if (type === 'sog') {
         return {

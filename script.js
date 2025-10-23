@@ -61,18 +61,18 @@ let draftPolicies = [];
 
 // Settings Data
 let roles = [
-    { id: 1, name: "Senior Veterinarian", description: "Lead veterinarian responsible for medical decisions and staff supervision" },
-    { id: 2, name: "Veterinary Technician", description: "Technical support staff responsible for patient care and procedures" },
-    { id: 3, name: "Clinic Manager", description: "Administrative oversight and operational management" },
-    { id: 4, name: "Support Staff", description: "Front desk, cleaning, and general support personnel" }
+    { id: 1, name: "Senior Veterinarian", description: "Lead veterinarian responsible for medical decisions and staff supervision", staffName: "Dr. Sarah Johnson", email: "sarah.johnson@csi.com" },
+    { id: 2, name: "Veterinary Technician", description: "Technical support staff responsible for patient care and procedures", staffName: "Mike Rodriguez", email: "mike.rodriguez@csi.com" },
+    { id: 3, name: "Clinic Manager", description: "Administrative oversight and operational management", staffName: "Lisa Chen", email: "lisa.chen@csi.com" },
+    { id: 4, name: "Support Staff", description: "Front desk, cleaning, and general support personnel", staffName: "Tom Wilson", email: "tom.wilson@csi.com" }
 ];
 
 let disciplinaryActions = [
-    { id: 1, name: "Verbal Warning", description: "Informal discussion about policy violation", severity: "minor" },
-    { id: 2, name: "Written Warning", description: "Formal written notice of policy violation", severity: "moderate" },
-    { id: 3, name: "Performance Improvement Plan", description: "Structured plan to address policy compliance issues", severity: "major" },
-    { id: 4, name: "Suspension", description: "Temporary suspension from duties", severity: "severe" },
-    { id: 5, name: "Termination", description: "Employment termination for serious policy violations", severity: "severe" }
+    { id: 1, name: "Verbal Warning", description: "Informal discussion about policy violation", penalties: "Written documentation in personnel file", severity: "minor" },
+    { id: 2, name: "Written Warning", description: "Formal written notice of policy violation", penalties: "Written warning in personnel file, performance review required", severity: "moderate" },
+    { id: 3, name: "Performance Improvement Plan", description: "Structured plan to address policy compliance issues", penalties: "Mandatory training, 30-day improvement period, regular monitoring", severity: "major" },
+    { id: 4, name: "Suspension", description: "Temporary suspension from duties", penalties: "Unpaid suspension, mandatory retraining, probationary period", severity: "severe" },
+    { id: 5, name: "Termination", description: "Employment termination for serious policy violations", penalties: "Immediate termination, loss of benefits, potential legal action", severity: "severe" }
 ];
 
 // DOM Elements
@@ -4718,16 +4718,20 @@ function showSettingsTab(tabName) {
 function addRole() {
     const name = document.getElementById('newRoleName').value.trim();
     const description = document.getElementById('newRoleDescription').value.trim();
+    const staffName = document.getElementById('newRoleStaffName').value.trim();
+    const email = document.getElementById('newRoleEmail').value.trim();
     
-    if (!name || !description) {
-        alert('Please fill in both role name and description.');
+    if (!name || !description || !staffName || !email) {
+        alert('Please fill in all fields: role name, description, staff name, and email.');
         return;
     }
     
     const newRole = {
         id: roles.length + 1,
         name: name,
-        description: description
+        description: description,
+        staffName: staffName,
+        email: email
     };
     
     roles.push(newRole);
@@ -4736,6 +4740,8 @@ function addRole() {
     // Clear form
     document.getElementById('newRoleName').value = '';
     document.getElementById('newRoleDescription').value = '';
+    document.getElementById('newRoleStaffName').value = '';
+    document.getElementById('newRoleEmail').value = '';
 }
 
 function deleteRole(roleId) {
@@ -4757,6 +4763,7 @@ function displayRoles() {
         <div class="item-card">
             <div class="item-info">
                 <h4>${role.name}</h4>
+                <p><strong>Staff:</strong> ${role.staffName} (${role.email})</p>
                 <p>${role.description}</p>
             </div>
             <div class="item-actions">
@@ -4771,10 +4778,11 @@ function displayRoles() {
 function addDisciplinaryAction() {
     const name = document.getElementById('newActionName').value.trim();
     const description = document.getElementById('newActionDescription').value.trim();
+    const penalties = document.getElementById('newActionPenalties').value.trim();
     const severity = document.getElementById('newActionSeverity').value;
     
-    if (!name || !description) {
-        alert('Please fill in both action name and description.');
+    if (!name || !description || !penalties) {
+        alert('Please fill in all fields: action name, description, and penalties.');
         return;
     }
     
@@ -4782,6 +4790,7 @@ function addDisciplinaryAction() {
         id: disciplinaryActions.length + 1,
         name: name,
         description: description,
+        penalties: penalties,
         severity: severity
     };
     
@@ -4791,6 +4800,7 @@ function addDisciplinaryAction() {
     // Clear form
     document.getElementById('newActionName').value = '';
     document.getElementById('newActionDescription').value = '';
+    document.getElementById('newActionPenalties').value = '';
     document.getElementById('newActionSeverity').value = 'minor';
 }
 
@@ -4814,6 +4824,7 @@ function displayDisciplinaryActions() {
             <div class="item-info">
                 <h4>${action.name} <span class="severity-badge severity-${action.severity}">${action.severity}</span></h4>
                 <p>${action.description}</p>
+                <p><strong>Penalties:</strong> ${action.penalties}</p>
             </div>
             <div class="item-actions">
                 <button onclick="deleteDisciplinaryAction(${action.id})" class="btn btn-sm btn-danger">

@@ -1510,7 +1510,7 @@ body {
 
 .add-item-form {
     display: grid;
-    grid-template-columns: 1fr 1fr auto;
+    grid-template-columns: 1fr 1fr 1fr 1fr auto;
     gap: 10px;
     margin-bottom: 20px;
     align-items: end;

@@ -128,50 +128,6 @@
         </div>
     </section>
 
-    <!-- Admin Section -->
-    <section id="admin" class="admin-section">
-        <div class="container">
-            <h2>Admin Dashboard</h2>
-            <div class="admin-actions">
-                <button class="btn btn-primary" onclick="openCreateModal()">
-                    <i class="fas fa-plus"></i> Create New Policy
-                </button>
-                <button class="btn btn-secondary" onclick="openAIModal()">
-                    <i class="fas fa-robot"></i> AI Policy Generator
-                </button>
-            </div>
-            <div class="admin-stats">
-                <div class="stat-card">
-                    <i class="fas fa-file-alt"></i>
-                    <h3 id="totalPolicies">0</h3>
-                    <p>Total Policies</p>
-                </div>
-                <div class="stat-card">
-                    <i class="fas fa-clock"></i>
-                    <h3 id="recentUpdates">0</h3>
-                    <p>Recent Updates</p>
-                </div>
-                <div class="stat-card">
-                    <i class="fas fa-edit"></i>
-                    <h3 id="draftCount">0</h3>
-                    <p>Draft Policies</p>
-                </div>
-                <div class="stat-card">
-                    <i class="fas fa-users"></i>
-                    <h3>4</h3>
-                    <p>Clinic Locations</p>
-                </div>
-            </div>
-            
-            <!-- Draft Management Section -->
-            <div class="draft-management">
-                <h3>Draft Policies</h3>
-                <div id="draftList" class="draft-list">
-                    <!-- Drafts will be displayed here -->
-                </div>
-            </div>
-        </div>
-    </section>
 
     <!-- Create Policy Modal -->
     <div id="createModal" class="modal">
@@ -265,6 +221,8 @@
                         <div class="add-item-form">
                             <input type="text" id="newRoleName" placeholder="Role name (e.g., Senior Veterinarian)">
                             <input type="text" id="newRoleDescription" placeholder="Role description">
+                            <input type="text" id="newRoleStaffName" placeholder="Staff member name">
+                            <input type="email" id="newRoleEmail" placeholder="Staff email">
                             <button onclick="addRole()" class="btn btn-primary">
                                 <i class="fas fa-plus"></i> Add Role
                             </button>
@@ -282,6 +240,7 @@
                         <div class="add-item-form">
                             <input type="text" id="newActionName" placeholder="Action name (e.g., Verbal Warning)">
                             <input type="text" id="newActionDescription" placeholder="Action description">
+                            <input type="text" id="newActionPenalties" placeholder="Penalties (e.g., Written warning, Performance review)">
                             <select id="newActionSeverity">
                                 <option value="minor">Minor</option>
                                 <option value="moderate">Moderate</option>

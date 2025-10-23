@@ -26,7 +26,7 @@
                         <a href="#memos">Communication Memos</a>
                     </div>
                 </div>
-                <a href="#admin" class="nav-link">Admin Dashboard</a>
+                <a href="#" onclick="openPasswordModal()" class="nav-link">Admin Dashboard</a>
             </div>
             <div class="nav-toggle">
                 <i class="fas fa-bars"></i>
@@ -41,7 +41,7 @@
             <p>Secure, organized, and compliant policy management for healthcare facilities</p>
             <div class="hero-buttons">
                 <a href="#policies" class="btn btn-primary">View All Policies</a>
-                <a href="#admin" class="btn btn-secondary">Admin Dashboard</a>
+                <a href="#" onclick="openPasswordModal()" class="btn btn-secondary">Admin Dashboard</a>
             </div>
         </div>
     </section>
@@ -216,6 +216,71 @@
         </div>
     </div>
 
+    <!-- Password Protection Modal -->
+    <div id="passwordModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2><i class="fas fa-lock"></i> Admin Access</h2>
+                <span class="close" onclick="closePasswordModal()">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div class="password-form">
+                    <div class="form-group">
+                        <label for="adminPassword">Enter Admin Password:</label>
+                        <input type="password" id="adminPassword" placeholder="Enter password..." required>
+                        <div id="passwordError" class="error-message"></div>
+                    </div>
+                    <div class="form-actions">
+                        <button onclick="checkAdminPassword()" class="btn btn-primary">
+                            <i class="fas fa-sign-in-alt"></i> Access Admin
+                        </button>
+                        <button onclick="closePasswordModal()" class="btn btn-secondary">Cancel</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Admin Dashboard Modal -->
+    <div id="adminModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2><i class="fas fa-cog"></i> Admin Dashboard</h2>
+                <span class="close" onclick="closeAdminModal()">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div class="admin-stats">
+                    <div class="stat-card">
+                        <h3>Total Policies</h3>
+                        <span id="adminTotalPolicies">0</span>
+                    </div>
+                    <div class="stat-card">
+                        <h3>Draft Policies</h3>
+                        <span id="adminDraftCount">0</span>
+                    </div>
+                    <div class="stat-card">
+                        <h3>Recent Updates</h3>
+                        <span id="adminRecentUpdates">0</span>
+                    </div>
+                </div>
+                <div class="admin-actions">
+                    <button onclick="closeAdminModal(); openCreateModal();" class="btn btn-primary">
+                        <i class="fas fa-plus"></i> Create New Policy
+                    </button>
+                    <button onclick="closeAdminModal(); openAIModal();" class="btn btn-success">
+                        <i class="fas fa-robot"></i> AI Policy Generator
+                    </button>
+                </div>
+                <div class="draft-management">
+                    <h3>Draft Policies</h3>
+                    <div id="adminDraftList" class="draft-list">
+                        <!-- Draft policies will be displayed here -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- AI Policy Generator Modal -->
     <div id="aiModal" class="modal">
         <div class="modal-content">
@@ -226,6 +291,16 @@
             <div class="modal-body">
                 <div class="ai-intro">
                     <p>Let AI generate professional healthcare policies for you. Simply provide the topic and requirements.</p>
+                    <div class="ai-options">
+                        <label class="ai-toggle">
+                            <input type="checkbox" id="useChatGPT" onchange="toggleAIMode()">
+                            <span class="toggle-slider"></span>
+                            <span class="toggle-label">Use ChatGPT (Advanced AI)</span>
+                        </label>
+                        <div class="ai-mode-info" id="aiModeInfo">
+                            <small>Local AI: Fast, secure, works offline</small>
+                        </div>
+                    </div>
                 </div>
                 <!-- AI Survey Form -->
                 <div id="aiSurveyForm">

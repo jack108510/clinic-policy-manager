@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CSI Policy Manager</title>
+    <link rel="stylesheet" href="styles.css">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar">
+        <div class="nav-container">
+            <div class="nav-logo">
+                <i class="fas fa-shield-alt"></i>
+                <span>CSI Policy Manager</span>
+            </div>
+            <div class="nav-menu">
+                <a href="#home" class="nav-link">Home</a>
+                <a href="#policies" class="nav-link">All Policies</a>
+                <div class="dropdown">
+                    <a href="#" class="nav-link dropdown-toggle">Policy Types <i class="fas fa-chevron-down"></i></a>
+                    <div class="dropdown-content">
+                        <a href="#admin">Admin Policies</a>
+                        <a href="#sog">Standard Operating Guidelines</a>
+                        <a href="#memos">Communication Memos</a>
+                    </div>
+                </div>
+                <a href="#admin" class="nav-link">Admin Dashboard</a>
+            </div>
+            <div class="nav-toggle">
+                <i class="fas fa-bars"></i>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Hero Section -->
+    <section id="home" class="hero">
+        <div class="hero-content">
+            <h1>CSI Policy Manager</h1>
+            <p>Secure, organized, and compliant policy management for healthcare facilities</p>
+            <div class="hero-buttons">
+                <a href="#policies" class="btn btn-primary">View All Policies</a>
+                <a href="#admin" class="btn btn-secondary">Admin Dashboard</a>
+            </div>
+        </div>
+    </section>
+
+    <!-- Policy Types Section -->
+    <section class="policy-types">
+        <div class="container">
+            <h2>Policy Categories</h2>
+            <div class="policy-grid">
+                <div class="policy-card" data-type="admin">
+                    <div class="policy-icon">
+                        <i class="fas fa-user-shield"></i>
+                    </div>
+                    <h3>Admin Policies</h3>
+                    <p>Administrative procedures and governance policies</p>
+                    <a href="#admin" class="btn btn-outline">View Admin Policies</a>
+                </div>
+                <div class="policy-card" data-type="sog">
+                    <div class="policy-icon">
+                        <i class="fas fa-clipboard-list"></i>
+                    </div>
+                    <h3>Standard Operating Guidelines</h3>
+                    <p>Operational procedures and clinical guidelines</p>
+                    <a href="#sog" class="btn btn-outline">View SOG</a>
+                </div>
+                <div class="policy-card" data-type="memos">
+                    <div class="policy-icon">
+                        <i class="fas fa-comments"></i>
+                    </div>
+                    <h3>Communication Memos</h3>
+                    <p>Internal communications and announcements</p>
+                    <a href="#memos" class="btn btn-outline">View Memos</a>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Clinics Section -->
+    <section class="clinics">
+        <div class="container">
+            <h2>Our Clinic Locations</h2>
+            <div class="clinic-grid">
+                <div class="clinic-card">
+                    <i class="fas fa-hospital"></i>
+                    <h3>Tudor Glen</h3>
+                    <p>Primary clinic location</p>
+                </div>
+                <div class="clinic-card">
+                    <i class="fas fa-hospital"></i>
+                    <h3>River Valley</h3>
+                    <p>Secondary clinic location</p>
+                </div>
+                <div class="clinic-card">
+                    <i class="fas fa-hospital"></i>
+                    <h3>Rosslyn</h3>
+                    <p>Extended services location</p>
+                </div>
+                <div class="clinic-card">
+                    <i class="fas fa-hospital"></i>
+                    <h3>UPC</h3>
+                    <p>University partnership clinic</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- All Policies Section -->
+    <section id="policies" class="policies">
+        <div class="container">
+            <h2>All Policies</h2>
+            <div class="search-bar">
+                <input type="text" id="policySearch" placeholder="Search policies...">
+                <i class="fas fa-search"></i>
+            </div>
+            <div class="filter-buttons">
+                <button class="filter-btn active" data-filter="all">All Policies</button>
+                <button class="filter-btn" data-filter="admin">Admin</button>
+                <button class="filter-btn" data-filter="sog">Standard Operating Guidelines</button>
+                <button class="filter-btn" data-filter="memos">Communication Memos</button>
+            </div>
+            <div class="policies-grid" id="policiesGrid">
+                <!-- Policies will be loaded here -->
+            </div>
+        </div>
+    </section>
+
+    <!-- Admin Section -->
+    <section id="admin" class="admin-section">
+        <div class="container">
+            <h2>Admin Dashboard</h2>
+            <div class="admin-actions">
+                <button class="btn btn-primary" onclick="openCreateModal()">
+                    <i class="fas fa-plus"></i> Create New Policy
+                </button>
+            </div>
+            <div class="admin-stats">
+                <div class="stat-card">
+                    <i class="fas fa-file-alt"></i>
+                    <h3 id="totalPolicies">0</h3>
+                    <p>Total Policies</p>
+                </div>
+                <div class="stat-card">
+                    <i class="fas fa-clock"></i>
+                    <h3 id="recentUpdates">0</h3>
+                    <p>Recent Updates</p>
+                </div>
+                <div class="stat-card">
+                    <i class="fas fa-users"></i>
+                    <h3>4</h3>
+                    <p>Clinic Locations</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Create Policy Modal -->
+    <div id="createModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Create New Policy</h3>
+                <span class="close" onclick="closeCreateModal()">&times;</span>
+            </div>
+            <form id="policyForm" class="modal-body">
+                <div class="form-group">
+                    <label for="policyTitle">Policy Title</label>
+                    <input type="text" id="policyTitle" required>
+                </div>
+                <div class="form-group">
+                    <label for="policyType">Policy Type</label>
+                    <select id="policyType" required>
+                        <option value="">Select Type</option>
+                        <option value="admin">Admin Policy</option>
+                        <option value="sog">Standard Operating Guidelines</option>
+                        <option value="memos">Communication Memos</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="clinicApplicability">Clinic Applicability</label>
+                    <select id="clinicApplicability" multiple required>
+                        <option value="tudor-glen">Tudor Glen</option>
+                        <option value="river-valley">River Valley</option>
+                        <option value="rosslyn">Rosslyn</option>
+                        <option value="upc">UPC</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="policyPurpose">Purpose</label>
+                    <textarea id="policyPurpose" rows="3" required></textarea>
+                </div>
+                <div class="form-group">
+                    <label for="policyProcedure">Procedure</label>
+                    <textarea id="policyProcedure" rows="5" required></textarea>
+                </div>
+                <div class="form-group">
+                    <label for="policyRoles">Roles & Responsibilities</label>
+                    <textarea id="policyRoles" rows="3" required></textarea>
+                </div>
+                <div class="form-group">
+                    <label for="policyCompliance">Compliance Requirements</label>
+                    <textarea id="policyCompliance" rows="3" required></textarea>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" onclick="closeCreateModal()">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Create Policy</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-content">
+                <div class="footer-logo">
+                    <i class="fas fa-shield-alt"></i>
+                    <span>CSI Policy Manager</span>
+                </div>
+                <p>&copy; 2024 CSI Policy Manager. All rights reserved.</p>
+            </div>
+        </div>
+    </footer>
+
+    <script src="script.js"></script>
+</body>
+</html>

@@ -57,6 +57,7 @@ const samplePolicies = [
 ];
 
 let currentPolicies = [...samplePolicies];
+let draftPolicies = [];
 
 // DOM Elements
 const policiesGrid = document.getElementById('policiesGrid');
@@ -71,11 +72,14 @@ const aiForm = document.getElementById('aiForm');
 const aiLoading = document.getElementById('aiLoading');
 const aiResult = document.getElementById('aiResult');
 const aiGeneratedContent = document.getElementById('aiGeneratedContent');
+const draftList = document.getElementById('draftList');
+const draftCountElement = document.getElementById('draftCount');
 
 // Initialize the application
 document.addEventListener('DOMContentLoaded', function() {
     displayPolicies(currentPolicies);
     updateStats();
+    displayDrafts();
     setupEventListeners();
 });
 
@@ -240,6 +244,7 @@ function updateStats() {
     ).length;
     
     recentUpdatesElement.textContent = recentUpdates;
+    draftCountElement.textContent = draftPolicies.length;
 }
 
 // Helper Functions
@@ -1515,145 +1520,23 @@ function displayAIPolicy(policy) {
     aiLoading.style.display = 'none';
     aiResult.style.display = 'block';
     
-    // Generate content based on policy type
-    let content = '';
+    // Use the new professional formatting
+    const formattedContent = formatPolicyContent(policy, policy.type);
     
-    if (policy.type === 'admin') {
-        content = `
-        <div class="policy-preview">
-            <h4>${policy.title}</h4>
-            <div class="preview-section">
-                <div class="preview-label">Policy Type:</div>
-                <div class="preview-content">${policy.typeLabel}</div>
-            </div>
-            <div class="preview-section">
-                <div class="preview-label">Applicable Clinics:</div>
-                <div class="preview-content">${policy.clinicNames}</div>
-            </div>
-            <div class="preview-section">
-                <div class="preview-label">Purpose:</div>
-                <div class="preview-content">${policy.purpose}</div>
-            </div>
-            <div class="preview-section">
-                <div class="preview-label">Scope:</div>
-                <div class="preview-content">${policy.scope}</div>
-            </div>
-            <div class="preview-section">
-                <div class="preview-label">Policy Statement:</div>
-                <div class="preview-content">${policy.policyStatement}</div>
-            </div>
-            <div class="preview-section">
-                <div class="preview-label">Definitions:</div>
-                <div class="preview-content">${policy.definitions}</div>
-            </div>
-            <div class="preview-section">
-                <div class="preview-label">Procedure / Implementation:</div>
-                <div class="preview-content">${policy.procedure}</div>
-            </div>
-            <div class="preview-section">
-                <div class="preview-label">Responsibilities:</div>
-                <div class="preview-content">${policy.roles}</div>
-            </div>
-            <div class="preview-section">
-                <div class="preview-label">Consequences / Accountability:</div>
-                <div class="preview-content">${policy.compliance}</div>
-            </div>
-            ${policy.additionalRequirements ? `
-            <div class="preview-section">
-                <div class="preview-label">Additional Requirements:</div>
-                <div class="preview-content">${policy.additionalRequirements}</div>
-            </div>
-            ` : ''}
-        </div>`;
-    } else if (policy.type === 'sog') {
-        content = `
-        <div class="policy-preview">
-            <h4>${policy.title}</h4>
-            <div class="preview-section">
-                <div class="preview-label">Policy Type:</div>
-                <div class="preview-content">${policy.typeLabel}</div>
-            </div>
-            <div class="preview-section">
-                <div class="preview-label">Applicable Clinics:</div>
-                <div class="preview-content">${policy.clinicNames}</div>
-            </div>
-            <div class="preview-section">
-                <div class="preview-label">Objective:</div>
-                <div class="preview-content">${policy.objective}</div>
-            </div>
-            <div class="preview-section">
-                <div class="preview-label">Guiding Principles:</div>
-                <div class="preview-content">${policy.principles}</div>
-            </div>
-            <div class="preview-section">
-                <div class="preview-label">Recommended Approach / Procedure:</div>
-                <div class="preview-content">${policy.procedure}</div>
-            </div>
-            <div class="preview-section">
-                <div class="preview-label">Definitions:</div>
-                <div class="preview-content">${policy.definitions}</div>
-            </div>
-            <div class="preview-section">
-                <div class="preview-label">Examples / Scenarios:</div>
-                <div class="preview-content">${policy.examples}</div>
-            </div>
-            <div class="preview-section">
-                <div class="preview-label">Responsibilities:</div>
-                <div class="preview-content">${policy.roles}</div>
-            </div>
-            <div class="preview-section">
-                <div class="preview-label">Escalation / Support:</div>
-                <div class="preview-content">${policy.escalation}</div>
-            </div>
-            <div class="preview-section">
-                <div class="preview-label">Review & Revision:</div>
-                <div class="preview-content">${policy.review}</div>
-            </div>
-            ${policy.additionalRequirements ? `
-            <div class="preview-section">
-                <div class="preview-label">Additional Requirements:</div>
-                <div class="preview-content">${policy.additionalRequirements}</div>
-            </div>
-            ` : ''}
-        </div>`;
-    } else {
-        content = `
-        <div class="policy-preview">
-            <h4>${policy.title}</h4>
-            <div class="preview-section">
-                <div class="preview-label">Policy Type:</div>
-                <div class="preview-content">${policy.typeLabel}</div>
-            </div>
-            <div class="preview-section">
-                <div class="preview-label">Applicable Clinics:</div>
-                <div class="preview-content">${policy.clinicNames}</div>
-            </div>
-            <div class="preview-section">
-                <div class="preview-label">Message:</div>
-                <div class="preview-content">${policy.message}</div>
-            </div>
-            <div class="preview-section">
-                <div class="preview-label">Effective Period:</div>
-                <div class="preview-content">${policy.effectivePeriod}</div>
-            </div>
-            <div class="preview-section">
-                <div class="preview-label">Next Steps / Action Required:</div>
-                <div class="preview-content">${policy.nextSteps}</div>
-            </div>
-            <div class="preview-section">
-                <div class="preview-label">Contact for Questions:</div>
-                <div class="preview-content">${policy.contact}</div>
-            </div>
-            ${policy.additionalRequirements ? `
-            <div class="preview-section">
-                <div class="preview-label">Additional Requirements:</div>
-                <div class="preview-content">${policy.additionalRequirements}</div>
-            </div>
-            ` : ''}
-        </div>`;
-    }
+    // Add clinic information at the top
+    const clinicInfo = `
+    <div class="policy-info">
+        <div class="info-item">
+            <strong>Applicable Clinics:</strong> ${policy.clinicNames}
+        </div>
+        ${policy.additionalRequirements ? `
+        <div class="info-item">
+            <strong>Additional Requirements:</strong> ${policy.additionalRequirements}
+        </div>
+        ` : ''}
+    </div>`;
     
-    aiGeneratedContent.innerHTML = content;
+    aiGeneratedContent.innerHTML = clinicInfo + formattedContent;
     
     // Store the generated policy for saving
     window.currentGeneratedPolicy = policy;
@@ -1693,6 +1576,229 @@ function saveAIPolicy() {
     closeAIModal();
     
     showNotification('AI-generated policy saved successfully!', 'success');
+}
+
+// Draft Management Functions
+function storeDraft() {
+    const policy = window.currentGeneratedPolicy;
+    if (!policy) return;
+    
+    const draft = {
+        id: Date.now(),
+        title: policy.title,
+        type: policy.type,
+        clinics: policy.clinics,
+        content: policy,
+        created: new Date().toISOString().split('T')[0],
+        status: 'draft'
+    };
+    
+    draftPolicies.unshift(draft);
+    displayDrafts();
+    updateStats();
+    closeAIModal();
+    
+    showNotification('Draft saved successfully!', 'success');
+}
+
+function displayDrafts() {
+    if (draftPolicies.length === 0) {
+        draftList.innerHTML = '<p class="no-drafts">No draft policies available.</p>';
+        return;
+    }
+    
+    draftList.innerHTML = draftPolicies.map(draft => `
+        <div class="draft-item">
+            <div class="draft-info">
+                <h4>${draft.title}</h4>
+                <p>${getTypeLabel(draft.type)} • Created: ${formatDate(draft.created)}</p>
+            </div>
+            <div class="draft-actions">
+                <button class="draft-btn edit" onclick="editDraft(${draft.id})">Edit</button>
+                <button class="draft-btn publish" onclick="publishDraft(${draft.id})">Publish</button>
+                <button class="draft-btn delete" onclick="deleteDraft(${draft.id})">Delete</button>
+            </div>
+        </div>
+    `).join('');
+}
+
+function editDraft(draftId) {
+    const draft = draftPolicies.find(d => d.id === draftId);
+    if (!draft) return;
+    
+    // Open AI modal with pre-filled data
+    openAIModal();
+    
+    // Pre-fill the form with draft data
+    document.getElementById('aiPolicyTopic').value = draft.title;
+    document.getElementById('aiPolicyType').value = draft.type;
+    document.getElementById('aiClinicApplicability').value = draft.clinics;
+    
+    // Store the draft ID for updating
+    window.editingDraftId = draftId;
+}
+
+function publishDraft(draftId) {
+    const draft = draftPolicies.find(d => d.id === draftId);
+    if (!draft) return;
+    
+    const newPolicy = {
+        id: currentPolicies.length + 1,
+        title: draft.title,
+        type: draft.type,
+        clinics: draft.clinics,
+        description: draft.content.purpose || draft.content.objective || draft.content.message,
+        created: new Date().toISOString().split('T')[0],
+        updated: new Date().toISOString().split('T')[0]
+    };
+    
+    currentPolicies.unshift(newPolicy);
+    deleteDraft(draftId);
+    displayPolicies(currentPolicies);
+    updateStats();
+    
+    showNotification('Draft published successfully!', 'success');
+}
+
+function deleteDraft(draftId) {
+    draftPolicies = draftPolicies.filter(d => d.id !== draftId);
+    displayDrafts();
+    updateStats();
+    
+    showNotification('Draft deleted successfully!', 'success');
+}
+
+function regeneratePolicy() {
+    // Close current result and regenerate
+    aiResult.style.display = 'none';
+    aiForm.style.display = 'block';
+    
+    // Generate new policy with same inputs
+    generateAIPolicy();
+}
+
+// Enhanced AI Policy Generation with Better Formatting
+function formatPolicyContent(content, type) {
+    if (type === 'admin') {
+        return `
+        <div class="policy-preview professional">
+            <div class="policy-header">
+                <h4>${content.title}</h4>
+                <span class="policy-type-badge admin">Admin Policy</span>
+            </div>
+            
+            <div class="policy-section">
+                <h5><i class="fas fa-info-circle"></i> Purpose</h5>
+                <div class="policy-content">${content.purpose}</div>
+            </div>
+            
+            <div class="policy-section">
+                <h5><i class="fas fa-scope"></i> Scope</h5>
+                <div class="policy-content">${content.scope}</div>
+            </div>
+            
+            <div class="policy-section">
+                <h5><i class="fas fa-gavel"></i> Policy Statement</h5>
+                <div class="policy-content">${content.policyStatement}</div>
+            </div>
+            
+            <div class="policy-section">
+                <h5><i class="fas fa-book"></i> Definitions</h5>
+                <div class="policy-content">${content.definitions}</div>
+            </div>
+            
+            <div class="policy-section">
+                <h5><i class="fas fa-cogs"></i> Procedure / Implementation</h5>
+                <div class="policy-content">${content.procedure}</div>
+            </div>
+            
+            <div class="policy-section">
+                <h5><i class="fas fa-users"></i> Responsibilities</h5>
+                <div class="policy-content">${content.roles}</div>
+            </div>
+            
+            <div class="policy-section">
+                <h5><i class="fas fa-shield-alt"></i> Consequences / Accountability</h5>
+                <div class="policy-content">${content.compliance}</div>
+            </div>
+        </div>`;
+    } else if (type === 'sog') {
+        return `
+        <div class="policy-preview professional">
+            <div class="policy-header">
+                <h4>${content.title}</h4>
+                <span class="policy-type-badge sog">Standard Operating Guidelines</span>
+            </div>
+            
+            <div class="policy-section">
+                <h5><i class="fas fa-target"></i> Objective</h5>
+                <div class="policy-content">${content.objective}</div>
+            </div>
+            
+            <div class="policy-section">
+                <h5><i class="fas fa-compass"></i> Guiding Principles</h5>
+                <div class="policy-content">${content.principles}</div>
+            </div>
+            
+            <div class="policy-section">
+                <h5><i class="fas fa-route"></i> Recommended Approach / Procedure</h5>
+                <div class="policy-content">${content.procedure}</div>
+            </div>
+            
+            <div class="policy-section">
+                <h5><i class="fas fa-book"></i> Definitions</h5>
+                <div class="policy-content">${content.definitions}</div>
+            </div>
+            
+            <div class="policy-section">
+                <h5><i class="fas fa-lightbulb"></i> Examples / Scenarios</h5>
+                <div class="policy-content">${content.examples}</div>
+            </div>
+            
+            <div class="policy-section">
+                <h5><i class="fas fa-users"></i> Responsibilities</h5>
+                <div class="policy-content">${content.roles}</div>
+            </div>
+            
+            <div class="policy-section">
+                <h5><i class="fas fa-phone"></i> Escalation / Support</h5>
+                <div class="policy-content">${content.escalation}</div>
+            </div>
+            
+            <div class="policy-section">
+                <h5><i class="fas fa-sync"></i> Review & Revision</h5>
+                <div class="policy-content">${content.review}</div>
+            </div>
+        </div>`;
+    } else {
+        return `
+        <div class="policy-preview professional">
+            <div class="policy-header">
+                <h4>${content.title}</h4>
+                <span class="policy-type-badge memo">Communication Memo</span>
+            </div>
+            
+            <div class="policy-section">
+                <h5><i class="fas fa-envelope"></i> Message</h5>
+                <div class="policy-content">${content.message}</div>
+            </div>
+            
+            <div class="policy-section">
+                <h5><i class="fas fa-calendar"></i> Effective Period</h5>
+                <div class="policy-content">${content.effectivePeriod}</div>
+            </div>
+            
+            <div class="policy-section">
+                <h5><i class="fas fa-list-check"></i> Next Steps / Action Required</h5>
+                <div class="policy-content">${content.nextSteps}</div>
+            </div>
+            
+            <div class="policy-section">
+                <h5><i class="fas fa-phone"></i> Contact for Questions</h5>
+                <div class="policy-content">${content.contact}</div>
+            </div>
+        </div>`;
+    }
 }
 
 // Mobile menu toggle (if needed)

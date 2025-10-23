@@ -152,9 +152,22 @@
                     <p>Recent Updates</p>
                 </div>
                 <div class="stat-card">
+                    <i class="fas fa-edit"></i>
+                    <h3 id="draftCount">0</h3>
+                    <p>Draft Policies</p>
+                </div>
+                <div class="stat-card">
                     <i class="fas fa-users"></i>
                     <h3>4</h3>
                     <p>Clinic Locations</p>
+                </div>
+            </div>
+            
+            <!-- Draft Management Section -->
+            <div class="draft-management">
+                <h3>Draft Policies</h3>
+                <div id="draftList" class="draft-list">
+                    <!-- Drafts will be displayed here -->
                 </div>
             </div>
         </div>
@@ -267,8 +280,10 @@
                     <h4>Generated Policy Preview</h4>
                     <div id="aiGeneratedContent"></div>
                     <div class="ai-result-actions">
-                        <button class="btn btn-secondary" onclick="editAIPolicy()">Edit Policy</button>
-                        <button class="btn btn-primary" onclick="saveAIPolicy()">Save Policy</button>
+                        <button class="btn btn-secondary" onclick="storeDraft()">Store Draft</button>
+                        <button class="btn btn-outline" onclick="regeneratePolicy()">Ask AI Again</button>
+                        <button class="btn btn-secondary" onclick="editAIPolicy()">Edit Manually</button>
+                        <button class="btn btn-primary" onclick="saveAIPolicy()">Save Final Policy</button>
                     </div>
                 </div>
             </div>

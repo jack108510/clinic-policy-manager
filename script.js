@@ -3489,11 +3489,15 @@ function generateAdminPolicyContent(topic, clinics, urgency, regulations, specif
     return `## PURPOSE
 This policy establishes comprehensive guidelines for ${topic.toLowerCase()} to ensure consistent, safe, and effective operations across all CSI clinic locations (${clinics}). This policy addresses the specific requirements and best practices for ${topic.toLowerCase()} in our veterinary healthcare environment.
 
+${specificNeeds ? `Specific Requirements: ${specificNeeds}` : ''}
+
 ## SCOPE
 This policy applies to all staff members, including veterinarians, veterinary technicians, support staff, and administrative personnel at the following CSI locations: ${clinics}. The policy covers all aspects of ${topic.toLowerCase()} operations and procedures.
 
 ## POLICY STATEMENT
 CSI is committed to maintaining the highest standards of ${topic.toLowerCase()} practices. All staff members must adhere to the procedures outlined in this policy to ensure compliance with regulatory requirements and industry best practices.
+
+${regulations ? `Regulatory Compliance: This policy ensures compliance with ${regulations}.` : ''}
 
 ## DEFINITIONS
 - **${topic}**: The comprehensive set of procedures and guidelines outlined in this policy
@@ -3507,6 +3511,8 @@ CSI is committed to maintaining the highest standards of ${topic.toLowerCase()} 
 3. **Implementation**: Roll out standardized procedures across all clinic locations
 4. **Monitoring**: Regular assessment of compliance and effectiveness
 5. **Continuous Improvement**: Regular review and updates based on feedback and regulatory changes
+
+${urgency ? `Priority Level: ${urgency} - This policy requires immediate attention and implementation.` : ''}
 
 ## RESPONSIBILITIES
 **All Staff**: Follow established protocols, participate in training, report issues promptly
@@ -3530,6 +3536,8 @@ function generateSOGContent(topic, clinics, urgency, regulations, specificNeeds)
     return `## OBJECTIVE
 To provide standardized operating procedures for ${topic.toLowerCase()} across all CSI clinic locations (${clinics}), ensuring consistent, efficient, and safe operations.
 
+${specificNeeds ? `Specific Requirements: ${specificNeeds}` : ''}
+
 ## GUIDING PRINCIPLES
 - Patient safety is the top priority
 - Consistency across all clinic locations
@@ -3543,6 +3551,8 @@ To provide standardized operating procedures for ${topic.toLowerCase()} across a
 4. **Documentation**: Record all activities and outcomes
 5. **Follow-up**: Monitor results and make adjustments as needed
 
+${urgency ? `Priority Level: ${urgency} - This procedure requires immediate implementation.` : ''}
+
 ## DEFINITIONS
 - **Standard Operating Procedure**: Documented process for completing specific tasks
 - **Quality Assurance**: Systematic approach to ensuring consistent outcomes
@@ -3550,6 +3560,8 @@ To provide standardized operating procedures for ${topic.toLowerCase()} across a
 
 ## EXAMPLES / SCENARIOS
 Common scenarios include routine operations, emergency situations, and special cases. Each scenario requires specific procedures and documentation.
+
+${regulations ? `Regulatory Compliance: This procedure ensures compliance with ${regulations}.` : ''}
 
 ## RESPONSIBILITIES
 **Staff Members**: Follow procedures, maintain documentation, report issues
@@ -3567,6 +3579,10 @@ function generateMemoContent(topic, clinics, urgency, regulations, specificNeeds
     return `## MESSAGE
 This memo serves to inform all staff members at CSI clinic locations (${clinics}) about important updates regarding ${topic.toLowerCase()}.
 
+${specificNeeds ? `Key Requirements: ${specificNeeds}` : ''}
+
+All staff members must follow the updated procedures outlined in this communication to ensure compliance with regulatory requirements and maintain the highest standards of patient care.
+
 ## EFFECTIVE PERIOD
 This communication is effective immediately and will remain in effect until further notice.
 
@@ -3576,6 +3592,8 @@ All staff members are required to:
 2. Implement any necessary changes
 3. Contact supervisors with questions
 4. Ensure compliance with updated procedures
+
+${urgency ? `Note: This is a ${urgency} priority communication.` : ''}
 
 ## CONTACT FOR QUESTIONS
 For questions about this memo or related procedures, please contact your immediate supervisor or the clinic manager at your location.`;

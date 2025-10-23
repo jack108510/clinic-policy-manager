@@ -227,47 +227,68 @@
                 <div class="ai-intro">
                     <p>Let AI generate professional healthcare policies for you. Simply provide the topic and requirements.</p>
                 </div>
-                <form id="aiForm">
-                    <div class="form-group">
-                        <label for="aiPolicyTopic">Policy Topic</label>
-                        <input type="text" id="aiPolicyTopic" placeholder="e.g., Hand Hygiene Protocol, Patient Safety, Data Security" required>
-                    </div>
-                    <div class="form-group">
-                        <label for="aiPolicyType">Policy Type</label>
-                        <select id="aiPolicyType" required onchange="updateAIFormFields()">
-                            <option value="">Select Type</option>
-                            <option value="admin">Admin Policy</option>
-                            <option value="sog">Standard Operating Guidelines</option>
-                            <option value="memo">Communication Memos</option>
-                        </select>
-                    </div>
-                    <div class="form-group">
-                        <label for="aiClinicApplicability">Clinic Applicability</label>
-                        <select id="aiClinicApplicability" multiple required>
-                            <option value="tudor-glen">Tudor Glen</option>
-                            <option value="river-valley">River Valley</option>
-                            <option value="rosslyn">Rosslyn</option>
-                            <option value="upc">UPC</option>
-                        </select>
+                <!-- AI Survey Form -->
+                <div id="aiSurveyForm">
+                    <div class="survey-step active" id="step1">
+                        <h4>Step 1: Policy Overview</h4>
+                        <div class="form-group">
+                            <label for="aiPolicyTopic">What type of policy do you need?</label>
+                            <input type="text" id="aiPolicyTopic" placeholder="e.g., Fire Evacuation, Hand Hygiene, Patient Safety, Data Security" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="aiPolicyType">What type of document is this?</label>
+                            <select id="aiPolicyType" required>
+                                <option value="">Select Type</option>
+                                <option value="admin">Admin Policy (Official policy with compliance requirements)</option>
+                                <option value="sog">Standard Operating Guidelines (Step-by-step procedures)</option>
+                                <option value="memo">Communication Memo (Staff announcement/update)</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="aiClinicApplicability">Which clinics does this apply to?</label>
+                            <div class="checkbox-group">
+                                <label><input type="checkbox" name="clinics" value="tudor-glen"> Tudor Glen</label>
+                                <label><input type="checkbox" name="clinics" value="river-valley"> River Valley</label>
+                                <label><input type="checkbox" name="clinics" value="rosslyn"> Rosslyn</label>
+                                <label><input type="checkbox" name="clinics" value="upc"> UPC</label>
+                            </div>
+                        </div>
+                        <button type="button" class="btn btn-primary" onclick="nextStep(2)">Next</button>
                     </div>
                     
-                    <!-- Dynamic AI form fields based on policy type -->
-                    <div id="dynamicAIFormFields">
-                        <!-- Fields will be populated based on policy type selection -->
+                    <div class="survey-step" id="step2">
+                        <h4>Step 2: Policy Details</h4>
+                        <div class="form-group">
+                            <label for="aiSpecificNeeds">What specific needs or challenges does this policy address?</label>
+                            <textarea id="aiSpecificNeeds" rows="3" placeholder="Describe the main issues, concerns, or goals this policy should address..."></textarea>
+                        </div>
+                        <div class="form-group">
+                            <label for="aiUrgency">How urgent is this policy?</label>
+                            <select id="aiUrgency">
+                                <option value="immediate">Immediate (Need to implement right away)</option>
+                                <option value="soon">Soon (Within the next month)</option>
+                                <option value="planned">Planned (Part of regular policy updates)</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="aiRegulations">Are there specific regulations or standards this must comply with?</label>
+                            <textarea id="aiRegulations" rows="2" placeholder="e.g., OSHA, HIPAA, AAHA guidelines, local regulations..."></textarea>
+                        </div>
+                        <div class="form-group">
+                            <label for="aiExistingPolicies">Are there existing policies this should reference or replace?</label>
+                            <textarea id="aiExistingPolicies" rows="2" placeholder="List any current policies, procedures, or documents..."></textarea>
+                        </div>
+                        <div class="form-group">
+                            <label for="aiSpecialConsiderations">Any special considerations or unique aspects?</label>
+                            <textarea id="aiSpecialConsiderations" rows="2" placeholder="Any specific requirements, limitations, or considerations..."></textarea>
+                        </div>
+                        <button type="button" class="btn btn-secondary" onclick="prevStep(1)">Previous</button>
+                        <button type="button" class="btn btn-primary" onclick="generatePolicyFromSurvey()">Generate Policy</button>
                     </div>
-                    
-                    <div class="form-group">
-                        <label for="aiKeyPoints">Key Points / Descriptions</label>
-                        <textarea id="aiKeyPoints" rows="4" placeholder="Describe the key points, objectives, and important aspects of this policy..."></textarea>
-                    </div>
-                    <div class="form-group">
-                        <label for="aiPreviousDocuments">Reference Previous Documents (Optional)</label>
-                        <textarea id="aiPreviousDocuments" rows="3" placeholder="List any existing policies, procedures, or documents that should be referenced or updated..."></textarea>
-                    </div>
-                    <div class="form-group">
-                        <label for="aiAdditionalRequirements">Additional Requirements (Optional)</label>
-                        <textarea id="aiAdditionalRequirements" rows="3" placeholder="Any specific requirements, regulations, compliance needs, or considerations..."></textarea>
-                    </div>
+                </div>
+                
+                <!-- Legacy form (hidden) -->
+                <form id="aiForm" style="display: none;">
                     <div class="ai-actions">
                         <button type="button" class="btn btn-secondary" onclick="closeAIModal()">Cancel</button>
                         <button type="submit" class="btn btn-primary">

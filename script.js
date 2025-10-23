@@ -3176,6 +3176,93 @@ function updateManualFormFields() {
     });
 }
 
+// Survey step navigation functions
+function nextStep(stepNumber) {
+    // Hide current step
+    document.querySelector('.survey-step.active').classList.remove('active');
+    // Show next step
+    document.getElementById(`step${stepNumber}`).classList.add('active');
+}
+
+function prevStep(stepNumber) {
+    // Hide current step
+    document.querySelector('.survey-step.active').classList.remove('active');
+    // Show previous step
+    document.getElementById(`step${stepNumber}`).classList.add('active');
+}
+
+function generatePolicyFromSurvey() {
+    const topic = document.getElementById('aiPolicyTopic').value;
+    const type = document.getElementById('aiPolicyType').value;
+    const clinics = Array.from(document.querySelectorAll('input[name="clinics"]:checked')).map(cb => cb.value);
+    const specificNeeds = document.getElementById('aiSpecificNeeds').value;
+    const urgency = document.getElementById('aiUrgency').value;
+    const regulations = document.getElementById('aiRegulations').value;
+    const existingPolicies = document.getElementById('aiExistingPolicies').value;
+    const specialConsiderations = document.getElementById('aiSpecialConsiderations').value;
+
+    // Show loading with research simulation
+    document.getElementById('aiSurveyForm').style.display = 'none';
+    document.getElementById('aiLoading').style.display = 'block';
+    document.getElementById('aiResult').style.display = 'none';
+    
+    // Update loading message to show research progress
+    const loadingMessages = [
+        "AI is analyzing your specific needs...",
+        "Researching industry best practices...",
+        "Incorporating regulatory requirements...",
+        "Reviewing existing policies...",
+        "Generating comprehensive policy content...",
+        "Formatting with CSI headers...",
+        "Finalizing policy structure..."
+    ];
+    
+    let messageIndex = 0;
+    const messageInterval = setInterval(() => {
+        const loadingText = document.querySelector('.ai-loading p');
+        if (loadingText && messageIndex < loadingMessages.length) {
+            loadingText.textContent = loadingMessages[messageIndex];
+            messageIndex++;
+        }
+    }, 400);
+
+    // Simulate AI research and generation
+    setTimeout(() => {
+        clearInterval(messageInterval);
+        const generatedPolicy = generatePolicyFromSurveyData(topic, type, clinics, specificNeeds, urgency, regulations, existingPolicies, specialConsiderations);
+        displayAIPolicy(generatedPolicy);
+    }, 2800);
+}
+
+function generatePolicyFromSurveyData(topic, type, clinics, specificNeeds, urgency, regulations, existingPolicies, specialConsiderations) {
+    const clinicNames = getClinicNames(clinics).join(', ');
+    const typeLabel = getTypeLabel(type);
+    const currentDate = new Date().toISOString().split('T')[0];
+    
+    // Combine all survey data into comprehensive requirements
+    const combinedRequirements = [
+        specificNeeds,
+        urgency ? `Urgency: ${urgency}` : '',
+        regulations ? `Regulations: ${regulations}` : '',
+        existingPolicies ? `Existing policies: ${existingPolicies}` : '',
+        specialConsiderations ? `Special considerations: ${specialConsiderations}` : ''
+    ].filter(Boolean).join('. ');
+    
+    // Generate comprehensive, topic-specific policy content with proper CSI headers
+    const policyContent = generateCSIPolicyWithHeaders(topic, type, combinedRequirements, currentDate, specificNeeds, existingPolicies);
+    
+    return {
+        ...policyContent,
+        type: type,
+        clinics: clinics,
+        additionalRequirements: combinedRequirements,
+        keyPoints: specificNeeds,
+        previousDocuments: existingPolicies,
+        clinicNames: clinicNames,
+        typeLabel: typeLabel
+    };
+}
+
 // Mobile menu toggle (if needed)
 document.addEventListener('DOMContentLoaded', function() {
     const navToggle = document.querySelector('.nav-toggle');

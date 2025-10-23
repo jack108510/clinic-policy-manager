@@ -401,22 +401,76 @@ function generateAIPolicy() {
 function generatePolicyContent(topic, type, clinics, requirements) {
     const clinicNames = getClinicNames(clinics).join(', ');
     const typeLabel = getTypeLabel(type);
+    const currentDate = new Date().toISOString().split('T')[0];
     
     // Generate comprehensive, topic-specific policy content
     const policyContent = generateComprehensivePolicy(topic, type, requirements);
     
-    return {
-        title: policyContent.title,
-        type: type,
-        clinics: clinics,
-        purpose: policyContent.purpose,
-        procedure: policyContent.procedure,
-        roles: policyContent.roles,
-        compliance: policyContent.compliance,
-        additionalRequirements: requirements,
-        clinicNames: clinicNames,
-        typeLabel: typeLabel
-    };
+    // Add proper headers based on policy type
+    if (type === 'admin') {
+        return {
+            title: policyContent.title,
+            type: type,
+            clinics: clinics,
+            // LEVEL 1 - ADMIN POLICY HEADERS
+            effectiveDate: currentDate,
+            lastReviewed: currentDate,
+            approvedBy: "CSI Clinical Director",
+            version: "1.0",
+            purpose: policyContent.purpose,
+            scope: policyContent.scope,
+            policyStatement: policyContent.policyStatement,
+            definitions: policyContent.definitions,
+            procedure: policyContent.procedure,
+            roles: policyContent.roles,
+            compliance: policyContent.compliance,
+            relatedDocuments: policyContent.relatedDocuments,
+            reviewApproval: policyContent.reviewApproval,
+            additionalRequirements: requirements,
+            clinicNames: clinicNames,
+            typeLabel: typeLabel
+        };
+    } else if (type === 'sog') {
+        return {
+            title: policyContent.title,
+            type: type,
+            clinics: clinics,
+            // LEVEL 2 - STANDARD OPERATING GUIDELINE HEADERS
+            effectiveDate: currentDate,
+            author: "CSI Clinical Staff",
+            approvedBy: "CSI Medical Director",
+            version: "1.0",
+            objective: policyContent.objective,
+            principles: policyContent.principles,
+            procedure: policyContent.procedure,
+            definitions: policyContent.definitions,
+            examples: policyContent.examples,
+            roles: policyContent.roles,
+            escalation: policyContent.escalation,
+            review: policyContent.review,
+            additionalRequirements: requirements,
+            clinicNames: clinicNames,
+            typeLabel: typeLabel
+        };
+    } else {
+        return {
+            title: policyContent.title,
+            type: type,
+            clinics: clinics,
+            // LEVEL 3 - COMMUNICATION MEMO HEADERS
+            date: currentDate,
+            from: "CSI Management",
+            to: "All Staff",
+            subject: policyContent.title,
+            message: policyContent.message,
+            effectivePeriod: policyContent.effectivePeriod,
+            nextSteps: policyContent.nextSteps,
+            contact: policyContent.contact,
+            additionalRequirements: requirements,
+            clinicNames: clinicNames,
+            typeLabel: typeLabel
+        };
+    }
 }
 
 function generateComprehensivePolicy(topic, type, requirements) {
@@ -431,6 +485,8 @@ function generateComprehensivePolicy(topic, type, requirements) {
         return generatePatientSafetyPolicy(topic, type, requirements);
     } else if (topicLower.includes('data security') || topicLower.includes('hipaa') || topicLower.includes('privacy')) {
         return generateDataSecurityPolicy(topic, type, requirements);
+    } else if (topicLower.includes('fire evacuation') || topicLower.includes('fire emergency') || topicLower.includes('fire safety')) {
+        return generateFireEvacuationPolicy(topic, type, requirements);
     } else if (topicLower.includes('emergency') || topicLower.includes('crisis')) {
         return generateEmergencyPolicy(topic, type, requirements);
     } else if (topicLower.includes('medication') || topicLower.includes('drug')) {
@@ -972,6 +1028,272 @@ ENFORCEMENT:
         roles: roles,
         compliance: compliance
     };
+}
+
+function generateFireEvacuationPolicy(topic, type, requirements) {
+    const currentDate = new Date().toISOString().split('T')[0];
+    
+    if (type === 'admin') {
+        return {
+            title: topic,
+            purpose: `This policy establishes comprehensive fire evacuation procedures to ensure the safety of all staff, patients, and clients in the event of a fire emergency. This policy incorporates NFPA (National Fire Protection Association) guidelines and local fire safety regulations to provide clear, actionable procedures for fire emergencies.`,
+            scope: `This policy applies to all CSI clinic locations (Tudor Glen, River Valley, Rosslyn, UPC) and covers all staff members, contractors, clients, and patients present in the facility during a fire emergency.`,
+            policyStatement: `CSI clinics will maintain the highest standards of fire safety and evacuation procedures. All staff must be trained and prepared to execute fire evacuation protocols immediately upon detection of fire or activation of fire alarm systems.`,
+            definitions: `FIRE ALARM: Audible and visual warning system that activates upon detection of smoke or fire. EVACUATION ROUTE: Designated pathway for safe exit from the building during emergency. ASSEMBLY POINT: Designated safe location outside the building where staff and occupants gather after evacuation. FIRE WARDEN: Designated staff member responsible for coordinating evacuation procedures.`,
+            procedure: `FIRE EVACUATION PROCEDURES:
+
+1. IMMEDIATE RESPONSE (0-30 seconds):
+   - Upon hearing fire alarm or seeing fire/smoke, immediately activate manual fire alarm if not already activated
+   - Call 911 from a safe location and provide exact address and nature of emergency
+   - Announce "FIRE EMERGENCY - EVACUATE NOW" throughout the facility
+   - Begin immediate evacuation of all personnel and patients
+
+2. EVACUATION PROTOCOL (30 seconds - 5 minutes):
+   - Fire Wardens take control of evacuation procedures
+   - Direct all occupants to nearest safe exit route
+   - Check all rooms and areas to ensure complete evacuation
+   - Assist mobility-impaired individuals and patients
+   - Close all doors behind you to slow fire spread
+   - Do not use elevators - use stairs only
+
+3. PATIENT EVACUATION PRIORITIES:
+   - Critical patients: Evacuate first with medical equipment if possible
+   - Non-critical patients: Evacuate using carriers or leashes
+   - If patient evacuation is impossible, secure animals in carriers and evacuate
+   - Document any patients left behind and their location
+
+4. ASSEMBLY AND ACCOUNTABILITY:
+   - Proceed to designated assembly point (parking lot area)
+   - Fire Wardens conduct headcount of all staff and occupants
+   - Account for all patients and document any missing
+   - Do not re-enter building until cleared by fire department
+   - Maintain distance from building (minimum 100 feet)
+
+5. POST-EVACUATION PROTOCOL:
+   - Notify emergency contacts and management
+   - Provide information to fire department upon arrival
+   - Document incident details and any injuries
+   - Coordinate with emergency services for patient care needs
+   - Follow fire department instructions for re-entry`,
+            roles: `FIRE EVACUATION RESPONSIBILITIES:
+
+FIRE WARDENS (Designated staff):
+- Coordinate evacuation procedures
+- Ensure complete evacuation of assigned areas
+- Conduct headcount at assembly point
+- Communicate with emergency services
+- Maintain evacuation records
+
+ALL STAFF:
+- Follow evacuation procedures immediately
+- Assist with patient evacuation
+- Close doors behind them during evacuation
+- Report to assembly point for accountability
+- Assist mobility-impaired individuals
+
+CLINIC MANAGER:
+- Ensure fire safety equipment is maintained
+- Coordinate with fire department
+- Provide post-incident support
+- Review and update evacuation procedures
+- Conduct regular fire drills
+
+EMERGENCY COORDINATOR:
+- Activate emergency response procedures
+- Communicate with emergency services
+- Coordinate staff assignments
+- Maintain emergency contact information`,
+            compliance: `FIRE SAFETY COMPLIANCE:
+
+TRAINING REQUIREMENTS:
+- Annual fire safety training for all staff (4 hours)
+- Quarterly fire drill exercises
+- Fire Warden certification training
+- Documentation of all training completion
+
+EQUIPMENT MAINTENANCE:
+- Monthly fire alarm system testing
+- Quarterly fire extinguisher inspections
+- Annual sprinkler system maintenance
+- Regular evacuation route inspections
+
+MONITORING AND AUDITS:
+- Monthly fire safety equipment checks
+- Quarterly evacuation drill evaluations
+- Annual fire safety compliance audits
+- Continuous improvement based on drill outcomes
+
+RELATED DOCUMENTS:
+- NFPA 101: Life Safety Code
+- Local Fire Department Regulations
+- CSI Emergency Response Plan
+- CSI Patient Safety Protocols
+- OSHA Fire Safety Standards
+
+REVIEW AND APPROVAL:
+- Policy reviewed annually by Safety Committee
+- Updated based on regulatory changes and best practices
+- Approved by Fire Safety Officer and Clinic Manager
+- Next review date: ${new Date(Date.now() + 365*24*60*60*1000).toISOString().split('T')[0]}`,
+            relatedDocuments: `NFPA 101: Life Safety Code, Local Fire Department Regulations, CSI Emergency Response Plan, CSI Patient Safety Protocols, OSHA Fire Safety Standards`,
+            reviewApproval: `Policy reviewed annually by Safety Committee. Updated based on regulatory changes and best practices. Approved by Fire Safety Officer and Clinic Manager.`
+        };
+    } else if (type === 'sog') {
+        return {
+            title: topic,
+            objective: `To establish standardized fire evacuation procedures that ensure safe and efficient evacuation of all personnel and patients during fire emergencies.`,
+            principles: `GUIDING PRINCIPLES:
+- Safety of all personnel and patients is the top priority
+- Immediate response to fire alarms is mandatory
+- Clear communication and coordination are essential
+- Regular training and drills ensure preparedness
+- Compliance with fire safety regulations is required`,
+            procedure: `RECOMMENDED FIRE EVACUATION APPROACH:
+
+1. ALARM RESPONSE:
+   - Immediately stop all activities upon hearing fire alarm
+   - Activate manual fire alarm if not already activated
+   - Call 911 and provide facility address and emergency details
+   - Announce evacuation to all occupants
+
+2. EVACUATION STEPS:
+   - Use nearest safe exit route
+   - Close doors behind you to contain fire
+   - Assist patients using carriers or leashes
+   - Check all areas for remaining occupants
+   - Proceed to designated assembly point
+
+3. ASSEMBLY POINT PROTOCOL:
+   - Gather at designated safe location
+   - Conduct headcount of all personnel
+   - Account for all patients
+   - Wait for fire department clearance
+   - Maintain safe distance from building`,
+            definitions: `FIRE WARDEN: Staff member designated to coordinate evacuation. ASSEMBLY POINT: Safe location outside building for post-evacuation gathering. EVACUATION ROUTE: Designated pathway for safe exit during emergency.`,
+            examples: `SCENARIOS:
+
+FIRE DETECTED IN TREATMENT ROOM:
+- Immediately activate fire alarm
+- Evacuate all patients from treatment area
+- Close treatment room door
+- Proceed to assembly point
+- Notify fire department of patient count
+
+FIRE ALARM ACTIVATES DURING SURGERY:
+- Complete surgery if safe to do so within 2 minutes
+- Otherwise, secure patient and evacuate immediately
+- Notify fire department of patient location
+- Coordinate with emergency services for patient care
+
+EVACUATION DURING BUSINESS HOURS:
+- Direct clients to nearest exit
+- Evacuate all patients in carriers
+- Ensure all staff members are accounted for
+- Maintain client communication at assembly point`,
+            roles: `RESPONSIBILITIES:
+
+FIRE WARDENS:
+- Coordinate evacuation procedures
+- Ensure complete building evacuation
+- Conduct headcount at assembly point
+- Communicate with emergency services
+
+ALL STAFF:
+- Follow evacuation procedures immediately
+- Assist with patient evacuation
+- Report to assembly point
+- Assist clients and visitors
+
+VETERINARY STAFF:
+- Prioritize patient safety during evacuation
+- Coordinate with emergency services for patient care
+- Document any patient injuries or concerns
+- Provide medical information to emergency responders`,
+            escalation: `ESCALATION AND SUPPORT:
+
+FIRE DEPARTMENT ARRIVAL:
+- Provide building layout and patient information
+- Coordinate patient care with emergency services
+- Follow fire department instructions
+- Document incident details
+
+INJURIES OR CASUALTIES:
+- Provide first aid if safe to do so
+- Coordinate with emergency medical services
+- Document all injuries and treatments
+- Notify management and families
+
+EXTENDED EVACUATION:
+- Coordinate with local animal control if needed
+- Arrange temporary housing for patients
+- Communicate with clients about patient status
+- Maintain security of evacuated facility`,
+            review: `REVIEW AND REVISION:
+
+MONTHLY REVIEWS:
+- Evaluate evacuation drill performance
+- Assess staff response times
+- Identify areas for improvement
+- Update procedures as needed
+
+ANNUAL REVIEW:
+- Comprehensive review of all procedures
+- Benchmark against industry standards
+- Update based on regulatory changes
+- Train staff on any modifications
+
+NEXT REVIEW DATE: ${new Date(Date.now() + 30*24*60*60*1000).toISOString().split('T')[0]}`
+        };
+    } else {
+        return {
+            title: topic,
+            message: `URGENT: Fire Evacuation Procedures Update
+
+All CSI clinic staff are required to review and implement updated fire evacuation procedures effective immediately.
+
+KEY UPDATES:
+- New evacuation routes posted in all clinic areas
+- Updated assembly point locations
+- Enhanced patient evacuation protocols
+- New Fire Warden assignments
+
+WHAT THIS MEANS FOR STAFF:
+- All staff must complete fire safety training by end of month
+- Fire drills will be conducted monthly
+- New evacuation procedures must be followed exactly
+- Fire Wardens have been designated for each clinic location
+
+WHAT THIS MEANS FOR CLIENTS:
+- Clients will be directed to safe exits during emergencies
+- Patient safety is our top priority during evacuations
+- Clear communication will be maintained throughout emergency
+- Follow-up care will be coordinated as needed
+
+ACTION REQUIRED:
+- Review new evacuation procedures in staff handbook
+- Complete fire safety training by month end
+- Participate in monthly fire drills
+- Know your designated Fire Warden and assembly point
+
+CONTACT FOR QUESTIONS:
+- Fire Safety Coordinator: [Contact Information]
+- Clinic Manager: [Contact Information]
+- Emergency Services: 911
+
+This memo is effective immediately and supersedes all previous fire evacuation procedures.`,
+            effectivePeriod: `Effective Date: ${currentDate}\nReview Date: ${new Date(Date.now() + 30*24*60*60*1000).toISOString().split('T')[0]}`,
+            nextSteps: `NEXT STEPS:
+1. Complete fire safety training by month end
+2. Review evacuation routes and assembly points
+3. Participate in monthly fire drills
+4. Know your Fire Warden and responsibilities
+5. Report any fire safety concerns immediately`,
+            contact: `CONTACT FOR QUESTIONS:
+- Fire Safety Coordinator: [Contact Information]
+- Clinic Manager: [Contact Information]
+- Emergency Services: 911`
+        };
+    }
 }
 
 function generateEmergencyPolicy(topic, type, requirements) {
@@ -1687,6 +2009,13 @@ function formatPolicyContent(content, type) {
                 <span class="policy-type-badge admin">Admin Policy</span>
             </div>
             
+            <div class="policy-meta">
+                <div class="meta-item"><strong>Effective Date:</strong> ${content.effectiveDate}</div>
+                <div class="meta-item"><strong>Last Reviewed:</strong> ${content.lastReviewed}</div>
+                <div class="meta-item"><strong>Approved By:</strong> ${content.approvedBy}</div>
+                <div class="meta-item"><strong>Version:</strong> ${content.version}</div>
+            </div>
+            
             <div class="policy-section">
                 <h5><i class="fas fa-info-circle"></i> Purpose</h5>
                 <div class="policy-content">${content.purpose}</div>
@@ -1721,6 +2050,16 @@ function formatPolicyContent(content, type) {
                 <h5><i class="fas fa-shield-alt"></i> Consequences / Accountability</h5>
                 <div class="policy-content">${content.compliance}</div>
             </div>
+            
+            <div class="policy-section">
+                <h5><i class="fas fa-folder"></i> Related Documents</h5>
+                <div class="policy-content">${content.relatedDocuments}</div>
+            </div>
+            
+            <div class="policy-section">
+                <h5><i class="fas fa-check-circle"></i> Review & Approval</h5>
+                <div class="policy-content">${content.reviewApproval}</div>
+            </div>
         </div>`;
     } else if (type === 'sog') {
         return `
@@ -1728,6 +2067,13 @@ function formatPolicyContent(content, type) {
             <div class="policy-header">
                 <h4>${content.title}</h4>
                 <span class="policy-type-badge sog">Standard Operating Guidelines</span>
+            </div>
+            
+            <div class="policy-meta">
+                <div class="meta-item"><strong>Effective Date:</strong> ${content.effectiveDate}</div>
+                <div class="meta-item"><strong>Author:</strong> ${content.author}</div>
+                <div class="meta-item"><strong>Approved By:</strong> ${content.approvedBy}</div>
+                <div class="meta-item"><strong>Version:</strong> ${content.version}</div>
             </div>
             
             <div class="policy-section">
@@ -1774,8 +2120,15 @@ function formatPolicyContent(content, type) {
         return `
         <div class="policy-preview professional">
             <div class="policy-header">
-                <h4>${content.title}</h4>
+                <h4>CSI Communication Memo</h4>
                 <span class="policy-type-badge memo">Communication Memo</span>
+            </div>
+            
+            <div class="policy-meta">
+                <div class="meta-item"><strong>Date:</strong> ${content.date}</div>
+                <div class="meta-item"><strong>From:</strong> ${content.from}</div>
+                <div class="meta-item"><strong>To:</strong> ${content.to}</div>
+                <div class="meta-item"><strong>Subject:</strong> ${content.subject}</div>
             </div>
             
             <div class="policy-section">
@@ -1784,7 +2137,7 @@ function formatPolicyContent(content, type) {
             </div>
             
             <div class="policy-section">
-                <h5><i class="fas fa-calendar"></i> Effective Period</h5>
+                <h5><i class="fas fa-calendar"></i> Effective Period (if applicable)</h5>
                 <div class="policy-content">${content.effectivePeriod}</div>
             </div>
             

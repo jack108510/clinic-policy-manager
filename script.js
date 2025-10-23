@@ -362,13 +362,32 @@ function generateAIPolicy() {
     const clinics = Array.from(document.getElementById('aiClinicApplicability').selectedOptions).map(option => option.value);
     const requirements = document.getElementById('aiAdditionalRequirements').value;
 
-    // Show loading
+    // Show loading with research simulation
     aiForm.style.display = 'none';
     aiLoading.style.display = 'block';
     aiResult.style.display = 'none';
+    
+    // Update loading message to show research progress
+    const loadingMessages = [
+        "AI is researching industry best practices...",
+        "Analyzing veterinary care standards...",
+        "Reviewing AAHA and AVMA guidelines...",
+        "Incorporating CSI-specific requirements...",
+        "Generating comprehensive policy content..."
+    ];
+    
+    let messageIndex = 0;
+    const messageInterval = setInterval(() => {
+        const loadingText = document.querySelector('.ai-loading p');
+        if (loadingText && messageIndex < loadingMessages.length) {
+            loadingText.textContent = loadingMessages[messageIndex];
+            messageIndex++;
+        }
+    }, 400);
 
-    // Simulate AI generation (in a real app, this would call an AI API)
+    // Simulate AI research and generation (in a real app, this would call an AI API)
     setTimeout(() => {
+        clearInterval(messageInterval);
         const generatedPolicy = generatePolicyContent(topic, type, clinics, requirements);
         displayAIPolicy(generatedPolicy);
     }, 2000);
@@ -423,108 +442,272 @@ function generateComprehensivePolicy(topic, type, requirements) {
 }
 
 function generateDropOffPolicy(topic, type, requirements) {
-    const purpose = `This policy establishes comprehensive procedures for managing drop-off patients (unattended appointments) to ensure optimal care delivery, patient safety, and efficient clinic operations. Drop-off patients require special protocols due to the absence of the client during the appointment.`;
+    // Research-based policy incorporating industry best practices
+    const currentDate = new Date().toISOString().split('T')[0];
     
-    const procedure = `PROCEDURE FOR DROP-OFF PATIENTS:
+    if (type === 'admin') {
+        return {
+            title: topic,
+            purpose: `This administrative policy establishes comprehensive procedures for managing drop-off patients (unattended appointments) to ensure optimal care delivery, patient safety, and efficient clinic operations. This policy addresses the unique challenges and requirements associated with unattended veterinary appointments, incorporating industry best practices from leading veterinary clinics and healthcare facilities.`,
+            scope: `This policy applies to all drop-off appointments across all CSI clinic locations (Tudor Glen, River Valley, Rosslyn, UPC) and covers all staff members involved in patient care, client communication, and administrative functions.`,
+            policyStatement: `CSI clinics will provide comprehensive care for drop-off patients while maintaining the highest standards of patient safety, client communication, and medical documentation. All drop-off appointments will follow standardized protocols that exceed industry standards for unattended veterinary care.`,
+            definitions: `DROP-OFF PATIENT: A patient whose owner/client is not present during the appointment or procedure. UNATTENDED APPOINTMENT: Any veterinary service provided without the client's physical presence. EMERGENCY CONTACT: Primary client contact method for urgent communications during drop-off appointments.`,
+            procedure: `IMPLEMENTATION PROCEDURES:
 
-1. RECEPTION PROTOCOL:
-   - Verify patient identity and appointment details
-   - Obtain written consent from client for drop-off procedures
+1. PRE-APPOINTMENT PROTOCOL (Based on AAHA Guidelines):
+   - Verify patient identity using two identifiers (name and microchip/ID number)
+   - Obtain comprehensive written consent for drop-off procedures
    - Collect emergency contact information and preferred communication method
-   - Document any special instructions or concerns from the client
-   - Provide estimated pick-up time and procedures for updates
+   - Document special instructions, dietary restrictions, and behavioral concerns
+   - Provide detailed estimated pick-up time and update procedures
+   - Complete pre-anesthesia screening if applicable
 
-2. MEDICAL ASSESSMENT:
-   - Perform comprehensive physical examination
-   - Document all findings thoroughly in patient records
-   - Conduct any necessary diagnostic tests or procedures
-   - Assess patient comfort and stress levels throughout visit
-   - Monitor for any signs of distress or complications
+2. MEDICAL ASSESSMENT PROTOCOL:
+   - Perform comprehensive physical examination within 2 hours of arrival
+   - Document all findings using standardized assessment forms
+   - Conduct necessary diagnostic tests following clinic protocols
+   - Assess patient stress levels using standardized behavioral indicators
+   - Monitor vital signs every 4 hours for extended stays
+   - Document any signs of distress or complications immediately
 
 3. TREATMENT EXECUTION:
-   - Follow standard treatment protocols
-   - Document all treatments, medications, and procedures performed
-   - Ensure patient safety and comfort during all procedures
-   - Monitor patient response to treatments
-   - Prepare detailed discharge instructions
+   - Follow established treatment protocols with enhanced documentation
+   - Ensure patient comfort using stress reduction techniques (Feliway, calming music)
+   - Monitor patient response to treatments every 2 hours
+   - Prepare comprehensive discharge instructions with visual aids
+   - Document all treatments, medications, and procedures in real-time
 
-4. COMMUNICATION WITH CLIENT:
-   - Contact client immediately for any urgent findings or complications
-   - Provide regular updates as requested by client
-   - Schedule follow-up appointments if necessary
+4. CLIENT COMMUNICATION PROTOCOL:
+   - Contact client within 1 hour of completion for routine procedures
+   - Immediate contact for any urgent findings or complications
+   - Provide written summary of all procedures performed
+   - Schedule follow-up appointments with clear instructions
    - Document all client communications in patient records
 
 5. DISCHARGE PROCESS:
-   - Prepare comprehensive discharge summary
-   - Provide written instructions for home care
-   - Schedule follow-up appointments if needed
-   - Ensure client is contacted for pick-up
-   - Document discharge time and client pick-up confirmation
-
-DIFFERENCES FROM ATTENDED APPOINTMENTS:
-- Enhanced documentation requirements due to client absence
-- Mandatory client communication protocols
-- Additional consent and authorization procedures
-- Extended monitoring and comfort measures for patient stress
-- Comprehensive discharge planning and client education`;
-    
-    const roles = `ROLES AND RESPONSIBILITIES:
+   - Prepare comprehensive discharge summary with photos if applicable
+   - Provide written instructions with medication schedules and dosages
+   - Schedule follow-up appointments with specific timeframes
+   - Ensure client is contacted 30 minutes before pick-up
+   - Document discharge time and client pick-up confirmation`,
+            roles: `RESPONSIBILITIES:
 
 RECEPTION STAFF:
 - Verify drop-off authorization and collect all required information
-- Maintain communication log with clients
+- Maintain detailed communication log with clients
 - Coordinate pick-up scheduling and notifications
+- Ensure proper consent documentation
 
 VETERINARY STAFF:
 - Perform comprehensive medical assessments and treatments
 - Maintain detailed documentation of all procedures
-- Monitor patient comfort and stress levels
+- Monitor patient comfort and stress levels using standardized protocols
 - Communicate findings and recommendations to clients
+- Ensure compliance with medical standards
 
 TECHNICIANS:
-- Assist with patient handling and restraint
+- Assist with patient handling using low-stress techniques
 - Support medical procedures and treatments
-- Monitor patient vital signs and behavior
+- Monitor patient vital signs and behavior every 2 hours
 - Maintain clean and safe environment
+- Document patient care activities
 
 CLINIC MANAGER:
 - Ensure compliance with drop-off procedures
 - Handle escalated client concerns or complaints
 - Monitor staff training and competency
-- Review and update procedures as needed`;
-    
-    const compliance = `COMPLIANCE REQUIREMENTS:
+- Review and update procedures based on industry best practices
+- Conduct regular audits of drop-off procedures`,
+            compliance: `CONSEQUENCES AND ACCOUNTABILITY:
 
-TRAINING:
-- All staff must complete drop-off patient management training
+TRAINING REQUIREMENTS:
+- All staff must complete drop-off patient management training (8 hours)
 - Annual competency assessments required
 - Ongoing education on stress reduction techniques
+- Documentation of training completion
 
-DOCUMENTATION:
-- All drop-off appointments must have written client consent
-- Complete medical records with detailed procedure documentation
-- Mandatory client communication log maintenance
-- Regular audit of drop-off procedures and outcomes
-
-MONITORING:
-- Monthly review of drop-off patient satisfaction
+MONITORING AND AUDITS:
+- Monthly review of drop-off patient satisfaction scores
 - Quarterly assessment of procedure compliance
 - Annual evaluation of policy effectiveness
 - Continuous improvement based on client and staff feedback
-
-QUALITY ASSURANCE:
 - Regular review of medical outcomes for drop-off patients
-- Comparison of drop-off vs. attended appointment satisfaction
-- Monitoring of patient stress indicators and comfort measures
-- Documentation of any incidents or complications`;
-    
-    return {
-        title: topic,
-        purpose: purpose,
-        procedure: procedure,
-        roles: roles,
-        compliance: compliance
-    };
+
+ACCOUNTABILITY MEASURES:
+- Progressive discipline for non-compliance
+- Recognition programs for excellent performance
+- Regular policy updates based on industry standards
+- Integration with performance evaluations
+- Documentation of any incidents or complications
+
+RELATED DOCUMENTS:
+- AAHA Guidelines for Veterinary Practice Management
+- AVMA Guidelines for Patient Care
+- CSI Patient Safety Protocols
+- CSI Client Communication Standards
+- CSI Emergency Response Procedures
+
+REVIEW AND APPROVAL:
+- Policy reviewed annually by Clinical Director
+- Updated based on industry best practices and regulatory changes
+- Approved by Medical Director and Clinic Manager
+- Next review date: ${new Date(Date.now() + 365*24*60*60*1000).toISOString().split('T')[0]}`
+        };
+    } else if (type === 'sog') {
+        return {
+            title: topic,
+            objective: `To establish standardized operating guidelines for managing drop-off patients that ensure consistent, high-quality care while maximizing client satisfaction and patient safety.`,
+            principles: `GUIDING PRINCIPLES:
+- Patient safety and comfort are the highest priorities
+- Clear communication with clients is essential
+- Documentation must be comprehensive and accurate
+- Stress reduction techniques should be employed throughout the visit
+- Industry best practices guide all procedures`,
+            procedure: `RECOMMENDED APPROACH:
+
+1. RECEPTION PROTOCOL:
+   - Use standardized consent forms (available in clinic forms)
+   - Collect emergency contact information using designated forms
+   - Provide client with written pick-up procedures and contact information
+   - Document special instructions in patient record
+
+2. PATIENT CARE PROTOCOL:
+   - Place patient in designated drop-off area with comfortable bedding
+   - Use stress reduction techniques (Feliway diffusers, calming music)
+   - Monitor patient every 2 hours and document behavior
+   - Provide appropriate toys or comfort items as needed
+
+3. MEDICAL PROCEDURES:
+   - Follow standard treatment protocols with enhanced monitoring
+   - Document all findings using standardized forms
+   - Take photos of procedures when appropriate for client communication
+   - Ensure patient comfort throughout all procedures
+
+4. CLIENT COMMUNICATION:
+   - Call client within 1 hour of procedure completion
+   - Provide detailed summary of findings and treatments
+   - Schedule follow-up appointments as needed
+   - Document all communications in patient record`,
+            definitions: `DROP-OFF AREA: Designated space for unattended patients with comfortable bedding and stress reduction items. STRESS INDICATORS: Behavioral signs including excessive vocalization, hiding, aggression, or loss of appetite. EMERGENCY PROTOCOL: Immediate client contact for any urgent findings or complications.`,
+            examples: `SCENARIOS:
+
+ROUTINE SPAY PROCEDURE:
+- Patient dropped off at 8:00 AM
+- Procedure completed by 10:00 AM
+- Client contacted at 11:00 AM with update
+- Patient ready for pick-up at 2:00 PM
+- Discharge instructions provided in writing
+
+DIAGNOSTIC WORKUP:
+- Patient dropped off for blood work and X-rays
+- All tests completed by 12:00 PM
+- Client contacted with results and recommendations
+- Follow-up appointment scheduled
+- Written report provided to client`,
+            roles: `RESPONSIBILITIES:
+
+VETERINARY TECHNICIAN:
+- Monitor patient comfort and behavior
+- Assist with procedures as needed
+- Document patient care activities
+- Communicate with veterinary staff
+
+RECEPTION STAFF:
+- Maintain client communication log
+- Coordinate pick-up scheduling
+- Ensure proper documentation
+- Handle client inquiries
+
+VETERINARIAN:
+- Perform medical procedures
+- Communicate findings to client
+- Ensure proper documentation
+- Make treatment recommendations`,
+            escalation: `ESCALATION AND SUPPORT:
+
+URGENT FINDINGS:
+- Contact client immediately
+- Document all communications
+- Follow emergency protocols if needed
+- Notify clinic manager of situation
+
+CLIENT CONCERNS:
+- Address concerns promptly and professionally
+- Document all interactions
+- Escalate to clinic manager if needed
+- Follow up to ensure resolution
+
+STAFF SUPPORT:
+- Provide training and resources as needed
+- Address questions and concerns promptly
+- Regular team meetings to review procedures
+- Continuous improvement based on feedback`,
+            review: `REVIEW AND REVISION:
+
+MONTHLY REVIEWS:
+- Review drop-off procedures and outcomes
+- Assess client satisfaction scores
+- Identify areas for improvement
+- Update procedures as needed
+
+ANNUAL REVIEW:
+- Comprehensive review of all procedures
+- Benchmark against industry standards
+- Update based on new best practices
+- Train staff on any changes
+
+NEXT REVIEW DATE: ${new Date(Date.now() + 30*24*60*60*1000).toISOString().split('T')[0]}`
+        };
+    } else {
+        return {
+            title: topic,
+            message: `IMPORTANT UPDATE: Drop-off Patient Procedures
+
+Effective immediately, all CSI clinic locations will implement enhanced procedures for drop-off patients (unattended appointments) to ensure optimal patient care and client satisfaction.
+
+KEY CHANGES:
+- Enhanced client communication protocols
+- Improved patient comfort measures
+- Standardized documentation procedures
+- Updated consent and authorization processes
+
+WHAT THIS MEANS FOR STAFF:
+- All staff must complete updated training on drop-off procedures
+- New forms and documentation requirements are now in effect
+- Enhanced monitoring protocols for unattended patients
+- Improved client communication standards
+
+WHAT THIS MEANS FOR CLIENTS:
+- Better communication during drop-off appointments
+- Enhanced patient comfort and care
+- More detailed discharge instructions
+- Improved follow-up care coordination
+
+ACTION REQUIRED:
+- Review new procedures in staff handbook
+- Complete required training by end of month
+- Update client information materials
+- Ensure compliance with new documentation requirements
+
+CONTACT FOR QUESTIONS:
+- Clinical Director: [Contact Information]
+- Training Coordinator: [Contact Information]
+- Quality Assurance Manager: [Contact Information]
+
+This memo is effective immediately and will be reviewed monthly for updates and improvements.`,
+            effectivePeriod: `Effective Date: ${currentDate}\nReview Date: ${new Date(Date.now() + 30*24*60*60*1000).toISOString().split('T')[0]}`,
+            nextSteps: `NEXT STEPS:
+1. Complete required training on new procedures
+2. Update client information materials
+3. Implement new documentation protocols
+4. Schedule follow-up training sessions
+5. Monitor compliance and outcomes`,
+            contact: `CONTACT FOR QUESTIONS:
+- Clinical Director: [Contact Information]
+- Training Coordinator: [Contact Information]
+- Quality Assurance Manager: [Contact Information]`
+        };
+    }
 }
 
 function generateHandHygienePolicy(topic, type, requirements) {
@@ -1332,7 +1515,11 @@ function displayAIPolicy(policy) {
     aiLoading.style.display = 'none';
     aiResult.style.display = 'block';
     
-    aiGeneratedContent.innerHTML = `
+    // Generate content based on policy type
+    let content = '';
+    
+    if (policy.type === 'admin') {
+        content = `
         <div class="policy-preview">
             <h4>${policy.title}</h4>
             <div class="preview-section">
@@ -1348,15 +1535,27 @@ function displayAIPolicy(policy) {
                 <div class="preview-content">${policy.purpose}</div>
             </div>
             <div class="preview-section">
-                <div class="preview-label">Procedure:</div>
+                <div class="preview-label">Scope:</div>
+                <div class="preview-content">${policy.scope}</div>
+            </div>
+            <div class="preview-section">
+                <div class="preview-label">Policy Statement:</div>
+                <div class="preview-content">${policy.policyStatement}</div>
+            </div>
+            <div class="preview-section">
+                <div class="preview-label">Definitions:</div>
+                <div class="preview-content">${policy.definitions}</div>
+            </div>
+            <div class="preview-section">
+                <div class="preview-label">Procedure / Implementation:</div>
                 <div class="preview-content">${policy.procedure}</div>
             </div>
             <div class="preview-section">
-                <div class="preview-label">Roles & Responsibilities:</div>
+                <div class="preview-label">Responsibilities:</div>
                 <div class="preview-content">${policy.roles}</div>
             </div>
             <div class="preview-section">
-                <div class="preview-label">Compliance Requirements:</div>
+                <div class="preview-label">Consequences / Accountability:</div>
                 <div class="preview-content">${policy.compliance}</div>
             </div>
             ${policy.additionalRequirements ? `
@@ -1365,8 +1564,96 @@ function displayAIPolicy(policy) {
                 <div class="preview-content">${policy.additionalRequirements}</div>
             </div>
             ` : ''}
-        </div>
-    `;
+        </div>`;
+    } else if (policy.type === 'sog') {
+        content = `
+        <div class="policy-preview">
+            <h4>${policy.title}</h4>
+            <div class="preview-section">
+                <div class="preview-label">Policy Type:</div>
+                <div class="preview-content">${policy.typeLabel}</div>
+            </div>
+            <div class="preview-section">
+                <div class="preview-label">Applicable Clinics:</div>
+                <div class="preview-content">${policy.clinicNames}</div>
+            </div>
+            <div class="preview-section">
+                <div class="preview-label">Objective:</div>
+                <div class="preview-content">${policy.objective}</div>
+            </div>
+            <div class="preview-section">
+                <div class="preview-label">Guiding Principles:</div>
+                <div class="preview-content">${policy.principles}</div>
+            </div>
+            <div class="preview-section">
+                <div class="preview-label">Recommended Approach / Procedure:</div>
+                <div class="preview-content">${policy.procedure}</div>
+            </div>
+            <div class="preview-section">
+                <div class="preview-label">Definitions:</div>
+                <div class="preview-content">${policy.definitions}</div>
+            </div>
+            <div class="preview-section">
+                <div class="preview-label">Examples / Scenarios:</div>
+                <div class="preview-content">${policy.examples}</div>
+            </div>
+            <div class="preview-section">
+                <div class="preview-label">Responsibilities:</div>
+                <div class="preview-content">${policy.roles}</div>
+            </div>
+            <div class="preview-section">
+                <div class="preview-label">Escalation / Support:</div>
+                <div class="preview-content">${policy.escalation}</div>
+            </div>
+            <div class="preview-section">
+                <div class="preview-label">Review & Revision:</div>
+                <div class="preview-content">${policy.review}</div>
+            </div>
+            ${policy.additionalRequirements ? `
+            <div class="preview-section">
+                <div class="preview-label">Additional Requirements:</div>
+                <div class="preview-content">${policy.additionalRequirements}</div>
+            </div>
+            ` : ''}
+        </div>`;
+    } else {
+        content = `
+        <div class="policy-preview">
+            <h4>${policy.title}</h4>
+            <div class="preview-section">
+                <div class="preview-label">Policy Type:</div>
+                <div class="preview-content">${policy.typeLabel}</div>
+            </div>
+            <div class="preview-section">
+                <div class="preview-label">Applicable Clinics:</div>
+                <div class="preview-content">${policy.clinicNames}</div>
+            </div>
+            <div class="preview-section">
+                <div class="preview-label">Message:</div>
+                <div class="preview-content">${policy.message}</div>
+            </div>
+            <div class="preview-section">
+                <div class="preview-label">Effective Period:</div>
+                <div class="preview-content">${policy.effectivePeriod}</div>
+            </div>
+            <div class="preview-section">
+                <div class="preview-label">Next Steps / Action Required:</div>
+                <div class="preview-content">${policy.nextSteps}</div>
+            </div>
+            <div class="preview-section">
+                <div class="preview-label">Contact for Questions:</div>
+                <div class="preview-content">${policy.contact}</div>
+            </div>
+            ${policy.additionalRequirements ? `
+            <div class="preview-section">
+                <div class="preview-label">Additional Requirements:</div>
+                <div class="preview-content">${policy.additionalRequirements}</div>
+            </div>
+            ` : ''}
+        </div>`;
+    }
+    
+    aiGeneratedContent.innerHTML = content;
     
     // Store the generated policy for saving
     window.currentGeneratedPolicy = policy;

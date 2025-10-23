@@ -66,6 +66,11 @@ const totalPoliciesElement = document.getElementById('totalPolicies');
 const recentUpdatesElement = document.getElementById('recentUpdates');
 const createModal = document.getElementById('createModal');
 const policyForm = document.getElementById('policyForm');
+const aiModal = document.getElementById('aiModal');
+const aiForm = document.getElementById('aiForm');
+const aiLoading = document.getElementById('aiLoading');
+const aiResult = document.getElementById('aiResult');
+const aiGeneratedContent = document.getElementById('aiGeneratedContent');
 
 // Initialize the application
 document.addEventListener('DOMContentLoaded', function() {
@@ -103,6 +108,12 @@ function setupEventListeners() {
     policyForm.addEventListener('submit', function(e) {
         e.preventDefault();
         createNewPolicy();
+    });
+
+    // AI Form submission
+    aiForm.addEventListener('submit', function(e) {
+        e.preventDefault();
+        generateAIPolicy();
     });
 
     // Smooth scrolling for navigation links
@@ -211,6 +222,9 @@ function closeCreateModal() {
 window.addEventListener('click', function(e) {
     if (e.target === createModal) {
         closeCreateModal();
+    }
+    if (e.target === aiModal) {
+        closeAIModal();
     }
 });
 
@@ -325,6 +339,179 @@ style.textContent = `
     }
 `;
 document.head.appendChild(style);
+
+// AI Policy Generation Functions
+function openAIModal() {
+    aiModal.style.display = 'block';
+    document.body.style.overflow = 'hidden';
+    // Reset form and hide results
+    aiForm.style.display = 'block';
+    aiLoading.style.display = 'none';
+    aiResult.style.display = 'none';
+    aiForm.reset();
+}
+
+function closeAIModal() {
+    aiModal.style.display = 'none';
+    document.body.style.overflow = 'auto';
+}
+
+function generateAIPolicy() {
+    const topic = document.getElementById('aiPolicyTopic').value;
+    const type = document.getElementById('aiPolicyType').value;
+    const clinics = Array.from(document.getElementById('aiClinicApplicability').selectedOptions).map(option => option.value);
+    const requirements = document.getElementById('aiAdditionalRequirements').value;
+
+    // Show loading
+    aiForm.style.display = 'none';
+    aiLoading.style.display = 'block';
+    aiResult.style.display = 'none';
+
+    // Simulate AI generation (in a real app, this would call an AI API)
+    setTimeout(() => {
+        const generatedPolicy = generatePolicyContent(topic, type, clinics, requirements);
+        displayAIPolicy(generatedPolicy);
+    }, 2000);
+}
+
+function generatePolicyContent(topic, type, clinics, requirements) {
+    // This is a sophisticated policy generator that creates realistic healthcare policies
+    const clinicNames = getClinicNames(clinics).join(', ');
+    const typeLabel = getTypeLabel(type);
+    
+    // Policy templates based on type
+    const policyTemplates = {
+        admin: {
+            purpose: `This administrative policy establishes guidelines for ${topic.toLowerCase()} within our healthcare facilities.`,
+            procedure: `All staff members must follow the established procedures for ${topic.toLowerCase()} to ensure consistent, safe, and effective operations across all clinic locations.`,
+            roles: `Administrative staff are responsible for implementing and monitoring compliance with this policy. Clinical staff must adhere to all established procedures.`,
+            compliance: `Compliance with this policy is mandatory for all staff members. Regular audits will be conducted to ensure adherence to established guidelines.`
+        },
+        sog: {
+            purpose: `These standard operating guidelines provide detailed procedures for ${topic.toLowerCase()} to ensure patient safety and quality care delivery.`,
+            procedure: `Step-by-step procedures for ${topic.toLowerCase()} must be followed by all clinical staff. These guidelines are based on current best practices and regulatory requirements.`,
+            roles: `Clinical staff are responsible for following these guidelines during patient care. Supervisors must ensure proper training and compliance monitoring.`,
+            compliance: `All clinical staff must complete training on these guidelines before implementation. Regular competency assessments will be conducted.`
+        },
+        memos: {
+            purpose: `This communication memo provides important information regarding ${topic.toLowerCase()} for all staff members.`,
+            procedure: `Please review the following information regarding ${topic.toLowerCase()}. All staff members are required to acknowledge receipt and understanding of this communication.`,
+            roles: `All staff members must read and understand this communication. Department heads are responsible for ensuring their teams are informed.`,
+            compliance: `Acknowledgment of this communication is required within 48 hours of receipt. Please contact your supervisor if you have any questions.`
+        }
+    };
+
+    const template = policyTemplates[type];
+    
+    // Enhanced content based on topic
+    let enhancedProcedure = template.procedure;
+    let enhancedRoles = template.roles;
+    
+    // Add topic-specific enhancements
+    if (topic.toLowerCase().includes('hand hygiene')) {
+        enhancedProcedure = `Hand hygiene is the most effective way to prevent healthcare-associated infections. All staff must perform hand hygiene before and after patient contact, before donning gloves, after removing gloves, and when hands are visibly soiled. Use alcohol-based hand sanitizer or soap and water as appropriate.`;
+        enhancedRoles = `All healthcare workers are responsible for proper hand hygiene. Infection control staff monitor compliance and provide education.`;
+    } else if (topic.toLowerCase().includes('patient safety')) {
+        enhancedProcedure = `Patient safety is our top priority. All staff must identify and report potential safety hazards immediately. Follow established protocols for patient identification, medication administration, and fall prevention.`;
+        enhancedRoles = `All staff members are responsible for maintaining a safe environment. Quality improvement teams review incidents and implement corrective actions.`;
+    } else if (topic.toLowerCase().includes('data security')) {
+        enhancedProcedure = `Protect patient information by following HIPAA guidelines. Use strong passwords, secure workstations, and report any suspected breaches immediately.`;
+        enhancedRoles = `All staff must complete HIPAA training. IT staff maintain security systems and investigate potential breaches.`;
+    }
+
+    return {
+        title: topic,
+        type: type,
+        clinics: clinics,
+        purpose: template.purpose,
+        procedure: enhancedProcedure,
+        roles: enhancedRoles,
+        compliance: template.compliance,
+        additionalRequirements: requirements,
+        clinicNames: clinicNames,
+        typeLabel: typeLabel
+    };
+}
+
+function displayAIPolicy(policy) {
+    aiLoading.style.display = 'none';
+    aiResult.style.display = 'block';
+    
+    aiGeneratedContent.innerHTML = `
+        <div class="policy-preview">
+            <h4>${policy.title}</h4>
+            <div class="preview-section">
+                <div class="preview-label">Policy Type:</div>
+                <div class="preview-content">${policy.typeLabel}</div>
+            </div>
+            <div class="preview-section">
+                <div class="preview-label">Applicable Clinics:</div>
+                <div class="preview-content">${policy.clinicNames}</div>
+            </div>
+            <div class="preview-section">
+                <div class="preview-label">Purpose:</div>
+                <div class="preview-content">${policy.purpose}</div>
+            </div>
+            <div class="preview-section">
+                <div class="preview-label">Procedure:</div>
+                <div class="preview-content">${policy.procedure}</div>
+            </div>
+            <div class="preview-section">
+                <div class="preview-label">Roles & Responsibilities:</div>
+                <div class="preview-content">${policy.roles}</div>
+            </div>
+            <div class="preview-section">
+                <div class="preview-label">Compliance Requirements:</div>
+                <div class="preview-content">${policy.compliance}</div>
+            </div>
+            ${policy.additionalRequirements ? `
+            <div class="preview-section">
+                <div class="preview-label">Additional Requirements:</div>
+                <div class="preview-content">${policy.additionalRequirements}</div>
+            </div>
+            ` : ''}
+        </div>
+    `;
+    
+    // Store the generated policy for saving
+    window.currentGeneratedPolicy = policy;
+}
+
+function editAIPolicy() {
+    // Move to create modal with pre-filled data
+    closeAIModal();
+    openCreateModal();
+    
+    const policy = window.currentGeneratedPolicy;
+    document.getElementById('policyTitle').value = policy.title;
+    document.getElementById('policyType').value = policy.type;
+    document.getElementById('clinicApplicability').value = policy.clinics;
+    document.getElementById('policyPurpose').value = policy.purpose;
+    document.getElementById('policyProcedure').value = policy.procedure;
+    document.getElementById('policyRoles').value = policy.roles;
+    document.getElementById('policyCompliance').value = policy.compliance;
+}
+
+function saveAIPolicy() {
+    const policy = window.currentGeneratedPolicy;
+    
+    const newPolicy = {
+        id: currentPolicies.length + 1,
+        title: policy.title,
+        type: policy.type,
+        clinics: policy.clinics,
+        description: policy.purpose,
+        created: new Date().toISOString().split('T')[0],
+        updated: new Date().toISOString().split('T')[0]
+    };
+
+    currentPolicies.unshift(newPolicy);
+    displayPolicies(currentPolicies);
+    updateStats();
+    closeAIModal();
+    
+    showNotification('AI-generated policy saved successfully!', 'success');
+}
 
 // Mobile menu toggle (if needed)
 document.addEventListener('DOMContentLoaded', function() {

@@ -136,6 +136,9 @@
                 <button class="btn btn-primary" onclick="openCreateModal()">
                     <i class="fas fa-plus"></i> Create New Policy
                 </button>
+                <button class="btn btn-secondary" onclick="openAIModal()">
+                    <i class="fas fa-robot"></i> AI Policy Generator
+                </button>
             </div>
             <div class="admin-stats">
                 <div class="stat-card">
@@ -208,6 +211,67 @@
                     <button type="submit" class="btn btn-primary">Create Policy</button>
                 </div>
             </form>
+        </div>
+    </div>
+
+    <!-- AI Policy Generator Modal -->
+    <div id="aiModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3><i class="fas fa-robot"></i> AI Policy Generator</h3>
+                <span class="close" onclick="closeAIModal()">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div class="ai-intro">
+                    <p>Let AI generate professional healthcare policies for you. Simply provide the topic and requirements.</p>
+                </div>
+                <form id="aiForm">
+                    <div class="form-group">
+                        <label for="aiPolicyTopic">Policy Topic</label>
+                        <input type="text" id="aiPolicyTopic" placeholder="e.g., Hand Hygiene Protocol, Patient Safety, Data Security" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="aiPolicyType">Policy Type</label>
+                        <select id="aiPolicyType" required>
+                            <option value="">Select Type</option>
+                            <option value="admin">Admin Policy</option>
+                            <option value="sog">Standard Operating Guidelines</option>
+                            <option value="memos">Communication Memos</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="aiClinicApplicability">Clinic Applicability</label>
+                        <select id="aiClinicApplicability" multiple required>
+                            <option value="tudor-glen">Tudor Glen</option>
+                            <option value="river-valley">River Valley</option>
+                            <option value="rosslyn">Rosslyn</option>
+                            <option value="upc">UPC</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="aiAdditionalRequirements">Additional Requirements (Optional)</label>
+                        <textarea id="aiAdditionalRequirements" rows="3" placeholder="Any specific requirements, regulations, or considerations..."></textarea>
+                    </div>
+                    <div class="ai-actions">
+                        <button type="button" class="btn btn-secondary" onclick="closeAIModal()">Cancel</button>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-magic"></i> Generate Policy
+                        </button>
+                    </div>
+                </form>
+                <div id="aiLoading" class="ai-loading" style="display: none;">
+                    <div class="loading-spinner"></div>
+                    <p>AI is generating your policy...</p>
+                </div>
+                <div id="aiResult" class="ai-result" style="display: none;">
+                    <h4>Generated Policy Preview</h4>
+                    <div id="aiGeneratedContent"></div>
+                    <div class="ai-result-actions">
+                        <button class="btn btn-secondary" onclick="editAIPolicy()">Edit Policy</button>
+                        <button class="btn btn-primary" onclick="saveAIPolicy()">Save Policy</button>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 

@@ -2802,6 +2802,174 @@ function formatPolicyContent(content, type) {
     }
 }
 
+// Update manual form fields based on policy type selection
+function updateManualFormFields() {
+    const policyType = document.getElementById('policyType').value;
+    const dynamicFields = document.getElementById('dynamicManualFormFields');
+    
+    if (!policyType) {
+        dynamicFields.innerHTML = '';
+        return;
+    }
+    
+    let fieldsHTML = '';
+    
+    if (policyType === 'admin') {
+        // LEVEL 1 - ADMIN POLICY HEADERS
+        fieldsHTML = `
+            <div class="form-group">
+                <label for="effectiveDate">Effective Date</label>
+                <input type="date" id="effectiveDate" required>
+            </div>
+            <div class="form-group">
+                <label for="lastReviewed">Last Reviewed</label>
+                <input type="date" id="lastReviewed" required>
+            </div>
+            <div class="form-group">
+                <label for="approvedBy">Approved By</label>
+                <input type="text" id="approvedBy" placeholder="CSI Clinical Director" required>
+            </div>
+            <div class="form-group">
+                <label for="version">Version #</label>
+                <input type="text" id="version" placeholder="1.0" required>
+            </div>
+            <div class="form-group">
+                <label for="purpose">Purpose</label>
+                <textarea id="purpose" rows="3" required></textarea>
+            </div>
+            <div class="form-group">
+                <label for="scope">Scope</label>
+                <textarea id="scope" rows="3" required></textarea>
+            </div>
+            <div class="form-group">
+                <label for="policyStatement">Policy Statement</label>
+                <textarea id="policyStatement" rows="3" required></textarea>
+            </div>
+            <div class="form-group">
+                <label for="definitions">Definitions</label>
+                <textarea id="definitions" rows="3" required></textarea>
+            </div>
+            <div class="form-group">
+                <label for="procedure">Procedure / Implementation</label>
+                <textarea id="procedure" rows="5" required></textarea>
+            </div>
+            <div class="form-group">
+                <label for="roles">Responsibilities</label>
+                <textarea id="roles" rows="4" required></textarea>
+            </div>
+            <div class="form-group">
+                <label for="compliance">Consequences / Accountability</label>
+                <textarea id="compliance" rows="3" required></textarea>
+            </div>
+            <div class="form-group">
+                <label for="relatedDocuments">Related Documents</label>
+                <textarea id="relatedDocuments" rows="2" required></textarea>
+            </div>
+            <div class="form-group">
+                <label for="reviewApproval">Review & Approval</label>
+                <textarea id="reviewApproval" rows="2" required></textarea>
+            </div>
+        `;
+    } else if (policyType === 'sog') {
+        // LEVEL 2 - STANDARD OPERATING GUIDELINE HEADERS
+        fieldsHTML = `
+            <div class="form-group">
+                <label for="effectiveDate">Effective Date</label>
+                <input type="date" id="effectiveDate" required>
+            </div>
+            <div class="form-group">
+                <label for="author">Author</label>
+                <input type="text" id="author" placeholder="CSI Clinical Staff" required>
+            </div>
+            <div class="form-group">
+                <label for="approvedBy">Approved By</label>
+                <input type="text" id="approvedBy" placeholder="CSI Medical Director" required>
+            </div>
+            <div class="form-group">
+                <label for="version">Version #</label>
+                <input type="text" id="version" placeholder="1.0" required>
+            </div>
+            <div class="form-group">
+                <label for="objective">Objective</label>
+                <textarea id="objective" rows="3" required></textarea>
+            </div>
+            <div class="form-group">
+                <label for="principles">Guiding Principles</label>
+                <textarea id="principles" rows="3" required></textarea>
+            </div>
+            <div class="form-group">
+                <label for="procedure">Recommended Approach / Procedure</label>
+                <textarea id="procedure" rows="5" required></textarea>
+            </div>
+            <div class="form-group">
+                <label for="definitions">Definitions</label>
+                <textarea id="definitions" rows="3" required></textarea>
+            </div>
+            <div class="form-group">
+                <label for="examples">Examples / Scenarios</label>
+                <textarea id="examples" rows="4" required></textarea>
+            </div>
+            <div class="form-group">
+                <label for="roles">Responsibilities</label>
+                <textarea id="roles" rows="4" required></textarea>
+            </div>
+            <div class="form-group">
+                <label for="escalation">Escalation / Support</label>
+                <textarea id="escalation" rows="3" required></textarea>
+            </div>
+            <div class="form-group">
+                <label for="review">Review & Revision</label>
+                <textarea id="review" rows="2" required></textarea>
+            </div>
+        `;
+    } else if (policyType === 'memo') {
+        // LEVEL 3 - COMMUNICATION MEMO HEADERS
+        fieldsHTML = `
+            <div class="form-group">
+                <label for="date">Date</label>
+                <input type="date" id="date" required>
+            </div>
+            <div class="form-group">
+                <label for="from">From</label>
+                <input type="text" id="from" placeholder="CSI Management" required>
+            </div>
+            <div class="form-group">
+                <label for="to">To</label>
+                <input type="text" id="to" placeholder="All Staff" required>
+            </div>
+            <div class="form-group">
+                <label for="subject">Subject</label>
+                <input type="text" id="subject" required>
+            </div>
+            <div class="form-group">
+                <label for="message">Message</label>
+                <textarea id="message" rows="6" required></textarea>
+            </div>
+            <div class="form-group">
+                <label for="effectivePeriod">Effective Period (if applicable)</label>
+                <textarea id="effectivePeriod" rows="2"></textarea>
+            </div>
+            <div class="form-group">
+                <label for="nextSteps">Next Steps / Action Required</label>
+                <textarea id="nextSteps" rows="3" required></textarea>
+            </div>
+            <div class="form-group">
+                <label for="contact">Contact for Questions</label>
+                <textarea id="contact" rows="2" required></textarea>
+            </div>
+        `;
+    }
+    
+    dynamicFields.innerHTML = fieldsHTML;
+    
+    // Set default dates
+    const today = new Date().toISOString().split('T')[0];
+    const dateInputs = dynamicFields.querySelectorAll('input[type="date"]');
+    dateInputs.forEach(input => {
+        input.value = today;
+    });
+}
+
 // Mobile menu toggle (if needed)
 document.addEventListener('DOMContentLoaded', function() {
     const navToggle = document.querySelector('.nav-toggle');

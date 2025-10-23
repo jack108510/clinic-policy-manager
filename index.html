@@ -187,11 +187,11 @@
                 </div>
                 <div class="form-group">
                     <label for="policyType">Policy Type</label>
-                    <select id="policyType" required>
+                    <select id="policyType" required onchange="updateManualFormFields()">
                         <option value="">Select Type</option>
                         <option value="admin">Admin Policy</option>
                         <option value="sog">Standard Operating Guidelines</option>
-                        <option value="memos">Communication Memos</option>
+                        <option value="memo">Communication Memos</option>
                     </select>
                 </div>
                 <div class="form-group">
@@ -203,21 +203,10 @@
                         <option value="upc">UPC</option>
                     </select>
                 </div>
-                <div class="form-group">
-                    <label for="policyPurpose">Purpose</label>
-                    <textarea id="policyPurpose" rows="3" required></textarea>
-                </div>
-                <div class="form-group">
-                    <label for="policyProcedure">Procedure</label>
-                    <textarea id="policyProcedure" rows="5" required></textarea>
-                </div>
-                <div class="form-group">
-                    <label for="policyRoles">Roles & Responsibilities</label>
-                    <textarea id="policyRoles" rows="3" required></textarea>
-                </div>
-                <div class="form-group">
-                    <label for="policyCompliance">Compliance Requirements</label>
-                    <textarea id="policyCompliance" rows="3" required></textarea>
+                
+                <!-- Dynamic form fields based on policy type -->
+                <div id="dynamicManualFormFields">
+                    <!-- Fields will be populated based on policy type selection -->
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" onclick="closeCreateModal()">Cancel</button>
@@ -249,7 +238,7 @@
                             <option value="">Select Type</option>
                             <option value="admin">Admin Policy</option>
                             <option value="sog">Standard Operating Guidelines</option>
-                            <option value="memos">Communication Memos</option>
+                            <option value="memo">Communication Memos</option>
                         </select>
                     </div>
                     <div class="form-group">

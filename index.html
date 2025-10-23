@@ -241,6 +241,66 @@
         </div>
     </div>
 
+    <!-- Settings Modal -->
+    <div id="settingsModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2><i class="fas fa-cog"></i> Settings</h2>
+                <span class="close" onclick="closeSettingsModal()">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div class="settings-tabs">
+                    <button class="tab-btn active" onclick="showSettingsTab('roles')">
+                        <i class="fas fa-users"></i> Roles & Responsibilities
+                    </button>
+                    <button class="tab-btn" onclick="showSettingsTab('disciplinary')">
+                        <i class="fas fa-gavel"></i> Disciplinary Actions
+                    </button>
+                </div>
+                
+                <!-- Roles Tab -->
+                <div id="rolesTab" class="settings-tab active">
+                    <div class="settings-section">
+                        <h3>Manage Roles & Responsibilities</h3>
+                        <div class="add-item-form">
+                            <input type="text" id="newRoleName" placeholder="Role name (e.g., Senior Veterinarian)">
+                            <input type="text" id="newRoleDescription" placeholder="Role description">
+                            <button onclick="addRole()" class="btn btn-primary">
+                                <i class="fas fa-plus"></i> Add Role
+                            </button>
+                        </div>
+                        <div class="items-list" id="rolesList">
+                            <!-- Roles will be displayed here -->
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Disciplinary Actions Tab -->
+                <div id="disciplinaryTab" class="settings-tab">
+                    <div class="settings-section">
+                        <h3>Manage Disciplinary Actions</h3>
+                        <div class="add-item-form">
+                            <input type="text" id="newActionName" placeholder="Action name (e.g., Verbal Warning)">
+                            <input type="text" id="newActionDescription" placeholder="Action description">
+                            <select id="newActionSeverity">
+                                <option value="minor">Minor</option>
+                                <option value="moderate">Moderate</option>
+                                <option value="major">Major</option>
+                                <option value="severe">Severe</option>
+                            </select>
+                            <button onclick="addDisciplinaryAction()" class="btn btn-primary">
+                                <i class="fas fa-plus"></i> Add Action
+                            </button>
+                        </div>
+                        <div class="items-list" id="disciplinaryList">
+                            <!-- Disciplinary actions will be displayed here -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Admin Dashboard Modal -->
     <div id="adminModal" class="modal">
         <div class="modal-content">
@@ -269,6 +329,9 @@
                     </button>
                     <button onclick="closeAdminModal(); openAIModal();" class="btn btn-success">
                         <i class="fas fa-robot"></i> AI Policy Generator
+                    </button>
+                    <button onclick="closeAdminModal(); openSettingsModal();" class="btn btn-info">
+                        <i class="fas fa-cog"></i> Settings
                     </button>
                 </div>
                 <div class="draft-management">

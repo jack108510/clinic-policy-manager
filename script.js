@@ -59,6 +59,22 @@ const samplePolicies = [
 let currentPolicies = [...samplePolicies];
 let draftPolicies = [];
 
+// Settings Data
+let roles = [
+    { id: 1, name: "Senior Veterinarian", description: "Lead veterinarian responsible for medical decisions and staff supervision" },
+    { id: 2, name: "Veterinary Technician", description: "Technical support staff responsible for patient care and procedures" },
+    { id: 3, name: "Clinic Manager", description: "Administrative oversight and operational management" },
+    { id: 4, name: "Support Staff", description: "Front desk, cleaning, and general support personnel" }
+];
+
+let disciplinaryActions = [
+    { id: 1, name: "Verbal Warning", description: "Informal discussion about policy violation", severity: "minor" },
+    { id: 2, name: "Written Warning", description: "Formal written notice of policy violation", severity: "moderate" },
+    { id: 3, name: "Performance Improvement Plan", description: "Structured plan to address policy compliance issues", severity: "major" },
+    { id: 4, name: "Suspension", description: "Temporary suspension from duties", severity: "severe" },
+    { id: 5, name: "Termination", description: "Employment termination for serious policy violations", severity: "severe" }
+];
+
 // DOM Elements
 const policiesGrid = document.getElementById('policiesGrid');
 const policySearch = document.getElementById('policySearch');
@@ -3485,11 +3501,163 @@ function extractFromPrompt(prompt, keyword) {
     return '';
 }
 
-function generateAdminPolicyContent(topic, clinics, urgency, regulations, specificNeeds) {
-    return `## PURPOSE
-This policy establishes comprehensive guidelines for ${topic.toLowerCase()} to ensure consistent, safe, and effective operations across all CSI clinic locations (${clinics}). This policy addresses the specific requirements and best practices for ${topic.toLowerCase()} in our veterinary healthcare environment.
+function expandAndProfessionalize(userNotes, sectionType, topic, urgency, regulations) {
+    if (!userNotes || userNotes.trim() === '') {
+        return getDefaultContent(sectionType, topic);
+    }
+    
+    // Convert user notes to professional, expanded content
+    let expandedContent = '';
+    
+    switch (sectionType) {
+        case 'purpose':
+            expandedContent = expandPurpose(userNotes, topic, urgency, regulations);
+            break;
+        case 'procedures':
+            expandedContent = expandProcedures(userNotes, topic, urgency, regulations);
+            break;
+        case 'responsibilities':
+            expandedContent = expandResponsibilities(userNotes, topic, urgency, regulations);
+            break;
+        default:
+            expandedContent = professionalizeText(userNotes, topic, urgency, regulations);
+    }
+    
+    return expandedContent;
+}
 
-${specificNeeds ? `Specific Requirements: ${specificNeeds}` : ''}
+function expandPurpose(userNotes, topic, urgency, regulations) {
+    const urgencyText = urgency === 'immediate' ? 'immediate implementation' : urgency === 'high' ? 'priority implementation' : 'standard implementation';
+    const regulatoryText = regulations ? ` in compliance with ${regulations}` : '';
+    
+    return `The primary objective of this policy is to ${userNotes.toLowerCase()}${regulatoryText}. This policy is designed for ${urgencyText} and establishes clear guidelines for all staff members to ensure consistent, safe, and effective operations. The policy addresses specific challenges and requirements related to ${topic.toLowerCase()} while maintaining the highest standards of patient care and regulatory compliance.`;
+}
+
+function expandProcedures(userNotes, topic, urgency, regulations) {
+    const steps = userNotes.split(/[,;]/).map(step => step.trim()).filter(step => step);
+    
+    if (steps.length === 0) {
+        return getDefaultContent('procedures', topic);
+    }
+    
+    let expandedProcedures = `The following procedures have been established to address the specific requirements outlined:`;
+    
+    steps.forEach((step, index) => {
+        expandedProcedures += `\n\n${index + 1}. **${professionalizeStepTitle(step)}**: ${professionalizeStepDescription(step, topic, urgency, regulations)}`;
+    });
+    
+    expandedProcedures += `\n\n**Implementation Guidelines**: All staff members must follow these procedures consistently. Regular training and competency assessments will ensure proper implementation. Documentation of all activities is required for compliance and quality assurance purposes.`;
+    
+    return expandedProcedures;
+}
+
+function expandResponsibilities(userNotes, topic, urgency, regulations) {
+    const responsibilityText = userNotes.toLowerCase();
+    let expandedResponsibilities = `**Primary Responsibilities**: ${professionalizeText(userNotes, topic, urgency, regulations)}`;
+    
+    // Add role-specific responsibilities based on settings
+    if (roles.length > 0) {
+        expandedResponsibilities += `\n\n**Role-Specific Responsibilities**:`;
+        roles.forEach(role => {
+            expandedResponsibilities += `\n\n**${role.name}**: ${role.description}. In relation to ${topic.toLowerCase()}, this role is responsible for ensuring compliance with established procedures and maintaining documentation as required.`;
+        });
+    }
+    
+    expandedResponsibilities += `\n\n**Accountability Measures**: All staff members are accountable for following these procedures. Regular monitoring and performance evaluations will ensure compliance with policy requirements.`;
+    
+    return expandedResponsibilities;
+}
+
+function professionalizeText(text, topic, urgency, regulations) {
+    // Convert casual notes to professional language
+    let professionalText = text;
+    
+    // Replace casual phrases with professional equivalents
+    const replacements = {
+        'make sure': 'ensure',
+        'need to': 'must',
+        'should': 'shall',
+        'have to': 'are required to',
+        'gotta': 'must',
+        'wanna': 'want to',
+        'gonna': 'will',
+        'stuff': 'procedures',
+        'things': 'elements',
+        'check': 'verify',
+        'look at': 'review',
+        'do': 'perform',
+        'get': 'obtain',
+        'put': 'place',
+        'use': 'utilize',
+        'tell': 'inform',
+        'ask': 'request',
+        'help': 'assist',
+        'fix': 'resolve',
+        'clean': 'sanitize',
+        'wash': 'cleanse'
+    };
+    
+    Object.entries(replacements).forEach(([casual, professional]) => {
+        const regex = new RegExp(`\\b${casual}\\b`, 'gi');
+        professionalText = professionalText.replace(regex, professional);
+    });
+    
+    // Add professional context
+    if (topic) {
+        professionalText = professionalText.replace(/\b(policy|procedure|process)\b/gi, `${topic} policy`);
+    }
+    
+    return professionalText.charAt(0).toUpperCase() + professionalText.slice(1);
+}
+
+function professionalizeStepTitle(step) {
+    const title = step.trim();
+    const capitalized = title.charAt(0).toUpperCase() + title.slice(1);
+    
+    // Add professional context if needed
+    if (!title.includes('procedure') && !title.includes('process') && !title.includes('protocol')) {
+        return `${capitalized} Procedure`;
+    }
+    
+    return capitalized;
+}
+
+function professionalizeStepDescription(step, topic, urgency, regulations) {
+    let description = professionalizeText(step, topic, urgency, regulations);
+    
+    // Add specific details based on the step content
+    if (step.toLowerCase().includes('check') || step.toLowerCase().includes('verify')) {
+        description += ' This includes thorough examination and documentation of findings.';
+    } else if (step.toLowerCase().includes('clean') || step.toLowerCase().includes('wash')) {
+        description += ' Proper sanitization procedures must be followed according to established protocols.';
+    } else if (step.toLowerCase().includes('train') || step.toLowerCase().includes('teach')) {
+        description += ' Training must be documented and competency assessments completed.';
+    } else if (step.toLowerCase().includes('report') || step.toLowerCase().includes('document')) {
+        description += ' All documentation must be accurate, complete, and maintained according to regulatory requirements.';
+    }
+    
+    return description;
+}
+
+function getDefaultContent(sectionType, topic) {
+    const defaults = {
+        purpose: `This policy establishes comprehensive guidelines for ${topic.toLowerCase()} to ensure consistent, safe, and effective operations across all CSI clinic locations.`,
+        procedures: `1. **Initial Assessment**: Evaluate current practices and identify areas for improvement\n2. **Staff Training**: Provide comprehensive training on ${topic.toLowerCase()} procedures\n3. **Implementation**: Roll out standardized procedures across all clinic locations\n4. **Monitoring**: Regular assessment of compliance and effectiveness\n5. **Continuous Improvement**: Regular review and updates based on feedback and regulatory changes`,
+        responsibilities: `**All Staff**: Follow established protocols, participate in training, report issues promptly\n**Supervisors**: Ensure compliance, provide training, monitor performance\n**Clinic Managers**: Support implementation, address systemic issues, integrate with overall operations`
+    };
+    
+    return defaults[sectionType] || 'Professional content will be generated based on the specific requirements.';
+}
+
+function generateAdminPolicyContent(topic, clinics, urgency, regulations, specificNeeds) {
+    const expandedPurpose = expandAndProfessionalize(specificNeeds, 'purpose', topic, urgency, regulations);
+    const expandedProcedures = expandAndProfessionalize(specificNeeds, 'procedures', topic, urgency, regulations);
+    const expandedResponsibilities = expandAndProfessionalize(specificNeeds, 'responsibilities', topic, urgency, regulations);
+    
+    return `## PURPOSE
+${expandedPurpose}
+
+This policy establishes comprehensive guidelines for ${topic.toLowerCase()} to ensure consistent, safe, and effective operations across all CSI clinic locations (${clinics}). This policy addresses the specific requirements and best practices for ${topic.toLowerCase()} in our veterinary healthcare environment.
 
 ## SCOPE
 This policy applies to all staff members, including veterinarians, veterinary technicians, support staff, and administrative personnel at the following CSI locations: ${clinics}. The policy covers all aspects of ${topic.toLowerCase()} operations and procedures.
@@ -3506,18 +3674,12 @@ ${regulations ? `Regulatory Compliance: This policy ensures compliance with ${re
 - **Documentation**: Written records of all ${topic.toLowerCase()} activities
 
 ## PROCEDURE / IMPLEMENTATION
-1. **Initial Assessment**: Evaluate current practices and identify areas for improvement
-2. **Staff Training**: Provide comprehensive training on ${topic.toLowerCase()} procedures
-3. **Implementation**: Roll out standardized procedures across all clinic locations
-4. **Monitoring**: Regular assessment of compliance and effectiveness
-5. **Continuous Improvement**: Regular review and updates based on feedback and regulatory changes
+${expandedProcedures}
 
 ${urgency ? `Priority Level: ${urgency} - This policy requires immediate attention and implementation.` : ''}
 
 ## RESPONSIBILITIES
-**All Staff**: Follow established protocols, participate in training, report issues promptly
-**Supervisors**: Ensure compliance, provide training, monitor performance
-**Clinic Managers**: Support implementation, address systemic issues, integrate with overall operations
+${expandedResponsibilities}
 
 ## CONSEQUENCES / ACCOUNTABILITY
 Non-compliance with this policy may result in disciplinary action up to and including termination. All staff members are responsible for understanding and following these procedures.
@@ -4371,6 +4533,9 @@ function processChatMessage(message) {
         case 'responsibilities':
             chatState.responsibilities = message;
             setTimeout(() => {
+                const roleOptions = roles.map(role => role.name).slice(0, 4);
+                roleOptions.push('Custom responsibilities (I\'ll specify)');
+                
                 addAIMessage(`Perfect! What should happen if someone doesn't follow this policy? What are the consequences or accountability measures?`, [
                     'Progressive discipline policy',
                     'Training and education focus',
@@ -4527,6 +4692,136 @@ function continueChat() {
         'Save and finish'
     ]);
     chatState.step = 'modify';
+}
+
+// Settings Modal Functions
+function openSettingsModal() {
+    document.getElementById('settingsModal').style.display = 'block';
+    displayRoles();
+    displayDisciplinaryActions();
+}
+
+function closeSettingsModal() {
+    document.getElementById('settingsModal').style.display = 'none';
+}
+
+function showSettingsTab(tabName) {
+    // Hide all tabs
+    document.querySelectorAll('.settings-tab').forEach(tab => tab.classList.remove('active'));
+    document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+    
+    // Show selected tab
+    document.getElementById(tabName + 'Tab').classList.add('active');
+    event.target.classList.add('active');
+}
+
+function addRole() {
+    const name = document.getElementById('newRoleName').value.trim();
+    const description = document.getElementById('newRoleDescription').value.trim();
+    
+    if (!name || !description) {
+        alert('Please fill in both role name and description.');
+        return;
+    }
+    
+    const newRole = {
+        id: roles.length + 1,
+        name: name,
+        description: description
+    };
+    
+    roles.push(newRole);
+    displayRoles();
+    
+    // Clear form
+    document.getElementById('newRoleName').value = '';
+    document.getElementById('newRoleDescription').value = '';
+}
+
+function deleteRole(roleId) {
+    if (confirm('Are you sure you want to delete this role?')) {
+        roles = roles.filter(role => role.id !== roleId);
+        displayRoles();
+    }
+}
+
+function displayRoles() {
+    const rolesList = document.getElementById('rolesList');
+    
+    if (roles.length === 0) {
+        rolesList.innerHTML = '<p class="no-items">No roles defined. Add your first role above.</p>';
+        return;
+    }
+    
+    rolesList.innerHTML = roles.map(role => `
+        <div class="item-card">
+            <div class="item-info">
+                <h4>${role.name}</h4>
+                <p>${role.description}</p>
+            </div>
+            <div class="item-actions">
+                <button onclick="deleteRole(${role.id})" class="btn btn-sm btn-danger">
+                    <i class="fas fa-trash"></i> Delete
+                </button>
+            </div>
+        </div>
+    `).join('');
+}
+
+function addDisciplinaryAction() {
+    const name = document.getElementById('newActionName').value.trim();
+    const description = document.getElementById('newActionDescription').value.trim();
+    const severity = document.getElementById('newActionSeverity').value;
+    
+    if (!name || !description) {
+        alert('Please fill in both action name and description.');
+        return;
+    }
+    
+    const newAction = {
+        id: disciplinaryActions.length + 1,
+        name: name,
+        description: description,
+        severity: severity
+    };
+    
+    disciplinaryActions.push(newAction);
+    displayDisciplinaryActions();
+    
+    // Clear form
+    document.getElementById('newActionName').value = '';
+    document.getElementById('newActionDescription').value = '';
+    document.getElementById('newActionSeverity').value = 'minor';
+}
+
+function deleteDisciplinaryAction(actionId) {
+    if (confirm('Are you sure you want to delete this disciplinary action?')) {
+        disciplinaryActions = disciplinaryActions.filter(action => action.id !== actionId);
+        displayDisciplinaryActions();
+    }
+}
+
+function displayDisciplinaryActions() {
+    const disciplinaryList = document.getElementById('disciplinaryList');
+    
+    if (disciplinaryActions.length === 0) {
+        disciplinaryList.innerHTML = '<p class="no-items">No disciplinary actions defined. Add your first action above.</p>';
+        return;
+    }
+    
+    disciplinaryList.innerHTML = disciplinaryActions.map(action => `
+        <div class="item-card">
+            <div class="item-info">
+                <h4>${action.name} <span class="severity-badge severity-${action.severity}">${action.severity}</span></h4>
+                <p>${action.description}</p>
+            </div>
+            <div class="item-actions">
+                <button onclick="deleteDisciplinaryAction(${action.id})" class="btn btn-sm btn-danger">
+                    <i class="fas fa-trash"></i> Delete
+                </button>
+            </div>
+        </div>
+    `).join('');
 }
 
 // Mobile menu toggle (if needed)

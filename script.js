@@ -3231,12 +3231,12 @@ function generatePolicyFromSurvey() {
     // Extended AI processing time for more thorough generation
     setTimeout(() => {
         clearInterval(messageInterval);
-        const generatedPolicy = generateAdvancedPolicyFromSurveyData(topic, type, clinics, specificNeeds, urgency, regulations, existingPolicies, specialConsiderations);
+        const generatedPolicy = generatePolicyFromSurveyData(topic, type, clinics, specificNeeds, urgency, regulations, existingPolicies, specialConsiderations);
         displayAIPolicy(generatedPolicy);
-    }, 4500);
+    }, 3000);
 }
 
-// Advanced AI Policy Generation with Enhanced Logic
+// Enhanced Policy Generation with Advanced AI Logic
 function generateAdvancedPolicyFromSurveyData(topic, type, clinics, specificNeeds, urgency, regulations, existingPolicies, specialConsiderations) {
     const clinicNames = getClinicNames(clinics).join(', ');
     const typeLabel = getTypeLabel(type);
@@ -3257,8 +3257,8 @@ function generateAdvancedPolicyFromSurveyData(topic, type, clinics, specificNeed
         policyContext
     ].filter(Boolean).join('. ');
     
-    // Generate advanced, topic-specific policy content with proper CSI headers
-    const policyContent = generateAdvancedCSIPolicyWithHeaders(topic, type, combinedRequirements, currentDate, specificNeeds, existingPolicies, urgency, regulations);
+    // Generate comprehensive, topic-specific policy content with proper CSI headers
+    const policyContent = generateCSIPolicyWithHeaders(topic, type, combinedRequirements, currentDate, specificNeeds, existingPolicies);
     
     return {
         ...policyContent,
@@ -3330,58 +3330,6 @@ function analyzePolicyContext(topic, specificNeeds, specialConsiderations) {
     return context.trim();
 }
 
-// Enhanced Policy Generation with Advanced AI Logic
-function generateAdvancedCSIPolicyWithHeaders(topic, type, requirements, currentDate, keyPoints = '', previousDocuments = '', urgency = '', regulations = '') {
-    if (type === 'admin') {
-        return {
-            title: `${topic} Admin Policy`,
-            // LEVEL 1 - ADMIN POLICY HEADERS
-            effectiveDate: currentDate,
-            lastReviewed: currentDate,
-            approvedBy: urgency === 'immediate' ? "CSI Emergency Director" : "CSI Clinical Director",
-            version: urgency === 'immediate' ? "1.0-EMERGENCY" : "1.0",
-            purpose: generateAdvancedPurpose(topic, type, keyPoints, previousDocuments, urgency, regulations),
-            scope: generateAdvancedScope(topic, type, requirements, urgency),
-            policyStatement: generateAdvancedPolicyStatement(topic, type, urgency, regulations),
-            definitions: generateAdvancedDefinitions(topic, type, regulations),
-            procedure: generateAdvancedProcedure(topic, type, urgency, regulations),
-            roles: generateAdvancedRoles(topic, type, urgency),
-            compliance: generateAdvancedCompliance(topic, type, regulations, urgency),
-            relatedDocuments: generateAdvancedRelatedDocuments(topic, type, previousDocuments, regulations),
-            reviewApproval: generateAdvancedReviewApproval(topic, type, currentDate, urgency)
-        };
-    } else if (type === 'sog') {
-        return {
-            title: `${topic} Standard Operating Guidelines`,
-            // LEVEL 2 - STANDARD OPERATING GUIDELINE HEADERS
-            effectiveDate: currentDate,
-            author: urgency === 'immediate' ? "CSI Emergency Response Team" : "CSI Clinical Staff",
-            approvedBy: urgency === 'immediate' ? "CSI Emergency Director" : "CSI Medical Director",
-            version: urgency === 'immediate' ? "1.0-EMERGENCY" : "1.0",
-            objective: generateAdvancedObjective(topic, type, keyPoints, urgency),
-            principles: generateAdvancedPrinciples(topic, type, urgency, regulations),
-            procedure: generateAdvancedProcedure(topic, type, urgency, regulations),
-            definitions: generateAdvancedDefinitions(topic, type, regulations),
-            examples: generateAdvancedExamples(topic, type, urgency),
-            roles: generateAdvancedRoles(topic, type, urgency),
-            escalation: generateAdvancedEscalation(topic, type, urgency),
-            review: generateAdvancedReview(topic, type, currentDate, urgency)
-        };
-    } else {
-        return {
-            title: `${topic} Communication Memo`,
-            // LEVEL 3 - COMMUNICATION MEMO HEADERS
-            date: currentDate,
-            from: urgency === 'immediate' ? "CSI Emergency Management" : "CSI Management",
-            to: "All Staff",
-            subject: urgency === 'immediate' ? `URGENT: ${topic}` : topic,
-            message: generateAdvancedMessage(topic, type, keyPoints, urgency, regulations),
-            effectivePeriod: generateAdvancedEffectivePeriod(topic, type, currentDate, urgency),
-            nextSteps: generateAdvancedNextSteps(topic, type, urgency),
-            contact: generateAdvancedContact(topic, type, urgency)
-        };
-    }
-}
 
 function generatePolicyFromSurveyData(topic, type, clinics, specificNeeds, urgency, regulations, existingPolicies, specialConsiderations) {
     const clinicNames = getClinicNames(clinics).join(', ');

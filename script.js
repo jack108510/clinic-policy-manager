@@ -5118,32 +5118,42 @@ function parseChatGPTResponse(response, topic, type, clinics) {
 
 // Setup signup form event listeners
 function setupSignupFormListeners() {
+    console.log('Setting up signup form listeners...');
+    
+    // Get elements
     const signupForm = document.getElementById('signupForm');
     const signupButton = document.querySelector('#signupForm button[type="submit"]');
     
-    console.log('Setting up signup form listeners...');
     console.log('Signup form element:', signupForm);
     console.log('Signup button element:', signupButton);
     
     if (signupForm) {
-        // Remove existing listeners first
-        signupForm.removeEventListener('submit', handleSignupSubmit);
-        signupForm.addEventListener('submit', handleSignupSubmit);
+        // Remove any existing listeners
+        const newForm = signupForm.cloneNode(true);
+        signupForm.parentNode.replaceChild(newForm, signupForm);
+        
+        // Add new event listener
+        document.getElementById('signupForm').addEventListener('submit', function(e) {
+            console.log('Signup form submit event triggered');
+            e.preventDefault();
+            signupUser(e);
+        });
         console.log('Signup form event listener attached');
     }
     
     if (signupButton) {
-        // Remove existing listeners first
-        signupButton.removeEventListener('click', handleSignupSubmit);
-        signupButton.addEventListener('click', handleSignupSubmit);
+        // Remove any existing listeners
+        const newButton = signupButton.cloneNode(true);
+        signupButton.parentNode.replaceChild(newButton, signupButton);
+        
+        // Add new event listener
+        document.querySelector('#signupForm button[type="submit"]').addEventListener('click', function(e) {
+            console.log('Signup button click event triggered');
+            e.preventDefault();
+            signupUser(e);
+        });
         console.log('Signup button event listener attached');
     }
-}
-
-function handleSignupSubmit(e) {
-    console.log('Signup form/button event triggered');
-    e.preventDefault();
-    signupUser(e);
 }
 
 // User Management Functions
@@ -5180,12 +5190,13 @@ function signupUser(event) {
     
     const username = document.getElementById('signupUsername').value.trim();
     const email = document.getElementById('signupEmail').value.trim();
+    const password = document.getElementById('signupPassword').value.trim();
     const accessCode = document.getElementById('signupAccessCode').value.trim();
     
-    console.log('Form data:', { username, email, accessCode });
+    console.log('Form data:', { username, email, password: '***', accessCode });
     
     // Validate required fields
-    if (!username || !email || !accessCode) {
+    if (!username || !email || !password || !accessCode) {
         showSignupError('Please fill in all required fields.');
         return;
     }
@@ -5299,6 +5310,7 @@ function signupUser(event) {
         id: Date.now(),
         username: username,
         email: email,
+        password: password,
         company: foundAccessCode ? foundAccessCode.description || 'CSI Company' : 'CSI Company',
         role: 'user',
         accessCode: accessCode,
@@ -5337,19 +5349,24 @@ function loginUser(event) {
     event.preventDefault();
     
     const username = document.getElementById('loginUsername').value.trim();
-    const company = document.getElementById('loginCompany').value.trim();
+    const password = document.getElementById('loginPassword').value.trim();
     
-    // Find user
-    const user = users.find(u => u.username === username && u.company === company);
+    if (!username || !password) {
+        showLoginError('Please fill in all required fields.');
+        return;
+    }
+    
+    // Find user by username/email and password
+    const user = users.find(u => (u.username === username || u.email === username) && u.password === password);
     
     if (!user) {
-        showLoginError('Invalid username or company. Please try again.');
+        showLoginError('Invalid username/email or password. Please try again.');
         return;
     }
     
     // Set current user and company
     currentUser = user;
-    currentCompany = company;
+    currentCompany = user.company;
     saveToLocalStorage('currentUser', currentUser);
     saveToLocalStorage('currentCompany', currentCompany);
     
@@ -5358,6 +5375,15 @@ function loginUser(event) {
     closeLoginModal();
     
     alert('Login successful!');
+}
+
+function requireLogin() {
+    if (!currentUser) {
+        alert('Please sign up or log in to access this feature.');
+        showSignupModal();
+        return false;
+    }
+    return true;
 }
 
 function logoutUser() {
@@ -5662,12 +5688,10 @@ document.addEventListener('DOMContentLoaded', function() {
     // Initialize user interface
     updateUserInterface();
     
-    // Check if user is logged in, if not show signup popup
-    if (!currentUser) {
-        setTimeout(() => {
-            showSignupModal();
-        }, 1000); // Show after 1 second to let page load
-    }
+    // Always show signup modal first - force user to sign up
+    setTimeout(() => {
+        showSignupModal();
+    }, 1000); // Show after 1 second to let page load
     
     // Listen for master data updates
     window.addEventListener('masterDataUpdated', function(event) {

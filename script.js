@@ -282,6 +282,7 @@ function createNewPolicy() {
         type: formData.type,
         clinics: formData.clinics,
         description: formData.purpose,
+        company: currentCompany || 'Default Company', // Assign to current company
         created: new Date().toISOString().split('T')[0],
         updated: new Date().toISOString().split('T')[0]
     };
@@ -2706,6 +2707,7 @@ function storeDraft() {
         type: policy.type,
         clinics: policy.clinics,
         content: policy,
+        company: currentCompany || 'Default Company', // Assign to current company
         created: new Date().toISOString().split('T')[0],
         status: 'draft'
     };
@@ -2719,12 +2721,17 @@ function storeDraft() {
 }
 
 function displayDrafts() {
-    if (draftPolicies.length === 0) {
+    // Filter drafts by company
+    const companyDrafts = currentCompany ? 
+        draftPolicies.filter(draft => draft.company === currentCompany || !draft.company) : 
+        draftPolicies;
+    
+    if (companyDrafts.length === 0) {
         draftList.innerHTML = '<p class="no-drafts">No draft policies available.</p>';
         return;
     }
     
-    draftList.innerHTML = draftPolicies.map(draft => `
+    draftList.innerHTML = companyDrafts.map(draft => `
         <div class="draft-item">
             <div class="draft-info">
                 <h4>${draft.title}</h4>
@@ -5998,12 +6005,17 @@ function updateAdminStats() {
 function displayAdminDrafts() {
     const adminDraftList = document.getElementById('adminDraftList');
     
-    if (draftPolicies.length === 0) {
+    // Filter drafts by company
+    const companyDrafts = currentCompany ? 
+        draftPolicies.filter(draft => draft.company === currentCompany || !draft.company) : 
+        draftPolicies;
+    
+    if (companyDrafts.length === 0) {
         adminDraftList.innerHTML = '<p class="no-drafts">No draft policies yet.</p>';
         return;
     }
     
-    adminDraftList.innerHTML = draftPolicies.map(draft => `
+    adminDraftList.innerHTML = companyDrafts.map(draft => `
         <div class="draft-item">
             <div class="draft-info">
                 <h4>${draft.title}</h4>

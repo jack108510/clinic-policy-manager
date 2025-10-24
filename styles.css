@@ -2387,3 +2387,127 @@ body {
 .editable-content.editing + .edit-actions {
     display: block !important;
 }
+
+
+/* Policy Info Header Styling */
+.policy-info-header {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    padding: 20px;
+    border-radius: 12px 12px 0 0;
+    margin-bottom: 0;
+}
+
+.policy-summary {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.summary-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 14px;
+}
+
+.summary-item i {
+    font-size: 16px;
+    opacity: 0.9;
+}
+
+.summary-item span {
+    line-height: 1.4;
+}
+
+/* Clean up policy preview */
+.policy-preview.professional {
+    border-radius: 0 0 12px 12px;
+    margin-top: 0;
+}
+
+
+/* AI Modal Improvements */
+.ai-subtitle {
+    color: #6c757d;
+    font-size: 14px;
+    margin: 5px 0 0 0;
+    font-weight: 400;
+}
+
+.modal-header {
+    border-bottom: 1px solid #e9ecef;
+    padding-bottom: 15px;
+    margin-bottom: 20px;
+}
+
+.policy-type-selection {
+    background: #f8f9fa;
+    padding: 15px;
+    border-radius: 8px;
+    margin-bottom: 20px;
+}
+
+.policy-type-selection h4 {
+    margin: 0 0 10px 0;
+    color: #495057;
+    font-size: 16px;
+}
+
+.policy-options-selection {
+    background: #f8f9fa;
+    padding: 15px;
+    border-radius: 8px;
+    margin-bottom: 20px;
+}
+
+.policy-options-selection h4 {
+    margin: 0 0 15px 0;
+    color: #495057;
+    font-size: 16px;
+}
+
+.policy-options-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 15px;
+}
+
+.option-group {
+    background: white;
+    padding: 12px;
+    border-radius: 6px;
+    border: 1px solid #dee2e6;
+}
+
+.option-group h5 {
+    margin: 0 0 8px 0;
+    color: #495057;
+    font-size: 14px;
+    font-weight: 600;
+}
+
+.toggle-item {
+    display: flex;
+    align-items: center;
+    margin-bottom: 8px;
+    cursor: pointer;
+}
+
+.toggle-item:last-child {
+    margin-bottom: 0;
+}
+
+.toggle-label {
+    margin-left: 8px;
+    font-size: 14px;
+    color: #495057;
+}
+
+.role-description,
+.action-description {
+    display: block;
+    font-size: 12px;
+    color: #6c757d;
+    margin-top: 2px;
+}

@@ -2759,25 +2759,19 @@ function displayAIPolicy(policy) {
     
     // Add clinic information at the top
     const clinicInfo = `
-    <div class="policy-info">
-        <div class="info-item">
-            <strong>Applicable Organizations:</strong> ${policy.clinicNames || 'All Organizations'}
+    <div class="policy-info-header">
+        <div class="policy-summary">
+            <div class="summary-item">
+                <i class="fas fa-building"></i>
+                <span><strong>Organizations:</strong> ${policy.clinicNames || 'All Organizations'}</span>
+            </div>
+            ${policy.keyPoints ? `
+            <div class="summary-item">
+                <i class="fas fa-lightbulb"></i>
+                <span><strong>Key Points:</strong> ${policy.keyPoints}</span>
+            </div>
+            ` : ''}
         </div>
-        ${policy.keyPoints ? `
-        <div class="info-item">
-            <strong>Key Points:</strong> ${policy.keyPoints}
-        </div>
-        ` : ''}
-        ${policy.previousDocuments ? `
-        <div class="info-item">
-            <strong>Previous Documents:</strong> ${policy.previousDocuments}
-        </div>
-        ` : ''}
-        ${policy.additionalRequirements ? `
-        <div class="info-item">
-            <strong>Additional Requirements:</strong> ${policy.additionalRequirements}
-        </div>
-        ` : ''}
     </div>`;
     
     aiGeneratedContent.innerHTML = clinicInfo + formattedContent;
@@ -3018,13 +3012,6 @@ function formatPolicyContent(content, type) {
             ${createEditableContent('relatedDocuments', getContent('relatedDocuments', 'Related policies and procedures will be referenced as applicable.'), 'Related Documents', 'fa-folder')}
             
             ${createEditableContent('reviewApproval', getContent('reviewApproval', 'This policy will be reviewed annually and updated as necessary.'), 'Review & Approval', 'fa-check-circle')}
-            
-            ${content.content ? `
-            <div class="policy-section">
-                <h5><i class="fas fa-file-alt"></i> Full AI-Generated Content</h5>
-                <div class="policy-content ai-content">${content.content.replace(/\n/g, '<br>')}</div>
-            </div>
-            ` : ''}
         </div>`;
     } else if (type === 'sog') {
         return `
@@ -3056,13 +3043,6 @@ function formatPolicyContent(content, type) {
             ${createEditableContent('escalation', getContent('escalation', 'Contact immediate supervisor for guidance and support.'), 'Escalation / Support', 'fa-phone')}
             
             ${createEditableContent('review', getContent('review', 'This guideline will be reviewed bi-annually and updated as necessary.'), 'Review & Revision', 'fa-sync')}
-            
-            ${content.content ? `
-            <div class="policy-section">
-                <h5><i class="fas fa-file-alt"></i> Full AI-Generated Content</h5>
-                <div class="policy-content ai-content">${content.content.replace(/\n/g, '<br>')}</div>
-            </div>
-            ` : ''}
         </div>`;
     } else {
         return `
@@ -3086,13 +3066,6 @@ function formatPolicyContent(content, type) {
             ${createEditableContent('nextSteps', getContent('nextSteps', 'Please review this communication and implement as directed.'), 'Next Steps / Action Required', 'fa-list-check')}
             
             ${createEditableContent('contact', getContent('contact', 'Contact your immediate supervisor for any questions or clarifications.'), 'Contact for Questions', 'fa-phone')}
-            
-            ${content.content ? `
-            <div class="policy-section">
-                <h5><i class="fas fa-file-alt"></i> Full AI-Generated Content</h5>
-                <div class="policy-content ai-content">${content.content.replace(/\n/g, '<br>')}</div>
-            </div>
-            ` : ''}
         </div>`;
     }
 }

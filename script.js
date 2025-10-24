@@ -5110,6 +5110,20 @@ function signupUser(event) {
     console.log('Access codes available:', masterData.accessCodes);
     console.log('Access code entered:', accessCode);
     
+    // Log each access code for debugging
+    if (masterData.accessCodes && masterData.accessCodes.length > 0) {
+        masterData.accessCodes.forEach((code, index) => {
+            console.log(`Access code ${index + 1}:`, {
+                code: code.code,
+                status: code.status,
+                expiryDate: code.expiryDate,
+                usedBy: code.usedBy,
+                maxCompanies: code.maxCompanies,
+                description: code.description
+            });
+        });
+    }
+    
     let validAccessCode = false;
     let foundAccessCode = null;
     

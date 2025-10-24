@@ -778,6 +778,26 @@ body {
     border-top: 1px solid #e5e7eb;
 }
 
+.company-info {
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    padding: 12px;
+    margin-bottom: 16px;
+}
+
+.company-info strong {
+    display: block;
+    color: #1e293b;
+    font-size: 1.1rem;
+    margin-bottom: 4px;
+}
+
+.company-info small {
+    color: #64748b;
+    font-size: 0.9rem;
+}
+
 /* Enhanced Modal Styles */
 .modal-content {
     background-color: white;

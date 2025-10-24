@@ -5926,12 +5926,29 @@ function saveUserPreferences() {
 // Password Modal Functions
 function openPasswordModal() {
     console.log('Opening password modal...');
+    
+    // Check if user is logged in with company first
+    if (!currentUser || !currentCompany) {
+        console.log('User not logged in, showing login required message');
+        showPasswordError('You must be logged in with your company credentials before accessing admin features.');
+        return;
+    }
+    
     const modal = document.getElementById('passwordModal');
     
     if (modal) {
+        // Update company information in modal
+        const companyNameElement = document.getElementById('adminCompanyName');
+        const companyUserElement = document.getElementById('adminCompanyUser');
+        const passwordCompanyElement = document.getElementById('adminPasswordCompanyName');
+        
+        if (companyNameElement) companyNameElement.textContent = currentCompany;
+        if (companyUserElement) companyUserElement.textContent = `Logged in as: ${currentUser.username}`;
+        if (passwordCompanyElement) passwordCompanyElement.textContent = currentCompany;
+        
         modal.style.display = 'block';
         modal.classList.add('show');
-        console.log('Password modal opened');
+        console.log('Password modal opened for company:', currentCompany);
         
         // Focus on password field
         setTimeout(() => {
@@ -5976,8 +5993,18 @@ function checkAdminPassword(event) {
     }
     
     console.log('Checking admin password...');
+    
+    // First, check if user is logged in with their company
+    if (!currentUser || !currentCompany) {
+        console.log('User not logged in with company');
+        showPasswordError('You must be logged in with your company credentials before accessing admin features.');
+        return;
+    }
+    
     const password = document.getElementById('adminPassword').value;
     console.log('Password entered:', password ? '***' : 'empty');
+    console.log('Current user:', currentUser);
+    console.log('Current company:', currentCompany);
     
     // Load master admin data to get company-specific passwords
     loadMasterAdminData();
@@ -5985,6 +6012,8 @@ function checkAdminPassword(event) {
     // Check if current company has a specific admin password
     if (currentCompany && masterData.companies) {
         const company = masterData.companies.find(c => c.name === currentCompany);
+        console.log('Found company in master data:', company);
+        
         if (company && company.adminPassword) {
             if (password === company.adminPassword) {
                 console.log('Company-specific password correct, opening admin modal');
@@ -5993,37 +6022,19 @@ function checkAdminPassword(event) {
                 return;
             } else {
                 console.log('Company-specific password incorrect');
-                const errorMessage = document.getElementById('error-message');
-                if (errorMessage) {
-                    errorMessage.textContent = 'Invalid password for this company.';
-                    errorMessage.style.display = 'block';
-                }
+                showPasswordError(`Invalid admin password for ${currentCompany}. Please check with your administrator.`);
                 return;
             }
+        } else {
+            console.log('No company-specific password found');
+            showPasswordError(`No admin password configured for ${currentCompany}. Please contact your administrator.`);
+            return;
         }
     }
     
-    // Fallback to default password for companies without specific passwords
-    if (password === 'Scotia9199') {
-        console.log('Password correct, opening admin modal');
-        closePasswordModal();
-        openAdminModal();
-    } else {
-        console.log('Password incorrect');
-        const errorMessage = document.getElementById('error-message');
-        
-        if (errorMessage) {
-            errorMessage.textContent = 'Invalid password. Please try again.';
-            errorMessage.style.display = 'block';
-        }
-        
-        // Clear password field
-        const passwordField = document.getElementById('adminPassword');
-        if (passwordField) {
-            passwordField.value = '';
-            passwordField.focus();
-        }
-    }
+    // Fallback message if no company found or no company-specific password
+    console.log('No company-specific password found');
+    showPasswordError(`No admin password configured for ${currentCompany}. Please contact your administrator.`);
 }
 
 function openAdminModal() {

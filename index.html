@@ -444,8 +444,15 @@
             <div class="modal-body">
                 <form id="passwordForm" onsubmit="checkAdminPassword(event)">
                     <div class="form-group">
-                        <label for="adminPassword">Enter Admin Password:</label>
-                        <input type="password" id="adminPassword" placeholder="Enter password" required>
+                        <label>Company Access:</label>
+                        <div class="company-info" id="adminCompanyInfo">
+                            <strong id="adminCompanyName">Loading...</strong>
+                            <small id="adminCompanyUser">Loading...</small>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="adminPassword">Enter Admin Password for <span id="adminPasswordCompanyName">your company</span>:</label>
+                        <input type="password" id="adminPassword" placeholder="Enter your company's admin password" required>
                         <div id="error-message" class="error-message"></div>
                     </div>
                     <button type="submit" class="btn btn-primary">Access Admin</button>

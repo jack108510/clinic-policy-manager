@@ -5142,6 +5142,21 @@ function signupUser(event) {
         );
         console.log('Found access code:', foundAccessCode);
         validAccessCode = !!foundAccessCode;
+        
+        // Show why the access code wasn't found
+        if (!foundAccessCode) {
+            console.log('Access code validation failed. Checking each condition:');
+            masterData.accessCodes.forEach((code, index) => {
+                console.log(`Code ${index + 1} (${code.code}):`, {
+                    codeMatch: code.code === accessCode,
+                    statusActive: code.status === 'active',
+                    notExpired: !code.expiryDate || new Date(code.expiryDate) > new Date(),
+                    withinLimit: code.usedBy.length < code.maxCompanies,
+                    usedBy: code.usedBy,
+                    maxCompanies: code.maxCompanies
+                });
+            });
+        }
     } else {
         console.log('No master data or access codes found, using fallback');
         // Fallback to hardcoded access code

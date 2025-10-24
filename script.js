@@ -4659,34 +4659,45 @@ function processChatMessage(message) {
             setTimeout(() => {
                 addAIMessage(`Perfect! So we're creating a policy about "${message}". 
 
-Now, which clinics or locations should this policy apply to? You can select specific clinics or choose all clinics.`);
-                chatState.step = 'clinics';
+Now, which organizations should this policy apply to? Please select the organizations from the list below:`);
+                
+                // Add organization selection with toggles
+                const chatMessages = document.getElementById('chatMessages');
+                const organizationDiv = document.createElement('div');
+                organizationDiv.className = 'organization-selection';
+                organizationDiv.innerHTML = `
+                    <div class="organization-toggles">
+                        <label class="toggle-item">
+                            <input type="checkbox" id="org-all" onchange="toggleAllOrganizations()">
+                            <span class="toggle-label">All Organizations</span>
+                        </label>
+                        <label class="toggle-item">
+                            <input type="checkbox" id="org-tudor-glen" value="tudor-glen">
+                            <span class="toggle-label">Tudor Glen</span>
+                        </label>
+                        <label class="toggle-item">
+                            <input type="checkbox" id="org-river-valley" value="river-valley">
+                            <span class="toggle-label">River Valley</span>
+                        </label>
+                        <label class="toggle-item">
+                            <input type="checkbox" id="org-rosslyn" value="rosslyn">
+                            <span class="toggle-label">Rosslyn</span>
+                        </label>
+                        <label class="toggle-item">
+                            <input type="checkbox" id="org-upc" value="upc">
+                            <span class="toggle-label">UPC</span>
+                        </label>
+                    </div>
+                    <button class="btn btn-primary" onclick="confirmOrganizations()">Continue</button>
+                `;
+                chatMessages.appendChild(organizationDiv);
+                chatMessages.scrollTop = chatMessages.scrollHeight;
+                
+                chatState.step = 'organizations';
             }, 1000);
             break;
-        case 'clinics':
-            console.log('Processing clinics selection:', message);
-            if (message.toLowerCase().includes('all')) {
-                chatState.clinics = ['tudor-glen', 'river-valley', 'rosslyn', 'upc'];
-                chatState.allResponses.clinics = 'All clinics';
-            } else {
-                const clinicMap = {
-                    'tudor glen': 'tudor-glen',
-                    'river valley': 'river-valley',
-                    'rosslyn': 'rosslyn',
-                    'upc': 'upc'
-                };
-                chatState.clinics = [clinicMap[message.toLowerCase()] || 'tudor-glen'];
-                chatState.allResponses.clinics = message;
-            }
-            console.log('Selected clinics:', chatState.clinics);
-            setTimeout(() => {
-                addAIMessage(`Excellent! This policy will apply to ${getClinicNames(chatState.clinics).join(', ')}.
-
-Now I need to gather comprehensive information to create a professional policy with all the proper fields and sections. Let me ask you a series of detailed questions:
-
-**Question 1:** What are the specific requirements, objectives, or key points that this policy should address? Please provide as much detail as possible about what the policy needs to cover.`);
-                chatState.step = 'comprehensive_questions';
-            }, 1000);
+        case 'organizations':
+            // This will be handled by confirmOrganizations() function
             break;
         case 'comprehensive_questions':
             // Store the response and move to next question
@@ -4709,7 +4720,31 @@ Now I need to gather comprehensive information to create a professional policy w
                 setTimeout(() => {
                     addAIMessage(`Perfect! Now I understand the accountability structure.
 
-**Question 4:** What are the consequences or accountability measures if someone doesn't follow this policy? How should violations be handled, and what disciplinary actions should be taken?`);
+**Question 4:** What are the consequences or accountability measures if someone doesn't follow this policy? How should violations be handled, and what disciplinary actions should be taken?
+
+Please select from the available disciplinary actions or describe custom measures:`);
+                    
+                    // Add disciplinary actions selection with toggles
+                    const chatMessages = document.getElementById('chatMessages');
+                    const disciplinaryDiv = document.createElement('div');
+                    disciplinaryDiv.className = 'disciplinary-selection';
+                    disciplinaryDiv.innerHTML = `
+                        <div class="disciplinary-toggles">
+                            ${disciplinaryActions.map(action => `
+                                <label class="toggle-item">
+                                    <input type="checkbox" id="disciplinary-${action.id}" value="${action.id}">
+                                    <span class="toggle-label">${action.name}</span>
+                                    <small class="action-description">${action.description}</small>
+                                </label>
+                            `).join('')}
+                        </div>
+                        <div class="custom-disciplinary">
+                            <textarea id="customDisciplinary" placeholder="Or describe custom disciplinary actions..."></textarea>
+                        </div>
+                        <button class="btn btn-primary" onclick="confirmDisciplinaryActions()">Continue</button>
+                    `;
+                    chatMessages.appendChild(disciplinaryDiv);
+                    chatMessages.scrollTop = chatMessages.scrollHeight;
                 }, 1000);
             } else if (!chatState.allResponses.accountability) {
                 chatState.allResponses.accountability = message;
@@ -6341,4 +6376,97 @@ For COMMUNICATION MEMOS, include these exact sections:
 Please format your response as a structured policy document with clear headings and detailed content for each section.`;
 
     return prompt;
+}
+
+
+// Organization and Disciplinary Action Toggle Functions
+function toggleAllOrganizations() {
+    const allCheckbox = document.getElementById('org-all');
+    const individualCheckboxes = document.querySelectorAll('.organization-toggles input[type="checkbox"]:not(#org-all)');
+    
+    individualCheckboxes.forEach(checkbox => {
+        checkbox.checked = allCheckbox.checked;
+    });
+}
+
+function confirmOrganizations() {
+    const selectedOrganizations = [];
+    const checkboxes = document.querySelectorAll('.organization-toggles input[type="checkbox"]:not(#org-all)');
+    
+    checkboxes.forEach(checkbox => {
+        if (checkbox.checked) {
+            selectedOrganizations.push(checkbox.value);
+        }
+    });
+    
+    if (selectedOrganizations.length === 0) {
+        alert('Please select at least one organization.');
+        return;
+    }
+    
+    chatState.clinics = selectedOrganizations;
+    chatState.allResponses.organizations = selectedOrganizations.map(org => getOrganizationName(org)).join(', ');
+    
+    // Remove the organization selection UI
+    document.querySelector('.organization-selection').remove();
+    
+    // Continue with the conversation
+    setTimeout(() => {
+        addAIMessage(`Excellent! This policy will apply to ${getOrganizationNames(chatState.clinics).join(', ')}.
+
+Now I need to gather comprehensive information to create a professional policy with all the proper fields and sections. Let me ask you a series of detailed questions:
+
+**Question 1:** What are the specific requirements, objectives, or key points that this policy should address? Please provide as much detail as possible about what the policy needs to cover.`);
+        chatState.step = 'comprehensive_questions';
+    }, 1000);
+}
+
+function confirmDisciplinaryActions() {
+    const selectedActions = [];
+    const checkboxes = document.querySelectorAll('.disciplinary-toggles input[type="checkbox"]');
+    const customText = document.getElementById('customDisciplinary').value.trim();
+    
+    checkboxes.forEach(checkbox => {
+        if (checkbox.checked) {
+            const action = disciplinaryActions.find(a => a.id === checkbox.value);
+            if (action) {
+                selectedActions.push(`${action.name}: ${action.description}`);
+            }
+        }
+    });
+    
+    if (customText) {
+        selectedActions.push(`Custom: ${customText}`);
+    }
+    
+    if (selectedActions.length === 0) {
+        alert('Please select at least one disciplinary action or provide custom measures.');
+        return;
+    }
+    
+    chatState.allResponses.accountability = selectedActions.join('; ');
+    
+    // Remove the disciplinary selection UI
+    document.querySelector('.disciplinary-selection').remove();
+    
+    // Continue with the conversation
+    setTimeout(() => {
+        addAIMessage(`Very good! Now I have a complete picture of the enforcement structure.
+
+**Question 5:** Are there any specific regulations, compliance requirements, or industry standards this policy needs to follow? (e.g., OSHA, HIPAA, AAHA, AVMA, state regulations, etc.)`);
+    }, 1000);
+}
+
+function getOrganizationName(orgId) {
+    const orgMap = {
+        'tudor-glen': 'Tudor Glen',
+        'river-valley': 'River Valley',
+        'rosslyn': 'Rosslyn',
+        'upc': 'UPC'
+    };
+    return orgMap[orgId] || orgId;
+}
+
+function getOrganizationNames(orgIds) {
+    return orgIds.map(id => getOrganizationName(id));
 }

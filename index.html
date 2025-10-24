@@ -164,6 +164,9 @@
                     <button class="tab-btn" onclick="showSettingsTab('disciplinary')">
                         <i class="fas fa-gavel"></i> Disciplinary Actions
                     </button>
+                    <button class="tab-btn" onclick="showSettingsTab('organizations')">
+                        <i class="fas fa-building"></i> Organizations
+                    </button>
                 </div>
                 
                 <!-- Roles Tab -->
@@ -205,6 +208,25 @@
                         </div>
                         <div class="items-list" id="disciplinaryList">
                             <!-- Disciplinary actions will be displayed here -->
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Organizations Tab -->
+                <div id="organizationsTab" class="settings-tab">
+                    <div class="settings-section">
+                        <h3>Manage Organizations</h3>
+                        <div class="add-item-form">
+                            <input type="text" id="newOrganizationName" placeholder="Organization name (e.g., Downtown Clinic)">
+                            <input type="text" id="newOrganizationAddress" placeholder="Organization address">
+                            <input type="text" id="newOrganizationPhone" placeholder="Phone number">
+                            <input type="email" id="newOrganizationEmail" placeholder="Email address">
+                            <button onclick="addOrganization()" class="btn btn-primary">
+                                <i class="fas fa-plus"></i> Add Organization
+                            </button>
+                        </div>
+                        <div class="items-list" id="organizationsList">
+                            <!-- Organizations will be displayed here -->
                         </div>
                     </div>
                 </div>

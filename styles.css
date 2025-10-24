@@ -2129,3 +2129,77 @@ body {
 .success-message {
     animation: slideIn 0.3s ease-out;
 }
+
+
+/* Organization and Disciplinary Action Toggle Styles */
+.organization-selection,
+.disciplinary-selection {
+    margin: 15px 0;
+    padding: 15px;
+    background-color: #f8fafc;
+    border-radius: 8px;
+    border: 1px solid #e2e8f0;
+}
+
+.organization-toggles,
+.disciplinary-toggles {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-bottom: 15px;
+}
+
+.toggle-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 10px;
+    background-color: white;
+    border-radius: 6px;
+    border: 1px solid #e2e8f0;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.toggle-item:hover {
+    background-color: #f1f5f9;
+    border-color: #3b82f6;
+}
+
+.toggle-item input[type="checkbox"] {
+    margin: 0;
+    transform: scale(1.2);
+}
+
+.toggle-label {
+    font-weight: 500;
+    color: #374151;
+    margin: 0;
+}
+
+.action-description {
+    display: block;
+    font-size: 0.875rem;
+    color: #6b7280;
+    margin-top: 2px;
+}
+
+.custom-disciplinary {
+    margin-top: 15px;
+}
+
+.custom-disciplinary textarea {
+    width: 100%;
+    min-height: 80px;
+    padding: 10px;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    font-size: 0.875rem;
+    resize: vertical;
+}
+
+.custom-disciplinary textarea:focus {
+    outline: none;
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}

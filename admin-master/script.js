@@ -202,7 +202,7 @@ function displayUsers() {
     if (users.length === 0) {
         usersList.innerHTML = `
             <tr>
-                <td colspan="7" class="empty-state">
+                <td colspan="8" class="empty-state">
                     <i class="fas fa-users"></i>
                     <h3>No Users Found</h3>
                     <p>Users will appear here as companies are created</p>
@@ -215,6 +215,7 @@ function displayUsers() {
     users.forEach(user => {
         const row = document.createElement('tr');
         row.innerHTML = `
+            <td><input type="checkbox" class="user-checkbox" value="${user.id}"></td>
             <td>
                 <div class="company-info">
                     <strong>${user.username}</strong>
@@ -227,7 +228,9 @@ function displayUsers() {
             <td>${formatDate(user.lastLogin || user.created)}</td>
             <td><span class="status-badge status-active">Active</span></td>
             <td>
-                <button onclick="deleteUser('${user.id}')" class="btn btn-small btn-danger">Delete</button>
+                <button onclick="deleteUser('${user.id}')" class="btn btn-small btn-danger">
+                    <i class="fas fa-trash"></i> Delete
+                </button>
             </td>
         `;
         usersList.appendChild(row);
@@ -235,7 +238,13 @@ function displayUsers() {
 }
 
 function deleteUser(userId) {
-    if (confirm('Are you sure you want to delete this user? This action cannot be undone.')) {
+    const user = users.find(u => u.id == userId);
+    if (!user) {
+        showAlert('User not found!', 'error');
+        return;
+    }
+    
+    if (confirm(`Are you sure you want to delete user "${user.username}" from ${user.company}? This action cannot be undone.`)) {
         // Find and remove user
         const userIndex = users.findIndex(user => user.id == userId);
         if (userIndex !== -1) {
@@ -255,9 +264,8 @@ function deleteUser(userId) {
             // Add to activity feed
             addActivity(`Deleted user: ${deletedUser.username} (${deletedUser.company})`);
             
-            alert('User deleted successfully!');
-        } else {
-            alert('User not found!');
+            // Show success message
+            showAlert(`User "${deletedUser.username}" has been deleted successfully.`, 'success');
         }
     }
 }
@@ -341,6 +349,62 @@ function refreshCompanies() {
     displayCompanies();
     updateStats();
     showAlert('Companies data refreshed successfully!', 'success');
+}
+
+function toggleAllUsers() {
+    const selectAll = document.getElementById('selectAllUsers');
+    const checkboxes = document.querySelectorAll('.user-checkbox');
+    
+    checkboxes.forEach(checkbox => {
+        checkbox.checked = selectAll.checked;
+    });
+}
+
+function bulkDeleteUsers() {
+    const selectedCheckboxes = document.querySelectorAll('.user-checkbox:checked');
+    
+    if (selectedCheckboxes.length === 0) {
+        showAlert('Please select users to delete.', 'warning');
+        return;
+    }
+    
+    const selectedUsers = Array.from(selectedCheckboxes).map(cb => {
+        const userId = cb.value;
+        return users.find(u => u.id == userId);
+    }).filter(user => user);
+    
+    if (selectedUsers.length === 0) {
+        showAlert('No valid users selected.', 'error');
+        return;
+    }
+    
+    const userNames = selectedUsers.map(u => u.username).join(', ');
+    
+    if (confirm(`Are you sure you want to delete ${selectedUsers.length} user(s): ${userNames}? This action cannot be undone.`)) {
+        // Delete selected users
+        selectedUsers.forEach(user => {
+            const userIndex = users.findIndex(u => u.id == user.id);
+            if (userIndex !== -1) {
+                users.splice(userIndex, 1);
+            }
+        });
+        
+        // Save updated users
+        saveUsers();
+        
+        // Sync to main site
+        syncToMainSite();
+        
+        // Update display
+        displayUsers();
+        updateStats();
+        
+        // Add to activity feed
+        addActivity(`Bulk deleted ${selectedUsers.length} users: ${userNames}`);
+        
+        // Show success message
+        showAlert(`${selectedUsers.length} user(s) have been deleted successfully.`, 'success');
+    }
 }
 
 function refreshUsers() {

@@ -389,6 +389,28 @@ body {
     font-size: 0.75rem;
 }
 
+.btn-warning {
+    background: #f59e0b;
+    color: white;
+}
+
+.btn-warning:hover {
+    background: #d97706;
+}
+
+.user-checkbox {
+    transform: scale(1.2);
+    cursor: pointer;
+}
+
+.user-checkbox:checked {
+    accent-color: #dc2626;
+}
+
+.btn-small i {
+    margin-right: 4px;
+}
+
 /* Stats Grid */
 .stats-grid {
     display: grid;

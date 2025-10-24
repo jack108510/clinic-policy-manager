@@ -299,9 +299,13 @@
                             <i class="fas fa-sync-alt"></i>
                             Refresh
                         </button>
-                        <button class="btn btn-primary" onclick="syncFromMainSite()">
+                        <button class="btn btn-warning" onclick="syncFromMainSite()">
                             <i class="fas fa-download"></i>
                             Sync from Main Site
+                        </button>
+                        <button class="btn btn-danger" onclick="bulkDeleteUsers()">
+                            <i class="fas fa-trash"></i>
+                            Bulk Delete
                         </button>
                     </div>
                 </div>
@@ -310,6 +314,7 @@
                     <table class="data-table" id="usersTable">
                         <thead>
                             <tr>
+                                <th><input type="checkbox" id="selectAllUsers" onchange="toggleAllUsers()"></th>
                                 <th>User</th>
                                 <th>Company</th>
                                 <th>Role</th>

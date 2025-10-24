@@ -2325,3 +2325,26 @@ body {
         grid-template-columns: repeat(3, 1fr);
     }
 }
+
+
+/* AI Generated Content Styling */
+.ai-content {
+    background-color: #f8f9fa;
+    border-left: 4px solid #007bff;
+    padding: 15px;
+    margin: 10px 0;
+    font-family: 'Courier New', monospace;
+    font-size: 14px;
+    line-height: 1.6;
+    white-space: pre-wrap;
+    border-radius: 0 8px 8px 0;
+}
+
+.ai-content::before {
+    content: '🤖 AI Generated:';
+    display: block;
+    font-weight: bold;
+    color: #007bff;
+    margin-bottom: 10px;
+    font-family: 'Inter', sans-serif;
+}

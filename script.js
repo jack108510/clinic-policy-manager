@@ -232,6 +232,15 @@ function setupEventListeners() {
             e.preventDefault();
             checkAdminPassword(e);
         });
+        
+        // Also add direct click event listener for the submit button as backup
+        const adminButton = passwordForm.querySelector('button[type="submit"]');
+        if (adminButton) {
+            adminButton.addEventListener('click', function(e) {
+                e.preventDefault();
+                checkAdminPassword(e);
+            });
+        }
     }
 
     // Smooth scrolling for navigation links
@@ -6041,6 +6050,8 @@ function checkAdminPassword(event) {
         event.preventDefault();
     }
     
+    console.log('checkAdminPassword function called!');
+    console.log('Event:', event);
     console.log('Checking admin password...');
     
     // First, check if user is logged in with their company

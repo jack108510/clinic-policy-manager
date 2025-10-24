@@ -1985,3 +1985,21 @@ body {
     height: 18px;
     accent-color: #007bff;
 }
+
+/* User Profile Link Styling */
+.user-profile-link {
+    background: linear-gradient(135deg, #007bff, #0056b3);
+    color: white !important;
+    border-radius: 20px;
+    padding: 0.5rem 1rem !important;
+    margin-left: 0.5rem;
+    font-weight: 600;
+    transition: all 0.3s ease;
+}
+
+.user-profile-link:hover {
+    background: linear-gradient(135deg, #0056b3, #004085);
+    color: white !important;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0, 123, 255, 0.3);
+}

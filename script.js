@@ -5224,7 +5224,7 @@ function updateUserInterface() {
                     <a href="#memos">Communication Memos</a>
                 </div>
             </div>
-            <span class="nav-link">Welcome, ${currentUser.username} (${currentCompany})</span>
+            <a href="#" onclick="showProfileModal()" class="nav-link user-profile-link">Welcome, ${currentUser.username} (${currentCompany})</a>
             <a href="#" onclick="logoutUser()" class="nav-link">Logout</a>
             ${currentUser.role === 'admin' ? '<a href="#" onclick="openPasswordModal()" class="nav-link">Admin Dashboard</a>' : ''}
         `;

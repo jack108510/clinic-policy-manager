@@ -37,6 +37,9 @@ document.addEventListener('DOMContentLoaded', function() {
         initializeCharts();
     }, 1000);
     
+    // Sync data to main site
+    syncToMainSite();
+    
     console.log('Master Admin Dashboard initialized successfully');
 });
 
@@ -321,6 +324,9 @@ function createAccessCode(event) {
     displayAccessCodes();
     closeCreateCodeModal();
     
+    // Sync data to main site
+    syncToMainSite();
+    
     showAlert('Access code created successfully!', 'success');
 }
 
@@ -329,6 +335,10 @@ function deleteAccessCode(codeId) {
         accessCodes = accessCodes.filter(c => c.id !== codeId);
         localStorage.setItem('masterAccessCodes', JSON.stringify(accessCodes));
         displayAccessCodes();
+        
+        // Sync data to main site
+        syncToMainSite();
+        
         showAlert('Access code deleted successfully!', 'success');
     }
 }
@@ -412,6 +422,9 @@ function launchCompany(event) {
     displayAccessCodes();
     updateStats();
     closeLaunchModal();
+    
+    // Sync data to main site
+    syncToMainSite();
     
     showAlert(`Company "${newCompany.name}" launched successfully!`, 'success');
 }
@@ -699,6 +712,30 @@ function downloadCSV(csv, filename) {
     a.download = filename;
     a.click();
     URL.revokeObjectURL(url);
+}
+
+// Data Synchronization
+function syncToMainSite() {
+    // Push master admin data to the main site's localStorage
+    const mainSiteData = {
+        companies: companies,
+        users: users,
+        accessCodes: accessCodes,
+        analytics: analytics
+    };
+    
+    // Store in localStorage with keys that the main site expects
+    localStorage.setItem('masterCompanies', JSON.stringify(companies));
+    localStorage.setItem('masterUsers', JSON.stringify(users));
+    localStorage.setItem('masterAccessCodes', JSON.stringify(accessCodes));
+    localStorage.setItem('masterAnalytics', JSON.stringify(analytics));
+    
+    // Dispatch custom event to notify main site of data update
+    window.dispatchEvent(new CustomEvent('masterDataUpdated', {
+        detail: mainSiteData
+    }));
+    
+    console.log('Data synchronized to main site');
 }
 
 // Utility Functions

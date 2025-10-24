@@ -5864,32 +5864,24 @@ function saveUserPreferences() {
     showAlert('Preferences saved successfully!', 'success');
 }
 
-// Test function for modal
-function testModal() {
-    console.log('TEST MODAL CLICKED');
-    alert('Test modal clicked!');
-    openPasswordModal();
-}
 
 // Password Modal Functions
 function openPasswordModal() {
     console.log('Opening password modal...');
     const modal = document.getElementById('passwordModal');
-    console.log('Modal element found:', modal);
     
     if (modal) {
-        // Force display first
         modal.style.display = 'block';
-        // Then add show class
         modal.classList.add('show');
         console.log('Password modal opened');
         
         // Focus on password field
-        const passwordField = document.getElementById('adminPassword');
-        if (passwordField) {
-            passwordField.focus();
-            console.log('Password field focused');
-        }
+        setTimeout(() => {
+            const passwordField = document.getElementById('adminPassword');
+            if (passwordField) {
+                passwordField.focus();
+            }
+        }, 100);
     } else {
         console.error('Password modal not found');
         alert('Password modal not found!');
@@ -5899,22 +5891,23 @@ function openPasswordModal() {
 function closePasswordModal() {
     console.log('Closing password modal...');
     const modal = document.getElementById('passwordModal');
+    
     if (modal) {
+        modal.style.display = 'none';
         modal.classList.remove('show');
+        
         // Clear password field
         const passwordField = document.getElementById('adminPassword');
         if (passwordField) {
             passwordField.value = '';
         }
+        
         // Hide error messages
         const errorMessage = document.getElementById('error-message');
         if (errorMessage) {
             errorMessage.style.display = 'none';
         }
-        const passwordError = document.getElementById('passwordError');
-        if (passwordError) {
-            passwordError.style.display = 'none';
-        }
+        
         console.log('Password modal closed');
     }
 }
@@ -5934,34 +5927,46 @@ function checkAdminPassword(event) {
         openAdminModal();
     } else {
         console.log('Password incorrect');
-        // Try both error message elements
         const errorMessage = document.getElementById('error-message');
-        const passwordError = document.getElementById('passwordError');
         
         if (errorMessage) {
             errorMessage.textContent = 'Invalid password. Please try again.';
             errorMessage.style.display = 'block';
-        } else if (passwordError) {
-            passwordError.textContent = 'Invalid password. Please try again.';
-            passwordError.style.display = 'block';
         }
         
         // Clear password field
         const passwordField = document.getElementById('adminPassword');
         if (passwordField) {
             passwordField.value = '';
+            passwordField.focus();
         }
     }
 }
 
 function openAdminModal() {
-    document.getElementById('adminModal').classList.add('show');
-    updateAdminStats();
-    displayAdminDrafts();
+    console.log('Opening admin modal...');
+    const modal = document.getElementById('adminModal');
+    
+    if (modal) {
+        modal.style.display = 'block';
+        modal.classList.add('show');
+        updateAdminStats();
+        displayAdminDrafts();
+        console.log('Admin modal opened');
+    } else {
+        console.error('Admin modal not found');
+    }
 }
 
 function closeAdminModal() {
-    document.getElementById('adminModal').classList.remove('show');
+    console.log('Closing admin modal...');
+    const modal = document.getElementById('adminModal');
+    
+    if (modal) {
+        modal.style.display = 'none';
+        modal.classList.remove('show');
+        console.log('Admin modal closed');
+    }
 }
 
 function updateAdminStats() {

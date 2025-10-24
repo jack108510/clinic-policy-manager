@@ -29,7 +29,6 @@
                 <a href="#" onclick="showLoginModal()" class="nav-link">Login</a>
                 <a href="#" onclick="showSignupModal()" class="nav-link">Sign Up</a>
                 <a href="#" onclick="openPasswordModal()" class="nav-link">Admin Dashboard</a>
-                <a href="#" onclick="testModal()" class="nav-link" style="background: red; color: white;">TEST MODAL</a>
                 <a href="#" onclick="showProfileModal()" class="nav-link">Profile Center</a>
                 <a href="admin-master/index.html" class="nav-link master-admin-link">Master Admin</a>
             </div>
@@ -177,30 +176,6 @@
         </div>
     </div>
 
-    <!-- Password Protection Modal -->
-    <div id="passwordModal" class="modal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h2><i class="fas fa-lock"></i> Admin Access</h2>
-                <span class="close" onclick="closePasswordModal()">&times;</span>
-            </div>
-            <div class="modal-body">
-                <div class="password-form">
-                    <div class="form-group">
-                        <label for="adminPassword">Enter Admin Password:</label>
-                        <input type="password" id="adminPassword" placeholder="Enter password..." required>
-                        <div id="passwordError" class="error-message"></div>
-                    </div>
-                    <div class="form-actions">
-                        <button onclick="checkAdminPassword()" class="btn btn-primary">
-                            <i class="fas fa-sign-in-alt"></i> Access Admin
-                        </button>
-                        <button onclick="closePasswordModal()" class="btn btn-secondary">Cancel</button>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
 
     <!-- Settings Modal -->
     <div id="settingsModal" class="modal">

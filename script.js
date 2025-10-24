@@ -5138,7 +5138,7 @@ function signupUser(event) {
             code.code === accessCode && 
             code.status === 'active' && 
             (!code.expiryDate || new Date(code.expiryDate) > new Date()) &&
-            code.usedBy.length < code.maxCompanies
+            code.usedBy.length <= code.maxCompanies
         );
         console.log('Found access code:', foundAccessCode);
         validAccessCode = !!foundAccessCode;
@@ -5151,11 +5151,14 @@ function signupUser(event) {
                     codeMatch: code.code === accessCode,
                     statusActive: code.status === 'active',
                     notExpired: !code.expiryDate || new Date(code.expiryDate) > new Date(),
-                    withinLimit: code.usedBy.length < code.maxCompanies,
+                    withinLimit: code.usedBy.length <= code.maxCompanies,
                     usedBy: code.usedBy,
-                    maxCompanies: code.maxCompanies
+                    maxCompanies: code.maxCompanies,
+                    currentUsage: `${code.usedBy.length}/${code.maxCompanies}`
                 });
             });
+        } else {
+            console.log('Access code found and validated successfully!');
         }
     } else {
         console.log('No master data or access codes found, using fallback');

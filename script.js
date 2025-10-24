@@ -2762,6 +2762,28 @@ function displayAIPolicy(policy) {
     
     // Store the generated policy for saving
     window.currentGeneratedPolicy = policy;
+    
+    // Update chat state and ask if anything needs to be changed
+    chatState.step = 'policy_generated';
+    
+    // Show the chat again and ask if anything needs to be changed
+    setTimeout(() => {
+        document.getElementById('aiResult').style.display = 'none';
+        document.querySelector('.chat-container').style.display = 'block';
+        
+        addAIMessage(`I've generated your policy! Please review it above. Is there anything you'd like me to change or modify?`);
+        
+        // Show quick options
+        const chatMessages = document.getElementById('chatMessages');
+        const quickOptions = document.createElement('div');
+        quickOptions.className = 'quick-options';
+        quickOptions.innerHTML = `
+            <button class="btn btn-sm btn-success" onclick="processChatMessage('No, it looks perfect!')">Perfect as is!</button>
+            <button class="btn btn-sm btn-warning" onclick="processChatMessage('Yes, I need some changes')">Yes, I need changes</button>
+        `;
+        chatMessages.appendChild(quickOptions);
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+    }, 1000);
 }
 
 function editAIPolicy() {
@@ -4491,15 +4513,11 @@ function closeCreateModal() {
     document.getElementById('dynamicManualFormFields').innerHTML = '';
 }
 
-// Conversational ChatGPT Policy Creation System
+// ChatGPT-Style Policy Creation System
 let chatState = {
     step: 'start',
-    policyType: null,
-    topic: null,
-    clinics: [],
-    allResponses: {},
-    currentQuestion: null,
-    isGenerating: false
+    isGenerating: false,
+    currentPolicy: null
 };
 
 function openAIModal() {
@@ -4520,12 +4538,8 @@ function closeAIModal() {
 function resetChat() {
     chatState = {
         step: 'start',
-        policyType: null,
-        topic: null,
-        clinics: [],
-        allResponses: {},
-        currentQuestion: null,
-        isGenerating: false
+        isGenerating: false,
+        currentPolicy: null
     };
     
     const chatMessages = document.getElementById('chatMessages');
@@ -4535,13 +4549,14 @@ function resetChat() {
                 <i class="fas fa-robot"></i>
             </div>
             <div class="message-content">
-                <p>Hello! I'm your AI Policy Assistant powered by ChatGPT. I'll have a conversation with you to gather all the information needed to create a comprehensive, professional policy.</p>
-                <p>Let's start! What type of policy would you like to create?</p>
-                <div class="quick-options">
-                    <button class="btn btn-sm btn-outline" onclick="selectPolicyType('admin')">Admin Policy</button>
-                    <button class="btn btn-sm btn-outline" onclick="selectPolicyType('sog')">Standard Operating Guidelines</button>
-                    <button class="btn btn-sm btn-outline" onclick="selectPolicyType('memo')">Communication Memo</button>
-                </div>
+                <p>Hello! I'm your AI Policy Assistant powered by ChatGPT. I can create comprehensive, professional healthcare policies for you.</p>
+                <p>Simply describe what policy you need, and I'll generate it with all the proper fields and sections. For example:</p>
+                <ul>
+                    <li>"Create an admin policy for patient safety protocols"</li>
+                    <li>"Generate a standard operating guideline for hand hygiene procedures"</li>
+                    <li>"Write a communication memo about new emergency procedures"</li>
+                </ul>
+                <p>What policy would you like me to create?</p>
             </div>
         </div>
     `;
@@ -4551,20 +4566,8 @@ function resetChat() {
 }
 
 function selectPolicyType(type) {
-    chatState.policyType = type;
-    const typeLabel = getTypeLabel(type);
-    
-    addUserMessage(`I want to create a ${typeLabel}`);
-    
-    // Store the policy type in responses
-    chatState.allResponses.policyType = typeLabel;
-    
-    setTimeout(() => {
-        addAIMessage(`Excellent choice! A ${typeLabel} is perfect for your needs. I'll ask you a series of questions to gather all the information needed to create a comprehensive, professional policy with all the proper fields and sections.
-
-Let's start with the topic. What specific subject or area should this policy cover? For example, patient safety, hand hygiene, emergency procedures, data security, etc.`);
-        chatState.step = 'topic';
-    }, 1000);
+    // This function is no longer needed in the ChatGPT-style flow
+    // Users will just type their request directly
 }
 
 function addUserMessage(message) {
@@ -4652,162 +4655,46 @@ function sendChatMessage() {
 function processChatMessage(message) {
     if (chatState.isGenerating) return;
     
-    switch (chatState.step) {
-        case 'topic':
-            chatState.topic = message;
-            chatState.allResponses.topic = message;
-            setTimeout(() => {
-                addAIMessage(`Perfect! So we're creating a policy about "${message}". 
-
-Now, which organizations should this policy apply to? Please select the organizations from the list below:`);
-                
-                // Add organization selection with toggles
-                const chatMessages = document.getElementById('chatMessages');
-                const organizationDiv = document.createElement('div');
-                organizationDiv.className = 'organization-selection';
-                organizationDiv.innerHTML = `
-                    <div class="organization-toggles">
-                        <label class="toggle-item">
-                            <input type="checkbox" id="org-all" onchange="toggleAllOrganizations()">
-                            <span class="toggle-label">All Organizations</span>
-                        </label>
-                        <label class="toggle-item">
-                            <input type="checkbox" id="org-tudor-glen" value="tudor-glen">
-                            <span class="toggle-label">Tudor Glen</span>
-                        </label>
-                        <label class="toggle-item">
-                            <input type="checkbox" id="org-river-valley" value="river-valley">
-                            <span class="toggle-label">River Valley</span>
-                        </label>
-                        <label class="toggle-item">
-                            <input type="checkbox" id="org-rosslyn" value="rosslyn">
-                            <span class="toggle-label">Rosslyn</span>
-                        </label>
-                        <label class="toggle-item">
-                            <input type="checkbox" id="org-upc" value="upc">
-                            <span class="toggle-label">UPC</span>
-                        </label>
-                    </div>
-                    <button class="btn btn-primary" onclick="confirmOrganizations()">Continue</button>
-                `;
-                chatMessages.appendChild(organizationDiv);
-                chatMessages.scrollTop = chatMessages.scrollHeight;
-                
-                chatState.step = 'organizations';
-            }, 1000);
-            break;
-        case 'organizations':
-            // This will be handled by confirmOrganizations() function
-            break;
-        case 'comprehensive_questions':
-            // Store the response and move to next question
-            if (!chatState.allResponses.specificRequirements) {
-                chatState.allResponses.specificRequirements = message;
-                setTimeout(() => {
-                    addAIMessage(`Great! Thank you for those details.
-
-**Question 2:** What procedures, step-by-step processes, or operational guidelines should be included in this policy? Please describe any specific workflows, checklists, or protocols that need to be documented.`);
-                }, 1000);
-            } else if (!chatState.allResponses.procedures) {
-                chatState.allResponses.procedures = message;
-                setTimeout(() => {
-                    addAIMessage(`Excellent! I'm getting a clear picture of the operational aspects.
-
-**Question 3:** Who should be responsible for implementing, monitoring, and enforcing this policy? Please specify roles, departments, or individuals who will have specific responsibilities.`);
-                }, 1000);
-            } else if (!chatState.allResponses.responsibilities) {
-                chatState.allResponses.responsibilities = message;
-                setTimeout(() => {
-                    addAIMessage(`Perfect! Now I understand the accountability structure.
-
-**Question 4:** What are the consequences or accountability measures if someone doesn't follow this policy? How should violations be handled, and what disciplinary actions should be taken?
-
-Please select from the available disciplinary actions or describe custom measures:`);
-                    
-                    // Add disciplinary actions selection with toggles
-                    const chatMessages = document.getElementById('chatMessages');
-                    const disciplinaryDiv = document.createElement('div');
-                    disciplinaryDiv.className = 'disciplinary-selection';
-                    disciplinaryDiv.innerHTML = `
-                        <div class="disciplinary-toggles">
-                            ${disciplinaryActions.map(action => `
-                                <label class="toggle-item">
-                                    <input type="checkbox" id="disciplinary-${action.id}" value="${action.id}">
-                                    <span class="toggle-label">${action.name}</span>
-                                    <small class="action-description">${action.description}</small>
-                                </label>
-                            `).join('')}
-                        </div>
-                        <div class="custom-disciplinary">
-                            <textarea id="customDisciplinary" placeholder="Or describe custom disciplinary actions..."></textarea>
-                        </div>
-                        <button class="btn btn-primary" onclick="confirmDisciplinaryActions()">Continue</button>
-                    `;
-                    chatMessages.appendChild(disciplinaryDiv);
-                    chatMessages.scrollTop = chatMessages.scrollHeight;
-                }, 1000);
-            } else if (!chatState.allResponses.accountability) {
-                chatState.allResponses.accountability = message;
-                setTimeout(() => {
-                    addAIMessage(`Very good! Now I have a complete picture of the enforcement structure.
-
-**Question 5:** Are there any specific regulations, compliance requirements, or industry standards this policy needs to follow? (e.g., OSHA, HIPAA, AAHA, AVMA, state regulations, etc.)`);
-                }, 1000);
-            } else if (!chatState.allResponses.regulations) {
-                chatState.allResponses.regulations = message;
-                setTimeout(() => {
-                    addAIMessage(`Excellent! Compliance requirements are crucial.
-
-**Question 6:** How often should this policy be reviewed and updated? What triggers should prompt a review or revision of this policy?`);
-                }, 1000);
-            } else if (!chatState.allResponses.reviewSchedule) {
-                chatState.allResponses.reviewSchedule = message;
-                setTimeout(() => {
-                    addAIMessage(`Perfect! Now I have all the core information needed.
-
-**Final Question:** Are there any special considerations, constraints, unique aspects of your clinics, or additional details that should be included in this policy?`);
-                }, 1000);
-            } else {
-                // Final response received
-                chatState.allResponses.specialConsiderations = message;
-                setTimeout(() => {
-                    addAIMessage(`Excellent! I now have comprehensive information to create your policy. Let me summarize what I'll include:
-
-**Policy Summary:**
-• **Type:** ${chatState.allResponses.policyType}
-• **Topic:** ${chatState.allResponses.topic}
-• **Applicable Clinics:** ${chatState.allResponses.clinics}
-• **Requirements:** ${chatState.allResponses.specificRequirements}
-• **Procedures:** ${chatState.allResponses.procedures}
-• **Responsibilities:** ${chatState.allResponses.responsibilities}
-• **Accountability:** ${chatState.allResponses.accountability}
-• **Regulations:** ${chatState.allResponses.regulations}
-• **Review Schedule:** ${chatState.allResponses.reviewSchedule}
-• **Special Considerations:** ${chatState.allResponses.specialConsiderations}
-
-I'm ready to generate your comprehensive, professional policy with all the proper fields and sections. Would you like me to create it now?`);
-                    chatState.step = 'ready_to_generate';
-                }, 1000);
-            }
-            break;
-        case 'ready_to_generate':
-            if (message.toLowerCase().includes('yes') || message.toLowerCase().includes('generate') || message.toLowerCase().includes('create')) {
-                generatePolicyFromChat();
-            } else {
-                addAIMessage(`I understand you'd like to make some changes. What would you like to modify or add to the policy information?`);
-            }
-            break;
+    if (chatState.step === 'start') {
+        // User's first message - generate policy directly
+        addUserMessage(message);
+        generatePolicyFromPrompt(message);
+    } else if (chatState.step === 'policy_generated') {
+        // User wants to modify the policy
+        if (message.toLowerCase().includes('yes') || message.toLowerCase().includes('modify') || message.toLowerCase().includes('change')) {
+            addUserMessage(message);
+            addAIMessage(`What would you like me to change or modify in the policy? Please describe the specific changes you need.`);
+            chatState.step = 'modify_policy';
+        } else if (message.toLowerCase().includes('no') || message.toLowerCase().includes('perfect') || message.toLowerCase().includes('good')) {
+            addUserMessage(message);
+            addAIMessage(`Great! Your policy is ready. You can save it, export it, or create another policy. What would you like to do next?`);
+            chatState.step = 'policy_complete';
+        } else {
+            // Treat as modification request
+            addUserMessage(message);
+            modifyPolicy(message);
+        }
+    } else if (chatState.step === 'modify_policy') {
+        // User is providing modification details
+        addUserMessage(message);
+        modifyPolicy(message);
     }
 }
 
-function generatePolicyFromChat() {
+function generatePolicyFromPrompt(prompt) {
+    chatState.isGenerating = true;
+    
+    // Show AI is thinking
+    addAIMessage(`I'll create a comprehensive policy based on your request. Let me generate that for you...`);
+    
     // Hide chat and show loading
     document.querySelector('.chat-container').style.display = 'none';
     document.getElementById('aiLoading').style.display = 'block';
     
     // Generate policy with ChatGPT
-    generatePolicyFromChatData()
+    generatePolicyFromPromptData(prompt)
         .then(generatedPolicy => {
+            chatState.currentPolicy = generatedPolicy;
             displayAIPolicy(generatedPolicy);
         })
         .catch(error => {
@@ -4825,31 +4712,11 @@ function generatePolicyFromChat() {
         });
 }
 
-async function generatePolicyFromChatData() {
-    chatState.isGenerating = true;
-    
-    const clinicNames = getClinicNames(chatState.clinics).join(', ');
-    const typeLabel = getTypeLabel(chatState.policyType);
+async function generatePolicyFromPromptData(prompt) {
     const currentDate = new Date().toISOString().split('T')[0];
     
-    // Create comprehensive requirements from all conversational responses
-    const comprehensiveRequirements = [
-        `Specific Requirements: ${chatState.allResponses.specificRequirements || ''}`,
-        `Procedures: ${chatState.allResponses.procedures || ''}`,
-        `Responsibilities: ${chatState.allResponses.responsibilities || ''}`,
-        `Accountability: ${chatState.allResponses.accountability || ''}`,
-        `Regulations: ${chatState.allResponses.regulations || ''}`,
-        `Review Schedule: ${chatState.allResponses.reviewSchedule || ''}`,
-        `Special Considerations: ${chatState.allResponses.specialConsiderations || ''}`
-    ].filter(req => req && !req.includes('null') && !req.includes('undefined')).join('. ');
-    
     // Create a comprehensive prompt for ChatGPT
-    const chatGPTPrompt = createConversationalChatGPTPrompt(
-        chatState.topic, 
-        chatState.policyType, 
-        chatState.allResponses, 
-        currentDate
-    );
+    const chatGPTPrompt = createSimpleChatGPTPrompt(prompt, currentDate);
     
     try {
         // Call ChatGPT API to generate the policy
@@ -4857,53 +4724,39 @@ async function generatePolicyFromChatData() {
         const generatedContent = chatGPTResponse.choices[0].message.content;
         
         // Parse the ChatGPT response into a structured policy
-        const policyContent = parseChatGPTResponse(generatedContent, chatState.topic, chatState.policyType);
+        const policyContent = parseChatGPTResponse(generatedContent, prompt, 'auto');
         
         return {
             ...policyContent,
-            type: chatState.policyType,
-            clinics: chatState.clinics,
-            additionalRequirements: comprehensiveRequirements,
-            keyPoints: chatState.allResponses.specificRequirements,
-            previousDocuments: chatState.allResponses.existingPolicies,
-            clinicNames: clinicNames,
-            typeLabel: typeLabel,
-            urgency: chatState.allResponses.urgency,
-            regulations: chatState.allResponses.regulations,
-            procedures: chatState.allResponses.procedures,
-            responsibilities: chatState.allResponses.responsibilities,
-            accountability: chatState.allResponses.accountability,
-            reviewSchedule: chatState.allResponses.reviewSchedule,
-            specialConsiderations: chatState.allResponses.specialConsiderations
+            type: 'auto',
+            clinics: ['tudor-glen', 'river-valley', 'rosslyn', 'upc'],
+            additionalRequirements: prompt,
+            keyPoints: prompt,
+            clinicNames: 'Tudor Glen, River Valley, Rosslyn, UPC',
+            typeLabel: 'Generated Policy',
+            prompt: prompt
         };
     } catch (error) {
         console.error('Error generating policy with ChatGPT:', error);
         // Fallback to local generation if ChatGPT fails
         const policyContent = generateCSIPolicyWithHeaders(
-            chatState.topic,
-            chatState.policyType,
-            comprehensiveRequirements,
+            prompt,
+            'auto',
+            prompt,
             currentDate,
-            chatState.allResponses.specificRequirements,
-            chatState.allResponses.existingPolicies
+            prompt,
+            ''
         );
         
         return {
             ...policyContent,
-            type: chatState.policyType,
-            clinics: chatState.clinics,
-            additionalRequirements: comprehensiveRequirements,
-            keyPoints: chatState.allResponses.specificRequirements,
-            previousDocuments: chatState.allResponses.existingPolicies,
-            clinicNames: clinicNames,
-            typeLabel: typeLabel,
-            urgency: chatState.allResponses.urgency,
-            regulations: chatState.allResponses.regulations,
-            procedures: chatState.allResponses.procedures,
-            responsibilities: chatState.allResponses.responsibilities,
-            accountability: chatState.allResponses.accountability,
-            reviewSchedule: chatState.allResponses.reviewSchedule,
-            specialConsiderations: chatState.allResponses.specialConsiderations
+            type: 'auto',
+            clinics: ['tudor-glen', 'river-valley', 'rosslyn', 'upc'],
+            additionalRequirements: prompt,
+            keyPoints: prompt,
+            clinicNames: 'Tudor Glen, River Valley, Rosslyn, UPC',
+            typeLabel: 'Generated Policy',
+            prompt: prompt
         };
     }
 }
@@ -6379,94 +6232,122 @@ Please format your response as a structured policy document with clear headings 
 }
 
 
-// Organization and Disciplinary Action Toggle Functions
-function toggleAllOrganizations() {
-    const allCheckbox = document.getElementById('org-all');
-    const individualCheckboxes = document.querySelectorAll('.organization-toggles input[type="checkbox"]:not(#org-all)');
-    
-    individualCheckboxes.forEach(checkbox => {
-        checkbox.checked = allCheckbox.checked;
-    });
+// Organization and Disciplinary Action Toggle Functions (Legacy - no longer used in ChatGPT-style flow)
+// These functions are kept for backward compatibility but are not used in the new ChatGPT-style flow
+
+
+// ChatGPT-Style Policy Generation Functions
+function createSimpleChatGPTPrompt(prompt, currentDate) {
+    return `You are a professional healthcare policy writer. Create a comprehensive policy based on this request: "${prompt}"
+
+Please create a complete, professional policy with all the necessary sections and fields. Include:
+
+1. Document Title and Header Information
+2. Effective Date: ${currentDate}
+3. Purpose and Scope
+4. Policy Statement
+5. Procedures/Implementation
+6. Responsibilities
+7. Compliance Requirements
+8. Review Schedule
+9. Contact Information
+
+Make the policy specific, actionable, and professional. Include detailed procedures, step-by-step instructions, and clear responsibilities. Ensure it complies with healthcare industry standards and regulations.
+
+Format your response as a structured policy document with clear headings and detailed content for each section.`;
 }
 
-function confirmOrganizations() {
-    const selectedOrganizations = [];
-    const checkboxes = document.querySelectorAll('.organization-toggles input[type="checkbox"]:not(#org-all)');
-    
-    checkboxes.forEach(checkbox => {
-        if (checkbox.checked) {
-            selectedOrganizations.push(checkbox.value);
-        }
-    });
-    
-    if (selectedOrganizations.length === 0) {
-        alert('Please select at least one organization.');
+function modifyPolicy(modificationRequest) {
+    if (!chatState.currentPolicy) {
+        addAIMessage('I don\'t have a policy to modify. Please create a policy first.');
         return;
     }
     
-    chatState.clinics = selectedOrganizations;
-    chatState.allResponses.organizations = selectedOrganizations.map(org => getOrganizationName(org)).join(', ');
+    addAIMessage(`I'll modify the policy based on your request: "${modificationRequest}". Let me update that for you...`);
     
-    // Remove the organization selection UI
-    document.querySelector('.organization-selection').remove();
+    // Hide chat and show loading
+    document.querySelector('.chat-container').style.display = 'none';
+    document.getElementById('aiLoading').style.display = 'block';
     
-    // Continue with the conversation
-    setTimeout(() => {
-        addAIMessage(`Excellent! This policy will apply to ${getOrganizationNames(chatState.clinics).join(', ')}.
-
-Now I need to gather comprehensive information to create a professional policy with all the proper fields and sections. Let me ask you a series of detailed questions:
-
-**Question 1:** What are the specific requirements, objectives, or key points that this policy should address? Please provide as much detail as possible about what the policy needs to cover.`);
-        chatState.step = 'comprehensive_questions';
-    }, 1000);
+    // Generate modified policy
+    generateModifiedPolicy(modificationRequest)
+        .then(modifiedPolicy => {
+            chatState.currentPolicy = modifiedPolicy;
+            displayAIPolicy(modifiedPolicy);
+        })
+        .catch(error => {
+            console.error('Error modifying policy:', error);
+            // Show error message to user
+            document.getElementById('aiLoading').style.display = 'none';
+            document.getElementById('aiResult').style.display = 'block';
+            document.getElementById('aiResult').innerHTML = `
+                <div class="error-message">
+                    <h4>Error Modifying Policy</h4>
+                    <p>${error.message}</p>
+                    <button onclick="continueChat()" class="btn btn-primary">Try Again</button>
+                </div>
+            `;
+        });
 }
 
-function confirmDisciplinaryActions() {
-    const selectedActions = [];
-    const checkboxes = document.querySelectorAll('.disciplinary-toggles input[type="checkbox"]');
-    const customText = document.getElementById('customDisciplinary').value.trim();
+async function generateModifiedPolicy(modificationRequest) {
+    const currentDate = new Date().toISOString().split('T')[0];
+    const originalPrompt = chatState.currentPolicy.prompt || '';
     
-    checkboxes.forEach(checkbox => {
-        if (checkbox.checked) {
-            const action = disciplinaryActions.find(a => a.id === checkbox.value);
-            if (action) {
-                selectedActions.push(`${action.name}: ${action.description}`);
-            }
-        }
-    });
+    // Create a comprehensive prompt for ChatGPT to modify the policy
+    const chatGPTPrompt = `You are a professional healthcare policy writer. I need you to modify an existing policy based on this request: "${modificationRequest}"
+
+Original Policy Request: "${originalPrompt}"
+
+Please create a modified version of the policy that incorporates the requested changes. Make sure to:
+
+1. Keep all the professional structure and formatting
+2. Incorporate the requested modifications
+3. Maintain compliance with healthcare industry standards
+4. Ensure all sections are updated appropriately
+5. Keep the same level of detail and professionalism
+
+Format your response as a structured policy document with clear headings and detailed content for each section.`;
     
-    if (customText) {
-        selectedActions.push(`Custom: ${customText}`);
+    try {
+        // Call ChatGPT API to generate the modified policy
+        const chatGPTResponse = await callChatGPTAPI(chatGPTPrompt);
+        const generatedContent = chatGPTResponse.choices[0].message.content;
+        
+        // Parse the ChatGPT response into a structured policy
+        const policyContent = parseChatGPTResponse(generatedContent, originalPrompt + ' (Modified: ' + modificationRequest + ')', 'auto');
+        
+        return {
+            ...policyContent,
+            type: 'auto',
+            clinics: ['tudor-glen', 'river-valley', 'rosslyn', 'upc'],
+            additionalRequirements: originalPrompt + ' (Modified: ' + modificationRequest + ')',
+            keyPoints: originalPrompt + ' (Modified: ' + modificationRequest + ')',
+            clinicNames: 'Tudor Glen, River Valley, Rosslyn, UPC',
+            typeLabel: 'Modified Policy',
+            prompt: originalPrompt + ' (Modified: ' + modificationRequest + ')'
+        };
+    } catch (error) {
+        console.error('Error modifying policy with ChatGPT:', error);
+        // Fallback to local generation if ChatGPT fails
+        const policyContent = generateCSIPolicyWithHeaders(
+            originalPrompt + ' (Modified: ' + modificationRequest + ')',
+            'auto',
+            originalPrompt + ' (Modified: ' + modificationRequest + ')',
+            currentDate,
+            originalPrompt + ' (Modified: ' + modificationRequest + ')',
+            ''
+        );
+        
+        return {
+            ...policyContent,
+            type: 'auto',
+            clinics: ['tudor-glen', 'river-valley', 'rosslyn', 'upc'],
+            additionalRequirements: originalPrompt + ' (Modified: ' + modificationRequest + ')',
+            keyPoints: originalPrompt + ' (Modified: ' + modificationRequest + ')',
+            clinicNames: 'Tudor Glen, River Valley, Rosslyn, UPC',
+            typeLabel: 'Modified Policy',
+            prompt: originalPrompt + ' (Modified: ' + modificationRequest + ')'
+        };
     }
-    
-    if (selectedActions.length === 0) {
-        alert('Please select at least one disciplinary action or provide custom measures.');
-        return;
-    }
-    
-    chatState.allResponses.accountability = selectedActions.join('; ');
-    
-    // Remove the disciplinary selection UI
-    document.querySelector('.disciplinary-selection').remove();
-    
-    // Continue with the conversation
-    setTimeout(() => {
-        addAIMessage(`Very good! Now I have a complete picture of the enforcement structure.
-
-**Question 5:** Are there any specific regulations, compliance requirements, or industry standards this policy needs to follow? (e.g., OSHA, HIPAA, AAHA, AVMA, state regulations, etc.)`);
-    }, 1000);
-}
-
-function getOrganizationName(orgId) {
-    const orgMap = {
-        'tudor-glen': 'Tudor Glen',
-        'river-valley': 'River Valley',
-        'rosslyn': 'Rosslyn',
-        'upc': 'UPC'
-    };
-    return orgMap[orgId] || orgId;
-}
-
-function getOrganizationNames(orgIds) {
-    return orgIds.map(id => getOrganizationName(id));
 }

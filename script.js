@@ -5134,12 +5134,25 @@ function signupUser(event) {
     let foundAccessCode = null;
     
     if (masterData && masterData.accessCodes && masterData.accessCodes.length > 0) {
-        foundAccessCode = masterData.accessCodes.find(code => 
-            code.code === accessCode && 
-            code.status === 'active' && 
-            (!code.expiryDate || new Date(code.expiryDate) > new Date()) &&
-            code.usedBy.length <= code.maxCompanies
-        );
+        console.log('Starting access code validation...');
+        console.log('Looking for code:', accessCode);
+        
+        foundAccessCode = masterData.accessCodes.find(code => {
+            console.log(`Checking code: ${code.code}`);
+            console.log(`  - Code match: ${code.code === accessCode}`);
+            console.log(`  - Status active: ${code.status === 'active'}`);
+            console.log(`  - Not expired: ${!code.expiryDate || new Date(code.expiryDate) > new Date()}`);
+            console.log(`  - Within limit: ${code.usedBy.length <= code.maxCompanies} (${code.usedBy.length}/${code.maxCompanies})`);
+            
+            const isValid = code.code === accessCode && 
+                code.status === 'active' && 
+                (!code.expiryDate || new Date(code.expiryDate) > new Date()) &&
+                code.usedBy.length <= code.maxCompanies;
+                
+            console.log(`  - Overall valid: ${isValid}`);
+            return isValid;
+        });
+        
         console.log('Found access code:', foundAccessCode);
         validAccessCode = !!foundAccessCode;
         

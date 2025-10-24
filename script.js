@@ -5142,12 +5142,12 @@ function signupUser(event) {
             console.log(`  - Code match: ${code.code === accessCode}`);
             console.log(`  - Status active: ${code.status === 'active'}`);
             console.log(`  - Not expired: ${!code.expiryDate || new Date(code.expiryDate) > new Date()}`);
-            console.log(`  - Within limit: ${code.usedBy.length <= code.maxCompanies} (${code.usedBy.length}/${code.maxCompanies})`);
+            console.log(`  - Within limit: ${code.usedBy.length < code.maxCompanies} (${code.usedBy.length}/${code.maxCompanies})`);
             
             const isValid = code.code === accessCode && 
                 code.status === 'active' && 
                 (!code.expiryDate || new Date(code.expiryDate) > new Date()) &&
-                code.usedBy.length <= code.maxCompanies;
+                code.usedBy.length < code.maxCompanies;
                 
             console.log(`  - Overall valid: ${isValid}`);
             return isValid;
@@ -5180,7 +5180,19 @@ function signupUser(event) {
     }
     
     if (!validAccessCode) {
-        showSignupError('Invalid access code. Please check with your administrator for a valid code.');
+        // Check if the code exists but is at its limit
+        const existingCode = masterData.accessCodes.find(code => code.code === accessCode);
+        if (existingCode) {
+            if (existingCode.status !== 'active') {
+                showSignupError('Access code is not active. Please contact your administrator.');
+            } else if (existingCode.usedBy.length >= existingCode.maxCompanies) {
+                showSignupError(`Access code "${accessCode}" has reached its maximum usage limit (${existingCode.usedBy.length}/${existingCode.maxCompanies} companies). Please contact your administrator for a new code or to increase the limit.`);
+            } else {
+                showSignupError('Access code validation failed. Please check with your administrator.');
+            }
+        } else {
+            showSignupError('Invalid access code. Please check with your administrator for a valid code.');
+        }
         return;
     }
     

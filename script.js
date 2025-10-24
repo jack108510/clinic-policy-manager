@@ -2729,17 +2729,29 @@ ENFORCEMENT:
 }
 
 function displayAIPolicy(policy) {
+    console.log('displayAIPolicy called with policy:', policy);
+    
+    const aiLoading = document.getElementById('aiLoading');
+    const aiResult = document.getElementById('aiResult');
+    const aiGeneratedContent = document.getElementById('aiGeneratedContent');
+    
+    if (!aiLoading || !aiResult || !aiGeneratedContent) {
+        console.error('Required elements not found:', { aiLoading, aiResult, aiGeneratedContent });
+        return;
+    }
+    
     aiLoading.style.display = 'none';
     aiResult.style.display = 'block';
     
     // Use the new professional formatting
     const formattedContent = formatPolicyContent(policy, policy.type);
+    console.log('Formatted content:', formattedContent);
     
     // Add clinic information at the top
     const clinicInfo = `
     <div class="policy-info">
         <div class="info-item">
-            <strong>Applicable Clinics:</strong> ${policy.clinicNames}
+            <strong>Applicable Organizations:</strong> ${policy.clinicNames || 'All Organizations'}
         </div>
         ${policy.keyPoints ? `
         <div class="info-item">
@@ -5209,9 +5221,13 @@ function parseChatGPTResponse(response, topic, type) {
     
     // Try to extract specific sections from the content
     const sections = extractPolicySections(content, policyType);
+    console.log('Extracted sections:', sections);
     
     // Merge extracted sections with basic policy
-    return { ...policy, ...sections };
+    const finalPolicy = { ...policy, ...sections };
+    console.log('Final policy object:', finalPolicy);
+    
+    return finalPolicy;
 }
 
 function extractPolicySections(content, policyType) {

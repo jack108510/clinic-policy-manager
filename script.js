@@ -376,6 +376,9 @@ function createNewPolicy() {
 
 // Modal Functions
 function openCreateModal() {
+    // Close admin dashboard first
+    closeAdminModal();
+    // Open create policy modal
     createModal.style.display = 'block';
     document.body.style.overflow = 'hidden';
 }
@@ -4424,6 +4427,9 @@ function displayAdminDrafts() {
 
 // Modal Functions
 function openCreateModal() {
+    // Close admin dashboard first
+    closeAdminModal();
+    // Open create policy modal
     document.getElementById('createModal').style.display = 'block';
 }
 
@@ -6152,7 +6158,6 @@ function updateAdminStats() {
     document.getElementById('adminTotalPolicies').textContent = currentPolicies.length;
     document.getElementById('adminDraftCount').textContent = draftPolicies.length;
     document.getElementById('adminUserCount').textContent = users.length;
-    document.getElementById('adminCompanyCount').textContent = 1; // Default company
 }
 
 function displayAdminDrafts() {

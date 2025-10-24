@@ -549,6 +549,9 @@ document.head.appendChild(style);
 
 // AI Policy Generation Functions
 function openAIModal() {
+    // Close admin dashboard first
+    closeAdminModal();
+    // Open AI modal
     aiModal.style.display = 'block';
     document.body.style.overflow = 'hidden';
     // Reset form and hide results
@@ -4457,6 +4460,9 @@ let chatState = {
 };
 
 function openAIModal() {
+    // Close admin dashboard first
+    closeAdminModal();
+    // Open AI modal
     document.getElementById('aiModal').style.display = 'block';
     document.getElementById('aiResult').style.display = 'none';
     document.getElementById('aiLoading').style.display = 'none';
@@ -4865,6 +4871,9 @@ function continueChat() {
 
 // Settings Modal Functions
 function openSettingsModal() {
+    // Close admin dashboard first
+    closeAdminModal();
+    // Open settings modal
     document.getElementById('settingsModal').classList.add('show');
     displayRoles();
     displayDisciplinaryActions();
@@ -5809,6 +5818,9 @@ function showAPIStatus(message, type) {
 
 // Load API key when settings modal opens
 function openSettingsModal() {
+    // Close admin dashboard first
+    closeAdminModal();
+    // Open settings modal
     const apiKeyInput = document.getElementById('apiKey');
     if (apiKeyInput) {
         const savedKey = getChatGPTAPIKey();

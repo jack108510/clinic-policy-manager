@@ -161,7 +161,7 @@ function displayCompanies() {
     if (companies.length === 0) {
         companiesList.innerHTML = `
             <tr>
-                <td colspan="7" class="empty-state">
+                <td colspan="9" class="empty-state">
                     <i class="fas fa-building"></i>
                     <h3>No Companies Yet</h3>
                     <p>Launch your first company to get started</p>
@@ -190,6 +190,16 @@ function displayCompanies() {
                     <span class="password-display">${company.adminPassword || 'Not Set'}</span>
                     <button onclick="setCompanyPassword('${company.id}')" class="btn btn-small btn-secondary">
                         <i class="fas fa-key"></i> Set
+                    </button>
+                </div>
+            </td>
+            <td>
+                <div class="api-info">
+                    <span class="api-status ${company.apiKey ? 'configured' : 'not-configured'}">
+                        ${company.apiKey ? 'Configured' : 'Not Set'}
+                    </span>
+                    <button onclick="configureCompanyAPI('${company.id}')" class="btn btn-small btn-info">
+                        <i class="fas fa-cog"></i> Configure
                     </button>
                 </div>
             </td>
@@ -1048,6 +1058,76 @@ function logout() {
         window.location.href = '../index.html';
     }
 }
+
+// API Configuration Functions
+function configureCompanyAPI(companyId) {
+    const company = companies.find(c => c.id === companyId);
+    if (!company) return;
+    
+    document.getElementById('apiCompanyName').value = company.name;
+    document.getElementById('companyAPIKey').value = company.apiKey || '';
+    document.getElementById('companyAPIModal').classList.add('show');
+}
+
+function closeCompanyAPIModal() {
+    document.getElementById('companyAPIModal').classList.remove('show');
+}
+
+function testCompanyAPI() {
+    const apiKey = document.getElementById('companyAPIKey').value.trim();
+    const statusDiv = document.getElementById('apiStatus');
+    
+    if (!apiKey) {
+        statusDiv.innerHTML = '<span class="status-error">Please enter an API key first</span>';
+        return;
+    }
+    
+    statusDiv.innerHTML = '<span class="status-testing">Testing API connection...</span>';
+    
+    // Test API connection
+    fetch('https://api.openai.com/v1/models', {
+        method: 'GET',
+        headers: {
+            'Authorization': `Bearer ${apiKey}`,
+            'Content-Type': 'application/json'
+        }
+    })
+    .then(response => {
+        if (response.ok) {
+            statusDiv.innerHTML = '<span class="status-success">API connection successful!</span>';
+        } else {
+            statusDiv.innerHTML = '<span class="status-error">API connection failed. Check your API key.</span>';
+        }
+    })
+    .catch(error => {
+        statusDiv.innerHTML = '<span class="status-error">Error testing API: ' + error.message + '</span>';
+    });
+}
+
+// Handle company API form submission
+document.addEventListener('DOMContentLoaded', function() {
+    const companyAPIForm = document.getElementById('companyAPIForm');
+    if (companyAPIForm) {
+        companyAPIForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const companyName = document.getElementById('apiCompanyName').value;
+            const apiKey = document.getElementById('companyAPIKey').value.trim();
+            
+            // Find the company and update its API key
+            const company = companies.find(c => c.name === companyName);
+            if (company) {
+                company.apiKey = apiKey;
+                saveData();
+                displayCompanies();
+                closeCompanyAPIModal();
+                
+                // Show success message
+                showNotification('API key saved successfully for ' + companyName, 'success');
+            }
+        });
+    }
+});
 
 // Close modals when clicking outside
 window.onclick = function(event) {

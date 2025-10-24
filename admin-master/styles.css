@@ -1381,3 +1381,42 @@ body {
 .block { display: block; }
 .flex { display: flex; }
 .grid { display: grid; }
+
+/* API Configuration Styles */
+.api-info {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.api-status {
+    padding: 0.25rem 0.5rem;
+    border-radius: 0.25rem;
+    font-size: 0.75rem;
+    font-weight: 500;
+}
+
+.api-status.configured {
+    background-color: #d1fae5;
+    color: #065f46;
+}
+
+.api-status.not-configured {
+    background-color: #fee2e2;
+    color: #991b1b;
+}
+
+.status-success {
+    color: #059669;
+    font-weight: 500;
+}
+
+.status-error {
+    color: #dc2626;
+    font-weight: 500;
+}
+
+.status-testing {
+    color: #d97706;
+    font-weight: 500;
+}

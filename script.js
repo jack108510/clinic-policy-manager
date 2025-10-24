@@ -69,7 +69,16 @@ window.addEventListener('masterDataUpdated', function(event) {
 
 // ChatGPT API Key Management
 function getChatGPTAPIKey() {
-    // First try to get from localStorage (user input)
+    // Get API key from company configuration in master admin data
+    const masterData = loadMasterAdminData();
+    if (masterData && masterData.companies) {
+        const company = masterData.companies.find(c => c.name === currentCompany);
+        if (company && company.apiKey) {
+            return company.apiKey;
+        }
+    }
+    
+    // Fallback to localStorage for backward compatibility
     let apiKey = localStorage.getItem('chatgpt_api_key');
     
     // If not found, try to get from environment variable (for development)

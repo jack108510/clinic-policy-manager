@@ -5122,6 +5122,12 @@ function signupUser(event) {
                 description: code.description
             });
         });
+        
+        // Show available access codes for easy reference
+        const availableCodes = masterData.accessCodes.map(code => code.code).join(', ');
+        console.log('Available access codes:', availableCodes);
+    } else {
+        console.log('No access codes found in master data');
     }
     
     let validAccessCode = false;

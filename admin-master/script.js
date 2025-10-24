@@ -230,10 +230,15 @@ function updateStats() {
     // Calculate total policies
     analytics.totalPolicies = companies.reduce((total, company) => total + company.policies, 0);
     
+    // Update main stats
     document.getElementById('totalCompanies').textContent = analytics.totalCompanies;
     document.getElementById('totalUsers').textContent = analytics.totalUsers;
     document.getElementById('totalPolicies').textContent = analytics.totalPolicies;
     document.getElementById('activeCompanies').textContent = analytics.activeCompanies;
+    
+    // Update header stats
+    document.getElementById('headerCompanyCount').textContent = analytics.totalCompanies;
+    document.getElementById('headerUserCount').textContent = analytics.totalUsers;
 }
 
 function updateAnalytics() {
@@ -256,6 +261,22 @@ function displayCompanies() {
     const companiesList = document.getElementById('companiesList');
     companiesList.innerHTML = '';
     
+    if (companies.length === 0) {
+        companiesList.innerHTML = `
+            <tr>
+                <td colspan="7" class="empty-state">
+                    <i class="fas fa-building" style="font-size: 3rem; color: #d1d5db; margin-bottom: 1rem;"></i>
+                    <h3>No Companies Yet</h3>
+                    <p>Launch your first company to get started</p>
+                    <button onclick="launchNewCompany()" class="btn btn-primary">
+                        <i class="fas fa-rocket"></i> Launch New Company
+                    </button>
+                </td>
+            </tr>
+        `;
+        return;
+    }
+    
     companies.forEach(company => {
         const row = document.createElement('tr');
         row.innerHTML = `
@@ -277,6 +298,13 @@ function displayCompanies() {
         `;
         companiesList.appendChild(row);
     });
+}
+
+function refreshCompanies() {
+    loadData();
+    displayCompanies();
+    updateStats();
+    showAlert('Companies data refreshed successfully!', 'success');
 }
 
 function displayUsers() {

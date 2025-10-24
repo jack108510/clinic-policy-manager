@@ -4844,12 +4844,21 @@ async function generatePolicyFromPromptData(prompt) {
         console.error('Error generating policy with ChatGPT:', error);
         // Fallback to simple local generation if ChatGPT fails
         console.log('Falling back to simple local generation...');
-        const policyContent = generateSimpleFallbackPolicy(prompt, policyType, organizationNames, roleNames, disciplinaryActionNames);
+        
+        // Get the variables that might be undefined due to the error
+        const fallbackOrganizations = getSelectedOrganizations();
+        const fallbackOrganizationNames = fallbackOrganizations.map(org => getOrganizationName(org)).join(', ');
+        const fallbackRoles = getSelectedRoles();
+        const fallbackRoleNames = fallbackRoles.map(role => role.name).join(', ');
+        const fallbackDisciplinaryActions = getSelectedDisciplinaryActions();
+        const fallbackDisciplinaryActionNames = fallbackDisciplinaryActions.map(action => action.name).join(', ');
+        
+        const policyContent = generateSimpleFallbackPolicy(prompt, policyType, fallbackOrganizationNames, fallbackRoleNames, fallbackDisciplinaryActionNames);
         
         return {
             ...policyContent,
-            selectedRoles: selectedRoles,
-            selectedDisciplinaryActions: selectedDisciplinaryActions
+            selectedRoles: fallbackRoles,
+            selectedDisciplinaryActions: fallbackDisciplinaryActions
         };
     }
 }
@@ -5659,6 +5668,10 @@ function deleteUser(userId) {
 
 function displayUsers() {
     const usersList = document.getElementById('usersList');
+    if (!usersList) {
+        console.log('usersList element not found, skipping displayUsers');
+        return;
+    }
     
     if (users.length === 0) {
         usersList.innerHTML = '<p class="no-items">No users found. Add your first user above.</p>';
@@ -6577,4 +6590,16 @@ function testPolicyGeneration() {
             console.error('Test policy generation failed:', error);
             alert('Policy generation test failed: ' + error.message);
         });
+}
+
+
+// Missing function for organization name mapping
+function getOrganizationName(orgId) {
+    const orgMap = {
+        'tudor-glen': 'Tudor Glen',
+        'river-valley': 'River Valley',
+        'rosslyn': 'Rosslyn',
+        'upc': 'UPC'
+    };
+    return orgMap[orgId] || orgId;
 }

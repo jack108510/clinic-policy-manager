@@ -238,7 +238,12 @@ function displayUsers() {
 }
 
 function deleteUser(userId) {
-    const user = users.find(u => u.id == userId);
+    console.log('deleteUser called with userId:', userId);
+    console.log('Current users array:', users);
+    
+    const user = users.find(u => u.id === userId);
+    console.log('Found user:', user);
+    
     if (!user) {
         showAlert('User not found!', 'error');
         return;
@@ -246,10 +251,14 @@ function deleteUser(userId) {
     
     if (confirm(`Are you sure you want to delete user "${user.username}" from ${user.company}? This action cannot be undone.`)) {
         // Find and remove user
-        const userIndex = users.findIndex(user => user.id == userId);
+        const userIndex = users.findIndex(u => u.id === userId);
+        console.log('User index to delete:', userIndex);
+        
         if (userIndex !== -1) {
             const deletedUser = users[userIndex];
             users.splice(userIndex, 1);
+            
+            console.log('Users after deletion:', users);
             
             // Save updated users
             saveUsers();
@@ -266,6 +275,9 @@ function deleteUser(userId) {
             
             // Show success message
             showAlert(`User "${deletedUser.username}" has been deleted successfully.`, 'success');
+        } else {
+            console.log('User index not found');
+            showAlert('User not found in array!', 'error');
         }
     }
 }
@@ -383,7 +395,7 @@ function bulkDeleteUsers() {
     if (confirm(`Are you sure you want to delete ${selectedUsers.length} user(s): ${userNames}? This action cannot be undone.`)) {
         // Delete selected users
         selectedUsers.forEach(user => {
-            const userIndex = users.findIndex(u => u.id == user.id);
+            const userIndex = users.findIndex(u => u.id === user.id);
             if (userIndex !== -1) {
                 users.splice(userIndex, 1);
             }
@@ -967,6 +979,10 @@ function enable2FA() {
 
 function manageSessions() {
     showAlert('Session management would be implemented here.', 'info');
+}
+
+function saveUsers() {
+    localStorage.setItem('masterUsers', JSON.stringify(users));
 }
 
 function savePreferences() {

@@ -2954,6 +2954,25 @@ function formatPolicyContent(content, type) {
         return content[field] && content[field] !== 'undefined' ? content[field] : fallback;
     };
     
+    // Helper function to create editable content
+    const createEditableContent = (field, value, label, icon) => {
+        return `
+        <div class="policy-section editable-section" data-field="${field}">
+            <h5><i class="fas ${icon}"></i> ${label}</h5>
+            <div class="policy-content editable-content" contenteditable="true" data-field="${field}">
+                ${value}
+            </div>
+            <div class="edit-actions" style="display: none;">
+                <button class="btn btn-sm btn-success" onclick="savePolicyField('${field}')">
+                    <i class="fas fa-save"></i> Save
+                </button>
+                <button class="btn btn-sm btn-secondary" onclick="cancelPolicyEdit('${field}')">
+                    <i class="fas fa-times"></i> Cancel
+                </button>
+            </div>
+        </div>`;
+    };
+    
     if (type === 'admin') {
         return `
         <div class="policy-preview professional">
@@ -2969,50 +2988,23 @@ function formatPolicyContent(content, type) {
                 <div class="meta-item"><strong>Version:</strong> ${getContent('version', '1.0')}</div>
             </div>
             
-            <div class="policy-section">
-                <h5><i class="fas fa-info-circle"></i> Purpose</h5>
-                <div class="policy-content">${getContent('purpose', 'This policy establishes guidelines and procedures for the specified topic.')}</div>
-            </div>
+            ${createEditableContent('purpose', getContent('purpose', 'This policy establishes guidelines and procedures for the specified topic.'), 'Purpose', 'fa-info-circle')}
             
-            <div class="policy-section">
-                <h5><i class="fas fa-scope"></i> Scope</h5>
-                <div class="policy-content">${getContent('scope', 'This policy applies to all staff and operations within CSI facilities.')}</div>
-            </div>
+            ${createEditableContent('scope', getContent('scope', 'This policy applies to all staff and operations within CSI facilities.'), 'Scope', 'fa-scope')}
             
-            <div class="policy-section">
-                <h5><i class="fas fa-gavel"></i> Policy Statement</h5>
-                <div class="policy-content">${getContent('policyStatement', 'It is the policy of CSI to ensure compliance with established procedures and guidelines.')}</div>
-            </div>
+            ${createEditableContent('policyStatement', getContent('policyStatement', 'It is the policy of CSI to ensure compliance with established procedures and guidelines.'), 'Policy Statement', 'fa-gavel')}
             
-            <div class="policy-section">
-                <h5><i class="fas fa-book"></i> Definitions</h5>
-                <div class="policy-content">${getContent('definitions', 'Key terms and definitions will be provided as needed.')}</div>
-            </div>
+            ${createEditableContent('definitions', getContent('definitions', 'Key terms and definitions will be provided as needed.'), 'Definitions', 'fa-book')}
             
-            <div class="policy-section">
-                <h5><i class="fas fa-cogs"></i> Procedure / Implementation</h5>
-                <div class="policy-content">${getContent('procedures', 'Detailed procedures will be outlined based on the specific policy requirements.')}</div>
-            </div>
+            ${createEditableContent('procedures', getContent('procedures', 'Detailed procedures will be outlined based on the specific policy requirements.'), 'Procedure / Implementation', 'fa-cogs')}
             
-            <div class="policy-section">
-                <h5><i class="fas fa-users"></i> Responsibilities</h5>
-                <div class="policy-content">${getContent('responsibilities', 'All staff members are responsible for following this policy.')}</div>
-            </div>
+            ${createEditableContent('responsibilities', getContent('responsibilities', 'All staff members are responsible for following this policy.'), 'Responsibilities', 'fa-users')}
             
-            <div class="policy-section">
-                <h5><i class="fas fa-shield-alt"></i> Consequences / Accountability</h5>
-                <div class="policy-content">${getContent('consequences', 'Non-compliance will result in appropriate disciplinary action.')}</div>
-            </div>
+            ${createEditableContent('consequences', getContent('consequences', 'Non-compliance will result in appropriate disciplinary action.'), 'Consequences / Accountability', 'fa-shield-alt')}
             
-            <div class="policy-section">
-                <h5><i class="fas fa-folder"></i> Related Documents</h5>
-                <div class="policy-content">${getContent('relatedDocuments', 'Related policies and procedures will be referenced as applicable.')}</div>
-            </div>
+            ${createEditableContent('relatedDocuments', getContent('relatedDocuments', 'Related policies and procedures will be referenced as applicable.'), 'Related Documents', 'fa-folder')}
             
-            <div class="policy-section">
-                <h5><i class="fas fa-check-circle"></i> Review & Approval</h5>
-                <div class="policy-content">${getContent('reviewApproval', 'This policy will be reviewed annually and updated as necessary.')}</div>
-            </div>
+            ${createEditableContent('reviewApproval', getContent('reviewApproval', 'This policy will be reviewed annually and updated as necessary.'), 'Review & Approval', 'fa-check-circle')}
             
             ${content.content ? `
             <div class="policy-section">
@@ -3036,45 +3028,21 @@ function formatPolicyContent(content, type) {
                 <div class="meta-item"><strong>Version:</strong> ${getContent('version', '1.0')}</div>
             </div>
             
-            <div class="policy-section">
-                <h5><i class="fas fa-target"></i> Objective</h5>
-                <div class="policy-content">${getContent('objective', 'To establish standardized operating guidelines for consistent, high-quality operations.')}</div>
-            </div>
+            ${createEditableContent('objective', getContent('objective', 'To establish standardized operating guidelines for consistent, high-quality operations.'), 'Objective', 'fa-target')}
             
-            <div class="policy-section">
-                <h5><i class="fas fa-compass"></i> Guiding Principles</h5>
-                <div class="policy-content">${getContent('principles', 'Safety, quality, and compliance guide all operations.')}</div>
-            </div>
+            ${createEditableContent('principles', getContent('principles', 'Safety, quality, and compliance guide all operations.'), 'Guiding Principles', 'fa-compass')}
             
-            <div class="policy-section">
-                <h5><i class="fas fa-route"></i> Recommended Approach / Procedure</h5>
-                <div class="policy-content">${getContent('procedures', 'Detailed procedures will be outlined based on the specific guidelines.')}</div>
-            </div>
+            ${createEditableContent('procedures', getContent('procedures', 'Detailed procedures will be outlined based on the specific guidelines.'), 'Recommended Approach / Procedure', 'fa-route')}
             
-            <div class="policy-section">
-                <h5><i class="fas fa-book"></i> Definitions</h5>
-                <div class="policy-content">${getContent('definitions', 'Key terms and definitions will be provided as needed.')}</div>
-            </div>
+            ${createEditableContent('definitions', getContent('definitions', 'Key terms and definitions will be provided as needed.'), 'Definitions', 'fa-book')}
             
-            <div class="policy-section">
-                <h5><i class="fas fa-lightbulb"></i> Examples / Scenarios</h5>
-                <div class="policy-content">${getContent('examples', 'Practical examples and scenarios will be provided for guidance.')}</div>
-            </div>
+            ${createEditableContent('examples', getContent('examples', 'Practical examples and scenarios will be provided for guidance.'), 'Examples / Scenarios', 'fa-lightbulb')}
             
-            <div class="policy-section">
-                <h5><i class="fas fa-users"></i> Responsibilities</h5>
-                <div class="policy-content">${getContent('responsibilities', 'All staff members are responsible for following these guidelines.')}</div>
-            </div>
+            ${createEditableContent('responsibilities', getContent('responsibilities', 'All staff members are responsible for following these guidelines.'), 'Responsibilities', 'fa-users')}
             
-            <div class="policy-section">
-                <h5><i class="fas fa-phone"></i> Escalation / Support</h5>
-                <div class="policy-content">${getContent('escalation', 'Contact immediate supervisor for guidance and support.')}</div>
-            </div>
+            ${createEditableContent('escalation', getContent('escalation', 'Contact immediate supervisor for guidance and support.'), 'Escalation / Support', 'fa-phone')}
             
-            <div class="policy-section">
-                <h5><i class="fas fa-sync"></i> Review & Revision</h5>
-                <div class="policy-content">${getContent('review', 'This guideline will be reviewed bi-annually and updated as necessary.')}</div>
-            </div>
+            ${createEditableContent('review', getContent('review', 'This guideline will be reviewed bi-annually and updated as necessary.'), 'Review & Revision', 'fa-sync')}
             
             ${content.content ? `
             <div class="policy-section">
@@ -3098,25 +3066,13 @@ function formatPolicyContent(content, type) {
                 <div class="meta-item"><strong>Subject:</strong> ${getContent('subject', 'Important Communication')}</div>
             </div>
             
-            <div class="policy-section">
-                <h5><i class="fas fa-envelope"></i> Message</h5>
-                <div class="policy-content">${getContent('message', 'This communication memo contains important information for all staff members.')}</div>
-            </div>
+            ${createEditableContent('message', getContent('message', 'This communication memo contains important information for all staff members.'), 'Message', 'fa-envelope')}
             
-            <div class="policy-section">
-                <h5><i class="fas fa-calendar"></i> Effective Period (if applicable)</h5>
-                <div class="policy-content">${getContent('effectivePeriod', 'Effective immediately and ongoing until further notice.')}</div>
-            </div>
+            ${createEditableContent('effectivePeriod', getContent('effectivePeriod', 'Effective immediately and ongoing until further notice.'), 'Effective Period (if applicable)', 'fa-calendar')}
             
-            <div class="policy-section">
-                <h5><i class="fas fa-list-check"></i> Next Steps / Action Required</h5>
-                <div class="policy-content">${getContent('nextSteps', 'Please review this communication and implement as directed.')}</div>
-            </div>
+            ${createEditableContent('nextSteps', getContent('nextSteps', 'Please review this communication and implement as directed.'), 'Next Steps / Action Required', 'fa-list-check')}
             
-            <div class="policy-section">
-                <h5><i class="fas fa-phone"></i> Contact for Questions</h5>
-                <div class="policy-content">${getContent('contact', 'Contact your immediate supervisor for any questions or clarifications.')}</div>
-            </div>
+            ${createEditableContent('contact', getContent('contact', 'Contact your immediate supervisor for any questions or clarifications.'), 'Contact for Questions', 'fa-phone')}
             
             ${content.content ? `
             <div class="policy-section">
@@ -5289,6 +5245,82 @@ function extractPolicySections(content, policyType) {
     }
     
     return mappedSections;
+}
+
+// Policy editing functionality
+let originalPolicyContent = {};
+
+function savePolicyField(field) {
+    const editableContent = document.querySelector(`[data-field="${field}"].editable-content`);
+    const editActions = editableContent.parentElement.querySelector('.edit-actions');
+    
+    if (editableContent && editActions) {
+        // Save the new content
+        const newContent = editableContent.innerHTML;
+        if (window.currentGeneratedPolicy) {
+            window.currentGeneratedPolicy[field] = newContent;
+        }
+        
+        // Hide edit actions
+        editActions.style.display = 'none';
+        editableContent.contentEditable = false;
+        
+        // Remove editing styling
+        editableContent.classList.remove('editing');
+        
+        showSuccessMessage(`Policy field "${field}" saved successfully!`);
+        
+        console.log(`Saved policy field ${field}:`, newContent);
+    }
+}
+
+function cancelPolicyEdit(field) {
+    const editableContent = document.querySelector(`[data-field="${field}"].editable-content`);
+    const editActions = editableContent.parentElement.querySelector('.edit-actions');
+    
+    if (editableContent && editActions) {
+        // Restore original content
+        if (originalPolicyContent[field]) {
+            editableContent.innerHTML = originalPolicyContent[field];
+        }
+        
+        // Hide edit actions
+        editActions.style.display = 'none';
+        editableContent.contentEditable = false;
+        
+        // Remove editing styling
+        editableContent.classList.remove('editing');
+        
+        console.log(`Cancelled edit for policy field ${field}`);
+    }
+}
+
+// Add event listeners for editable content
+document.addEventListener('click', function(e) {
+    if (e.target.classList.contains('editable-content')) {
+        startEditing(e.target);
+    }
+});
+
+function startEditing(element) {
+    // Store original content
+    const field = element.getAttribute('data-field');
+    originalPolicyContent[field] = element.innerHTML;
+    
+    // Enable editing
+    element.contentEditable = true;
+    element.classList.add('editing');
+    
+    // Show edit actions
+    const editActions = element.parentElement.querySelector('.edit-actions');
+    if (editActions) {
+        editActions.style.display = 'block';
+    }
+    
+    // Focus and select content
+    element.focus();
+    
+    console.log(`Started editing policy field: ${field}`);
 }
 
 // Setup signup form event listeners

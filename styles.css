@@ -2327,24 +2327,63 @@ body {
 }
 
 
-/* AI Generated Content Styling */
-.ai-content {
-    background-color: #f8f9fa;
-    border-left: 4px solid #007bff;
-    padding: 15px;
-    margin: 10px 0;
-    font-family: 'Courier New', monospace;
-    font-size: 14px;
-    line-height: 1.6;
-    white-space: pre-wrap;
-    border-radius: 0 8px 8px 0;
+/* Policy Editing Styles */
+.editable-section {
+    position: relative;
+    transition: all 0.3s ease;
 }
 
-.ai-content::before {
-    content: '🤖 AI Generated:';
-    display: block;
-    font-weight: bold;
-    color: #007bff;
-    margin-bottom: 10px;
-    font-family: 'Inter', sans-serif;
+.editable-content {
+    cursor: pointer;
+    transition: all 0.3s ease;
+    border-radius: 6px;
+    padding: 10px;
+    min-height: 40px;
+}
+
+.editable-content:hover {
+    background-color: #f8f9fa;
+    border: 2px dashed #007bff;
+}
+
+.editable-content.editing {
+    background-color: #fff;
+    border: 2px solid #007bff;
+    box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.25);
+    outline: none;
+}
+
+.edit-actions {
+    margin-top: 10px;
+    text-align: right;
+}
+
+.edit-actions .btn {
+    margin-left: 5px;
+}
+
+.editable-content:focus {
+    outline: none;
+    border-color: #007bff;
+    box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.25);
+}
+
+/* Make it clear that content is editable */
+.editable-section::before {
+    content: "✏️ Click to edit";
+    position: absolute;
+    top: -25px;
+    right: 0;
+    font-size: 12px;
+    color: #6c757d;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+.editable-section:hover::before {
+    opacity: 1;
+}
+
+.editable-content.editing + .edit-actions {
+    display: block !important;
 }

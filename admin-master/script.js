@@ -1,7 +1,7 @@
-// Master Admin Dashboard JavaScript
+// Modern Master Admin Dashboard JavaScript
 
 // Global Variables
-let currentSection = 'overview';
+let currentSection = 'dashboard';
 let companies = [];
 let users = [];
 let accessCodes = [];
@@ -17,17 +17,22 @@ let analytics = {
 
 // Initialize Dashboard
 document.addEventListener('DOMContentLoaded', function() {
-    console.log('Initializing Master Admin Dashboard...');
+    console.log('Initializing Modern Master Admin Dashboard...');
     
-    // Load data and initialize
-    loadData();
+    // Initialize with sample data
+    initializeData();
+    
+    // Setup navigation
+    setupNavigation();
+    
+    // Load and display data
     updateStats();
     displayCompanies();
     displayUsers();
     displayAccessCodes();
     loadActivityFeed();
     
-    // Initialize charts after a short delay to ensure DOM is ready
+    // Initialize charts
     setTimeout(() => {
         initializeCharts();
     }, 1000);
@@ -35,132 +40,55 @@ document.addEventListener('DOMContentLoaded', function() {
     console.log('Master Admin Dashboard initialized successfully');
 });
 
-// Navigation
-function showSection(sectionId) {
-    // Hide all sections
-    document.querySelectorAll('.content-section').forEach(section => {
-        section.classList.remove('active');
-    });
+// Data Initialization
+function initializeData() {
+    // Initialize companies
+    companies = [
+        {
+            id: 'csi-001',
+            name: 'CSI Veterinary Group',
+            adminName: 'Dr. Sarah Johnson',
+            adminEmail: 'admin@csiveterinary.com',
+            adminUsername: 'admin',
+            accessCode: 'CSI123',
+            signupDate: '2024-01-15',
+            lastActive: new Date().toISOString(),
+            status: 'active',
+            users: 12,
+            policies: 45,
+            clinics: ['Tudor Glen', 'River Valley', 'Rosslyn', 'UPC']
+        },
+        {
+            id: 'vet-002',
+            name: 'Metro Animal Hospital',
+            adminName: 'Dr. Michael Chen',
+            adminEmail: 'admin@metroanimal.com',
+            adminUsername: 'mchen_admin',
+            accessCode: 'METRO456',
+            signupDate: '2024-02-20',
+            lastActive: '2024-12-15T10:30:00Z',
+            status: 'active',
+            users: 8,
+            policies: 32,
+            clinics: ['Downtown', 'Suburb']
+        },
+        {
+            id: 'vet-003',
+            name: 'Coastal Veterinary Care',
+            adminName: 'Dr. Emily Rodriguez',
+            adminEmail: 'admin@coastalvet.com',
+            adminUsername: 'erodriguez_admin',
+            accessCode: 'COASTAL789',
+            signupDate: '2024-03-10',
+            lastActive: '2024-12-10T14:20:00Z',
+            status: 'active',
+            users: 6,
+            policies: 28,
+            clinics: ['Beachside', 'Harbor']
+        }
+    ];
     
-    // Show selected section
-    document.getElementById(sectionId).classList.add('active');
-    
-    // Update navigation
-    document.querySelectorAll('.nav-link').forEach(link => {
-        link.classList.remove('active');
-    });
-    document.querySelector(`[onclick="showSection('${sectionId}')"]`).classList.add('active');
-    
-    currentSection = sectionId;
-    
-    // Load section-specific data
-    if (sectionId === 'analytics') {
-        updateCharts();
-    }
-}
-
-// Data Management
-function loadData() {
-    // Load companies
-    const savedCompanies = localStorage.getItem('masterCompanies');
-    if (savedCompanies) {
-        companies = JSON.parse(savedCompanies);
-    } else {
-        // Initialize with sample data
-        companies = [
-            {
-                id: 'csi-001',
-                name: 'CSI Veterinary Group',
-                adminName: 'John Smith',
-                adminEmail: 'admin@csiveterinary.com',
-                adminUsername: 'admin',
-                accessCode: 'CSI123',
-                signupDate: '2024-01-15',
-                lastActive: new Date().toISOString(),
-                status: 'active',
-                users: 12,
-                policies: 45,
-                clinics: ['Tudor Glen', 'River Valley', 'Rosslyn', 'UPC']
-            },
-            {
-                id: 'vet-002',
-                name: 'Metro Animal Hospital',
-                adminName: 'Sarah Johnson',
-                adminEmail: 'sarah@metroanimal.com',
-                adminUsername: 'sarah_admin',
-                accessCode: 'METRO456',
-                signupDate: '2024-02-20',
-                lastActive: '2024-12-15T10:30:00Z',
-                status: 'active',
-                users: 8,
-                policies: 32,
-                clinics: ['Downtown', 'Suburb']
-            }
-        ];
-        saveCompanies();
-        syncToMainSite();
-    }
-    
-    // Load users
-    const savedUsers = localStorage.getItem('masterUsers');
-    if (savedUsers) {
-        users = JSON.parse(savedUsers);
-    } else {
-        // Generate users from companies
-        generateUsersFromCompanies();
-    }
-    
-    // Load access codes
-    const savedCodes = localStorage.getItem('masterAccessCodes');
-    if (savedCodes) {
-        accessCodes = JSON.parse(savedCodes);
-    } else {
-        // Initialize with sample access codes
-        accessCodes = [
-            {
-                id: 'code-001',
-                code: 'CSI123',
-                description: 'CSI Veterinary Group Access',
-                createdDate: '2024-01-10',
-                expiryDate: null,
-                maxCompanies: 1,
-                usedBy: ['CSI Veterinary Group'],
-                status: 'active'
-            },
-            {
-                id: 'code-002',
-                code: 'METRO456',
-                description: 'Metro Animal Hospital Access',
-                createdDate: '2024-02-15',
-                expiryDate: null,
-                maxCompanies: 1,
-                usedBy: ['Metro Animal Hospital'],
-                status: 'active'
-            },
-            {
-                id: 'code-003',
-                code: 'VET789',
-                description: 'General Veterinary Access',
-                createdDate: '2024-03-01',
-                expiryDate: '2025-03-01',
-                maxCompanies: 5,
-                usedBy: [],
-                status: 'active'
-            }
-        ];
-        saveAccessCodes();
-    }
-    
-    // Load analytics
-    const savedAnalytics = localStorage.getItem('masterAnalytics');
-    if (savedAnalytics) {
-        analytics = JSON.parse(savedAnalytics);
-    }
-    
-    updateAnalytics();
-}
-
-function generateUsersFromCompanies() {
+    // Initialize users
     users = [];
     companies.forEach(company => {
         // Add admin user
@@ -176,7 +104,7 @@ function generateUsersFromCompanies() {
         });
         
         // Generate sample staff users
-        for (let i = 1; i <= Math.floor(Math.random() * 10) + 2; i++) {
+        for (let i = 1; i <= Math.floor(Math.random() * 8) + 2; i++) {
             users.push({
                 id: `user-${company.id}-${i}`,
                 username: `staff${i}`,
@@ -189,45 +117,91 @@ function generateUsersFromCompanies() {
             });
         }
     });
-    saveUsers();
-}
-
-function saveCompanies() {
-    localStorage.setItem('masterCompanies', JSON.stringify(companies));
-    syncToMainSite();
-}
-
-function saveUsers() {
-    localStorage.setItem('masterUsers', JSON.stringify(users));
-    syncToMainSite();
-}
-
-function saveAccessCodes() {
-    localStorage.setItem('masterAccessCodes', JSON.stringify(accessCodes));
-    syncToMainSite();
-}
-
-function saveAnalytics() {
-    localStorage.setItem('masterAnalytics', JSON.stringify(analytics));
-}
-
-// Sync data to main site
-function syncToMainSite() {
-    // Update main site's localStorage with master admin data
-    localStorage.setItem('masterCompanies', JSON.stringify(companies));
-    localStorage.setItem('masterUsers', JSON.stringify(users));
-    localStorage.setItem('masterAccessCodes', JSON.stringify(accessCodes));
-    localStorage.setItem('masterAnalytics', JSON.stringify(analytics));
     
-    // Trigger a custom event to notify main site of data changes
-    window.dispatchEvent(new CustomEvent('masterDataUpdated', {
-        detail: {
-            companies: companies,
-            users: users,
-            accessCodes: accessCodes,
-            analytics: analytics
+    // Initialize access codes
+    accessCodes = [
+        {
+            id: 'code-001',
+            code: 'CSI123',
+            description: 'CSI Veterinary Group Access',
+            createdDate: '2024-01-10',
+            expiryDate: null,
+            maxCompanies: 1,
+            usedBy: ['CSI Veterinary Group'],
+            status: 'active'
+        },
+        {
+            id: 'code-002',
+            code: 'METRO456',
+            description: 'Metro Animal Hospital Access',
+            createdDate: '2024-02-15',
+            expiryDate: null,
+            maxCompanies: 1,
+            usedBy: ['Metro Animal Hospital'],
+            status: 'active'
+        },
+        {
+            id: 'code-003',
+            code: 'VET789',
+            description: 'General Veterinary Access',
+            createdDate: '2024-03-01',
+            expiryDate: '2025-03-01',
+            maxCompanies: 10,
+            usedBy: ['Coastal Veterinary Care'],
+            status: 'active'
+        },
+        {
+            id: 'code-004',
+            code: 'PREMIUM001',
+            description: 'Premium Veterinary Access',
+            createdDate: '2024-04-01',
+            expiryDate: '2025-04-01',
+            maxCompanies: 5,
+            usedBy: [],
+            status: 'active'
         }
-    }));
+    ];
+    
+    // Save to localStorage
+    localStorage.setItem('masterCompanies', JSON.stringify(companies));
+    localStorage.setItem('masterUsers', JSON.stringify(users));
+    localStorage.setItem('masterAccessCodes', JSON.stringify(accessCodes));
+}
+
+// Navigation Setup
+function setupNavigation() {
+    const navItems = document.querySelectorAll('.nav-item[data-section]');
+    navItems.forEach(item => {
+        item.addEventListener('click', (e) => {
+            e.preventDefault();
+            const section = item.getAttribute('data-section');
+            showSection(section);
+        });
+    });
+}
+
+// Navigation
+function showSection(sectionId) {
+    // Hide all sections
+    document.querySelectorAll('.content-section').forEach(section => {
+        section.classList.remove('active');
+    });
+    
+    // Show selected section
+    document.getElementById(sectionId).classList.add('active');
+    
+    // Update navigation
+    document.querySelectorAll('.nav-item').forEach(item => {
+        item.classList.remove('active');
+    });
+    document.querySelector(`[data-section="${sectionId}"]`).classList.add('active');
+    
+    currentSection = sectionId;
+    
+    // Load section-specific data
+    if (sectionId === 'analytics') {
+        updateCharts();
+    }
 }
 
 // Statistics and Analytics
@@ -235,8 +209,6 @@ function updateStats() {
     analytics.totalCompanies = companies.length;
     analytics.totalUsers = users.length;
     analytics.activeCompanies = companies.filter(c => c.status === 'active').length;
-    
-    // Calculate total policies
     analytics.totalPolicies = companies.reduce((total, company) => total + company.policies, 0);
     
     // Update main stats
@@ -248,21 +220,11 @@ function updateStats() {
     // Update header stats
     document.getElementById('headerCompanyCount').textContent = analytics.totalCompanies;
     document.getElementById('headerUserCount').textContent = analytics.totalUsers;
-}
-
-function updateAnalytics() {
-    // Update signups by month
-    const currentMonth = new Date().toISOString().slice(0, 7);
-    analytics.signupsByMonth[currentMonth] = (analytics.signupsByMonth[currentMonth] || 0) + companies.filter(c => c.signupDate.startsWith(currentMonth)).length;
+    document.getElementById('headerPolicyCount').textContent = analytics.totalPolicies;
     
-    // Update policy types (sample data)
-    analytics.policyTypes = {
-        'Admin Policy': Math.floor(analytics.totalPolicies * 0.4),
-        'Standard Operating Guideline': Math.floor(analytics.totalPolicies * 0.35),
-        'Communication Memo': Math.floor(analytics.totalPolicies * 0.25)
-    };
-    
-    saveAnalytics();
+    // Update navigation badges
+    document.getElementById('companyBadge').textContent = analytics.totalCompanies;
+    document.getElementById('userBadge').textContent = analytics.totalUsers;
 }
 
 // Company Management
@@ -274,7 +236,7 @@ function displayCompanies() {
         companiesList.innerHTML = `
             <tr>
                 <td colspan="7" class="empty-state">
-                    <i class="fas fa-building" style="font-size: 3rem; color: #d1d5db; margin-bottom: 1rem;"></i>
+                    <i class="fas fa-building"></i>
                     <h3>No Companies Yet</h3>
                     <p>Launch your first company to get started</p>
                     <button onclick="launchNewCompany()" class="btn btn-primary">
@@ -309,26 +271,37 @@ function displayCompanies() {
     });
 }
 
-function refreshCompanies() {
-    loadData();
-    displayCompanies();
-    updateStats();
-    showAlert('Companies data refreshed successfully!', 'success');
-}
-
 function displayUsers() {
     const usersList = document.getElementById('usersList');
     usersList.innerHTML = '';
     
+    if (users.length === 0) {
+        usersList.innerHTML = `
+            <tr>
+                <td colspan="7" class="empty-state">
+                    <i class="fas fa-users"></i>
+                    <h3>No Users Found</h3>
+                    <p>Users will appear here as companies are created</p>
+                </td>
+            </tr>
+        `;
+        return;
+    }
+    
     users.forEach(user => {
         const row = document.createElement('tr');
         row.innerHTML = `
-            <td>${user.username}</td>
-            <td>${user.email}</td>
+            <td>
+                <div class="company-info">
+                    <strong>${user.username}</strong>
+                    <small>${user.email}</small>
+                </div>
+            </td>
             <td>${user.company}</td>
             <td>${user.role}</td>
             <td>${formatDate(user.created)}</td>
             <td>${formatDate(user.lastLogin)}</td>
+            <td><span class="status-badge status-${user.status}">${user.status}</span></td>
             <td>
                 <button onclick="deleteUser('${user.id}')" class="btn btn-small btn-danger">Delete</button>
             </td>
@@ -396,7 +369,7 @@ function viewCompanyDetails(companyId) {
         </div>
     `;
     
-    document.getElementById('companyDetailsModal').style.display = 'block';
+    document.getElementById('companyDetailsModal').classList.add('show');
 }
 
 function suspendCompany(companyId) {
@@ -404,47 +377,33 @@ function suspendCompany(companyId) {
         const company = companies.find(c => c.id === companyId);
         if (company) {
             company.status = company.status === 'active' ? 'suspended' : 'active';
-            saveCompanies();
+            localStorage.setItem('masterCompanies', JSON.stringify(companies));
             displayCompanies();
             updateStats();
+            showAlert('Company status updated successfully!', 'success');
         }
     }
 }
 
-function resetCompanyPassword(companyId) {
-    if (confirm('Reset the admin password for this company?')) {
-        // In a real implementation, this would send a password reset email
-        alert('Password reset email sent to company admin.');
-    }
-}
-
-function deleteCompany(companyId) {
-    if (confirm('Are you sure you want to delete this company? This action cannot be undone.')) {
-        companies = companies.filter(c => c.id !== companyId);
-        users = users.filter(u => !u.id.includes(companyId));
-        saveCompanies();
-        saveUsers();
-        displayCompanies();
-        displayUsers();
-        updateStats();
-        closeCompanyDetailsModal();
-    }
+function refreshCompanies() {
+    displayCompanies();
+    updateStats();
+    showAlert('Companies data refreshed successfully!', 'success');
 }
 
 // Access Code Management
 function showCreateCodeModal() {
-    document.getElementById('createCodeModal').style.display = 'block';
+    document.getElementById('createCodeModal').classList.add('show');
 }
 
 function closeCreateCodeModal() {
-    document.getElementById('createCodeModal').style.display = 'none';
+    document.getElementById('createCodeModal').classList.remove('show');
     document.getElementById('createCodeForm').reset();
 }
 
 function createAccessCode(event) {
     event.preventDefault();
     
-    const formData = new FormData(event.target);
     const newCode = {
         id: `code-${Date.now()}`,
         code: document.getElementById('newAccessCode').value,
@@ -457,22 +416,17 @@ function createAccessCode(event) {
     };
     
     accessCodes.push(newCode);
-    saveAccessCodes();
+    localStorage.setItem('masterAccessCodes', JSON.stringify(accessCodes));
     displayAccessCodes();
     closeCreateCodeModal();
     
     showAlert('Access code created successfully!', 'success');
 }
 
-function editAccessCode(codeId) {
-    // Implementation for editing access codes
-    alert('Edit access code functionality coming soon!');
-}
-
 function deleteAccessCode(codeId) {
     if (confirm('Are you sure you want to delete this access code?')) {
         accessCodes = accessCodes.filter(c => c.id !== codeId);
-        saveAccessCodes();
+        localStorage.setItem('masterAccessCodes', JSON.stringify(accessCodes));
         displayAccessCodes();
         showAlert('Access code deleted successfully!', 'success');
     }
@@ -492,18 +446,17 @@ function launchNewCompany() {
             accessCodeSelect.appendChild(option);
         });
     
-    document.getElementById('launchCompanyModal').style.display = 'block';
+    document.getElementById('launchCompanyModal').classList.add('show');
 }
 
 function closeLaunchModal() {
-    document.getElementById('launchCompanyModal').style.display = 'none';
+    document.getElementById('launchCompanyModal').classList.remove('show');
     document.getElementById('launchCompanyForm').reset();
 }
 
 function launchCompany(event) {
     event.preventDefault();
     
-    const formData = new FormData(event.target);
     const selectedAccessCode = document.getElementById('accessCode').value;
     
     // Find the access code
@@ -531,7 +484,7 @@ function launchCompany(event) {
     
     // Add company
     companies.push(newCompany);
-    saveCompanies();
+    localStorage.setItem('masterCompanies', JSON.stringify(companies));
     
     // Add admin user
     const adminUser = {
@@ -546,11 +499,11 @@ function launchCompany(event) {
     };
     
     users.push(adminUser);
-    saveUsers();
+    localStorage.setItem('masterUsers', JSON.stringify(users));
     
     // Update access code usage
     accessCode.usedBy.push(newCompany.name);
-    saveAccessCodes();
+    localStorage.setItem('masterAccessCodes', JSON.stringify(accessCodes));
     
     // Update displays
     displayCompanies();
@@ -562,27 +515,15 @@ function launchCompany(event) {
     showAlert(`Company "${newCompany.name}" launched successfully!`, 'success');
 }
 
-// User Management
-function deleteUser(userId) {
-    if (confirm('Are you sure you want to delete this user?')) {
-        users = users.filter(u => u.id !== userId);
-        saveUsers();
-        displayUsers();
-        updateStats();
-        showAlert('User deleted successfully!', 'success');
-    }
-}
-
 // Activity Feed
 function loadActivityFeed() {
     const activityFeed = document.getElementById('activityFeed');
     activityFeed.innerHTML = '';
     
-    // Generate sample activities
     const activities = [
         {
             type: 'signup',
-            title: 'New company "VetCare Plus" signed up',
+            title: 'New company "Coastal Veterinary Care" signed up',
             time: '2 hours ago',
             icon: 'fas fa-building'
         },
@@ -634,7 +575,6 @@ function updateCharts() {
     // Company Growth Chart
     const growthCtx = document.getElementById('growthChart');
     if (growthCtx && typeof Chart !== 'undefined') {
-        // Destroy existing chart if it exists
         if (growthCtx.chart) {
             growthCtx.chart.destroy();
         }
@@ -646,8 +586,8 @@ function updateCharts() {
                 datasets: [{
                     label: 'Companies',
                     data: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, companies.length],
-                    borderColor: '#3b82f6',
-                    backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                    borderColor: '#6366f1',
+                    backgroundColor: 'rgba(99, 102, 241, 0.1)',
                     tension: 0.4,
                     fill: true
                 }]
@@ -682,7 +622,7 @@ function updateCharts() {
                         Math.floor(totalPolicies * 0.35),
                         Math.floor(totalPolicies * 0.25)
                     ],
-                    backgroundColor: ['#3b82f6', '#10b981', '#f59e0b']
+                    backgroundColor: ['#6366f1', '#10b981', '#f59e0b']
                 }]
             },
             options: {
@@ -776,21 +716,25 @@ function exportAllData() {
     a.download = `master-admin-data-${new Date().toISOString().slice(0, 10)}.json`;
     a.click();
     URL.revokeObjectURL(url);
+    showAlert('Data exported successfully!', 'success');
 }
 
 function exportCompanyReport() {
     const csv = generateCompanyCSV();
     downloadCSV(csv, 'company-report.csv');
+    showAlert('Company report exported successfully!', 'success');
 }
 
 function exportUserReport() {
     const csv = generateUserCSV();
     downloadCSV(csv, 'user-report.csv');
+    showAlert('User report exported successfully!', 'success');
 }
 
 function exportAnalyticsReport() {
     const csv = generateAnalyticsCSV();
     downloadCSV(csv, 'analytics-report.csv');
+    showAlert('Analytics report exported successfully!', 'success');
 }
 
 function generateCompanyCSV() {
@@ -860,59 +804,23 @@ function showAlert(message, type) {
     alertDiv.className = `alert alert-${type}`;
     alertDiv.textContent = message;
     
-    document.body.appendChild(alertDiv);
+    // Insert at the top of the main content
+    const mainContent = document.querySelector('.main-content');
+    mainContent.insertBefore(alertDiv, mainContent.firstChild);
     
     setTimeout(() => {
         alertDiv.remove();
     }, 5000);
 }
 
-function filterCompanies() {
-    const searchTerm = document.getElementById('companySearch').value.toLowerCase();
-    const statusFilter = document.getElementById('statusFilter').value;
-    
-    const filteredCompanies = companies.filter(company => {
-        const matchesSearch = company.name.toLowerCase().includes(searchTerm);
-        const matchesStatus = !statusFilter || company.status === statusFilter;
-        return matchesSearch && matchesStatus;
-    });
-    
-    // Update display with filtered companies
-    const companiesList = document.getElementById('companiesList');
-    companiesList.innerHTML = '';
-    
-    filteredCompanies.forEach(company => {
-        const row = document.createElement('tr');
-        row.innerHTML = `
-            <td>
-                <div class="company-info">
-                    <strong>${company.name}</strong>
-                    <small>ID: ${company.id}</small>
-                </div>
-            </td>
-            <td>${company.users}</td>
-            <td>${company.policies}</td>
-            <td>${formatDate(company.signupDate)}</td>
-            <td>${formatDate(company.lastActive)}</td>
-            <td><span class="status-badge status-${company.status}">${company.status}</span></td>
-            <td>
-                <button onclick="viewCompanyDetails('${company.id}')" class="btn btn-small btn-primary">View</button>
-                <button onclick="suspendCompany('${company.id}')" class="btn btn-small btn-danger">Suspend</button>
-            </td>
-        `;
-        companiesList.appendChild(row);
-    });
-}
-
 // Modal Functions
 function closeCompanyDetailsModal() {
-    document.getElementById('companyDetailsModal').style.display = 'none';
+    document.getElementById('companyDetailsModal').classList.remove('show');
 }
 
 // Authentication
 function logout() {
     if (confirm('Are you sure you want to logout?')) {
-        // In a real implementation, this would clear session data
         window.location.href = '../index.html';
     }
 }
@@ -922,7 +830,7 @@ window.onclick = function(event) {
     const modals = document.querySelectorAll('.modal');
     modals.forEach(modal => {
         if (event.target === modal) {
-            modal.style.display = 'none';
+            modal.classList.remove('show');
         }
     });
 };

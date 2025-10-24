@@ -29,6 +29,7 @@
                 <a href="#" onclick="showLoginModal()" class="nav-link">Login</a>
                 <a href="#" onclick="showSignupModal()" class="nav-link">Sign Up</a>
                 <a href="#" onclick="openPasswordModal()" class="nav-link">Admin Dashboard</a>
+                <a href="#" onclick="showProfileModal()" class="nav-link">Profile Center</a>
                 <a href="admin-master/index.html" class="nav-link master-admin-link">Master Admin</a>
             </div>
             <div class="nav-toggle">
@@ -682,6 +683,142 @@
                         </div>
                     </div>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Profile Center Modal -->
+    <div id="profileModal" class="modal">
+        <div class="modal-content profile-modal-content">
+            <div class="modal-header">
+                <h3>Profile Center</h3>
+                <span class="close" onclick="closeProfileModal()">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div class="profile-section">
+                    <div class="profile-header">
+                        <div class="profile-avatar">
+                            <i class="fas fa-user"></i>
+                        </div>
+                        <div class="profile-info">
+                            <h3 id="profileUserName">Guest User</h3>
+                            <p id="profileUserCompany">Not logged in</p>
+                            <span class="profile-status" id="profileUserStatus">Inactive</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="profile-tabs">
+                    <button class="tab-btn active" onclick="showProfileTab('account')">Account Info</button>
+                    <button class="tab-btn" onclick="showProfileTab('security')">Security</button>
+                    <button class="tab-btn" onclick="showProfileTab('preferences')">Preferences</button>
+                </div>
+
+                <!-- Account Info Tab -->
+                <div id="accountTab" class="profile-tab active">
+                    <div class="profile-section">
+                        <h4>Account Information</h4>
+                        <div class="info-grid">
+                            <div class="info-item">
+                                <label>Username</label>
+                                <span id="profileUsername">guest</span>
+                            </div>
+                            <div class="info-item">
+                                <label>Email</label>
+                                <span id="profileEmail">guest@example.com</span>
+                            </div>
+                            <div class="info-item">
+                                <label>Company</label>
+                                <span id="profileCompany">Not assigned</span>
+                            </div>
+                            <div class="info-item">
+                                <label>Role</label>
+                                <span id="profileRole">Guest</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Security Tab -->
+                <div id="securityTab" class="profile-tab">
+                    <div class="profile-section">
+                        <h4>Security Settings</h4>
+                        <div class="security-options">
+                            <button class="btn btn-primary" onclick="showChangePasswordModal()">
+                                <i class="fas fa-key"></i> Change Password
+                            </button>
+                            <button class="btn btn-secondary" onclick="showSessionInfo()">
+                                <i class="fas fa-desktop"></i> Active Sessions
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Preferences Tab -->
+                <div id="preferencesTab" class="profile-tab">
+                    <div class="profile-section">
+                        <h4>User Preferences</h4>
+                        <div class="preference-options">
+                            <div class="preference-item">
+                                <label>
+                                    <input type="checkbox" checked>
+                                    Email notifications for new policies
+                                </label>
+                            </div>
+                            <div class="preference-item">
+                                <label>
+                                    <input type="checkbox" checked>
+                                    Weekly policy updates
+                                </label>
+                            </div>
+                            <div class="preference-item">
+                                <label>
+                                    <input type="checkbox">
+                                    Daily activity summaries
+                                </label>
+                            </div>
+                            <div class="preference-item">
+                                <label>
+                                    <input type="checkbox" checked>
+                                    System maintenance alerts
+                                </label>
+                            </div>
+                        </div>
+                        <button class="btn btn-primary" onclick="saveUserPreferences()">
+                            Save Preferences
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Change Password Modal -->
+    <div id="changePasswordModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Change Password</h3>
+                <span class="close" onclick="closeChangePasswordModal()">&times;</span>
+            </div>
+            <div class="modal-body">
+                <form id="changePasswordForm" onsubmit="changeUserPassword(event)">
+                    <div class="form-group">
+                        <label for="currentPassword">Current Password</label>
+                        <input type="password" id="currentPassword" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="newPassword">New Password</label>
+                        <input type="password" id="newPassword" required minlength="8">
+                    </div>
+                    <div class="form-group">
+                        <label for="confirmPassword">Confirm New Password</label>
+                        <input type="password" id="confirmPassword" required minlength="8">
+                    </div>
+                    <div class="form-actions">
+                        <button type="button" class="btn btn-secondary" onclick="closeChangePasswordModal()">Cancel</button>
+                        <button type="submit" class="btn btn-primary">Change Password</button>
+                    </div>
+                </form>
             </div>
         </div>
     </div>

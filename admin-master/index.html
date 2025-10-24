@@ -97,6 +97,10 @@
                             <i class="fas fa-file-download"></i>
                             <span>Reports</span>
                         </a>
+                        <a href="#profile" class="nav-item" data-section="profile">
+                            <i class="fas fa-user-cog"></i>
+                            <span>Profile Center</span>
+                        </a>
                         <a href="../index.html" class="nav-item external">
                             <i class="fas fa-external-link-alt"></i>
                             <span>Main Site</span>
@@ -432,6 +436,122 @@
                     </div>
                 </div>
             </section>
+
+            <!-- Profile Center Section -->
+            <section id="profile" class="content-section">
+                <div class="section-header">
+                    <div class="header-content">
+                        <h2>Profile Center</h2>
+                        <p>Manage your account settings and preferences</p>
+                    </div>
+                </div>
+
+                <div class="profile-grid">
+                    <div class="profile-card">
+                        <div class="profile-header">
+                            <div class="profile-avatar">
+                                <i class="fas fa-user-shield"></i>
+                            </div>
+                            <div class="profile-info">
+                                <h3>Master Administrator</h3>
+                                <p>System Administrator</p>
+                                <span class="profile-status active">Active</span>
+                            </div>
+                        </div>
+                        <div class="profile-actions">
+                            <button class="btn btn-primary" onclick="showChangePasswordModal()">
+                                <i class="fas fa-key"></i>
+                                Change Password
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="profile-card">
+                        <div class="profile-section">
+                            <h4>Account Information</h4>
+                            <div class="info-grid">
+                                <div class="info-item">
+                                    <label>Username</label>
+                                    <span>master_admin</span>
+                                </div>
+                                <div class="info-item">
+                                    <label>Email</label>
+                                    <span>admin@csi.com</span>
+                                </div>
+                                <div class="info-item">
+                                    <label>Role</label>
+                                    <span>System Administrator</span>
+                                </div>
+                                <div class="info-item">
+                                    <label>Last Login</label>
+                                    <span id="lastLoginTime">Just now</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="profile-card">
+                        <div class="profile-section">
+                            <h4>Security Settings</h4>
+                            <div class="security-options">
+                                <div class="security-item">
+                                    <div class="security-info">
+                                        <h5>Two-Factor Authentication</h5>
+                                        <p>Add an extra layer of security to your account</p>
+                                    </div>
+                                    <button class="btn btn-secondary" onclick="enable2FA()">
+                                        Enable 2FA
+                                    </button>
+                                </div>
+                                <div class="security-item">
+                                    <div class="security-info">
+                                        <h5>Session Management</h5>
+                                        <p>Manage active sessions and devices</p>
+                                    </div>
+                                    <button class="btn btn-secondary" onclick="manageSessions()">
+                                        Manage Sessions
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="profile-card">
+                        <div class="profile-section">
+                            <h4>System Preferences</h4>
+                            <div class="preference-options">
+                                <div class="preference-item">
+                                    <label>
+                                        <input type="checkbox" checked>
+                                        Email notifications for new companies
+                                    </label>
+                                </div>
+                                <div class="preference-item">
+                                    <label>
+                                        <input type="checkbox" checked>
+                                        Weekly analytics reports
+                                    </label>
+                                </div>
+                                <div class="preference-item">
+                                    <label>
+                                        <input type="checkbox">
+                                        Daily activity summaries
+                                    </label>
+                                </div>
+                                <div class="preference-item">
+                                    <label>
+                                        <input type="checkbox" checked>
+                                        System maintenance alerts
+                                    </label>
+                                </div>
+                            </div>
+                            <button class="btn btn-primary" onclick="savePreferences()">
+                                Save Preferences
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </section>
         </main>
     </div>
 
@@ -524,6 +644,37 @@
                 <div id="companyDetailsContent">
                     <!-- Company details will be loaded here -->
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="changePasswordModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Change Password</h3>
+                <button class="modal-close" onclick="closeChangePasswordModal()">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <form id="changePasswordForm" onsubmit="changePassword(event)">
+                    <div class="form-group">
+                        <label for="currentPassword">Current Password</label>
+                        <input type="password" id="currentPassword" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="newPassword">New Password</label>
+                        <input type="password" id="newPassword" required minlength="8">
+                    </div>
+                    <div class="form-group">
+                        <label for="confirmPassword">Confirm New Password</label>
+                        <input type="password" id="confirmPassword" required minlength="8">
+                    </div>
+                    <div class="form-actions">
+                        <button type="button" class="btn btn-secondary" onclick="closeChangePasswordModal()">Cancel</button>
+                        <button type="submit" class="btn btn-primary">Change Password</button>
+                    </div>
+                </form>
             </div>
         </div>
     </div>

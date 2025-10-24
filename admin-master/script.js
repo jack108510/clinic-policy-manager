@@ -42,130 +42,31 @@ document.addEventListener('DOMContentLoaded', function() {
 
 // Data Initialization
 function initializeData() {
-    // Initialize companies
-    companies = [
-        {
-            id: 'csi-001',
-            name: 'CSI Veterinary Group',
-            adminName: 'Dr. Sarah Johnson',
-            adminEmail: 'admin@csiveterinary.com',
-            adminUsername: 'admin',
-            accessCode: 'CSI123',
-            signupDate: '2024-01-15',
-            lastActive: new Date().toISOString(),
-            status: 'active',
-            users: 12,
-            policies: 45,
-            clinics: ['Tudor Glen', 'River Valley', 'Rosslyn', 'UPC']
-        },
-        {
-            id: 'vet-002',
-            name: 'Metro Animal Hospital',
-            adminName: 'Dr. Michael Chen',
-            adminEmail: 'admin@metroanimal.com',
-            adminUsername: 'mchen_admin',
-            accessCode: 'METRO456',
-            signupDate: '2024-02-20',
-            lastActive: '2024-12-15T10:30:00Z',
-            status: 'active',
-            users: 8,
-            policies: 32,
-            clinics: ['Downtown', 'Suburb']
-        },
-        {
-            id: 'vet-003',
-            name: 'Coastal Veterinary Care',
-            adminName: 'Dr. Emily Rodriguez',
-            adminEmail: 'admin@coastalvet.com',
-            adminUsername: 'erodriguez_admin',
-            accessCode: 'COASTAL789',
-            signupDate: '2024-03-10',
-            lastActive: '2024-12-10T14:20:00Z',
-            status: 'active',
-            users: 6,
-            policies: 28,
-            clinics: ['Beachside', 'Harbor']
-        }
-    ];
+    // Load existing data from localStorage or initialize empty arrays
+    const savedCompanies = localStorage.getItem('masterCompanies');
+    const savedUsers = localStorage.getItem('masterUsers');
+    const savedAccessCodes = localStorage.getItem('masterAccessCodes');
     
-    // Initialize users
-    users = [];
-    companies.forEach(company => {
-        // Add admin user
-        users.push({
-            id: `user-${company.id}-admin`,
-            username: company.adminUsername,
-            email: company.adminEmail,
-            company: company.name,
-            role: 'Admin',
-            created: company.signupDate,
-            lastLogin: company.lastActive,
-            status: 'active'
-        });
-        
-        // Generate sample staff users
-        for (let i = 1; i <= Math.floor(Math.random() * 8) + 2; i++) {
-            users.push({
-                id: `user-${company.id}-${i}`,
-                username: `staff${i}`,
-                email: `staff${i}@${company.name.toLowerCase().replace(/\s+/g, '')}.com`,
-                company: company.name,
-                role: 'Staff',
-                created: company.signupDate,
-                lastLogin: new Date(Date.now() - Math.random() * 30 * 24 * 60 * 60 * 1000).toISOString(),
+    companies = savedCompanies ? JSON.parse(savedCompanies) : [];
+    users = savedUsers ? JSON.parse(savedUsers) : [];
+    accessCodes = savedAccessCodes ? JSON.parse(savedAccessCodes) : [];
+    
+    // Only add default access codes if none exist
+    if (accessCodes.length === 0) {
+        accessCodes = [
+            {
+                id: 'code-default',
+                code: 'WELCOME123',
+                description: 'Welcome Access Code',
+                createdDate: new Date().toISOString().slice(0, 10),
+                expiryDate: null,
+                maxCompanies: 10,
+                usedBy: [],
                 status: 'active'
-            });
-        }
-    });
-    
-    // Initialize access codes
-    accessCodes = [
-        {
-            id: 'code-001',
-            code: 'CSI123',
-            description: 'CSI Veterinary Group Access',
-            createdDate: '2024-01-10',
-            expiryDate: null,
-            maxCompanies: 1,
-            usedBy: ['CSI Veterinary Group'],
-            status: 'active'
-        },
-        {
-            id: 'code-002',
-            code: 'METRO456',
-            description: 'Metro Animal Hospital Access',
-            createdDate: '2024-02-15',
-            expiryDate: null,
-            maxCompanies: 1,
-            usedBy: ['Metro Animal Hospital'],
-            status: 'active'
-        },
-        {
-            id: 'code-003',
-            code: 'VET789',
-            description: 'General Veterinary Access',
-            createdDate: '2024-03-01',
-            expiryDate: '2025-03-01',
-            maxCompanies: 10,
-            usedBy: ['Coastal Veterinary Care'],
-            status: 'active'
-        },
-        {
-            id: 'code-004',
-            code: 'PREMIUM001',
-            description: 'Premium Veterinary Access',
-            createdDate: '2024-04-01',
-            expiryDate: '2025-04-01',
-            maxCompanies: 5,
-            usedBy: [],
-            status: 'active'
-        }
-    ];
-    
-    // Save to localStorage
-    localStorage.setItem('masterCompanies', JSON.stringify(companies));
-    localStorage.setItem('masterUsers', JSON.stringify(users));
-    localStorage.setItem('masterAccessCodes', JSON.stringify(accessCodes));
+            }
+        ];
+        localStorage.setItem('masterAccessCodes', JSON.stringify(accessCodes));
+    }
 }
 
 // Navigation Setup
@@ -520,32 +421,42 @@ function loadActivityFeed() {
     const activityFeed = document.getElementById('activityFeed');
     activityFeed.innerHTML = '';
     
-    const activities = [
-        {
+    if (companies.length === 0) {
+        activityFeed.innerHTML = `
+            <div class="empty-state">
+                <i class="fas fa-history"></i>
+                <h3>No Recent Activity</h3>
+                <p>Activity will appear here as companies are created and users interact with the system</p>
+            </div>
+        `;
+        return;
+    }
+    
+    // Show real activity based on actual data
+    const activities = [];
+    
+    // Add recent company signups
+    companies.slice(-3).forEach(company => {
+        const daysAgo = Math.floor((new Date() - new Date(company.signupDate)) / (1000 * 60 * 60 * 24));
+        activities.push({
             type: 'signup',
-            title: 'New company "Coastal Veterinary Care" signed up',
-            time: '2 hours ago',
+            title: `New company "${company.name}" signed up`,
+            time: daysAgo === 0 ? 'Today' : `${daysAgo} day${daysAgo > 1 ? 's' : ''} ago`,
             icon: 'fas fa-building'
-        },
-        {
-            type: 'login',
-            title: 'Admin from CSI Veterinary Group logged in',
-            time: '4 hours ago',
-            icon: 'fas fa-sign-in-alt'
-        },
-        {
-            type: 'policy',
-            title: 'Metro Animal Hospital created new policy',
-            time: '6 hours ago',
-            icon: 'fas fa-file-alt'
-        },
-        {
-            type: 'user',
-            title: 'New user added to CSI Veterinary Group',
-            time: '1 day ago',
-            icon: 'fas fa-user-plus'
-        }
-    ];
+        });
+    });
+    
+    // Show empty state if no activities
+    if (activities.length === 0) {
+        activityFeed.innerHTML = `
+            <div class="empty-state">
+                <i class="fas fa-history"></i>
+                <h3>No Recent Activity</h3>
+                <p>Activity will appear here as companies are created and users interact with the system</p>
+            </div>
+        `;
+        return;
+    }
     
     activities.forEach(activity => {
         const activityItem = document.createElement('div');
@@ -816,6 +727,50 @@ function showAlert(message, type) {
 // Modal Functions
 function closeCompanyDetailsModal() {
     document.getElementById('companyDetailsModal').classList.remove('show');
+}
+
+// Profile Center Functions
+function showChangePasswordModal() {
+    document.getElementById('changePasswordModal').classList.add('show');
+}
+
+function closeChangePasswordModal() {
+    document.getElementById('changePasswordModal').classList.remove('show');
+    document.getElementById('changePasswordForm').reset();
+}
+
+function changePassword(event) {
+    event.preventDefault();
+    
+    const currentPassword = document.getElementById('currentPassword').value;
+    const newPassword = document.getElementById('newPassword').value;
+    const confirmPassword = document.getElementById('confirmPassword').value;
+    
+    if (newPassword !== confirmPassword) {
+        showAlert('New passwords do not match!', 'error');
+        return;
+    }
+    
+    if (newPassword.length < 8) {
+        showAlert('Password must be at least 8 characters long!', 'error');
+        return;
+    }
+    
+    // In a real application, this would validate the current password and update it
+    showAlert('Password changed successfully!', 'success');
+    closeChangePasswordModal();
+}
+
+function enable2FA() {
+    showAlert('Two-Factor Authentication setup would be implemented here.', 'info');
+}
+
+function manageSessions() {
+    showAlert('Session management would be implemented here.', 'info');
+}
+
+function savePreferences() {
+    showAlert('Preferences saved successfully!', 'success');
 }
 
 // Authentication

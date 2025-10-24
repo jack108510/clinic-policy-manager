@@ -1,83 +1,10 @@
-// Sample Policy Data
-const samplePolicies = [
-    {
-        id: 1,
-        title: "Patient Privacy and Confidentiality",
-        type: "admin",
-        clinics: ["tudor-glen", "river-valley", "rosslyn", "upc"],
-        description: "Guidelines for maintaining patient privacy and confidentiality in all clinic operations.",
-        created: "2024-01-15",
-        updated: "2024-01-15"
-    },
-    {
-        id: 2,
-        title: "Emergency Response Procedures",
-        type: "sog",
-        clinics: ["tudor-glen", "river-valley"],
-        description: "Standard operating procedures for handling medical emergencies and critical situations.",
-        created: "2024-01-10",
-        updated: "2024-01-20"
-    },
-    {
-        id: 3,
-        title: "Monthly Staff Meeting Schedule",
-        type: "memos",
-        clinics: ["tudor-glen", "river-valley", "rosslyn", "upc"],
-        description: "Updated schedule for monthly staff meetings and training sessions.",
-        created: "2024-01-25",
-        updated: "2024-01-25"
-    },
-    {
-        id: 4,
-        title: "Medical Equipment Maintenance",
-        type: "sog",
-        clinics: ["tudor-glen", "river-valley", "rosslyn", "upc"],
-        description: "Procedures for regular maintenance and calibration of medical equipment.",
-        created: "2024-01-12",
-        updated: "2024-01-18"
-    },
-    {
-        id: 5,
-        title: "Staff Training Requirements",
-        type: "admin",
-        clinics: ["tudor-glen", "river-valley", "rosslyn", "upc"],
-        description: "Mandatory training requirements for all clinic staff members.",
-        created: "2024-01-08",
-        updated: "2024-01-22"
-    },
-    {
-        id: 6,
-        title: "New Patient Intake Process",
-        type: "sog",
-        clinics: ["tudor-glen", "river-valley"],
-        description: "Step-by-step process for new patient registration and initial assessment.",
-        created: "2024-01-20",
-        updated: "2024-01-20"
-    }
-];
-
-// Load data from localStorage or use defaults
-let currentPolicies = loadFromLocalStorage('currentPolicies', [...samplePolicies]);
+// Initialize current policies as empty array
+let currentPolicies = loadFromLocalStorage('currentPolicies', []);
 let draftPolicies = loadFromLocalStorage('draftPolicies', []);
 
-// Settings Data - Load from localStorage or use defaults
-const defaultRoles = [
-    { id: 1, name: "Senior Veterinarian", description: "Lead veterinarian responsible for medical decisions and staff supervision", staffName: "Dr. Sarah Johnson", email: "sarah.johnson@csi.com" },
-    { id: 2, name: "Veterinary Technician", description: "Technical support staff responsible for patient care and procedures", staffName: "Mike Rodriguez", email: "mike.rodriguez@csi.com" },
-    { id: 3, name: "Clinic Manager", description: "Administrative oversight and operational management", staffName: "Lisa Chen", email: "lisa.chen@csi.com" },
-    { id: 4, name: "Support Staff", description: "Front desk, cleaning, and general support personnel", staffName: "Tom Wilson", email: "tom.wilson@csi.com" }
-];
-
-const defaultDisciplinaryActions = [
-    { id: 1, name: "Verbal Warning", description: "Informal discussion about policy violation", penalties: "Written documentation in personnel file", severity: "minor" },
-    { id: 2, name: "Written Warning", description: "Formal written notice of policy violation", penalties: "Written warning in personnel file, performance review required", severity: "moderate" },
-    { id: 3, name: "Performance Improvement Plan", description: "Structured plan to address policy compliance issues", penalties: "Mandatory training, 30-day improvement period, regular monitoring", severity: "major" },
-    { id: 4, name: "Suspension", description: "Temporary suspension from duties", penalties: "Unpaid suspension, mandatory retraining, probationary period", severity: "severe" },
-    { id: 5, name: "Termination", description: "Employment termination for serious policy violations", penalties: "Immediate termination, loss of benefits, potential legal action", severity: "severe" }
-];
-
-let roles = loadFromLocalStorage('roles', defaultRoles);
-let disciplinaryActions = loadFromLocalStorage('disciplinaryActions', defaultDisciplinaryActions);
+// Settings Data - Load from localStorage or use empty defaults
+let roles = loadFromLocalStorage('roles', []);
+let disciplinaryActions = loadFromLocalStorage('disciplinaryActions', []);
 
 // User Management Data - Load from master admin data
 function loadMasterAdminData() {
@@ -5561,3 +5488,98 @@ document.addEventListener('DOMContentLoaded', function() {
     // Initialize user interface
     updateUserInterface();
 });
+
+// Profile Center Functions
+function showProfileModal() {
+    updateProfileInfo();
+    document.getElementById('profileModal').classList.add('show');
+}
+
+function closeProfileModal() {
+    document.getElementById('profileModal').classList.remove('show');
+}
+
+function showProfileTab(tabName) {
+    // Hide all tabs
+    document.querySelectorAll('.profile-tab').forEach(tab => {
+        tab.classList.remove('active');
+    });
+    
+    // Remove active class from all tab buttons
+    document.querySelectorAll('.profile-tab-btn').forEach(btn => {
+        btn.classList.remove('active');
+    });
+    
+    // Show selected tab
+    document.getElementById(tabName + 'Tab').classList.add('active');
+    
+    // Add active class to clicked button
+    event.target.classList.add('active');
+}
+
+function updateProfileInfo() {
+    if (currentUser) {
+        document.getElementById('profileUserName').textContent = currentUser.username;
+        document.getElementById('profileUserCompany').textContent = currentUser.company;
+        document.getElementById('profileUserStatus').textContent = 'Active';
+        document.getElementById('profileUsername').textContent = currentUser.username;
+        document.getElementById('profileEmail').textContent = currentUser.email;
+        document.getElementById('profileCompany').textContent = currentUser.company;
+        document.getElementById('profileRole').textContent = currentUser.role;
+        
+        // Update status styling
+        const statusElement = document.getElementById('profileUserStatus');
+        statusElement.className = 'profile-status active';
+    } else {
+        document.getElementById('profileUserName').textContent = 'Guest User';
+        document.getElementById('profileUserCompany').textContent = 'Not logged in';
+        document.getElementById('profileUserStatus').textContent = 'Inactive';
+        document.getElementById('profileUsername').textContent = 'guest';
+        document.getElementById('profileEmail').textContent = 'guest@example.com';
+        document.getElementById('profileCompany').textContent = 'Not assigned';
+        document.getElementById('profileRole').textContent = 'Guest';
+        
+        // Update status styling
+        const statusElement = document.getElementById('profileUserStatus');
+        statusElement.className = 'profile-status inactive';
+    }
+}
+
+function showChangePasswordModal() {
+    document.getElementById('changePasswordModal').classList.add('show');
+}
+
+function closeChangePasswordModal() {
+    document.getElementById('changePasswordModal').classList.remove('show');
+    document.getElementById('changePasswordForm').reset();
+}
+
+function changeUserPassword(event) {
+    event.preventDefault();
+    
+    const currentPassword = document.getElementById('currentPassword').value;
+    const newPassword = document.getElementById('newPassword').value;
+    const confirmPassword = document.getElementById('confirmPassword').value;
+    
+    if (newPassword !== confirmPassword) {
+        showAlert('New passwords do not match!', 'error');
+        return;
+    }
+    
+    if (newPassword.length < 8) {
+        showAlert('Password must be at least 8 characters long!', 'error');
+        return;
+    }
+    
+    // In a real application, this would validate the current password and update it
+    showAlert('Password changed successfully!', 'success');
+    closeChangePasswordModal();
+}
+
+function showSessionInfo() {
+    showAlert('Session management would be implemented here.', 'info');
+}
+
+function saveUserPreferences() {
+    showAlert('Preferences saved successfully!', 'success');
+}

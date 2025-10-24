@@ -6071,7 +6071,6 @@ function checkAdminPassword(event) {
     console.log('checkAdminPassword function called!');
     console.log('Event:', event);
     console.log('Checking admin password...');
-    alert('checkAdminPassword function called!'); // Temporary alert for debugging
     
     // First, check if user is logged in with their company
     if (!currentUser || !currentCompany) {

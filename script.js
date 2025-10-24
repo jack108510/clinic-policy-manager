@@ -3709,7 +3709,67 @@ async function callChatGPTAPI(prompt) {
                 messages: [
                     {
                         role: 'system',
-                        content: 'You are a professional policy writer for veterinary healthcare facilities. Create comprehensive, professional policies that comply with industry standards and regulations. Format your response as a structured policy document with clear headings and detailed content for each section.'
+                        content: `You are a professional policy writer for veterinary healthcare facilities. You are part of a policy management system that creates comprehensive, professional policies for veterinary clinics and healthcare organizations.
+
+CONTEXT:
+- You are creating policies for veterinary healthcare facilities
+- Policies must comply with industry standards (AAHA, AVMA, OSHA, HIPAA)
+- You are working within a policy management system with specific formatting requirements
+- Users can request modifications to policies after generation
+
+POLICY TYPES:
+1. ADMIN POLICIES - High-level organizational policies with these sections:
+   - Document Title / Header Info
+   - Effective Date
+   - Last Reviewed
+   - Approved By
+   - Version #
+   - Purpose
+   - Scope
+   - Policy Statement
+   - Definitions
+   - Procedure / Implementation
+   - Responsibilities
+   - Consequences / Accountability
+   - Related Documents
+   - Review & Approval
+
+2. STANDARD OPERATING GUIDELINES (SOG) - Operational procedures with these sections:
+   - SOG Title / Header Info
+   - Effective Date
+   - Author
+   - Approved By
+   - Version #
+   - Objective
+   - Guiding Principles
+   - Recommended Approach / Procedure
+   - Definitions
+   - Examples / Scenarios
+   - Responsibilities
+   - Escalation / Support
+   - Review & Revision
+
+3. COMMUNICATION MEMOS - Internal communications with these sections:
+   - CSI Communication Memo Header
+   - Date
+   - From
+   - To
+   - Subject
+   - Message
+   - Effective Period (if applicable)
+   - Next Steps / Action Required
+   - Contact for Questions
+
+REQUIREMENTS:
+- Create comprehensive, actionable policies
+- Include detailed procedures and step-by-step instructions
+- Address compliance with relevant regulations
+- Include specific responsibilities and accountability measures
+- Make policies ready for immediate implementation
+- Use professional healthcare/veterinary terminology
+- Format as structured policy document with clear headings
+
+Format your response as a complete policy document with all necessary sections filled out with detailed, professional content.`
                     },
                     {
                         role: 'user',
@@ -5040,55 +5100,7 @@ Please make the content:
 Format your response as a structured policy document ready for implementation.`;
 }
 
-async function callChatGPTAPI(prompt) {
-    // Get API key from user or use environment variable
-    const apiKey = getChatGPTAPIKey();
-    
-    if (!apiKey) {
-        throw new Error('ChatGPT API key not configured. Please add your OpenAI API key.');
-    }
-    
-    try {
-        const response = await fetch('https://api.openai.com/v1/chat/completions', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${apiKey}`
-            },
-            body: JSON.stringify({
-                model: 'gpt-4',
-                messages: [
-                    {
-                        role: 'system',
-                        content: 'You are a professional policy writer for veterinary healthcare facilities. Create comprehensive, professional policies that comply with industry standards and regulations.'
-                    },
-                    {
-                        role: 'user',
-                        content: prompt
-                    }
-                ],
-                max_tokens: 4000,
-                temperature: 0.7
-            })
-        });
-        
-        if (!response.ok) {
-            throw new Error(`API request failed: ${response.status} ${response.statusText}`);
-        }
-        
-        const data = await response.json();
-        
-        if (data.choices && data.choices.length > 0) {
-            return data.choices[0].message.content;
-        } else {
-            throw new Error('No response from ChatGPT API');
-        }
-        
-    } catch (error) {
-        console.error('ChatGPT API Error:', error);
-        throw error;
-    }
-}
+// Duplicate function removed - using the main callChatGPTAPI function above
 
 function parseChatGPTResponse(response, topic, type, clinics) {
     // Parse the ChatGPT response into a structured policy object
@@ -6238,7 +6250,7 @@ Please format your response as a structured policy document with clear headings 
 
 // ChatGPT-Style Policy Generation Functions
 function createSimpleChatGPTPrompt(prompt, currentDate) {
-    return `You are a professional healthcare policy writer. Create a comprehensive policy based on this request: "${prompt}"
+    return `Create a comprehensive policy based on this request: "${prompt}"
 
 Please create a complete, professional policy with all the necessary sections and fields. Include:
 
@@ -6295,7 +6307,7 @@ async function generateModifiedPolicy(modificationRequest) {
     const originalPrompt = chatState.currentPolicy.prompt || '';
     
     // Create a comprehensive prompt for ChatGPT to modify the policy
-    const chatGPTPrompt = `You are a professional healthcare policy writer. I need you to modify an existing policy based on this request: "${modificationRequest}"
+    const chatGPTPrompt = `I need you to modify an existing policy based on this request: "${modificationRequest}"
 
 Original Policy Request: "${originalPrompt}"
 

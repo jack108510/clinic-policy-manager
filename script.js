@@ -135,6 +135,7 @@ document.addEventListener('DOMContentLoaded', function() {
     displayDisciplinaryActions();
     displayUsers();
     setupEventListeners();
+    addLoginChecksToAllElements();
     updateUserInterface();
     
     // Show signup modal if user is not logged in
@@ -151,6 +152,7 @@ document.addEventListener('DOMContentLoaded', function() {
 // Check if user is logged in before allowing access to features
 function requireLogin() {
     if (!currentUser) {
+        console.log('User not logged in, showing signup modal');
         showSignupModal();
         return false;
     }
@@ -162,10 +164,7 @@ function setupEventListeners() {
     // Search functionality
     if (policySearch) {
         policySearch.addEventListener('input', function() {
-            if (!currentUser) {
-                showSignupModal();
-                return;
-            }
+            if (!requireLogin()) return;
             const searchTerm = this.value.toLowerCase();
             const filteredPolicies = currentPolicies.filter(policy => 
                 policy.title.toLowerCase().includes(searchTerm) ||
@@ -239,6 +238,39 @@ function setupEventListeners() {
             }
         });
     });
+}
+
+// Add login requirement to all interactive elements
+function addLoginChecksToAllElements() {
+    // Add click listeners to all buttons that should require login
+    const allButtons = document.querySelectorAll('button, .btn, a[href^="#"]');
+    
+    allButtons.forEach(element => {
+        // Skip elements that are login/signup related or already have requireLogin
+        const onclick = element.getAttribute('onclick') || '';
+        const href = element.getAttribute('href') || '';
+        
+        if (onclick.includes('showLoginModal') || 
+            onclick.includes('showSignupModal') || 
+            onclick.includes('closeLoginModal') || 
+            onclick.includes('closeSignupModal') ||
+            onclick.includes('requireLogin') ||
+            href.includes('admin-master') ||
+            element.type === 'submit') {
+            return;
+        }
+        
+        // Add click listener for login check
+        element.addEventListener('click', function(event) {
+            if (!requireLogin()) {
+                event.preventDefault();
+                event.stopPropagation();
+                return false;
+            }
+        });
+    });
+    
+    console.log('Login checks added to all interactive elements');
 }
 
 // Display Policies

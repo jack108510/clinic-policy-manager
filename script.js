@@ -4744,6 +4744,7 @@ function processChatMessage(message) {
 }
 
 function generatePolicyFromPrompt(prompt) {
+    console.log('generatePolicyFromPrompt called with:', prompt);
     chatState.isGenerating = true;
     
     // Show AI is thinking
@@ -4756,11 +4757,13 @@ function generatePolicyFromPrompt(prompt) {
     // Generate policy with ChatGPT
     generatePolicyFromPromptData(prompt)
         .then(generatedPolicy => {
+            console.log('Policy generated successfully:', generatedPolicy);
             chatState.currentPolicy = generatedPolicy;
             displayAIPolicy(generatedPolicy);
         })
         .catch(error => {
             console.error('Error generating policy:', error);
+            chatState.isGenerating = false;
             // Show error message to user
             document.getElementById('aiLoading').style.display = 'none';
             document.getElementById('aiResult').style.display = 'block';
@@ -4769,42 +4772,61 @@ function generatePolicyFromPrompt(prompt) {
                     <h4>Error Generating Policy</h4>
                     <p>${error.message}</p>
                     <p>Please check your ChatGPT API key in Settings or try again.</p>
+                    <button onclick="continueChat()" class="btn btn-primary">Try Again</button>
                 </div>
             `;
+            // Show chat again
+            document.querySelector('.chat-container').style.display = 'block';
         });
 }
 
 async function generatePolicyFromPromptData(prompt) {
+    console.log('generatePolicyFromPromptData called with:', prompt);
     const currentDate = new Date().toISOString().split('T')[0];
     
-    // Get the selected policy type
-    const policyType = document.querySelector('input[name="policyType"]:checked').value;
-    const typeLabel = getTypeLabel(policyType);
-    
-    // Get selected options
-    const selectedOrganizations = getSelectedOrganizations();
-    const selectedRoles = getSelectedRoles();
-    const selectedDisciplinaryActions = getSelectedDisciplinaryActions();
-    
-    // Create organization names
-    const organizationNames = selectedOrganizations.map(org => getOrganizationName(org)).join(', ');
-    
-    // Create role names
-    const roleNames = selectedRoles.map(role => role.name).join(', ');
-    
-    // Create disciplinary action names
-    const disciplinaryActionNames = selectedDisciplinaryActions.map(action => action.name).join(', ');
-    
-    // Create a comprehensive prompt for ChatGPT
-    const chatGPTPrompt = createSimpleChatGPTPrompt(prompt, currentDate, policyType, organizationNames, roleNames, disciplinaryActionNames);
-    
     try {
+        // Get the selected policy type
+        const policyType = document.querySelector('input[name="policyType"]:checked').value;
+        console.log('Selected policy type:', policyType);
+        const typeLabel = getTypeLabel(policyType);
+        
+        // Get selected options
+        const selectedOrganizations = getSelectedOrganizations();
+        const selectedRoles = getSelectedRoles();
+        const selectedDisciplinaryActions = getSelectedDisciplinaryActions();
+        
+        console.log('Selected organizations:', selectedOrganizations);
+        console.log('Selected roles:', selectedRoles);
+        console.log('Selected disciplinary actions:', selectedDisciplinaryActions);
+        
+        // Create organization names
+        const organizationNames = selectedOrganizations.map(org => getOrganizationName(org)).join(', ');
+        
+        // Create role names
+        const roleNames = selectedRoles.map(role => role.name).join(', ');
+        
+        // Create disciplinary action names
+        const disciplinaryActionNames = selectedDisciplinaryActions.map(action => action.name).join(', ');
+        
+        console.log('Organization names:', organizationNames);
+        console.log('Role names:', roleNames);
+        console.log('Disciplinary action names:', disciplinaryActionNames);
+        
+        // Create a comprehensive prompt for ChatGPT
+        const chatGPTPrompt = createSimpleChatGPTPrompt(prompt, currentDate, policyType, organizationNames, roleNames, disciplinaryActionNames);
+        console.log('ChatGPT prompt created:', chatGPTPrompt);
+        
         // Call ChatGPT API to generate the policy
+        console.log('Calling ChatGPT API...');
         const chatGPTResponse = await callChatGPTAPI(chatGPTPrompt);
+        console.log('ChatGPT response received:', chatGPTResponse);
+        
         const generatedContent = chatGPTResponse.choices[0].message.content;
+        console.log('Generated content:', generatedContent);
         
         // Parse the ChatGPT response into a structured policy
         const policyContent = parseChatGPTResponse(generatedContent, prompt, policyType);
+        console.log('Parsed policy content:', policyContent);
         
         return {
             ...policyContent,
@@ -4820,25 +4842,12 @@ async function generatePolicyFromPromptData(prompt) {
         };
     } catch (error) {
         console.error('Error generating policy with ChatGPT:', error);
-        // Fallback to local generation if ChatGPT fails
-        const policyContent = generateCSIPolicyWithHeaders(
-            prompt,
-            policyType,
-            prompt,
-            currentDate,
-            prompt,
-            ''
-        );
+        // Fallback to simple local generation if ChatGPT fails
+        console.log('Falling back to simple local generation...');
+        const policyContent = generateSimpleFallbackPolicy(prompt, policyType, organizationNames, roleNames, disciplinaryActionNames);
         
         return {
             ...policyContent,
-            type: policyType,
-            clinics: selectedOrganizations,
-            additionalRequirements: prompt,
-            keyPoints: prompt,
-            clinicNames: organizationNames,
-            typeLabel: typeLabel,
-            prompt: prompt,
             selectedRoles: selectedRoles,
             selectedDisciplinaryActions: selectedDisciplinaryActions
         };
@@ -6495,4 +6504,60 @@ function getSelectedDisciplinaryActions() {
     });
     
     return selectedActions;
+}
+
+
+// Simple fallback policy generation function
+function generateSimpleFallbackPolicy(prompt, policyType, organizationNames, roleNames, disciplinaryActionNames) {
+    const currentDate = new Date().toISOString().split('T')[0];
+    const typeLabel = getTypeLabel(policyType);
+    
+    return {
+        title: `${typeLabel} - ${prompt}`,
+        type: policyType,
+        effectiveDate: currentDate,
+        lastReviewed: currentDate,
+        approvedBy: 'Administrator',
+        version: '1.0',
+        purpose: `This policy defines the procedures and guidelines for ${prompt.toLowerCase()}.`,
+        scope: `This policy applies to all staff members at ${organizationNames}.`,
+        policyStatement: `All staff must follow the procedures outlined in this policy to ensure consistency and compliance.`,
+        definitions: {
+            'Policy': 'A formal statement of principles and procedures',
+            'Compliance': 'Adherence to established rules and regulations'
+        },
+        procedure: `
+1. Review this policy thoroughly
+2. Follow all procedures as outlined
+3. Report any violations immediately
+4. Attend required training sessions
+5. Maintain documentation as required
+        `,
+        responsibilities: `The following roles are responsible for implementing this policy: ${roleNames || 'All staff members'}.`,
+        consequences: `Failure to comply with this policy may result in the following disciplinary actions: ${disciplinaryActionNames || 'Standard disciplinary procedures'}.`,
+        relatedDocuments: 'Related policies and procedures as referenced',
+        reviewAndApproval: 'This policy will be reviewed annually and updated as needed.',
+        clinics: organizationNames.split(', ').map(name => name.toLowerCase().replace(' ', '-')),
+        clinicNames: organizationNames,
+        typeLabel: typeLabel,
+        prompt: prompt
+    };
+}
+
+
+// Test function for policy generation
+function testPolicyGeneration() {
+    console.log('Testing policy generation...');
+    const testPrompt = 'Create a test policy for recheck exams vs office visits';
+    
+    // Test the policy generation function directly
+    generatePolicyFromPromptData(testPrompt)
+        .then(result => {
+            console.log('Test policy generation successful:', result);
+            alert('Policy generation test successful! Check console for details.');
+        })
+        .catch(error => {
+            console.error('Test policy generation failed:', error);
+            alert('Policy generation test failed: ' + error.message);
+        });
 }

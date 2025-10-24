@@ -146,6 +146,15 @@ function updateStats() {
     document.getElementById('totalPolicies').textContent = analytics.totalPolicies;
     document.getElementById('activeCompanies').textContent = analytics.activeCompanies;
     
+    // Update navigation badges
+    const companyBadge = document.getElementById('companyBadge');
+    const userBadge = document.getElementById('userBadge');
+    const accessCodeBadge = document.getElementById('accessCodeBadge');
+    
+    if (companyBadge) companyBadge.textContent = companies.length;
+    if (userBadge) userBadge.textContent = users.length;
+    if (accessCodeBadge) accessCodeBadge.textContent = accessCodes.length;
+    
     // Update header stats
     document.getElementById('headerCompanyCount').textContent = analytics.totalCompanies;
     document.getElementById('headerUserCount').textContent = analytics.totalUsers;
@@ -1628,4 +1637,69 @@ function addTestButton() {
         testButton.onclick = testCompanyDetailsModal;
         header.appendChild(testButton);
     }
+}
+
+// Help Section Functions
+function initializeHelpSection() {
+    console.log('Initializing help section...');
+    // Help section is static content, no dynamic initialization needed
+}
+
+// Refresh Dashboard Function
+function refreshDashboard() {
+    console.log('Refreshing dashboard data...');
+    
+    // Show loading state
+    const refreshBtn = event.target.closest('button');
+    const originalText = refreshBtn.innerHTML;
+    refreshBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Refreshing...';
+    refreshBtn.disabled = true;
+    
+    // Simulate refresh delay
+    setTimeout(() => {
+        // Reload data
+        initializeData();
+        updateStats();
+        displayCompanies();
+        displayUsers();
+        displayAccessCodes();
+        
+        // Reset button
+        refreshBtn.innerHTML = originalText;
+        refreshBtn.disabled = false;
+        
+        // Show success message
+        showNotification('Dashboard refreshed successfully!', 'success');
+    }, 1500);
+}
+
+// Notification System
+function showNotification(message, type = 'info') {
+    // Create notification element
+    const notification = document.createElement('div');
+    notification.className = `notification notification-${type}`;
+    notification.innerHTML = `
+        <div class="notification-content">
+            <i class="fas fa-${type === 'success' ? 'check-circle' : type === 'error' ? 'exclamation-circle' : 'info-circle'}"></i>
+            <span>${message}</span>
+        </div>
+    `;
+    
+    // Add to page
+    document.body.appendChild(notification);
+    
+    // Show notification
+    setTimeout(() => {
+        notification.classList.add('show');
+    }, 100);
+    
+    // Auto remove after 3 seconds
+    setTimeout(() => {
+        notification.classList.remove('show');
+        setTimeout(() => {
+            if (notification.parentNode) {
+                notification.parentNode.removeChild(notification);
+            }
+        }, 300);
+    }, 3000);
 }

@@ -88,6 +88,27 @@ let users = loadFromLocalStorage('users', defaultUsers);
 let currentUser = loadFromLocalStorage('currentUser', null);
 let currentCompany = loadFromLocalStorage('currentCompany', null);
 
+// ChatGPT API Key Management
+function getChatGPTAPIKey() {
+    // First try to get from localStorage (user input)
+    let apiKey = localStorage.getItem('chatgpt_api_key');
+    
+    // If not found, try to get from environment variable (for development)
+    if (!apiKey && typeof process !== 'undefined' && process.env) {
+        apiKey = process.env.OPENAI_API_KEY;
+    }
+    
+    return apiKey;
+}
+
+function setChatGPTAPIKey(apiKey) {
+    localStorage.setItem('chatgpt_api_key', apiKey);
+}
+
+function clearChatGPTAPIKey() {
+    localStorage.removeItem('chatgpt_api_key');
+}
+
 // Local Storage Functions
 function saveToLocalStorage(key, data) {
     try {
@@ -4915,8 +4936,19 @@ async function generatePolicyWithChatGPT(topic, type, clinics, requirements) {
     } catch (error) {
         console.error('ChatGPT API Error:', error);
         
-        // Fallback to local AI generation
-        alert('ChatGPT API is currently unavailable. Using local AI generation instead.');
+        // Show error message and fallback to local AI generation
+        let errorMessage = 'ChatGPT API is currently unavailable. ';
+        
+        if (error.message.includes('API key not configured')) {
+            errorMessage = 'ChatGPT API key not configured. ';
+            errorMessage += 'Please go to Settings > API Configuration to add your OpenAI API key. ';
+        } else if (error.message.includes('API request failed')) {
+            errorMessage = 'ChatGPT API request failed. ';
+        }
+        
+        errorMessage += 'Using local AI generation instead.';
+        
+        alert(errorMessage);
         const policy = generatePolicyContent(topic, type, clinics, requirements);
         displayAIPolicy(policy);
         return policy;
@@ -4986,14 +5018,53 @@ Format your response as a structured policy document ready for implementation.`;
 }
 
 async function callChatGPTAPI(prompt) {
-    // Replace with your actual ChatGPT API implementation
-    // For now, we'll use a simulated response that's more realistic
+    // Get API key from user or use environment variable
+    const apiKey = getChatGPTAPIKey();
     
-    // Simulate API call delay
-    await new Promise(resolve => setTimeout(resolve, 2000));
+    if (!apiKey) {
+        throw new Error('ChatGPT API key not configured. Please add your OpenAI API key.');
+    }
     
-    // Return a simulated ChatGPT response
-    return generateEnhancedLocalResponse(prompt);
+    try {
+        const response = await fetch('https://api.openai.com/v1/chat/completions', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${apiKey}`
+            },
+            body: JSON.stringify({
+                model: 'gpt-4',
+                messages: [
+                    {
+                        role: 'system',
+                        content: 'You are a professional policy writer for veterinary healthcare facilities. Create comprehensive, professional policies that comply with industry standards and regulations.'
+                    },
+                    {
+                        role: 'user',
+                        content: prompt
+                    }
+                ],
+                max_tokens: 4000,
+                temperature: 0.7
+            })
+        });
+        
+        if (!response.ok) {
+            throw new Error(`API request failed: ${response.status} ${response.statusText}`);
+        }
+        
+        const data = await response.json();
+        
+        if (data.choices && data.choices.length > 0) {
+            return data.choices[0].message.content;
+        } else {
+            throw new Error('No response from ChatGPT API');
+        }
+        
+    } catch (error) {
+        console.error('ChatGPT API Error:', error);
+        throw error;
+    }
 }
 
 function parseChatGPTResponse(response, topic, type, clinics) {
@@ -5279,6 +5350,106 @@ function displayUsers() {
             </div>
         </div>
     `).join('');
+}
+
+// API Key Management Functions
+function saveAPIKey() {
+    const apiKey = document.getElementById('apiKey').value.trim();
+    
+    if (!apiKey) {
+        showAPIStatus('Please enter an API key.', 'error');
+        return;
+    }
+    
+    setChatGPTAPIKey(apiKey);
+    showAPIStatus('API key saved successfully!', 'success');
+}
+
+function testAPIKey() {
+    const apiKey = document.getElementById('apiKey').value.trim();
+    
+    if (!apiKey) {
+        showAPIStatus('Please enter an API key first.', 'error');
+        return;
+    }
+    
+    // Temporarily set the API key for testing
+    const originalKey = getChatGPTAPIKey();
+    setChatGPTAPIKey(apiKey);
+    
+    showAPIStatus('Testing API connection...', 'info');
+    
+    // Test with a simple request
+    fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${apiKey}`
+        },
+        body: JSON.stringify({
+            model: 'gpt-3.5-turbo',
+            messages: [
+                {
+                    role: 'user',
+                    content: 'Hello, this is a test message.'
+                }
+            ],
+            max_tokens: 10
+        })
+    })
+    .then(response => {
+        if (response.ok) {
+            showAPIStatus('API connection successful! ChatGPT is ready to use.', 'success');
+        } else {
+            showAPIStatus(`API connection failed: ${response.status} ${response.statusText}`, 'error');
+        }
+    })
+    .catch(error => {
+        showAPIStatus(`API connection failed: ${error.message}`, 'error');
+    })
+    .finally(() => {
+        // Restore original API key
+        if (originalKey) {
+            setChatGPTAPIKey(originalKey);
+        }
+    });
+}
+
+function clearAPIKey() {
+    if (confirm('Are you sure you want to clear the API key?')) {
+        clearChatGPTAPIKey();
+        document.getElementById('apiKey').value = '';
+        showAPIStatus('API key cleared successfully.', 'success');
+    }
+}
+
+function showAPIStatus(message, type) {
+    const statusElement = document.getElementById('api-status');
+    statusElement.textContent = message;
+    statusElement.className = `api-status ${type}`;
+    statusElement.style.display = 'block';
+    
+    // Auto-hide success messages after 5 seconds
+    if (type === 'success') {
+        setTimeout(() => {
+            statusElement.style.display = 'none';
+        }, 5000);
+    }
+}
+
+// Load API key when settings modal opens
+function openSettingsModal() {
+    const apiKeyInput = document.getElementById('apiKey');
+    if (apiKeyInput) {
+        const savedKey = getChatGPTAPIKey();
+        if (savedKey) {
+            apiKeyInput.value = savedKey;
+        }
+    }
+    
+    // Show the modal
+    document.getElementById('settingsModal').style.display = 'block';
+    document.body.style.overflow = 'hidden';
 }
 
 // Mobile menu toggle (if needed)

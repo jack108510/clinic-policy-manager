@@ -584,6 +584,7 @@
                     <button class="tab-btn active" onclick="showSettingsTab('roles')">Roles & Responsibilities</button>
                     <button class="tab-btn" onclick="showSettingsTab('disciplinary')">Disciplinary Actions</button>
                     <button class="tab-btn" onclick="showSettingsTab('users')">User Management</button>
+                    <button class="tab-btn" onclick="showSettingsTab('api')">API Configuration</button>
                 </div>
                 
                 <!-- Roles Tab -->
@@ -647,6 +648,36 @@
                         </div>
                         <div class="items-list" id="usersList">
                             <!-- Users will be displayed here -->
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- API Configuration Tab -->
+                <div id="apiTab" class="settings-tab">
+                    <div class="settings-section">
+                        <h3>ChatGPT API Configuration</h3>
+                        <div class="api-config">
+                            <div class="form-group">
+                                <label for="apiKey">OpenAI API Key:</label>
+                                <input type="password" id="apiKey" placeholder="Enter your OpenAI API key">
+                                <small class="form-help">
+                                    Get your API key from <a href="https://platform.openai.com/api-keys" target="_blank">OpenAI Platform</a>
+                                </small>
+                            </div>
+                            <div class="form-group">
+                                <button onclick="saveAPIKey()" class="btn btn-primary">
+                                    <i class="fas fa-save"></i> Save API Key
+                                </button>
+                                <button onclick="testAPIKey()" class="btn btn-secondary">
+                                    <i class="fas fa-test-tube"></i> Test Connection
+                                </button>
+                                <button onclick="clearAPIKey()" class="btn btn-danger">
+                                    <i class="fas fa-trash"></i> Clear API Key
+                                </button>
+                            </div>
+                            <div id="api-status" class="api-status">
+                                <!-- API status will be displayed here -->
+                            </div>
                         </div>
                     </div>
                 </div>

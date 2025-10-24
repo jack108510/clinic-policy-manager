@@ -5224,10 +5224,22 @@ function updateUserInterface() {
                     <a href="#memos">Communication Memos</a>
                 </div>
             </div>
-            <a href="#" onclick="showProfileModal()" class="nav-link user-profile-link">Welcome, ${currentUser.username} (${currentCompany})</a>
+            <a href="#" class="nav-link user-profile-link" id="profileLink">Welcome, ${currentUser.username} (${currentCompany})</a>
             <a href="#" onclick="logoutUser()" class="nav-link">Logout</a>
             ${currentUser.role === 'admin' ? '<a href="#" onclick="openPasswordModal()" class="nav-link">Admin Dashboard</a>' : ''}
         `;
+        
+        // Add event listener for profile link
+        setTimeout(() => {
+            const profileLink = document.getElementById('profileLink');
+            if (profileLink) {
+                profileLink.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    console.log('Profile link clicked');
+                    showProfileModal();
+                });
+            }
+        }, 100);
         
         // Filter policies by company
         filterPoliciesByCompany();
@@ -5491,8 +5503,16 @@ document.addEventListener('DOMContentLoaded', function() {
 
 // Profile Center Functions
 function showProfileModal() {
+    console.log('showProfileModal called');
     updateProfileInfo();
-    document.getElementById('profileModal').classList.add('show');
+    const profileModal = document.getElementById('profileModal');
+    console.log('profileModal element:', profileModal);
+    if (profileModal) {
+        profileModal.classList.add('show');
+        console.log('Modal should now be visible');
+    } else {
+        console.error('Profile modal element not found');
+    }
 }
 
 function closeProfileModal() {

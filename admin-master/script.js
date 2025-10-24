@@ -62,9 +62,19 @@ function initializeData() {
     const savedUsers = localStorage.getItem('masterUsers');
     const savedAccessCodes = localStorage.getItem('masterAccessCodes');
     
+    console.log('Loading data from localStorage:');
+    console.log('savedCompanies:', savedCompanies);
+    console.log('savedUsers:', savedUsers);
+    console.log('savedAccessCodes:', savedAccessCodes);
+    
     companies = savedCompanies ? JSON.parse(savedCompanies) : [];
     users = savedUsers ? JSON.parse(savedUsers) : [];
     accessCodes = savedAccessCodes ? JSON.parse(savedAccessCodes) : [];
+    
+    console.log('Parsed data:');
+    console.log('companies:', companies);
+    console.log('users:', users);
+    console.log('accessCodes:', accessCodes);
     
     // Only add default access codes if none exist
     if (accessCodes.length === 0) {
@@ -241,7 +251,7 @@ function deleteUser(userId) {
     console.log('deleteUser called with userId:', userId);
     console.log('Current users array:', users);
     
-    const user = users.find(u => u.id === userId);
+    const user = users.find(u => u.id == userId || u.id === userId);
     console.log('Found user:', user);
     
     if (!user) {
@@ -251,7 +261,7 @@ function deleteUser(userId) {
     
     if (confirm(`Are you sure you want to delete user "${user.username}" from ${user.company}? This action cannot be undone.`)) {
         // Find and remove user
-        const userIndex = users.findIndex(u => u.id === userId);
+        const userIndex = users.findIndex(u => u.id == userId || u.id === userId);
         console.log('User index to delete:', userIndex);
         
         if (userIndex !== -1) {
@@ -382,7 +392,7 @@ function bulkDeleteUsers() {
     
     const selectedUsers = Array.from(selectedCheckboxes).map(cb => {
         const userId = cb.value;
-        return users.find(u => u.id == userId);
+        return users.find(u => u.id == userId || u.id === userId);
     }).filter(user => user);
     
     if (selectedUsers.length === 0) {
@@ -395,7 +405,7 @@ function bulkDeleteUsers() {
     if (confirm(`Are you sure you want to delete ${selectedUsers.length} user(s): ${userNames}? This action cannot be undone.`)) {
         // Delete selected users
         selectedUsers.forEach(user => {
-            const userIndex = users.findIndex(u => u.id === user.id);
+            const userIndex = users.findIndex(u => u.id == user.id || u.id === user.id);
             if (userIndex !== -1) {
                 users.splice(userIndex, 1);
             }
@@ -420,7 +430,7 @@ function bulkDeleteUsers() {
 }
 
 function refreshUsers() {
-    loadData();
+    initializeData();
     displayUsers();
     updateStats();
     showAlert('Users data refreshed successfully!', 'success');

@@ -83,7 +83,7 @@ body {
 /* Dashboard Container */
 .dashboard-container {
     display: grid;
-    grid-template-columns: 250px 1fr;
+    grid-template-columns: 280px 1fr;
     min-height: 100vh;
     margin-top: 80px;
 }
@@ -434,33 +434,51 @@ body {
     border-radius: 12px;
     overflow: hidden;
     box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    margin-top: 2rem;
 }
 
 .companies-table,
 .users-table {
     width: 100%;
     border-collapse: collapse;
+    font-size: 0.9rem;
 }
 
 .companies-table th,
 .users-table th {
     background: #f8fafc;
-    padding: 1rem;
+    padding: 1.25rem 1rem;
     text-align: left;
     font-weight: 600;
     color: #374151;
-    border-bottom: 1px solid #e5e7eb;
+    border-bottom: 2px solid #e5e7eb;
+    font-size: 0.9rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
 }
 
 .companies-table td,
 .users-table td {
-    padding: 1rem;
+    padding: 1.25rem 1rem;
     border-bottom: 1px solid #f3f4f6;
+    vertical-align: middle;
 }
 
 .companies-table tr:hover,
 .users-table tr:hover {
     background: #f9fafb;
+}
+
+.company-info strong {
+    color: #1f2937;
+    font-weight: 600;
+}
+
+.company-info small {
+    color: #6b7280;
+    font-size: 0.8rem;
+    display: block;
+    margin-top: 0.25rem;
 }
 
 /* Filters */
@@ -550,7 +568,7 @@ body {
 /* Analytics */
 .analytics-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(500px, 1fr));
     gap: 2rem;
 }
 
@@ -559,11 +577,21 @@ body {
     border-radius: 12px;
     padding: 2rem;
     box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    min-height: 400px;
+    display: flex;
+    flex-direction: column;
 }
 
 .chart-container h3 {
     margin-bottom: 1rem;
     color: #1f2937;
+    font-size: 1.2rem;
+    font-weight: 600;
+}
+
+.chart-container canvas {
+    flex: 1;
+    max-height: 300px;
 }
 
 /* Reports */
@@ -790,11 +818,39 @@ body {
     padding: 2rem;
 }
 
+.loading-container {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    padding: 4rem 2rem;
+    text-align: center;
+}
+
+.loading-container h2 {
+    margin: 1rem 0 0.5rem 0;
+    color: #1f2937;
+}
+
+.loading-container p {
+    color: #6b7280;
+    margin: 0;
+}
+
 .spinner {
     width: 40px;
     height: 40px;
     border: 4px solid #f3f4f6;
     border-top: 4px solid #3b82f6;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+.loading-spinner-large {
+    width: 60px;
+    height: 60px;
+    border: 6px solid #f3f4f6;
+    border-top: 6px solid #3b82f6;
     border-radius: 50%;
     animation: spin 1s linear infinite;
 }

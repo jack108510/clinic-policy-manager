@@ -206,10 +206,10 @@ function displayCompanies() {
             <td>${formatDate(company.signupDate)}</td>
             <td>${formatDate(company.lastActive)}</td>
             <td><span class="status-badge status-${company.status}">${company.status}</span></td>
-            <td>
-                <button onclick="viewCompanyDetails('${company.id}')" class="btn btn-small btn-primary">View</button>
-                <button onclick="suspendCompany('${company.id}')" class="btn btn-small btn-danger">Suspend</button>
-            </td>
+                    <td>
+                        <button onclick="showCompanyDetails('${company.id}')" class="btn btn-small btn-primary">View Details</button>
+                        <button onclick="suspendCompany('${company.id}')" class="btn btn-small btn-danger">Suspend</button>
+                    </td>
         `;
         companiesList.appendChild(row);
     });
@@ -1153,3 +1153,103 @@ window.onclick = function(event) {
         }
     });
 };
+
+// Company Details Management Functions
+function showCompanyDetails(companyId) {
+    const company = companies.find(c => c.id === companyId);
+    if (!company) return;
+    
+    // Get users for this company
+    const companyUsers = users.filter(user => user.company === company.name);
+    
+    // Update modal title
+    document.getElementById('companyDetailsTitle').textContent = `${company.name} - Details`;
+    
+    // Create company details content
+    const content = `
+        <div class="company-details">
+            <div class="company-info">
+                <h4>Company Information</h4>
+                <div class="info-grid">
+                    <div class="info-item">
+                        <strong>Company Name:</strong> ${company.name}
+                    </div>
+                    <div class="info-item">
+                        <strong>Company ID:</strong> ${company.id}
+                    </div>
+                    <div class="info-item">
+                        <strong>Signup Date:</strong> ${formatDate(company.signupDate)}
+                    </div>
+                    <div class="info-item">
+                        <strong>Last Active:</strong> ${formatDate(company.lastActive)}
+                    </div>
+                    <div class="info-item">
+                        <strong>Status:</strong> <span class="status-badge status-${company.status}">${company.status}</span>
+                    </div>
+                    <div class="info-item">
+                        <strong>Admin Password:</strong> ${company.adminPassword || 'Not Set'}
+                    </div>
+                    <div class="info-item">
+                        <strong>API Key:</strong> ${company.apiKey ? 'Configured' : 'Not Set'}
+                    </div>
+                </div>
+            </div>
+            
+            <div class="company-users">
+                <h4>Users (${companyUsers.length})</h4>
+                <div class="users-list">
+                    ${companyUsers.length === 0 ? '<p class="empty-state">No users found for this company.</p>' : companyUsers.map(user => `
+                        <div class="user-item">
+                            <div class="user-info">
+                                <strong>${user.username}</strong>
+                                <span class="user-email">${user.email || 'No email'}</span>
+                                <span class="user-company">${user.company}</span>
+                            </div>
+                            <div class="user-actions">
+                                <label class="toggle-item">
+                                    <input type="checkbox" ${user.isAdmin ? 'checked' : ''} onchange="toggleUserAdmin('${user.id}', this.checked)">
+                                    <span class="toggle-label">Admin Access</span>
+                                </label>
+                                <button onclick="deleteUser('${user.id}')" class="btn btn-sm btn-danger">
+                                    <i class="fas fa-trash"></i> Delete
+                                </button>
+                            </div>
+                        </div>
+                    `).join('')}
+                </div>
+            </div>
+        </div>
+    `;
+    
+    document.getElementById('companyDetailsContent').innerHTML = content;
+    document.getElementById('companyDetailsModal').classList.add('show');
+}
+
+function closeCompanyDetailsModal() {
+    document.getElementById('companyDetailsModal').classList.remove('show');
+}
+
+function toggleUserAdmin(userId, isAdmin) {
+    const user = users.find(u => u.id === userId);
+    if (!user) return;
+    
+    user.isAdmin = isAdmin;
+    saveData();
+    
+    // Show success message
+    showAlert(`${isAdmin ? 'Granted' : 'Revoked'} admin access for ${user.username}`, 'success');
+    
+    // Sync to main site
+    syncToMainSite();
+}
+
+function refreshCompanyDetails() {
+    // Refresh the company details if modal is open
+    const modal = document.getElementById('companyDetailsModal');
+    if (modal.classList.contains('show')) {
+        const companyId = modal.dataset.companyId;
+        if (companyId) {
+            showCompanyDetails(companyId);
+        }
+    }
+}

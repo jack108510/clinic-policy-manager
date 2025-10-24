@@ -1420,3 +1420,132 @@ body {
     color: #d97706;
     font-weight: 500;
 }
+
+/* Company Details Modal Styles */
+.company-details {
+    display: flex;
+    flex-direction: column;
+    gap: 30px;
+}
+
+.company-info {
+    background-color: #f8fafc;
+    padding: 20px;
+    border-radius: 8px;
+    border: 1px solid #e2e8f0;
+}
+
+.company-info h4 {
+    margin: 0 0 15px 0;
+    color: #374151;
+    font-size: 1.125rem;
+    font-weight: 600;
+}
+
+.info-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 15px;
+}
+
+.info-item {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.info-item strong {
+    color: #374151;
+    font-weight: 600;
+    font-size: 0.875rem;
+}
+
+.info-item span {
+    color: #6b7280;
+    font-size: 0.875rem;
+}
+
+.company-users {
+    background-color: #f8fafc;
+    padding: 20px;
+    border-radius: 8px;
+    border: 1px solid #e2e8f0;
+}
+
+.company-users h4 {
+    margin: 0 0 15px 0;
+    color: #374151;
+    font-size: 1.125rem;
+    font-weight: 600;
+}
+
+.users-list {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+.user-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 15px;
+    background-color: white;
+    border-radius: 6px;
+    border: 1px solid #e2e8f0;
+}
+
+.user-info {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.user-info strong {
+    color: #374151;
+    font-weight: 600;
+}
+
+.user-email,
+.user-company {
+    color: #6b7280;
+    font-size: 0.875rem;
+}
+
+.user-actions {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
+.user-actions .toggle-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 0;
+}
+
+.user-actions .toggle-item input[type="checkbox"] {
+    margin: 0;
+    transform: scale(1.2);
+}
+
+.user-actions .toggle-label {
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: #374151;
+    margin: 0;
+}
+
+@media (max-width: 768px) {
+    .user-item {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 15px;
+    }
+    
+    .user-actions {
+        width: 100%;
+        justify-content: space-between;
+    }
+}

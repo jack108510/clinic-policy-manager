@@ -5973,6 +5973,14 @@ function openPasswordModal() {
         return;
     }
     
+    // Check if user has admin access
+    if (currentUser.isAdmin) {
+        console.log('User has admin access, showing admin dashboard directly');
+        showAdminDashboard();
+        showSuccessMessage('Admin access granted!');
+        return;
+    }
+    
     const modal = document.getElementById('passwordModal');
     
     if (modal) {
@@ -6039,6 +6047,15 @@ function checkAdminPassword(event) {
     if (!currentUser || !currentCompany) {
         console.log('User not logged in with company');
         showSignupModal();
+        return;
+    }
+    
+    // Check if user has admin access first
+    if (currentUser.isAdmin) {
+        console.log('User has admin access, granting access without password');
+        closePasswordModal();
+        openAdminModal();
+        showSuccessMessage('Admin access granted!');
         return;
     }
     

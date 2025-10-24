@@ -1005,6 +1005,16 @@ function saveUsers() {
     localStorage.setItem('masterUsers', JSON.stringify(users));
 }
 
+function saveData() {
+    localStorage.setItem('masterCompanies', JSON.stringify(companies));
+    localStorage.setItem('masterUsers', JSON.stringify(users));
+    localStorage.setItem('masterAccessCodes', JSON.stringify(accessCodes));
+    localStorage.setItem('masterAnalytics', JSON.stringify(analytics));
+    
+    // Sync to main site
+    syncToMainSite();
+}
+
 function savePreferences() {
     showAlert('Preferences saved successfully!', 'success');
 }
@@ -1114,16 +1124,28 @@ document.addEventListener('DOMContentLoaded', function() {
             const companyName = document.getElementById('apiCompanyName').value;
             const apiKey = document.getElementById('companyAPIKey').value.trim();
             
+            if (!apiKey) {
+                alert('Please enter an API key');
+                return;
+            }
+            
             // Find the company and update its API key
+            console.log('Looking for company:', companyName);
+            console.log('Available companies:', companies.map(c => c.name));
+            
             const company = companies.find(c => c.name === companyName);
             if (company) {
+                console.log('Found company, setting API key:', company.name);
                 company.apiKey = apiKey;
                 saveData();
                 displayCompanies();
                 closeCompanyAPIModal();
                 
                 // Show success message
-                showNotification('API key saved successfully for ' + companyName, 'success');
+                showAlert('API key saved successfully for ' + companyName, 'success');
+            } else {
+                console.log('Company not found:', companyName);
+                alert('Company not found: ' + companyName);
             }
         });
     }

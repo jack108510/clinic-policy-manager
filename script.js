@@ -185,8 +185,23 @@ function setupEventListeners() {
 
     // Signup Form submission
     const signupForm = document.getElementById('signupForm');
+    console.log('Signup form element:', signupForm);
     if (signupForm) {
         signupForm.addEventListener('submit', function(e) {
+            console.log('Signup form submit event triggered');
+            e.preventDefault();
+            signupUser(e);
+        });
+    } else {
+        console.error('Signup form element not found');
+    }
+
+    // Also add direct button click event as backup
+    const signupButton = document.querySelector('#signupForm button[type="submit"]');
+    console.log('Signup button element:', signupButton);
+    if (signupButton) {
+        signupButton.addEventListener('click', function(e) {
+            console.log('Signup button clicked directly');
             e.preventDefault();
             signupUser(e);
         });

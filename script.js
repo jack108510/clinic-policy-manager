@@ -129,21 +129,38 @@ document.addEventListener('DOMContentLoaded', function() {
     updateUserInterface();
 });
 
+// Check if user is logged in before allowing access to features
+function requireLogin() {
+    if (!currentUser) {
+        showSignupModal();
+        return false;
+    }
+    return true;
+}
+
 // Event Listeners
 function setupEventListeners() {
     // Search functionality
-    policySearch.addEventListener('input', function() {
-        const searchTerm = this.value.toLowerCase();
-        const filteredPolicies = currentPolicies.filter(policy => 
-            policy.title.toLowerCase().includes(searchTerm) ||
-            policy.description.toLowerCase().includes(searchTerm)
-        );
-        displayPolicies(filteredPolicies);
-    });
+    if (policySearch) {
+        policySearch.addEventListener('input', function() {
+            if (!currentUser) {
+                showSignupModal();
+                return;
+            }
+            const searchTerm = this.value.toLowerCase();
+            const filteredPolicies = currentPolicies.filter(policy => 
+                policy.title.toLowerCase().includes(searchTerm) ||
+                policy.description.toLowerCase().includes(searchTerm)
+            );
+            displayPolicies(filteredPolicies);
+        });
+    }
 
     // Filter buttons
     filterButtons.forEach(button => {
         button.addEventListener('click', function() {
+            if (!requireLogin()) return;
+            
             // Remove active class from all buttons
             filterButtons.forEach(btn => btn.classList.remove('active'));
             // Add active class to clicked button
@@ -5142,12 +5159,10 @@ function signupUser(event) {
             console.log(`  - Code match: ${code.code === accessCode}`);
             console.log(`  - Status active: ${code.status === 'active'}`);
             console.log(`  - Not expired: ${!code.expiryDate || new Date(code.expiryDate) > new Date()}`);
-            console.log(`  - Within limit: ${code.usedBy.length < code.maxCompanies} (${code.usedBy.length}/${code.maxCompanies})`);
             
             const isValid = code.code === accessCode && 
                 code.status === 'active' && 
-                (!code.expiryDate || new Date(code.expiryDate) > new Date()) &&
-                code.usedBy.length < code.maxCompanies;
+                (!code.expiryDate || new Date(code.expiryDate) > new Date());
                 
             console.log(`  - Overall valid: ${isValid}`);
             return isValid;
@@ -5180,13 +5195,11 @@ function signupUser(event) {
     }
     
     if (!validAccessCode) {
-        // Check if the code exists but is at its limit
+        // Check if the code exists but has issues
         const existingCode = masterData.accessCodes.find(code => code.code === accessCode);
         if (existingCode) {
             if (existingCode.status !== 'active') {
                 showSignupError('Access code is not active. Please contact your administrator.');
-            } else if (existingCode.usedBy.length >= existingCode.maxCompanies) {
-                showSignupError(`Access code "${accessCode}" has reached its maximum usage limit (${existingCode.usedBy.length}/${existingCode.maxCompanies} companies). Please contact your administrator for a new code or to increase the limit.`);
             } else {
                 showSignupError('Access code validation failed. Please check with your administrator.');
             }
@@ -5576,6 +5589,13 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Initialize user interface
     updateUserInterface();
+    
+    // Check if user is logged in, if not show signup popup
+    if (!currentUser) {
+        setTimeout(() => {
+            showSignupModal();
+        }, 1000); // Show after 1 second to let page load
+    }
     
     // Listen for master data updates
     window.addEventListener('masterDataUpdated', function(event) {

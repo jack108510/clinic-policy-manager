@@ -730,12 +730,29 @@ function syncToMainSite() {
     localStorage.setItem('masterAccessCodes', JSON.stringify(accessCodes));
     localStorage.setItem('masterAnalytics', JSON.stringify(analytics));
     
+    // Also store in the main site's localStorage keys directly
+    // This ensures the main site can access the data even if it's not listening for events
+    localStorage.setItem('mainSiteCompanies', JSON.stringify(companies));
+    localStorage.setItem('mainSiteUsers', JSON.stringify(users));
+    localStorage.setItem('mainSiteAccessCodes', JSON.stringify(accessCodes));
+    
     // Dispatch custom event to notify main site of data update
     window.dispatchEvent(new CustomEvent('masterDataUpdated', {
         detail: mainSiteData
     }));
     
-    console.log('Data synchronized to main site');
+    console.log('Data synchronized to main site:', {
+        companies: companies.length,
+        users: users.length,
+        accessCodes: accessCodes.length
+    });
+}
+
+// Manual sync function for testing
+function forceSyncToMainSite() {
+    console.log('Forcing sync to main site...');
+    syncToMainSite();
+    alert('Data synchronized to main site successfully!');
 }
 
 // Utility Functions

@@ -5542,17 +5542,21 @@ document.addEventListener('DOMContentLoaded', function() {
 // Master Admin Data Loading
 function loadMasterAdminData() {
     try {
-        const masterCompanies = localStorage.getItem('masterCompanies');
-        const masterUsers = localStorage.getItem('masterUsers');
-        const masterAccessCodes = localStorage.getItem('masterAccessCodes');
+        // Try multiple localStorage keys to find the data
+        const masterCompanies = localStorage.getItem('masterCompanies') || localStorage.getItem('mainSiteCompanies');
+        const masterUsers = localStorage.getItem('masterUsers') || localStorage.getItem('mainSiteUsers');
+        const masterAccessCodes = localStorage.getItem('masterAccessCodes') || localStorage.getItem('mainSiteAccessCodes');
         const masterAnalytics = localStorage.getItem('masterAnalytics');
         
-        return {
+        const data = {
             companies: masterCompanies ? JSON.parse(masterCompanies) : [],
             users: masterUsers ? JSON.parse(masterUsers) : [],
             accessCodes: masterAccessCodes ? JSON.parse(masterAccessCodes) : [],
             analytics: masterAnalytics ? JSON.parse(masterAnalytics) : {}
         };
+        
+        console.log('Loaded master admin data from localStorage:', data);
+        return data;
     } catch (error) {
         console.error('Error loading master admin data:', error);
         return {

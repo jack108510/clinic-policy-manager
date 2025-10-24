@@ -2810,6 +2810,12 @@ function storeDraft() {
 }
 
 function displayDrafts() {
+    // Check if draftList element exists
+    if (!draftList) {
+        console.log('draftList element not found, skipping displayDrafts');
+        return;
+    }
+    
     // Filter drafts by company
     const companyDrafts = currentCompany ? 
         draftPolicies.filter(draft => draft.company === currentCompany || !draft.company) : 

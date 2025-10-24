@@ -5116,9 +5116,45 @@ function parseChatGPTResponse(response, topic, type, clinics) {
     return policy;
 }
 
+// Setup signup form event listeners
+function setupSignupFormListeners() {
+    const signupForm = document.getElementById('signupForm');
+    const signupButton = document.querySelector('#signupForm button[type="submit"]');
+    
+    console.log('Setting up signup form listeners...');
+    console.log('Signup form element:', signupForm);
+    console.log('Signup button element:', signupButton);
+    
+    if (signupForm) {
+        // Remove existing listeners first
+        signupForm.removeEventListener('submit', handleSignupSubmit);
+        signupForm.addEventListener('submit', handleSignupSubmit);
+        console.log('Signup form event listener attached');
+    }
+    
+    if (signupButton) {
+        // Remove existing listeners first
+        signupButton.removeEventListener('click', handleSignupSubmit);
+        signupButton.addEventListener('click', handleSignupSubmit);
+        console.log('Signup button event listener attached');
+    }
+}
+
+function handleSignupSubmit(e) {
+    console.log('Signup form/button event triggered');
+    e.preventDefault();
+    signupUser(e);
+}
+
 // User Management Functions
 function showSignupModal() {
-    document.getElementById('signupModal').classList.add('show');
+    const modal = document.getElementById('signupModal');
+    modal.classList.add('show');
+    
+    // Ensure event listeners are attached when modal is shown
+    setTimeout(() => {
+        setupSignupFormListeners();
+    }, 100);
 }
 
 function closeSignupModal() {

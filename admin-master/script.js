@@ -1114,6 +1114,35 @@ function testCompanyAPI() {
     });
 }
 
+function saveCompanyAPIKey() {
+    const companyName = document.getElementById('apiCompanyName').value;
+    const apiKey = document.getElementById('companyAPIKey').value.trim();
+    
+    if (!apiKey) {
+        alert('Please enter an API key');
+        return;
+    }
+    
+    // Find the company and update its API key
+    console.log('Looking for company:', companyName);
+    console.log('Available companies:', companies.map(c => c.name));
+    
+    const company = companies.find(c => c.name === companyName);
+    if (company) {
+        console.log('Found company, setting API key:', company.name);
+        company.apiKey = apiKey;
+        saveData();
+        displayCompanies();
+        closeCompanyAPIModal();
+        
+        // Show success message
+        showAlert('API key saved successfully for ' + companyName, 'success');
+    } else {
+        console.log('Company not found:', companyName);
+        alert('Company not found: ' + companyName);
+    }
+}
+
 // Handle company API form submission
 document.addEventListener('DOMContentLoaded', function() {
     const companyAPIForm = document.getElementById('companyAPIForm');

@@ -1171,19 +1171,22 @@ function showCompanyDetails(companyId) {
     const companyUsers = users.filter(user => user.company === company.name);
     
     // Update modal title
-    document.getElementById('companyDetailsTitle').textContent = `${company.name} - Details`;
+    document.getElementById('companyDetailsTitle').textContent = `${company.name} - User Management`;
     
-    // Create company details content
+    // Create comprehensive company details content
     const content = `
-        <div class="company-details">
-            <div class="company-info">
-                <h4>Company Information</h4>
+        <div class="company-details-enhanced">
+            <div class="company-info-card">
+                <h4><i class="fas fa-building"></i> Company Information</h4>
                 <div class="info-grid">
+                    <div class="info-item">
+                        <strong>Company ID:</strong> ${company.id}
+                    </div>
                     <div class="info-item">
                         <strong>Company Name:</strong> ${company.name}
                     </div>
                     <div class="info-item">
-                        <strong>Company ID:</strong> ${company.id}
+                        <strong>Status:</strong> <span class="status-badge status-${company.status}">${company.status}</span>
                     </div>
                     <div class="info-item">
                         <strong>Signup Date:</strong> ${formatDate(company.signupDate)}
@@ -1192,38 +1195,118 @@ function showCompanyDetails(companyId) {
                         <strong>Last Active:</strong> ${formatDate(company.lastActive)}
                     </div>
                     <div class="info-item">
-                        <strong>Status:</strong> <span class="status-badge status-${company.status}">${company.status}</span>
-                    </div>
-                    <div class="info-item">
                         <strong>Admin Password:</strong> ${company.adminPassword || 'Not Set'}
                     </div>
                     <div class="info-item">
                         <strong>API Key:</strong> ${company.apiKey ? 'Configured' : 'Not Set'}
                     </div>
+                    <div class="info-item">
+                        <strong>Total Users:</strong> ${companyUsers.length}
+                    </div>
+                    <div class="info-item">
+                        <strong>Admin Users:</strong> ${companyUsers.filter(u => u.isAdmin).length}
+                    </div>
                 </div>
             </div>
             
-            <div class="company-users">
-                <h4>Users (${companyUsers.length})</h4>
-                <div class="users-list">
-                    ${companyUsers.length === 0 ? '<p class="empty-state">No users found for this company.</p>' : companyUsers.map(user => `
-                        <div class="user-item">
-                            <div class="user-info">
-                                <strong>${user.username}</strong>
-                                <span class="user-email">${user.email || 'No email'}</span>
-                                <span class="user-company">${user.company}</span>
-                            </div>
-                            <div class="user-actions">
-                                <label class="toggle-item">
-                                    <input type="checkbox" ${user.isAdmin ? 'checked' : ''} onchange="toggleUserAdmin('${user.id}', this.checked)">
-                                    <span class="toggle-label">Admin Access</span>
-                                </label>
-                                <button onclick="deleteUser('${user.id}')" class="btn btn-sm btn-danger">
-                                    <i class="fas fa-trash"></i> Delete
-                                </button>
-                            </div>
-                        </div>
-                    `).join('')}
+            <div class="users-management-section">
+                <div class="section-header">
+                    <h4><i class="fas fa-users"></i> User Management (${companyUsers.length} users)</h4>
+                    <div class="user-stats">
+                        <span class="stat-item admin-count">
+                            <i class="fas fa-crown"></i> ${companyUsers.filter(u => u.isAdmin).length} Admins
+                        </span>
+                        <span class="stat-item user-count">
+                            <i class="fas fa-user"></i> ${companyUsers.filter(u => !u.isAdmin).length} Users
+                        </span>
+                    </div>
+                </div>
+                
+                <div class="users-table-container">
+                    <table class="users-table">
+                        <thead>
+                            <tr>
+                                <th>User Info</th>
+                                <th>Email</th>
+                                <th>Role</th>
+                                <th>Admin Access</th>
+                                <th>Signup Date</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${companyUsers.length === 0 ? `
+                                <tr>
+                                    <td colspan="6" class="empty-state">
+                                        <i class="fas fa-users"></i>
+                                        <p>No users for this company yet.</p>
+                                    </td>
+                                </tr>
+                            ` : companyUsers.map(user => `
+                                <tr class="user-row">
+                                    <td class="user-info-cell">
+                                        <div class="user-avatar">
+                                            <i class="fas fa-user"></i>
+                                        </div>
+                                        <div class="user-details">
+                                            <div class="user-name">${user.username}</div>
+                                            <div class="user-id">ID: ${user.id}</div>
+                                        </div>
+                                    </td>
+                                    <td class="user-email-cell">
+                                        ${user.email || '<span class="no-email">No email</span>'}
+                                    </td>
+                                    <td class="user-role-cell">
+                                        <span class="role-badge ${user.isAdmin ? 'admin' : 'user'}">
+                                            ${user.isAdmin ? 'Admin' : 'User'}
+                                        </span>
+                                    </td>
+                                    <td class="admin-toggle-cell">
+                                        <label class="admin-toggle-switch">
+                                            <input type="checkbox" ${user.isAdmin ? 'checked' : ''} 
+                                                   onchange="toggleUserAdmin('${user.id}', this.checked, '${companyId}')">
+                                            <span class="toggle-slider"></span>
+                                        </label>
+                                        <span class="toggle-status">${user.isAdmin ? 'Admin Access' : 'User Access'}</span>
+                                    </td>
+                                    <td class="signup-date-cell">
+                                        ${formatDate(user.signupDate || user.created || new Date())}
+                                    </td>
+                                    <td class="actions-cell">
+                                        <div class="action-buttons">
+                                            <button onclick="viewUserDetails('${user.id}')" 
+                                                    class="btn btn-small btn-info" title="View Details">
+                                                <i class="fas fa-eye"></i>
+                                            </button>
+                                            <button onclick="editUserInfo('${user.id}')" 
+                                                    class="btn btn-small btn-warning" title="Edit User">
+                                                <i class="fas fa-edit"></i>
+                                            </button>
+                                            <button onclick="deleteUser('${user.id}', '${companyId}')" 
+                                                    class="btn btn-small btn-danger" title="Delete User">
+                                                <i class="fas fa-trash"></i>
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                </div>
+                
+                <div class="bulk-actions">
+                    <h5>Bulk Actions</h5>
+                    <div class="bulk-buttons">
+                        <button onclick="bulkMakeAdmin('${companyId}')" class="btn btn-outline btn-success">
+                            <i class="fas fa-crown"></i> Make All Admins
+                        </button>
+                        <button onclick="bulkRemoveAdmin('${companyId}')" class="btn btn-outline btn-warning">
+                            <i class="fas fa-user"></i> Remove All Admin Access
+                        </button>
+                        <button onclick="exportUsersList('${companyId}')" class="btn btn-outline btn-info">
+                            <i class="fas fa-download"></i> Export User List
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>
@@ -1237,8 +1320,8 @@ function closeCompanyDetailsModal() {
     document.getElementById('companyDetailsModal').classList.remove('show');
 }
 
-function toggleUserAdmin(userId, isAdmin) {
-    console.log('toggleUserAdmin called with userId:', userId, 'isAdmin:', isAdmin);
+function toggleUserAdmin(userId, isAdmin, companyId) {
+    console.log('toggleUserAdmin called with userId:', userId, 'isAdmin:', isAdmin, 'companyId:', companyId);
     const user = users.find(u => u.id === userId);
     console.log('Found user:', user);
     if (!user) {
@@ -1254,6 +1337,243 @@ function toggleUserAdmin(userId, isAdmin) {
     
     // Sync to main site
     syncToMainSite();
+    
+    // Refresh company details if provided
+    if (companyId) {
+        showCompanyDetails(companyId);
+    }
+}
+
+// Additional user management functions
+function viewUserDetails(userId) {
+    const user = users.find(u => u.id === userId);
+    if (!user) {
+        showAlert('User not found', 'error');
+        return;
+    }
+    
+    const modal = document.createElement('div');
+    modal.className = 'modal show';
+    modal.innerHTML = `
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>User Details - ${user.username}</h3>
+                <span class="close" onclick="this.closest('.modal').remove()">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div class="user-details-grid">
+                    <div class="detail-item">
+                        <strong>Username:</strong> ${user.username}
+                    </div>
+                    <div class="detail-item">
+                        <strong>Email:</strong> ${user.email || 'Not provided'}
+                    </div>
+                    <div class="detail-item">
+                        <strong>User ID:</strong> ${user.id}
+                    </div>
+                    <div class="detail-item">
+                        <strong>Company:</strong> ${user.company}
+                    </div>
+                    <div class="detail-item">
+                        <strong>Role:</strong> <span class="role-badge ${user.isAdmin ? 'admin' : 'user'}">${user.isAdmin ? 'Admin' : 'User'}</span>
+                    </div>
+                    <div class="detail-item">
+                        <strong>Signup Date:</strong> ${formatDate(user.signupDate || user.created || new Date())}
+                    </div>
+                    <div class="detail-item">
+                        <strong>Last Login:</strong> ${user.lastLogin ? formatDate(user.lastLogin) : 'Never'}
+                    </div>
+                    <div class="detail-item">
+                        <strong>Admin Access:</strong> ${user.isAdmin ? 'Yes - Can access admin dashboard without password' : 'No - Requires admin password'}
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(modal);
+}
+
+function editUserInfo(userId) {
+    const user = users.find(u => u.id === userId);
+    if (!user) {
+        showAlert('User not found', 'error');
+        return;
+    }
+    
+    const modal = document.createElement('div');
+    modal.className = 'modal show';
+    modal.innerHTML = `
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Edit User - ${user.username}</h3>
+                <span class="close" onclick="this.closest('.modal').remove()">&times;</span>
+            </div>
+            <div class="modal-body">
+                <form id="editUserForm">
+                    <div class="form-group">
+                        <label for="editUsername">Username:</label>
+                        <input type="text" id="editUsername" value="${user.username}" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="editEmail">Email:</label>
+                        <input type="email" id="editEmail" value="${user.email || ''}">
+                    </div>
+                    <div class="form-group">
+                        <label for="editPassword">New Password (leave blank to keep current):</label>
+                        <input type="password" id="editPassword" placeholder="Enter new password">
+                    </div>
+                    <div class="form-group">
+                        <label class="checkbox-label">
+                            <input type="checkbox" id="editIsAdmin" ${user.isAdmin ? 'checked' : ''}>
+                            Admin Access (bypasses password requirement)
+                        </label>
+                    </div>
+                    <div class="form-actions">
+                        <button type="submit" class="btn btn-primary">Save Changes</button>
+                        <button type="button" class="btn btn-secondary" onclick="this.closest('.modal').remove()">Cancel</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(modal);
+    
+    // Handle form submission
+    document.getElementById('editUserForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        const newUsername = document.getElementById('editUsername').value;
+        const newEmail = document.getElementById('editEmail').value;
+        const newPassword = document.getElementById('editPassword').value;
+        const newIsAdmin = document.getElementById('editIsAdmin').checked;
+        
+        // Update user
+        user.username = newUsername;
+        user.email = newEmail;
+        if (newPassword) {
+            user.password = newPassword; // In real app, this should be hashed
+        }
+        user.isAdmin = newIsAdmin;
+        
+        saveData();
+        syncToMainSite();
+        showAlert('User updated successfully', 'success');
+        modal.remove();
+        
+        // Refresh company details if we're viewing them
+        const companyDetailsModal = document.getElementById('companyDetailsModal');
+        if (companyDetailsModal && companyDetailsModal.classList.contains('show')) {
+            const companyId = companies.find(c => c.name === user.company)?.id;
+            if (companyId) {
+                showCompanyDetails(companyId);
+            }
+        }
+    });
+}
+
+function deleteUser(userId, companyId) {
+    const user = users.find(u => u.id === userId);
+    if (!user) {
+        showAlert('User not found', 'error');
+        return;
+    }
+    
+    if (confirm(`Are you sure you want to delete user "${user.username}"? This action cannot be undone.`)) {
+        const userIndex = users.findIndex(u => u.id === userId);
+        if (userIndex > -1) {
+            users.splice(userIndex, 1);
+            saveData();
+            syncToMainSite();
+            showAlert(`User "${user.username}" deleted successfully`, 'success');
+            
+            // Refresh company details
+            if (companyId) {
+                showCompanyDetails(companyId);
+            }
+        }
+    }
+}
+
+function bulkMakeAdmin(companyId) {
+    const company = companies.find(c => c.id === companyId);
+    if (!company) return;
+    
+    const companyUsers = users.filter(user => user.company === company.name && !user.isAdmin);
+    
+    if (companyUsers.length === 0) {
+        showAlert('All users already have admin access', 'info');
+        return;
+    }
+    
+    if (confirm(`Make all ${companyUsers.length} users in ${company.name} admins?`)) {
+        companyUsers.forEach(user => {
+            user.isAdmin = true;
+        });
+        saveData();
+        syncToMainSite();
+        showAlert(`Made ${companyUsers.length} users admins`, 'success');
+        showCompanyDetails(companyId);
+    }
+}
+
+function bulkRemoveAdmin(companyId) {
+    const company = companies.find(c => c.id === companyId);
+    if (!company) return;
+    
+    const companyAdmins = users.filter(user => user.company === company.name && user.isAdmin);
+    
+    if (companyAdmins.length === 0) {
+        showAlert('No admin users found', 'info');
+        return;
+    }
+    
+    if (confirm(`Remove admin access from all ${companyAdmins.length} admin users in ${company.name}?`)) {
+        companyAdmins.forEach(user => {
+            user.isAdmin = false;
+        });
+        saveData();
+        syncToMainSite();
+        showAlert(`Removed admin access from ${companyAdmins.length} users`, 'success');
+        showCompanyDetails(companyId);
+    }
+}
+
+function exportUsersList(companyId) {
+    const company = companies.find(c => c.id === companyId);
+    if (!company) return;
+    
+    const companyUsers = users.filter(user => user.company === company.name);
+    
+    if (companyUsers.length === 0) {
+        showAlert('No users to export', 'info');
+        return;
+    }
+    
+    // Create CSV content
+    const csvContent = [
+        ['Username', 'Email', 'Role', 'Admin Access', 'Signup Date', 'User ID'],
+        ...companyUsers.map(user => [
+            user.username,
+            user.email || '',
+            user.isAdmin ? 'Admin' : 'User',
+            user.isAdmin ? 'Yes' : 'No',
+            formatDate(user.signupDate || user.created || new Date()),
+            user.id
+        ])
+    ].map(row => row.join(',')).join('\n');
+    
+    // Download CSV
+    const blob = new Blob([csvContent], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${company.name}_users_${new Date().toISOString().split('T')[0]}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    window.URL.revokeObjectURL(url);
+    
+    showAlert(`Exported ${companyUsers.length} users to CSV`, 'success');
 }
 
 function refreshCompanyDetails() {

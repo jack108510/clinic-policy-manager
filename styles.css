@@ -71,6 +71,19 @@ body {
     color: #2563eb;
 }
 
+.master-admin-link {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white !important;
+    border-radius: 20px;
+    padding: 0.5rem 1rem !important;
+    margin-left: 0.5rem;
+}
+
+.master-admin-link:hover {
+    background: linear-gradient(135deg, #5a6fd8 0%, #6a4190 100%);
+    color: white !important;
+}
+
 .dropdown {
     position: relative;
 }

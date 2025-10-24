@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Master Admin Dashboard - CSI Policy Manager</title>
+    <link rel="stylesheet" href="styles.css">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+</head>
+<body>
+    <!-- Master Admin Header -->
+    <header class="master-header">
+        <div class="header-content">
+            <div class="logo">
+                <i class="fas fa-shield-alt"></i>
+                <span>Master Admin Dashboard</span>
+            </div>
+            <div class="header-actions">
+                <span class="admin-info">Master Administrator</span>
+                <button onclick="logout()" class="btn btn-secondary">
+                    <i class="fas fa-sign-out-alt"></i> Logout
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Dashboard -->
+    <div class="dashboard-container">
+        <!-- Sidebar -->
+        <nav class="sidebar">
+            <ul class="nav-menu">
+                <li><a href="#overview" class="nav-link active" onclick="showSection('overview')">
+                    <i class="fas fa-tachometer-alt"></i> Overview
+                </a></li>
+                <li><a href="#companies" class="nav-link" onclick="showSection('companies')">
+                    <i class="fas fa-building"></i> Companies
+                </a></li>
+                <li><a href="#users" class="nav-link" onclick="showSection('users')">
+                    <i class="fas fa-users"></i> Users
+                </a></li>
+                <li><a href="#access-codes" class="nav-link" onclick="showSection('access-codes')">
+                    <i class="fas fa-key"></i> Access Codes
+                </a></li>
+                <li><a href="#analytics" class="nav-link" onclick="showSection('analytics')">
+                    <i class="fas fa-chart-bar"></i> Analytics
+                </a></li>
+                <li><a href="#reports" class="nav-link" onclick="showSection('reports')">
+                    <i class="fas fa-file-alt"></i> Reports
+                </a></li>
+            </ul>
+        </nav>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Overview Section -->
+            <section id="overview" class="content-section active">
+                <h1>Master Admin Dashboard</h1>
+                <p class="section-description">Manage all companies using the CSI Policy Manager system</p>
+                
+                <!-- Statistics Cards -->
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-icon">
+                            <i class="fas fa-building"></i>
+                        </div>
+                        <div class="stat-content">
+                            <h3 id="totalCompanies">0</h3>
+                            <p>Total Companies</p>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon">
+                            <i class="fas fa-users"></i>
+                        </div>
+                        <div class="stat-content">
+                            <h3 id="totalUsers">0</h3>
+                            <p>Total Users</p>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon">
+                            <i class="fas fa-file-alt"></i>
+                        </div>
+                        <div class="stat-content">
+                            <h3 id="totalPolicies">0</h3>
+                            <p>Total Policies</p>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon">
+                            <i class="fas fa-check-circle"></i>
+                        </div>
+                        <div class="stat-content">
+                            <h3 id="activeCompanies">0</h3>
+                            <p>Active Companies</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Quick Actions -->
+                <div class="quick-actions">
+                    <h2>Quick Actions</h2>
+                    <div class="action-buttons">
+                        <button onclick="showSection('companies')" class="action-btn">
+                            <i class="fas fa-building"></i>
+                            <span>Manage Companies</span>
+                        </button>
+                        <button onclick="showSection('access-codes')" class="action-btn">
+                            <i class="fas fa-key"></i>
+                            <span>Create Access Code</span>
+                        </button>
+                        <button onclick="launchNewCompany()" class="action-btn">
+                            <i class="fas fa-rocket"></i>
+                            <span>Launch New Company</span>
+                        </button>
+                        <button onclick="exportAllData()" class="action-btn">
+                            <i class="fas fa-download"></i>
+                            <span>Export Data</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Recent Activity -->
+                <div class="recent-activity">
+                    <h2>Recent Activity</h2>
+                    <div id="activityFeed" class="activity-feed">
+                        <!-- Activity items will be loaded here -->
+                    </div>
+                </div>
+            </section>
+
+            <!-- Companies Section -->
+            <section id="companies" class="content-section">
+                <div class="section-header">
+                    <h1>Company Management</h1>
+                    <button onclick="launchNewCompany()" class="btn btn-primary">
+                        <i class="fas fa-plus"></i> Launch New Company
+                    </button>
+                </div>
+
+                <!-- Company Filters -->
+                <div class="filters">
+                    <input type="text" id="companySearch" placeholder="Search companies..." onkeyup="filterCompanies()">
+                    <select id="statusFilter" onchange="filterCompanies()">
+                        <option value="">All Status</option>
+                        <option value="active">Active</option>
+                        <option value="suspended">Suspended</option>
+                        <option value="inactive">Inactive</option>
+                    </select>
+                </div>
+
+                <!-- Companies Table -->
+                <div class="table-container">
+                    <table class="companies-table">
+                        <thead>
+                            <tr>
+                                <th>Company Name</th>
+                                <th>Users</th>
+                                <th>Policies</th>
+                                <th>Signup Date</th>
+                                <th>Last Active</th>
+                                <th>Status</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="companiesList">
+                            <!-- Companies will be loaded here -->
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- Users Section -->
+            <section id="users" class="content-section">
+                <div class="section-header">
+                    <h1>User Management</h1>
+                </div>
+
+                <div class="table-container">
+                    <table class="users-table">
+                        <thead>
+                            <tr>
+                                <th>Username</th>
+                                <th>Email</th>
+                                <th>Company</th>
+                                <th>Role</th>
+                                <th>Created</th>
+                                <th>Last Login</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="usersList">
+                            <!-- Users will be loaded here -->
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- Access Codes Section -->
+            <section id="access-codes" class="content-section">
+                <div class="section-header">
+                    <h1>Access Code Management</h1>
+                    <button onclick="showCreateCodeModal()" class="btn btn-primary">
+                        <i class="fas fa-plus"></i> Create Access Code
+                    </button>
+                </div>
+
+                <div class="codes-grid">
+                    <div id="accessCodesList" class="codes-list">
+                        <!-- Access codes will be loaded here -->
+                    </div>
+                </div>
+            </section>
+
+            <!-- Analytics Section -->
+            <section id="analytics" class="content-section">
+                <div class="section-header">
+                    <h1>Analytics & Insights</h1>
+                </div>
+
+                <div class="analytics-grid">
+                    <div class="chart-container">
+                        <h3>Company Growth</h3>
+                        <canvas id="growthChart"></canvas>
+                    </div>
+                    <div class="chart-container">
+                        <h3>Policy Types Distribution</h3>
+                        <canvas id="policyTypesChart"></canvas>
+                    </div>
+                    <div class="chart-container">
+                        <h3>Monthly Signups</h3>
+                        <canvas id="signupsChart"></canvas>
+                    </div>
+                    <div class="chart-container">
+                        <h3>User Activity</h3>
+                        <canvas id="activityChart"></canvas>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Reports Section -->
+            <section id="reports" class="content-section">
+                <div class="section-header">
+                    <h1>Reports & Export</h1>
+                </div>
+
+                <div class="reports-grid">
+                    <div class="report-card">
+                        <h3>Company Report</h3>
+                        <p>Export detailed information about all companies</p>
+                        <button onclick="exportCompanyReport()" class="btn btn-primary">
+                            <i class="fas fa-download"></i> Export
+                        </button>
+                    </div>
+                    <div class="report-card">
+                        <h3>User Report</h3>
+                        <p>Export user information and activity data</p>
+                        <button onclick="exportUserReport()" class="btn btn-primary">
+                            <i class="fas fa-download"></i> Export
+                        </button>
+                    </div>
+                    <div class="report-card">
+                        <h3>Analytics Report</h3>
+                        <p>Export analytics and usage statistics</p>
+                        <button onclick="exportAnalyticsReport()" class="btn btn-primary">
+                            <i class="fas fa-download"></i> Export
+                        </button>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- Launch New Company Modal -->
+    <div id="launchCompanyModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Launch New Company</h3>
+                <span class="close" onclick="closeLaunchModal()">&times;</span>
+            </div>
+            <div class="modal-body">
+                <form id="launchCompanyForm" onsubmit="launchCompany(event)">
+                    <div class="form-group">
+                        <label for="companyName">Company Name:</label>
+                        <input type="text" id="companyName" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="adminName">Admin Name:</label>
+                        <input type="text" id="adminName" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="adminEmail">Admin Email:</label>
+                        <input type="email" id="adminEmail" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="accessCode">Access Code:</label>
+                        <select id="accessCode" required>
+                            <option value="">Select Access Code</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="adminUsername">Admin Username:</label>
+                        <input type="text" id="adminUsername" required>
+                    </div>
+                    <button type="submit" class="btn btn-primary">Launch Company</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Create Access Code Modal -->
+    <div id="createCodeModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Create Access Code</h3>
+                <span class="close" onclick="closeCreateCodeModal()">&times;</span>
+            </div>
+            <div class="modal-body">
+                <form id="createCodeForm" onsubmit="createAccessCode(event)">
+                    <div class="form-group">
+                        <label for="newAccessCode">Access Code:</label>
+                        <input type="text" id="newAccessCode" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="codeDescription">Description:</label>
+                        <input type="text" id="codeDescription" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="codeExpiry">Expiry Date (optional):</label>
+                        <input type="date" id="codeExpiry">
+                    </div>
+                    <div class="form-group">
+                        <label for="maxCompanies">Max Companies:</label>
+                        <input type="number" id="maxCompanies" min="1" value="10">
+                    </div>
+                    <button type="submit" class="btn btn-primary">Create Code</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Company Details Modal -->
+    <div id="companyDetailsModal" class="modal">
+        <div class="modal-content large">
+            <div class="modal-header">
+                <h3 id="companyDetailsTitle">Company Details</h3>
+                <span class="close" onclick="closeCompanyDetailsModal()">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div id="companyDetailsContent">
+                    <!-- Company details will be loaded here -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="script.js"></script>
+</body>
+</html>

@@ -3655,20 +3655,52 @@ Please format your response as a structured policy document with clear headings 
 }
 
 async function callChatGPTAPI(prompt) {
-    // For now, we'll use an enhanced local AI that simulates ChatGPT-like responses
-    // In a production environment, this would call a backend API endpoint
+    // Get API key from user or use environment variable
+    const apiKey = getChatGPTAPIKey();
     
-    // Simulate API call delay
-    await new Promise(resolve => setTimeout(resolve, 2000));
+    if (!apiKey) {
+        throw new Error('ChatGPT API key not configured. Please add your OpenAI API key in Settings.');
+    }
     
-    // Generate a more sophisticated response using our enhanced local AI
-    return {
-        choices: [{
-            message: {
-                content: await generateEnhancedLocalResponse(prompt)
-            }
-        }]
-    };
+    try {
+        const response = await fetch('https://api.openai.com/v1/chat/completions', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${apiKey}`
+            },
+            body: JSON.stringify({
+                model: 'gpt-4',
+                messages: [
+                    {
+                        role: 'system',
+                        content: 'You are a professional policy writer for veterinary healthcare facilities. Create comprehensive, professional policies that comply with industry standards and regulations. Format your response as a structured policy document with clear headings and detailed content for each section.'
+                    },
+                    {
+                        role: 'user',
+                        content: prompt
+                    }
+                ],
+                max_tokens: 4000,
+                temperature: 0.7
+            })
+        });
+
+        if (!response.ok) {
+            throw new Error(`API request failed: ${response.status} ${response.statusText}`);
+        }
+
+        const data = await response.json();
+        
+        if (!data.choices || !data.choices[0] || !data.choices[0].message) {
+            throw new Error('Invalid response format from ChatGPT API');
+        }
+
+        return data;
+    } catch (error) {
+        console.error('ChatGPT API Error:', error);
+        throw new Error(`Failed to generate policy: ${error.message}`);
+    }
 }
 
 async function generateEnhancedLocalResponse(prompt) {
@@ -4801,14 +4833,27 @@ function generatePolicyFromChat() {
     document.querySelector('.chat-container').style.display = 'none';
     document.getElementById('aiLoading').style.display = 'block';
     
-    // Simulate AI generation
-    setTimeout(() => {
-        const generatedPolicy = generatePolicyFromChatData();
-        displayAIPolicy(generatedPolicy);
-    }, 3000);
+    // Generate policy with ChatGPT
+    generatePolicyFromChatData()
+        .then(generatedPolicy => {
+            displayAIPolicy(generatedPolicy);
+        })
+        .catch(error => {
+            console.error('Error generating policy:', error);
+            // Show error message to user
+            document.getElementById('aiLoading').style.display = 'none';
+            document.getElementById('aiResult').style.display = 'block';
+            document.getElementById('aiResult').innerHTML = `
+                <div class="error-message">
+                    <h4>Error Generating Policy</h4>
+                    <p>${error.message}</p>
+                    <p>Please check your ChatGPT API key in Settings or try again.</p>
+                </div>
+            `;
+        });
 }
 
-function generatePolicyFromChatData() {
+async function generatePolicyFromChatData() {
     const clinicNames = getClinicNames(chatState.clinics).join(', ');
     const typeLabel = getTypeLabel(chatState.policyType);
     const currentDate = new Date().toISOString().split('T')[0];
@@ -4826,8 +4871,8 @@ function generatePolicyFromChatData() {
         `Special Considerations: ${chatState.specialConsiderations}`
     ].filter(req => req && !req.includes('null') && !req.includes('undefined')).join('. ');
     
-    // Generate policy content based on comprehensive chat data
-    const policyContent = generateCSIPolicyWithHeaders(
+    // Create a comprehensive prompt for ChatGPT
+    const chatGPTPrompt = createComprehensiveChatGPTPrompt(
         chatState.topic, 
         chatState.policyType, 
         comprehensiveRequirements, 
@@ -4836,23 +4881,61 @@ function generatePolicyFromChatData() {
         chatState.existingPolicies
     );
     
-    return {
-        ...policyContent,
-        type: chatState.policyType,
-        clinics: chatState.clinics,
-        additionalRequirements: comprehensiveRequirements,
-        keyPoints: chatState.specificNeeds,
-        previousDocuments: chatState.existingPolicies,
-        clinicNames: clinicNames,
-        typeLabel: typeLabel,
-        urgency: chatState.urgency,
-        regulations: chatState.regulations,
-        procedures: chatState.procedures,
-        responsibilities: chatState.responsibilities,
-        accountability: chatState.accountability,
-        reviewSchedule: chatState.reviewSchedule,
-        specialConsiderations: chatState.specialConsiderations
-    };
+    try {
+        // Call ChatGPT API to generate the policy
+        const chatGPTResponse = await callChatGPTAPI(chatGPTPrompt);
+        const generatedContent = chatGPTResponse.choices[0].message.content;
+        
+        // Parse the ChatGPT response into a structured policy
+        const policyContent = parseChatGPTResponse(generatedContent, chatState.topic, chatState.policyType);
+        
+        return {
+            ...policyContent,
+            type: chatState.policyType,
+            clinics: chatState.clinics,
+            additionalRequirements: comprehensiveRequirements,
+            keyPoints: chatState.specificNeeds,
+            previousDocuments: chatState.existingPolicies,
+            clinicNames: clinicNames,
+            typeLabel: typeLabel,
+            urgency: chatState.urgency,
+            regulations: chatState.regulations,
+            procedures: chatState.procedures,
+            responsibilities: chatState.responsibilities,
+            accountability: chatState.accountability,
+            reviewSchedule: chatState.reviewSchedule,
+            specialConsiderations: chatState.specialConsiderations
+        };
+    } catch (error) {
+        console.error('Error generating policy with ChatGPT:', error);
+        // Fallback to local generation if ChatGPT fails
+        const policyContent = generateCSIPolicyWithHeaders(
+            chatState.topic,
+            chatState.policyType,
+            comprehensiveRequirements,
+            currentDate,
+            chatState.specificNeeds,
+            chatState.existingPolicies
+        );
+        
+        return {
+            ...policyContent,
+            type: chatState.policyType,
+            clinics: chatState.clinics,
+            additionalRequirements: comprehensiveRequirements,
+            keyPoints: chatState.specificNeeds,
+            previousDocuments: chatState.existingPolicies,
+            clinicNames: clinicNames,
+            typeLabel: typeLabel,
+            urgency: chatState.urgency,
+            regulations: chatState.regulations,
+            procedures: chatState.procedures,
+            responsibilities: chatState.responsibilities,
+            accountability: chatState.accountability,
+            reviewSchedule: chatState.reviewSchedule,
+            specialConsiderations: chatState.specialConsiderations
+        };
+    }
 }
 
 function continueChat() {

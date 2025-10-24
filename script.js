@@ -147,6 +147,12 @@ document.addEventListener('DOMContentLoaded', function() {
     addLoginChecksToAllElements();
     updateUserInterface();
     
+    // Load policies from storage if user is logged in
+    if (currentUser && currentCompany) {
+        console.log('Loading policies from storage for company:', currentCompany);
+        loadPoliciesFromStorage();
+    }
+    
     // Show signup modal if user is not logged in
     setTimeout(() => {
         if (!currentUser) {
@@ -154,6 +160,10 @@ document.addEventListener('DOMContentLoaded', function() {
             showSignupModal();
         } else {
             console.log('User already logged in:', currentUser.username);
+            // Load policies from storage when user is already logged in
+            if (currentCompany) {
+                loadPoliciesFromStorage();
+            }
         }
     }, 500); // Reduced delay for faster loading
 });
@@ -2775,6 +2785,9 @@ function displayAIPolicy(policy) {
     // Store the generated policy for saving
     window.currentGeneratedPolicy = policy;
     
+    // Automatically save the generated policy
+    savePolicyToStorage(policy);
+    
     // Update chat state and ask if anything needs to be changed
     chatState.step = 'policy_generated';
     
@@ -5259,6 +5272,9 @@ function savePolicyField(field) {
         const newContent = editableContent.innerHTML;
         if (window.currentGeneratedPolicy) {
             window.currentGeneratedPolicy[field] = newContent;
+            
+            // Save the updated policy to localStorage
+            savePolicyToStorage(window.currentGeneratedPolicy);
         }
         
         // Hide edit actions
@@ -5321,6 +5337,98 @@ function startEditing(element) {
     element.focus();
     
     console.log(`Started editing policy field: ${field}`);
+}
+
+// Policy saving and storage functions
+function savePolicyToStorage(policy) {
+    if (!policy || !currentCompany) {
+        console.error('Cannot save policy: missing policy or company');
+        return;
+    }
+    
+    // Generate a unique ID for the policy if it doesn't have one
+    if (!policy.id) {
+        policy.id = 'policy_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+    }
+    
+    // Add metadata
+    policy.company = currentCompany;
+    policy.lastModified = new Date().toISOString();
+    policy.modifiedBy = currentUser ? currentUser.username : 'Unknown';
+    
+    // Load existing policies for this company
+    const companyPolicies = loadCompanyPolicies();
+    
+    // Update or add the policy
+    const existingIndex = companyPolicies.findIndex(p => p.id === policy.id);
+    if (existingIndex >= 0) {
+        companyPolicies[existingIndex] = policy;
+        console.log('Updated existing policy:', policy.id);
+    } else {
+        companyPolicies.push(policy);
+        console.log('Added new policy:', policy.id);
+    }
+    
+    // Save back to localStorage
+    localStorage.setItem(`policies_${currentCompany}`, JSON.stringify(companyPolicies));
+    
+    // Sync to master admin dashboard
+    syncPoliciesToMasterAdmin(companyPolicies);
+    
+    console.log(`Policy saved for company ${currentCompany}:`, policy.title);
+}
+
+function loadCompanyPolicies() {
+    if (!currentCompany) {
+        return [];
+    }
+    
+    const stored = localStorage.getItem(`policies_${currentCompany}`);
+    if (stored) {
+        try {
+            return JSON.parse(stored);
+        } catch (error) {
+            console.error('Error parsing stored policies:', error);
+            return [];
+        }
+    }
+    return [];
+}
+
+function syncPoliciesToMasterAdmin(policies) {
+    // Load master admin data
+    const masterData = loadMasterAdminData();
+    
+    if (masterData && masterData.companies) {
+        // Find current company in master data
+        const companyIndex = masterData.companies.findIndex(c => c.name === currentCompany);
+        if (companyIndex >= 0) {
+            // Update company with policy count
+            masterData.companies[companyIndex].policies = policies.length;
+            masterData.companies[companyIndex].lastActive = new Date().toISOString();
+            
+            // Save updated master data
+            localStorage.setItem('masterAdminData', JSON.stringify(masterData));
+            
+            // Dispatch event to notify master admin dashboard
+            window.dispatchEvent(new CustomEvent('masterDataUpdated', {
+                detail: { type: 'policies', data: masterData }
+            }));
+        }
+    }
+}
+
+function loadPoliciesFromStorage() {
+    const companyPolicies = loadCompanyPolicies();
+    
+    // Update the global policies array
+    policies.length = 0; // Clear existing policies
+    policies.push(...companyPolicies);
+    
+    // Display policies
+    displayPolicies();
+    
+    console.log(`Loaded ${companyPolicies.length} policies for company ${currentCompany}`);
 }
 
 // Setup signup form event listeners
@@ -5586,6 +5694,11 @@ function signupUser(event) {
     updateUserInterface();
     closeSignupModal();
     
+    // Load policies from storage after successful signup
+    if (currentCompany) {
+        loadPoliciesFromStorage();
+    }
+    
     // Show success message
     showSuccessMessage('Account created successfully! You are now logged in.');
 }
@@ -5654,6 +5767,11 @@ function loginUser(event) {
         
         // Show success message
         showSuccessMessage('Login successful! Welcome back!');
+        
+        // Load policies from storage after successful login
+        if (currentCompany) {
+            loadPoliciesFromStorage();
+        }
         
         // Reset button after successful login
         resetButton();

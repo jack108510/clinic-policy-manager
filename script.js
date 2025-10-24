@@ -125,6 +125,9 @@ const draftCountElement = document.getElementById('draftCount');
 
 // Initialize the application
 document.addEventListener('DOMContentLoaded', function() {
+    console.log('Initializing application...');
+    
+    // Initialize data displays
     displayPolicies(currentPolicies);
     updateStats();
     displayDrafts();
@@ -133,6 +136,16 @@ document.addEventListener('DOMContentLoaded', function() {
     displayUsers();
     setupEventListeners();
     updateUserInterface();
+    
+    // Show signup modal if user is not logged in
+    setTimeout(() => {
+        if (!currentUser) {
+            console.log('No user logged in, showing signup modal');
+            showSignupModal();
+        } else {
+            console.log('User already logged in:', currentUser.username);
+        }
+    }, 500); // Reduced delay for faster loading
 });
 
 // Check if user is logged in before allowing access to features
@@ -5773,11 +5786,6 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Initialize user interface
     updateUserInterface();
-    
-    // Always show signup modal first - force user to sign up
-    setTimeout(() => {
-        showSignupModal();
-    }, 1000); // Show after 1 second to let page load
     
     // Listen for master data updates
     window.addEventListener('masterDataUpdated', function(event) {

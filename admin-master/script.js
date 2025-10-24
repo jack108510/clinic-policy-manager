@@ -89,6 +89,7 @@ function loadData() {
             }
         ];
         saveCompanies();
+        syncToMainSite();
     }
     
     // Load users
@@ -184,18 +185,40 @@ function generateUsersFromCompanies() {
 
 function saveCompanies() {
     localStorage.setItem('masterCompanies', JSON.stringify(companies));
+    syncToMainSite();
 }
 
 function saveUsers() {
     localStorage.setItem('masterUsers', JSON.stringify(users));
+    syncToMainSite();
 }
 
 function saveAccessCodes() {
     localStorage.setItem('masterAccessCodes', JSON.stringify(accessCodes));
+    syncToMainSite();
 }
 
 function saveAnalytics() {
     localStorage.setItem('masterAnalytics', JSON.stringify(analytics));
+}
+
+// Sync data to main site
+function syncToMainSite() {
+    // Update main site's localStorage with master admin data
+    localStorage.setItem('masterCompanies', JSON.stringify(companies));
+    localStorage.setItem('masterUsers', JSON.stringify(users));
+    localStorage.setItem('masterAccessCodes', JSON.stringify(accessCodes));
+    localStorage.setItem('masterAnalytics', JSON.stringify(analytics));
+    
+    // Trigger a custom event to notify main site of data changes
+    window.dispatchEvent(new CustomEvent('masterDataUpdated', {
+        detail: {
+            companies: companies,
+            users: users,
+            accessCodes: accessCodes,
+            analytics: analytics
+        }
+    }));
 }
 
 // Statistics and Analytics

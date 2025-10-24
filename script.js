@@ -79,14 +79,60 @@ const defaultDisciplinaryActions = [
 let roles = loadFromLocalStorage('roles', defaultRoles);
 let disciplinaryActions = loadFromLocalStorage('disciplinaryActions', defaultDisciplinaryActions);
 
-// User Management Data
-const defaultUsers = [
-    { id: 1, username: 'admin', email: 'admin@csi.com', company: 'CSI', role: 'admin', accessCode: '123', created: new Date().toISOString().split('T')[0] }
-];
+// User Management Data - Load from master admin data
+function loadMasterAdminData() {
+    const masterCompanies = localStorage.getItem('masterCompanies');
+    const masterUsers = localStorage.getItem('masterUsers');
+    const masterAccessCodes = localStorage.getItem('masterAccessCodes');
+    
+    if (masterCompanies && masterUsers && masterAccessCodes) {
+        return {
+            companies: JSON.parse(masterCompanies),
+            users: JSON.parse(masterUsers),
+            accessCodes: JSON.parse(masterAccessCodes)
+        };
+    }
+    return null;
+}
 
-let users = loadFromLocalStorage('users', defaultUsers);
+// Initialize with master admin data if available
+const masterData = loadMasterAdminData();
+let users = [];
 let currentUser = loadFromLocalStorage('currentUser', null);
 let currentCompany = loadFromLocalStorage('currentCompany', null);
+
+if (masterData) {
+    users = masterData.users;
+    // Filter users for current company if logged in
+    if (currentCompany) {
+        users = users.filter(user => user.company === currentCompany);
+    }
+} else {
+    // Fallback to default data
+    users = loadFromLocalStorage('users', [
+        { id: 1, username: 'admin', email: 'admin@csi.com', company: 'CSI', role: 'admin', accessCode: '123', created: new Date().toISOString().split('T')[0] }
+    ]);
+}
+
+// Listen for master data updates from admin dashboard
+window.addEventListener('masterDataUpdated', function(event) {
+    const updatedData = event.detail;
+    console.log('Master data updated:', updatedData);
+    
+    // Update local data with new master data
+    users = updatedData.users;
+    if (currentCompany) {
+        users = users.filter(user => user.company === currentCompany);
+    }
+    
+    // Save updated data
+    saveToLocalStorage('users', users);
+    
+    // Refresh UI if needed
+    if (typeof updateUserInterface === 'function') {
+        updateUserInterface();
+    }
+});
 
 // ChatGPT API Key Management
 function getChatGPTAPIKey() {
@@ -5123,20 +5169,38 @@ function signupUser(event) {
     const company = document.getElementById('signupCompany').value.trim();
     const accessCode = document.getElementById('signupAccessCode').value.trim();
     
-    // Validate access code
-    if (accessCode !== '123') {
-        showSignupError('Invalid access code. Use 123 for CSI access.');
+    // Validate access code against master admin data
+    const masterData = loadMasterAdminData();
+    let validAccessCode = false;
+    let foundAccessCode = null;
+    
+    if (masterData && masterData.accessCodes) {
+        foundAccessCode = masterData.accessCodes.find(code => 
+            code.code === accessCode && 
+            code.status === 'active' && 
+            (!code.expiryDate || new Date(code.expiryDate) > new Date()) &&
+            code.usedBy.length < code.maxCompanies
+        );
+        validAccessCode = !!foundAccessCode;
+    } else {
+        // Fallback to hardcoded access code
+        validAccessCode = accessCode === '123';
+    }
+    
+    if (!validAccessCode) {
+        showSignupError('Invalid access code. Please check with your administrator for a valid code.');
         return;
     }
     
-    // Check if username already exists
-    if (users.find(user => user.username === username)) {
+    // Check if username already exists across all users
+    const allUsers = masterData ? masterData.users : users;
+    if (allUsers.find(user => user.username === username)) {
         showSignupError('Username already exists. Please choose a different username.');
         return;
     }
     
-    // Check if email already exists
-    if (users.find(user => user.email === email)) {
+    // Check if email already exists across all users
+    if (allUsers.find(user => user.email === email)) {
         showSignupError('Email already exists. Please use a different email.');
         return;
     }
@@ -5152,8 +5216,20 @@ function signupUser(event) {
         created: new Date().toISOString().split('T')[0]
     };
     
+    // Add user to local storage
     users.push(newUser);
     saveToLocalStorage('users', users);
+    
+    // Update master admin data if available
+    if (masterData && foundAccessCode) {
+        // Update the access code usage
+        foundAccessCode.usedBy.push(company);
+        localStorage.setItem('masterAccessCodes', JSON.stringify(masterData.accessCodes));
+        
+        // Add user to master users list
+        masterData.users.push(newUser);
+        localStorage.setItem('masterUsers', JSON.stringify(masterData.users));
+    }
     
     // Auto-login the new user
     currentUser = newUser;

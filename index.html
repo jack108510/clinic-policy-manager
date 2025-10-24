@@ -264,48 +264,6 @@
         </div>
     </div>
 
-    <!-- Admin Dashboard Modal -->
-    <div id="adminModal" class="modal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h2><i class="fas fa-cog"></i> Admin Dashboard</h2>
-                <span class="close" onclick="closeAdminModal()">&times;</span>
-            </div>
-            <div class="modal-body">
-                <div class="admin-stats">
-                    <div class="stat-card">
-                        <h3>Total Policies</h3>
-                        <span id="adminTotalPolicies">0</span>
-                    </div>
-                    <div class="stat-card">
-                        <h3>Draft Policies</h3>
-                        <span id="adminDraftCount">0</span>
-                    </div>
-                    <div class="stat-card">
-                        <h3>Recent Updates</h3>
-                        <span id="adminRecentUpdates">0</span>
-                    </div>
-                </div>
-                <div class="admin-actions">
-                    <button onclick="closeAdminModal(); openCreateModal();" class="btn btn-primary">
-                        <i class="fas fa-plus"></i> Create New Policy
-                    </button>
-                    <button onclick="closeAdminModal(); openAIModal();" class="btn btn-success">
-                        <i class="fas fa-robot"></i> AI Policy Generator
-                    </button>
-                    <button onclick="closeAdminModal(); openSettingsModal();" class="btn btn-info">
-                        <i class="fas fa-cog"></i> Settings
-                    </button>
-                </div>
-                <div class="draft-management">
-                    <h3>Draft Policies</h3>
-                    <div id="adminDraftList" class="draft-list">
-                        <!-- Draft policies will be displayed here -->
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
 
     <!-- AI Policy Chat Modal -->
     <div id="aiModal" class="modal">

@@ -280,7 +280,10 @@ window.addEventListener('click', function(e) {
 
 // Update Statistics
 function updateStats() {
-    totalPoliciesElement.textContent = currentPolicies.length;
+    // Update main stats if elements exist
+    if (totalPoliciesElement) {
+        totalPoliciesElement.textContent = currentPolicies.length;
+    }
     
     // Count recent updates (last 7 days)
     const recentDate = new Date();
@@ -289,8 +292,13 @@ function updateStats() {
         new Date(policy.updated) >= recentDate
     ).length;
     
-    recentUpdatesElement.textContent = recentUpdates;
-    draftCountElement.textContent = draftPolicies.length;
+    if (recentUpdatesElement) {
+        recentUpdatesElement.textContent = recentUpdates;
+    }
+    
+    if (draftCountElement) {
+        draftCountElement.textContent = draftPolicies.length;
+    }
     
     // Update admin stats
     const adminTotalPolicies = document.getElementById('adminTotalPolicies');

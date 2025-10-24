@@ -261,6 +261,51 @@
                         </label>
                     </div>
                 </div>
+                
+                <div class="policy-options-selection">
+                    <h4>Policy Options:</h4>
+                    <div class="policy-options-grid">
+                        <div class="option-group">
+                            <h5>Applicable Organizations:</h5>
+                            <div class="organization-toggles">
+                                <label class="toggle-item">
+                                    <input type="checkbox" id="org-all" onchange="toggleAllOrganizations()">
+                                    <span class="toggle-label">All Organizations</span>
+                                </label>
+                                <label class="toggle-item">
+                                    <input type="checkbox" id="org-tudor-glen" value="tudor-glen">
+                                    <span class="toggle-label">Tudor Glen</span>
+                                </label>
+                                <label class="toggle-item">
+                                    <input type="checkbox" id="org-river-valley" value="river-valley">
+                                    <span class="toggle-label">River Valley</span>
+                                </label>
+                                <label class="toggle-item">
+                                    <input type="checkbox" id="org-rosslyn" value="rosslyn">
+                                    <span class="toggle-label">Rosslyn</span>
+                                </label>
+                                <label class="toggle-item">
+                                    <input type="checkbox" id="org-upc" value="upc">
+                                    <span class="toggle-label">UPC</span>
+                                </label>
+                            </div>
+                        </div>
+                        
+                        <div class="option-group">
+                            <h5>Responsible Roles:</h5>
+                            <div class="responsibility-toggles" id="responsibilityToggles">
+                                <!-- Roles will be populated from settings -->
+                            </div>
+                        </div>
+                        
+                        <div class="option-group">
+                            <h5>Disciplinary Actions:</h5>
+                            <div class="disciplinary-toggles" id="disciplinaryToggles">
+                                <!-- Disciplinary actions will be populated from settings -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
                 <div class="chat-container">
                     <div class="chat-messages" id="chatMessages">
                         <div class="message ai-message">

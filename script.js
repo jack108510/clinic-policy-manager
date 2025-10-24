@@ -2768,8 +2768,7 @@ function displayAIPolicy(policy) {
     
     // Show the chat again and ask if anything needs to be changed
     setTimeout(() => {
-        // Don't hide the result, keep it visible so user can see the policy
-        // document.getElementById('aiResult').style.display = 'none';
+        // Keep the result visible and show chat below it
         document.querySelector('.chat-container').style.display = 'block';
         
         addAIMessage(`I've generated your policy! Please review it above. Is there anything you'd like me to change or modify?`);
@@ -4588,6 +4587,8 @@ function openAIModal() {
     document.getElementById('aiModal').style.display = 'block';
     document.getElementById('aiResult').style.display = 'none';
     document.getElementById('aiLoading').style.display = 'none';
+    // Populate policy options
+    populatePolicyOptions();
     resetChat();
 }
 
@@ -4780,8 +4781,22 @@ async function generatePolicyFromPromptData(prompt) {
     const policyType = document.querySelector('input[name="policyType"]:checked').value;
     const typeLabel = getTypeLabel(policyType);
     
+    // Get selected options
+    const selectedOrganizations = getSelectedOrganizations();
+    const selectedRoles = getSelectedRoles();
+    const selectedDisciplinaryActions = getSelectedDisciplinaryActions();
+    
+    // Create organization names
+    const organizationNames = selectedOrganizations.map(org => getOrganizationName(org)).join(', ');
+    
+    // Create role names
+    const roleNames = selectedRoles.map(role => role.name).join(', ');
+    
+    // Create disciplinary action names
+    const disciplinaryActionNames = selectedDisciplinaryActions.map(action => action.name).join(', ');
+    
     // Create a comprehensive prompt for ChatGPT
-    const chatGPTPrompt = createSimpleChatGPTPrompt(prompt, currentDate, policyType);
+    const chatGPTPrompt = createSimpleChatGPTPrompt(prompt, currentDate, policyType, organizationNames, roleNames, disciplinaryActionNames);
     
     try {
         // Call ChatGPT API to generate the policy
@@ -4794,12 +4809,14 @@ async function generatePolicyFromPromptData(prompt) {
         return {
             ...policyContent,
             type: policyType,
-            clinics: ['tudor-glen', 'river-valley', 'rosslyn', 'upc'],
+            clinics: selectedOrganizations,
             additionalRequirements: prompt,
             keyPoints: prompt,
-            clinicNames: 'Tudor Glen, River Valley, Rosslyn, UPC',
+            clinicNames: organizationNames,
             typeLabel: typeLabel,
-            prompt: prompt
+            prompt: prompt,
+            selectedRoles: selectedRoles,
+            selectedDisciplinaryActions: selectedDisciplinaryActions
         };
     } catch (error) {
         console.error('Error generating policy with ChatGPT:', error);
@@ -4816,12 +4833,14 @@ async function generatePolicyFromPromptData(prompt) {
         return {
             ...policyContent,
             type: policyType,
-            clinics: ['tudor-glen', 'river-valley', 'rosslyn', 'upc'],
+            clinics: selectedOrganizations,
             additionalRequirements: prompt,
             keyPoints: prompt,
-            clinicNames: 'Tudor Glen, River Valley, Rosslyn, UPC',
+            clinicNames: organizationNames,
             typeLabel: typeLabel,
-            prompt: prompt
+            prompt: prompt,
+            selectedRoles: selectedRoles,
+            selectedDisciplinaryActions: selectedDisciplinaryActions
         };
     }
 }
@@ -6254,10 +6273,15 @@ Please format your response as a structured policy document with clear headings 
 
 
 // ChatGPT-Style Policy Generation Functions
-function createSimpleChatGPTPrompt(prompt, currentDate, policyType) {
+function createSimpleChatGPTPrompt(prompt, currentDate, policyType, organizationNames, roleNames, disciplinaryActionNames) {
     const typeLabel = getTypeLabel(policyType);
     
     return `Create a comprehensive ${typeLabel} based on this request: "${prompt}"
+
+ADDITIONAL CONTEXT:
+- Applicable Organizations: ${organizationNames}
+- Responsible Roles: ${roleNames || 'All staff'}
+- Disciplinary Actions: ${disciplinaryActionNames || 'Standard disciplinary procedures'}
 
 Please create a complete, professional ${typeLabel} with all the necessary sections and fields. Include:
 
@@ -6266,12 +6290,13 @@ Please create a complete, professional ${typeLabel} with all the necessary secti
 3. Purpose and Scope
 4. Policy Statement
 5. Procedures/Implementation
-6. Responsibilities
+6. Responsibilities (specify the roles mentioned above)
 7. Compliance Requirements
 8. Review Schedule
 9. Contact Information
+10. Disciplinary Actions (include the actions mentioned above)
 
-Make the policy specific, actionable, and professional. Include detailed procedures, step-by-step instructions, and clear responsibilities. Ensure it complies with healthcare industry standards and regulations.
+Make the policy specific, actionable, and professional. Include detailed procedures, step-by-step instructions, and clear responsibilities for the specified roles. Ensure it complies with healthcare industry standards and regulations.
 
 Format your response as a structured policy document with clear headings and detailed content for each section.`;
 }
@@ -6369,4 +6394,105 @@ Format your response as a structured policy document with clear headings and det
             prompt: originalPrompt + ' (Modified: ' + modificationRequest + ')'
         };
     }
+}
+
+
+// Policy Options Toggle Functions
+function populatePolicyOptions() {
+    populateResponsibilityToggles();
+    populateDisciplinaryToggles();
+}
+
+function populateResponsibilityToggles() {
+    const responsibilityToggles = document.getElementById('responsibilityToggles');
+    if (!responsibilityToggles) return;
+    
+    const companyRoles = roles.filter(role => role.company === currentCompany);
+    
+    if (companyRoles.length === 0) {
+        responsibilityToggles.innerHTML = '<p class="empty-state">No roles added yet. Add roles in Settings.</p>';
+        return;
+    }
+    
+    responsibilityToggles.innerHTML = companyRoles.map(role => `
+        <label class="toggle-item">
+            <input type="checkbox" id="role-${role.id}" value="${role.id}">
+            <span class="toggle-label">${role.name}</span>
+            <small class="role-description">${role.description}</small>
+        </label>
+    `).join('');
+}
+
+function populateDisciplinaryToggles() {
+    const disciplinaryToggles = document.getElementById('disciplinaryToggles');
+    if (!disciplinaryToggles) return;
+    
+    const companyDisciplinary = disciplinaryActions.filter(action => action.company === currentCompany);
+    
+    if (companyDisciplinary.length === 0) {
+        disciplinaryToggles.innerHTML = '<p class="empty-state">No disciplinary actions added yet. Add actions in Settings.</p>';
+        return;
+    }
+    
+    disciplinaryToggles.innerHTML = companyDisciplinary.map(action => `
+        <label class="toggle-item">
+            <input type="checkbox" id="disciplinary-${action.id}" value="${action.id}">
+            <span class="toggle-label">${action.name}</span>
+            <small class="action-description">${action.description}</small>
+        </label>
+    `).join('');
+}
+
+function toggleAllOrganizations() {
+    const allCheckbox = document.getElementById('org-all');
+    const individualCheckboxes = document.querySelectorAll('.organization-toggles input[type="checkbox"]:not(#org-all)');
+    
+    individualCheckboxes.forEach(checkbox => {
+        checkbox.checked = allCheckbox.checked;
+    });
+}
+
+function getSelectedOrganizations() {
+    const selectedOrganizations = [];
+    const checkboxes = document.querySelectorAll('.organization-toggles input[type="checkbox"]:not(#org-all)');
+    
+    checkboxes.forEach(checkbox => {
+        if (checkbox.checked) {
+            selectedOrganizations.push(checkbox.value);
+        }
+    });
+    
+    return selectedOrganizations.length > 0 ? selectedOrganizations : ['tudor-glen', 'river-valley', 'rosslyn', 'upc'];
+}
+
+function getSelectedRoles() {
+    const selectedRoles = [];
+    const checkboxes = document.querySelectorAll('.responsibility-toggles input[type="checkbox"]');
+    
+    checkboxes.forEach(checkbox => {
+        if (checkbox.checked) {
+            const role = roles.find(r => r.id === checkbox.value);
+            if (role) {
+                selectedRoles.push(role);
+            }
+        }
+    });
+    
+    return selectedRoles;
+}
+
+function getSelectedDisciplinaryActions() {
+    const selectedActions = [];
+    const checkboxes = document.querySelectorAll('.disciplinary-toggles input[type="checkbox"]');
+    
+    checkboxes.forEach(checkbox => {
+        if (checkbox.checked) {
+            const action = disciplinaryActions.find(a => a.id === checkbox.value);
+            if (action) {
+                selectedActions.push(action);
+            }
+        }
+    });
+    
+    return selectedActions;
 }

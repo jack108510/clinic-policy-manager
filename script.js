@@ -5344,19 +5344,23 @@ function signupUser(event) {
         created: new Date().toISOString().split('T')[0]
     };
     
-    // Add user to local storage
-    users.push(newUser);
-    saveToLocalStorage('users', users);
-    
     // Update master admin data if available
     if (masterData && foundAccessCode) {
         // Update the access code usage
-        foundAccessCode.usedBy.push(company);
+        foundAccessCode.usedBy.push(newUser.company);
         localStorage.setItem('masterAccessCodes', JSON.stringify(masterData.accessCodes));
         
         // Add user to master users list
         masterData.users.push(newUser);
         localStorage.setItem('masterUsers', JSON.stringify(masterData.users));
+        
+        // Also add to local users list for consistency
+        users.push(newUser);
+        saveToLocalStorage('users', users);
+    } else {
+        // Fallback: add to local users list
+        users.push(newUser);
+        saveToLocalStorage('users', users);
     }
     
     // Auto-login the new user

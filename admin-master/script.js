@@ -204,14 +204,42 @@ function displayUsers() {
             <td>${user.company}</td>
             <td>${user.role}</td>
             <td>${formatDate(user.created)}</td>
-            <td>${formatDate(user.lastLogin)}</td>
-            <td><span class="status-badge status-${user.status}">${user.status}</span></td>
+            <td>${formatDate(user.lastLogin || user.created)}</td>
+            <td><span class="status-badge status-active">Active</span></td>
             <td>
                 <button onclick="deleteUser('${user.id}')" class="btn btn-small btn-danger">Delete</button>
             </td>
         `;
         usersList.appendChild(row);
     });
+}
+
+function deleteUser(userId) {
+    if (confirm('Are you sure you want to delete this user? This action cannot be undone.')) {
+        // Find and remove user
+        const userIndex = users.findIndex(user => user.id == userId);
+        if (userIndex !== -1) {
+            const deletedUser = users[userIndex];
+            users.splice(userIndex, 1);
+            
+            // Save updated users
+            saveUsers();
+            
+            // Sync to main site
+            syncToMainSite();
+            
+            // Update display
+            displayUsers();
+            updateStats();
+            
+            // Add to activity feed
+            addActivity(`Deleted user: ${deletedUser.username} (${deletedUser.company})`);
+            
+            alert('User deleted successfully!');
+        } else {
+            alert('User not found!');
+        }
+    }
 }
 
 function displayAccessCodes() {
@@ -293,6 +321,39 @@ function refreshCompanies() {
     displayCompanies();
     updateStats();
     showAlert('Companies data refreshed successfully!', 'success');
+}
+
+function refreshUsers() {
+    loadData();
+    displayUsers();
+    updateStats();
+    showAlert('Users data refreshed successfully!', 'success');
+}
+
+function syncFromMainSite() {
+    // Load data from main site localStorage
+    const mainSiteUsers = localStorage.getItem('users');
+    const mainSiteCompanies = localStorage.getItem('companies');
+    const mainSiteAccessCodes = localStorage.getItem('accessCodes');
+    
+    if (mainSiteUsers) {
+        try {
+            const parsedUsers = JSON.parse(mainSiteUsers);
+            if (Array.isArray(parsedUsers)) {
+                users = parsedUsers;
+                saveUsers();
+                displayUsers();
+                updateStats();
+                showAlert('Users synced from main site successfully!', 'success');
+            } else {
+                showAlert('No valid user data found on main site', 'error');
+            }
+        } catch (error) {
+            showAlert('Error parsing user data from main site', 'error');
+        }
+    } else {
+        showAlert('No user data found on main site', 'error');
+    }
 }
 
 // Access Code Management

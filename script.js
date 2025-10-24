@@ -4597,6 +4597,16 @@ function addUserMessage(message) {
     chatMessages.scrollTop = chatMessages.scrollHeight;
 }
 
+function getClinicNames(clinicIds) {
+    const clinicMap = {
+        'tudor-glen': 'Tudor Glen',
+        'river-valley': 'River Valley',
+        'rosslyn': 'Rosslyn',
+        'upc': 'UPC'
+    };
+    return clinicIds.map(id => clinicMap[id] || id);
+}
+
 function addAIMessage(message, quickOptions = null) {
     const chatMessages = document.getElementById('chatMessages');
     const messageDiv = document.createElement('div');
@@ -4672,6 +4682,7 @@ function processChatMessage(message) {
             }, 1000);
             break;
         case 'clinics':
+            console.log('Processing clinics selection:', message);
             if (message.toLowerCase().includes('all')) {
                 chatState.clinics = ['tudor-glen', 'river-valley', 'rosslyn', 'upc'];
             } else {
@@ -4683,7 +4694,9 @@ function processChatMessage(message) {
                 };
                 chatState.clinics = [clinicMap[message.toLowerCase()] || 'tudor-glen'];
             }
+            console.log('Selected clinics:', chatState.clinics);
             setTimeout(() => {
+                console.log('Adding AI message for specific needs');
                 addAIMessage(`Got it! This policy will apply to ${getClinicNames(chatState.clinics).join(', ')}. What specific requirements or key points should be included in this policy?`);
                 chatState.step = 'specificNeeds';
             }, 1000);

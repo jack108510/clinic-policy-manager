@@ -5118,7 +5118,6 @@ function signupUser(event) {
     
     const username = document.getElementById('signupUsername').value.trim();
     const email = document.getElementById('signupEmail').value.trim();
-    const company = document.getElementById('signupCompany').value.trim();
     const accessCode = document.getElementById('signupAccessCode').value.trim();
     
     // Validate access code against master admin data
@@ -5165,6 +5164,9 @@ function signupUser(event) {
                 (!code.expiryDate || new Date(code.expiryDate) > new Date());
                 
             console.log(`  - Overall valid: ${isValid}`);
+            if (isValid) {
+                console.log('Found valid access code:', code);
+            }
             return isValid;
         });
         
@@ -5222,12 +5224,12 @@ function signupUser(event) {
         return;
     }
     
-    // Create new user
+    // Create new user with company based on access code
     const newUser = {
         id: Date.now(),
         username: username,
         email: email,
-        company: company,
+        company: foundAccessCode ? foundAccessCode.description || 'CSI Company' : 'CSI Company',
         role: 'user',
         accessCode: accessCode,
         created: new Date().toISOString().split('T')[0]
@@ -5250,7 +5252,7 @@ function signupUser(event) {
     
     // Auto-login the new user
     currentUser = newUser;
-    currentCompany = company;
+    currentCompany = newUser.company;
     saveToLocalStorage('currentUser', currentUser);
     saveToLocalStorage('currentCompany', currentCompany);
     

@@ -362,6 +362,28 @@ body {
     color: white;
 }
 
+.password-info {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.password-display {
+    font-family: 'Courier New', monospace;
+    background: #f1f5f9;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 0.9rem;
+    color: #475569;
+    border: 1px solid #e2e8f0;
+}
+
+.password-display:empty::before {
+    content: 'Not Set';
+    color: #94a3b8;
+    font-style: italic;
+}
+
 .btn-small {
     padding: 0.5rem 1rem;
     font-size: 0.75rem;

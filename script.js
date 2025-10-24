@@ -5979,6 +5979,31 @@ function checkAdminPassword(event) {
     const password = document.getElementById('adminPassword').value;
     console.log('Password entered:', password ? '***' : 'empty');
     
+    // Load master admin data to get company-specific passwords
+    loadMasterAdminData();
+    
+    // Check if current company has a specific admin password
+    if (currentCompany && masterData.companies) {
+        const company = masterData.companies.find(c => c.name === currentCompany);
+        if (company && company.adminPassword) {
+            if (password === company.adminPassword) {
+                console.log('Company-specific password correct, opening admin modal');
+                closePasswordModal();
+                openAdminModal();
+                return;
+            } else {
+                console.log('Company-specific password incorrect');
+                const errorMessage = document.getElementById('error-message');
+                if (errorMessage) {
+                    errorMessage.textContent = 'Invalid password for this company.';
+                    errorMessage.style.display = 'block';
+                }
+                return;
+            }
+        }
+    }
+    
+    // Fallback to default password for companies without specific passwords
     if (password === 'Scotia9199') {
         console.log('Password correct, opening admin modal');
         closePasswordModal();

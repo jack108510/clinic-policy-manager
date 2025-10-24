@@ -40,10 +40,22 @@ document.addEventListener('DOMContentLoaded', function() {
     // Sync data to main site
     syncToMainSite();
     
+    // Add event listeners for modals
+    document.getElementById('companyPasswordForm').addEventListener('submit', updateCompanyPassword);
+    
     console.log('Master Admin Dashboard initialized successfully');
 });
 
 // Data Initialization
+function generateRandomPassword() {
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+    let password = '';
+    for (let i = 0; i < 8; i++) {
+        password += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return password;
+}
+
 function initializeData() {
     // Load existing data from localStorage or initialize empty arrays
     const savedCompanies = localStorage.getItem('masterCompanies');
@@ -163,6 +175,14 @@ function displayCompanies() {
             </td>
             <td>${company.users}</td>
             <td>${company.policies}</td>
+            <td>
+                <div class="password-info">
+                    <span class="password-display">${company.adminPassword || 'Not Set'}</span>
+                    <button onclick="setCompanyPassword('${company.id}')" class="btn btn-small btn-secondary">
+                        <i class="fas fa-key"></i> Set
+                    </button>
+                </div>
+            </td>
             <td>${formatDate(company.signupDate)}</td>
             <td>${formatDate(company.lastActive)}</td>
             <td><span class="status-badge status-${company.status}">${company.status}</span></td>
@@ -445,13 +465,14 @@ function launchCompany(event) {
         adminName: document.getElementById('adminName').value,
         adminEmail: document.getElementById('adminEmail').value,
         adminUsername: document.getElementById('adminUsername').value,
+        adminPassword: generateRandomPassword(), // Generate random admin password
         accessCode: selectedAccessCode,
         signupDate: new Date().toISOString().slice(0, 10),
         lastActive: new Date().toISOString(),
         status: 'active',
         users: 1,
         policies: 0,
-        clinics: []
+        organizations: []
     };
     
     // Add company
@@ -889,6 +910,49 @@ function savePreferences() {
 }
 
 // Authentication
+function setCompanyPassword(companyId) {
+    const company = companies.find(c => c.id === companyId);
+    if (!company) return;
+    
+    document.getElementById('passwordCompanyName').value = company.name;
+    document.getElementById('newCompanyPassword').value = '';
+    document.getElementById('confirmCompanyPassword').value = '';
+    
+    document.getElementById('companyPasswordModal').style.display = 'block';
+}
+
+function closeCompanyPasswordModal() {
+    document.getElementById('companyPasswordModal').style.display = 'none';
+}
+
+function updateCompanyPassword(event) {
+    event.preventDefault();
+    
+    const companyName = document.getElementById('passwordCompanyName').value;
+    const newPassword = document.getElementById('newCompanyPassword').value;
+    const confirmPassword = document.getElementById('confirmCompanyPassword').value;
+    
+    if (newPassword !== confirmPassword) {
+        showAlert('Passwords do not match!', 'error');
+        return;
+    }
+    
+    if (newPassword.length < 4) {
+        showAlert('Password must be at least 4 characters long!', 'error');
+        return;
+    }
+    
+    const company = companies.find(c => c.name === companyName);
+    if (company) {
+        company.adminPassword = newPassword;
+        localStorage.setItem('masterCompanies', JSON.stringify(companies));
+        syncToMainSite();
+        displayCompanies();
+        closeCompanyPasswordModal();
+        showAlert(`Admin password updated for ${companyName}`, 'success');
+    }
+}
+
 function logout() {
     if (confirm('Are you sure you want to logout?')) {
         window.location.href = '../index.html';

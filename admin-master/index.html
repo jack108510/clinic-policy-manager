@@ -273,6 +273,7 @@
                                 <th>Company</th>
                                 <th>Users</th>
                                 <th>Policies</th>
+                                <th>Admin Password</th>
                                 <th>Signup Date</th>
                                 <th>Last Active</th>
                                 <th>Status</th>
@@ -687,6 +688,38 @@
                     <div class="form-actions">
                         <button type="button" class="btn btn-secondary" onclick="closeChangePasswordModal()">Cancel</button>
                         <button type="submit" class="btn btn-primary">Change Password</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Company Admin Password Modal -->
+    <div id="companyPasswordModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Set Company Admin Password</h3>
+                <button class="modal-close" onclick="closeCompanyPasswordModal()">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <form id="companyPasswordForm">
+                    <div class="form-group">
+                        <label for="passwordCompanyName">Company</label>
+                        <input type="text" id="passwordCompanyName" readonly>
+                    </div>
+                    <div class="form-group">
+                        <label for="newCompanyPassword">New Admin Password</label>
+                        <input type="password" id="newCompanyPassword" required placeholder="Enter new admin password">
+                    </div>
+                    <div class="form-group">
+                        <label for="confirmCompanyPassword">Confirm Password</label>
+                        <input type="password" id="confirmCompanyPassword" required placeholder="Confirm new password">
+                    </div>
+                    <div class="form-actions">
+                        <button type="button" class="btn btn-secondary" onclick="closeCompanyPasswordModal()">Cancel</button>
+                        <button type="submit" class="btn btn-primary">Set Password</button>
                     </div>
                 </form>
             </div>

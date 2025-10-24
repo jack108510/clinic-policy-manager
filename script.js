@@ -6,6 +6,12 @@ let draftPolicies = loadFromLocalStorage('draftPolicies', []);
 let roles = loadFromLocalStorage('roles', []);
 let disciplinaryActions = loadFromLocalStorage('disciplinaryActions', []);
 
+// Company-specific organizations
+let organizations = loadFromLocalStorage('organizations', {
+    'CSI Company': ['Tudor Glen', 'River Valley', 'Rosslyn', 'UPC'],
+    'Default Company': ['Tudor Glen', 'River Valley', 'Rosslyn', 'UPC']
+});
+
 // User Management Data - Load from master admin data
 function loadMasterAdminData() {
     const masterCompanies = localStorage.getItem('masterCompanies');
@@ -375,6 +381,20 @@ function getOrganizationNames(organizationCodes) {
         'upc': 'UPC'
     };
     return organizationCodes.map(code => organizationNames[code] || code);
+}
+
+function getCompanyOrganizations(company) {
+    return organizations[company] || organizations['Default Company'] || ['Tudor Glen', 'River Valley', 'Rosslyn', 'UPC'];
+}
+
+function addOrganizationToCompany(company, organizationName) {
+    if (!organizations[company]) {
+        organizations[company] = [];
+    }
+    if (!organizations[company].includes(organizationName)) {
+        organizations[company].push(organizationName);
+        saveToLocalStorage('organizations', organizations);
+    }
 }
 
 function formatDate(dateString) {
@@ -4799,7 +4819,8 @@ function addRole() {
         name: name,
         description: description,
         staffName: staffName,
-        email: email
+        email: email,
+        company: currentCompany || 'Default Company' // Assign to current company
     };
     
     roles.push(newRole);
@@ -4824,12 +4845,17 @@ function deleteRole(roleId) {
 function displayRoles() {
     const rolesList = document.getElementById('rolesList');
     
-    if (roles.length === 0) {
+    // Filter roles by company
+    const companyRoles = currentCompany ? 
+        roles.filter(role => role.company === currentCompany || !role.company) : 
+        roles;
+    
+    if (companyRoles.length === 0) {
         rolesList.innerHTML = '<p class="no-items">No roles defined. Add your first role above.</p>';
         return;
     }
     
-    rolesList.innerHTML = roles.map(role => `
+    rolesList.innerHTML = companyRoles.map(role => `
         <div class="item-card">
             <div class="item-info">
                 <h4>${role.name}</h4>
@@ -4861,7 +4887,8 @@ function addDisciplinaryAction() {
         name: name,
         description: description,
         penalties: penalties,
-        severity: severity
+        severity: severity,
+        company: currentCompany || 'Default Company' // Assign to current company
     };
     
     disciplinaryActions.push(newAction);
@@ -4886,12 +4913,17 @@ function deleteDisciplinaryAction(actionId) {
 function displayDisciplinaryActions() {
     const disciplinaryList = document.getElementById('disciplinaryList');
     
-    if (disciplinaryActions.length === 0) {
+    // Filter disciplinary actions by company
+    const companyActions = currentCompany ? 
+        disciplinaryActions.filter(action => action.company === currentCompany || !action.company) : 
+        disciplinaryActions;
+    
+    if (companyActions.length === 0) {
         disciplinaryList.innerHTML = '<p class="no-items">No disciplinary actions defined. Add your first action above.</p>';
         return;
     }
     
-    disciplinaryList.innerHTML = disciplinaryActions.map(action => `
+    disciplinaryList.innerHTML = companyActions.map(action => `
         <div class="item-card">
             <div class="item-info">
                 <h4>${action.name} <span class="severity-badge severity-${action.severity}">${action.severity}</span></h4>

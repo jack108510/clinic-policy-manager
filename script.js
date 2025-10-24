@@ -4272,41 +4272,7 @@ function generatePolicyHTML(policy) {
 }
 
 // Password Protection Functions
-function openPasswordModal() {
-    document.getElementById('passwordModal').style.display = 'block';
-    document.getElementById('adminPassword').focus();
-}
 
-function closePasswordModal() {
-    document.getElementById('passwordModal').style.display = 'none';
-    document.getElementById('adminPassword').value = '';
-    document.getElementById('passwordError').textContent = '';
-}
-
-function checkAdminPassword() {
-    const password = document.getElementById('adminPassword').value;
-    const errorDiv = document.getElementById('passwordError');
-    
-    if (password === 'Scotia9199') {
-        closePasswordModal();
-        openAdminModal();
-    } else {
-        errorDiv.textContent = 'Invalid password. Please try again.';
-        document.getElementById('adminPassword').value = '';
-        document.getElementById('adminPassword').focus();
-    }
-}
-
-// Admin Dashboard Functions
-function openAdminModal() {
-    updateAdminStats();
-    displayAdminDrafts();
-    document.getElementById('adminModal').style.display = 'block';
-}
-
-function closeAdminModal() {
-    document.getElementById('adminModal').style.display = 'none';
-}
 
 function updateAdminStats() {
     document.getElementById('adminTotalPolicies').textContent = currentPolicies.length;
@@ -5888,27 +5854,71 @@ function saveUserPreferences() {
 
 // Password Modal Functions
 function openPasswordModal() {
-    document.getElementById('passwordModal').classList.add('show');
+    console.log('Opening password modal...');
+    const modal = document.getElementById('passwordModal');
+    if (modal) {
+        modal.classList.add('show');
+        console.log('Password modal opened');
+    } else {
+        console.error('Password modal not found');
+    }
 }
 
 function closePasswordModal() {
-    document.getElementById('passwordModal').classList.remove('show');
-    document.getElementById('adminPassword').value = '';
-    document.getElementById('error-message').style.display = 'none';
+    console.log('Closing password modal...');
+    const modal = document.getElementById('passwordModal');
+    if (modal) {
+        modal.classList.remove('show');
+        // Clear password field
+        const passwordField = document.getElementById('adminPassword');
+        if (passwordField) {
+            passwordField.value = '';
+        }
+        // Hide error messages
+        const errorMessage = document.getElementById('error-message');
+        if (errorMessage) {
+            errorMessage.style.display = 'none';
+        }
+        const passwordError = document.getElementById('passwordError');
+        if (passwordError) {
+            passwordError.style.display = 'none';
+        }
+        console.log('Password modal closed');
+    }
 }
 
 function checkAdminPassword(event) {
-    event.preventDefault();
+    if (event) {
+        event.preventDefault();
+    }
     
+    console.log('Checking admin password...');
     const password = document.getElementById('adminPassword').value;
-    const errorMessage = document.getElementById('error-message');
+    console.log('Password entered:', password ? '***' : 'empty');
     
     if (password === 'Scotia9199') {
+        console.log('Password correct, opening admin modal');
         closePasswordModal();
         openAdminModal();
     } else {
-        errorMessage.textContent = 'Invalid password. Please try again.';
-        errorMessage.style.display = 'block';
+        console.log('Password incorrect');
+        // Try both error message elements
+        const errorMessage = document.getElementById('error-message');
+        const passwordError = document.getElementById('passwordError');
+        
+        if (errorMessage) {
+            errorMessage.textContent = 'Invalid password. Please try again.';
+            errorMessage.style.display = 'block';
+        } else if (passwordError) {
+            passwordError.textContent = 'Invalid password. Please try again.';
+            passwordError.style.display = 'block';
+        }
+        
+        // Clear password field
+        const passwordField = document.getElementById('adminPassword');
+        if (passwordField) {
+            passwordField.value = '';
+        }
     }
 }
 

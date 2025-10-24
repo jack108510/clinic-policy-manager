@@ -183,6 +183,15 @@ function setupEventListeners() {
         generateAIPolicy();
     });
 
+    // Signup Form submission
+    const signupForm = document.getElementById('signupForm');
+    if (signupForm) {
+        signupForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            signupUser(e);
+        });
+    }
+
     // Smooth scrolling for navigation links
     document.querySelectorAll('a[href^="#"]').forEach(anchor => {
         anchor.addEventListener('click', function (e) {
@@ -5116,9 +5125,19 @@ function closeLoginModal() {
 function signupUser(event) {
     event.preventDefault();
     
+    console.log('Signup form submitted');
+    
     const username = document.getElementById('signupUsername').value.trim();
     const email = document.getElementById('signupEmail').value.trim();
     const accessCode = document.getElementById('signupAccessCode').value.trim();
+    
+    console.log('Form data:', { username, email, accessCode });
+    
+    // Validate required fields
+    if (!username || !email || !accessCode) {
+        showSignupError('Please fill in all required fields.');
+        return;
+    }
     
     // Validate access code against master admin data
     const masterData = loadMasterAdminData();
@@ -5811,4 +5830,15 @@ function displayAdminDrafts() {
 // Alert function
 function showAlert(message, type) {
     alert(message); // Simple alert for now
+}
+
+// Show signup error message
+function showSignupError(message) {
+    const errorDiv = document.getElementById('signup-error-message');
+    if (errorDiv) {
+        errorDiv.textContent = message;
+        errorDiv.style.display = 'block';
+    } else {
+        alert(message); // Fallback to alert if error div not found
+    }
 }

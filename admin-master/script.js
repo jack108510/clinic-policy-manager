@@ -32,6 +32,9 @@ document.addEventListener('DOMContentLoaded', function() {
     displayAccessCodes();
     loadActivityFeed();
     
+    // Add test button for debugging
+    addTestButton();
+    
     // Initialize charts
     setTimeout(() => {
         initializeCharts();
@@ -1156,8 +1159,13 @@ window.onclick = function(event) {
 
 // Company Details Management Functions
 function showCompanyDetails(companyId) {
+    console.log('showCompanyDetails called with companyId:', companyId);
     const company = companies.find(c => c.id === companyId);
-    if (!company) return;
+    console.log('Found company:', company);
+    if (!company) {
+        console.error('Company not found with id:', companyId);
+        return;
+    }
     
     // Get users for this company
     const companyUsers = users.filter(user => user.company === company.name);
@@ -1230,8 +1238,13 @@ function closeCompanyDetailsModal() {
 }
 
 function toggleUserAdmin(userId, isAdmin) {
+    console.log('toggleUserAdmin called with userId:', userId, 'isAdmin:', isAdmin);
     const user = users.find(u => u.id === userId);
-    if (!user) return;
+    console.log('Found user:', user);
+    if (!user) {
+        console.error('User not found with id:', userId);
+        return;
+    }
     
     user.isAdmin = isAdmin;
     saveData();
@@ -1251,5 +1264,48 @@ function refreshCompanyDetails() {
         if (companyId) {
             showCompanyDetails(companyId);
         }
+    }
+}
+
+
+// Test function to check if company details modal is working
+function testCompanyDetailsModal() {
+    console.log('Testing company details modal...');
+    
+    // Check if modal exists
+    const modal = document.getElementById('companyDetailsModal');
+    if (!modal) {
+        console.error('Company details modal not found!');
+        alert('Company details modal not found!');
+        return;
+    }
+    
+    console.log('Modal found:', modal);
+    
+    // Check if companies exist
+    if (companies.length === 0) {
+        console.error('No companies found!');
+        alert('No companies found!');
+        return;
+    }
+    
+    console.log('Companies found:', companies);
+    
+    // Test with first company
+    const firstCompany = companies[0];
+    console.log('Testing with first company:', firstCompany);
+    
+    showCompanyDetails(firstCompany.id);
+}
+
+// Add test button to the page
+function addTestButton() {
+    const header = document.querySelector('.header');
+    if (header) {
+        const testButton = document.createElement('button');
+        testButton.textContent = 'Test Modal';
+        testButton.className = 'btn btn-warning';
+        testButton.onclick = testCompanyDetailsModal;
+        header.appendChild(testButton);
     }
 }

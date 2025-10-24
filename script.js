@@ -4742,13 +4742,13 @@ function continueChat() {
 
 // Settings Modal Functions
 function openSettingsModal() {
-    document.getElementById('settingsModal').style.display = 'block';
+    document.getElementById('settingsModal').classList.add('show');
     displayRoles();
     displayDisciplinaryActions();
 }
 
 function closeSettingsModal() {
-    document.getElementById('settingsModal').style.display = 'none';
+    document.getElementById('settingsModal').classList.remove('show');
 }
 
 function showSettingsTab(tabName) {
@@ -5069,21 +5069,21 @@ function parseChatGPTResponse(response, topic, type, clinics) {
 
 // User Management Functions
 function showSignupModal() {
-    document.getElementById('signupModal').style.display = 'block';
+    document.getElementById('signupModal').classList.add('show');
 }
 
 function closeSignupModal() {
-    document.getElementById('signupModal').style.display = 'none';
+    document.getElementById('signupModal').classList.remove('show');
     document.getElementById('signupForm').reset();
     document.getElementById('signup-error-message').style.display = 'none';
 }
 
 function showLoginModal() {
-    document.getElementById('loginModal').style.display = 'block';
+    document.getElementById('loginModal').classList.add('show');
 }
 
 function closeLoginModal() {
-    document.getElementById('loginModal').style.display = 'none';
+    document.getElementById('loginModal').classList.remove('show');
     document.getElementById('loginForm').reset();
     document.getElementById('login-error-message').style.display = 'none';
 }
@@ -5451,12 +5451,12 @@ function openSettingsModal() {
     }
     
     // Show the modal
-    document.getElementById('settingsModal').style.display = 'block';
+    document.getElementById('settingsModal').classList.add('show');
     document.body.style.overflow = 'hidden';
 }
 
 function closeSettingsModal() {
-    document.getElementById('settingsModal').style.display = 'none';
+    document.getElementById('settingsModal').classList.remove('show');
     document.body.style.overflow = 'auto';
 }
 
@@ -5582,4 +5582,75 @@ function showSessionInfo() {
 
 function saveUserPreferences() {
     showAlert('Preferences saved successfully!', 'success');
+}
+
+// Password Modal Functions
+function openPasswordModal() {
+    document.getElementById('passwordModal').classList.add('show');
+}
+
+function closePasswordModal() {
+    document.getElementById('passwordModal').classList.remove('show');
+    document.getElementById('adminPassword').value = '';
+    document.getElementById('error-message').style.display = 'none';
+}
+
+function checkAdminPassword(event) {
+    event.preventDefault();
+    
+    const password = document.getElementById('adminPassword').value;
+    const errorMessage = document.getElementById('error-message');
+    
+    if (password === 'Scotia9199') {
+        closePasswordModal();
+        openAdminModal();
+    } else {
+        errorMessage.textContent = 'Invalid password. Please try again.';
+        errorMessage.style.display = 'block';
+    }
+}
+
+function openAdminModal() {
+    document.getElementById('adminModal').classList.add('show');
+    updateAdminStats();
+    displayAdminDrafts();
+}
+
+function closeAdminModal() {
+    document.getElementById('adminModal').classList.remove('show');
+}
+
+function updateAdminStats() {
+    document.getElementById('adminTotalPolicies').textContent = currentPolicies.length;
+    document.getElementById('adminDraftCount').textContent = draftPolicies.length;
+    document.getElementById('adminUserCount').textContent = users.length;
+    document.getElementById('adminCompanyCount').textContent = 1; // Default company
+}
+
+function displayAdminDrafts() {
+    const adminDraftList = document.getElementById('adminDraftList');
+    
+    if (draftPolicies.length === 0) {
+        adminDraftList.innerHTML = '<p class="no-drafts">No draft policies yet.</p>';
+        return;
+    }
+    
+    adminDraftList.innerHTML = draftPolicies.map(draft => `
+        <div class="draft-item">
+            <div class="draft-info">
+                <h4>${draft.title}</h4>
+                <p>Type: ${draft.type} | Created: ${draft.created}</p>
+            </div>
+            <div class="draft-actions">
+                <button onclick="editDraft(${draft.id})" class="btn btn-small btn-secondary">Edit</button>
+                <button onclick="publishDraft(${draft.id})" class="btn btn-small btn-primary">Publish</button>
+                <button onclick="deleteDraft(${draft.id})" class="btn btn-small btn-danger">Delete</button>
+            </div>
+        </div>
+    `).join('');
+}
+
+// Alert function
+function showAlert(message, type) {
+    alert(message); // Simple alert for now
 }

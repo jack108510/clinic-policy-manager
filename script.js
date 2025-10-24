@@ -227,20 +227,26 @@ function setupEventListeners() {
 
     // Password form submission
     const passwordForm = document.getElementById('passwordForm');
+    console.log('Password form found:', passwordForm);
     if (passwordForm) {
         passwordForm.addEventListener('submit', function(e) {
+            console.log('Password form submit event triggered!');
             e.preventDefault();
             checkAdminPassword(e);
         });
         
         // Also add direct click event listener for the submit button as backup
         const adminButton = passwordForm.querySelector('button[type="submit"]');
+        console.log('Admin button found:', adminButton);
         if (adminButton) {
             adminButton.addEventListener('click', function(e) {
+                console.log('Admin button clicked directly!');
                 e.preventDefault();
                 checkAdminPassword(e);
             });
         }
+    } else {
+        console.error('Password form not found!');
     }
 
     // Smooth scrolling for navigation links
@@ -6053,6 +6059,7 @@ function checkAdminPassword(event) {
     console.log('checkAdminPassword function called!');
     console.log('Event:', event);
     console.log('Checking admin password...');
+    alert('checkAdminPassword function called!'); // Temporary alert for debugging
     
     // First, check if user is logged in with their company
     if (!currentUser || !currentCompany) {

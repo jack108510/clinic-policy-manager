@@ -3667,11 +3667,15 @@ async function callChatGPTAPI(prompt) {
     // Get API key from user or use environment variable
     const apiKey = getChatGPTAPIKey();
     
+    console.log('ChatGPT API Key retrieved:', apiKey ? 'Yes' : 'No');
+    console.log('Current company:', currentCompany);
+    
     if (!apiKey) {
-        throw new Error('ChatGPT API key not configured. Please add your OpenAI API key in Settings.');
+        throw new Error('ChatGPT API key not configured. Please add your OpenAI API key in the Master Admin Dashboard for your company.');
     }
     
     try {
+        console.log('Making ChatGPT API call...');
         const response = await fetch('https://api.openai.com/v1/chat/completions', {
             method: 'POST',
             headers: {
@@ -3696,15 +3700,19 @@ async function callChatGPTAPI(prompt) {
         });
 
         if (!response.ok) {
+            console.error('ChatGPT API request failed:', response.status, response.statusText);
             throw new Error(`API request failed: ${response.status} ${response.statusText}`);
         }
 
         const data = await response.json();
+        console.log('ChatGPT API response received:', data);
         
         if (!data.choices || !data.choices[0] || !data.choices[0].message) {
+            console.error('Invalid response format:', data);
             throw new Error('Invalid response format from ChatGPT API');
         }
 
+        console.log('ChatGPT API call successful');
         return data;
     } catch (error) {
         console.error('ChatGPT API Error:', error);

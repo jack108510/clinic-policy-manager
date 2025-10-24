@@ -5978,8 +5978,8 @@ function openPasswordModal() {
     
     // Check if user is logged in with company first
     if (!currentUser || !currentCompany) {
-        console.log('User not logged in, showing login required message');
-        showPasswordError('You must be logged in with your company credentials before accessing admin features.');
+        console.log('User not logged in, showing signup modal');
+        showSignupModal();
         return;
     }
     
@@ -6046,7 +6046,7 @@ function checkAdminPassword(event) {
     // First, check if user is logged in with their company
     if (!currentUser || !currentCompany) {
         console.log('User not logged in with company');
-        showPasswordError('You must be logged in with your company credentials before accessing admin features.');
+        showSignupModal();
         return;
     }
     
@@ -6056,10 +6056,10 @@ function checkAdminPassword(event) {
     console.log('Current company:', currentCompany);
     
     // Load master admin data to get company-specific passwords
-    loadMasterAdminData();
+    const masterData = loadMasterAdminData();
     
     // Check if current company has a specific admin password
-    if (currentCompany && masterData.companies) {
+    if (currentCompany && masterData && masterData.companies) {
         const company = masterData.companies.find(c => c.name === currentCompany);
         console.log('Found company in master data:', company);
         

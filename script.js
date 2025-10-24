@@ -5098,18 +5098,24 @@ function signupUser(event) {
     
     // Validate access code against master admin data
     const masterData = loadMasterAdminData();
+    console.log('Master data loaded:', masterData);
+    console.log('Access codes available:', masterData.accessCodes);
+    console.log('Access code entered:', accessCode);
+    
     let validAccessCode = false;
     let foundAccessCode = null;
     
-    if (masterData && masterData.accessCodes) {
+    if (masterData && masterData.accessCodes && masterData.accessCodes.length > 0) {
         foundAccessCode = masterData.accessCodes.find(code => 
             code.code === accessCode && 
             code.status === 'active' && 
             (!code.expiryDate || new Date(code.expiryDate) > new Date()) &&
             code.usedBy.length < code.maxCompanies
         );
+        console.log('Found access code:', foundAccessCode);
         validAccessCode = !!foundAccessCode;
     } else {
+        console.log('No master data or access codes found, using fallback');
         // Fallback to hardcoded access code
         validAccessCode = accessCode === '123';
     }
@@ -5499,7 +5505,42 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Initialize user interface
     updateUserInterface();
+    
+    // Listen for master data updates
+    window.addEventListener('masterDataUpdated', function(event) {
+        console.log('Master data updated event received:', event.detail);
+        // Update local users data if needed
+        if (event.detail && event.detail.users) {
+            users = event.detail.users;
+            saveToLocalStorage('users', users);
+        }
+    });
 });
+
+// Master Admin Data Loading
+function loadMasterAdminData() {
+    try {
+        const masterCompanies = localStorage.getItem('masterCompanies');
+        const masterUsers = localStorage.getItem('masterUsers');
+        const masterAccessCodes = localStorage.getItem('masterAccessCodes');
+        const masterAnalytics = localStorage.getItem('masterAnalytics');
+        
+        return {
+            companies: masterCompanies ? JSON.parse(masterCompanies) : [],
+            users: masterUsers ? JSON.parse(masterUsers) : [],
+            accessCodes: masterAccessCodes ? JSON.parse(masterAccessCodes) : [],
+            analytics: masterAnalytics ? JSON.parse(masterAnalytics) : {}
+        };
+    } catch (error) {
+        console.error('Error loading master admin data:', error);
+        return {
+            companies: [],
+            users: [],
+            accessCodes: [],
+            analytics: {}
+        };
+    }
+}
 
 // Profile Center Functions
 function showProfileModal() {

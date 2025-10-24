@@ -225,6 +225,15 @@ function setupEventListeners() {
         });
     }
 
+    // Password form submission
+    const passwordForm = document.getElementById('passwordForm');
+    if (passwordForm) {
+        passwordForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            checkAdminPassword(e);
+        });
+    }
+
     // Smooth scrolling for navigation links
     document.querySelectorAll('a[href^="#"]').forEach(anchor => {
         anchor.addEventListener('click', function (e) {
@@ -6075,6 +6084,18 @@ function checkAdminPassword(event) {
     // Fallback message if no company found or no company-specific password
     console.log('No company-specific password found');
     showPasswordError(`No admin password configured for ${currentCompany}. Please contact your administrator.`);
+}
+
+function showPasswordError(message) {
+    const errorElement = document.getElementById('error-message');
+    if (errorElement) {
+        errorElement.textContent = message;
+        errorElement.style.display = 'block';
+        console.log('Password error displayed:', message);
+    } else {
+        console.error('Error message element not found');
+        alert(message); // Fallback to alert if element not found
+    }
 }
 
 function openAdminModal() {

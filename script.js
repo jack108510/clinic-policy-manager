@@ -5335,6 +5335,12 @@ function signupUser(event) {
     saveToLocalStorage('currentUser', currentUser);
     saveToLocalStorage('currentCompany', currentCompany);
     
+    console.log('User saved to localStorage:', {
+        users: users.length,
+        currentUser: currentUser.username,
+        currentCompany: currentCompany
+    });
+    
     // Update UI
     updateUserInterface();
     closeSignupModal();
@@ -5367,9 +5373,13 @@ function loginUser(event) {
     }
     
     // Find user by username/email and password
+    console.log('Looking for user:', { username, password: '***' });
+    console.log('Available users:', users.map(u => ({ username: u.username, email: u.email, hasPassword: !!u.password })));
+    
     const user = users.find(u => (u.username === username || u.email === username) && u.password === password);
     
     if (!user) {
+        console.log('User not found or password incorrect');
         showLoginError('Invalid username/email or password. Please try again.');
         // Reset button
         if (loginButton) {
@@ -5378,6 +5388,8 @@ function loginUser(event) {
         }
         return;
     }
+    
+    console.log('User found:', user.username);
     
     // Set current user and company
     currentUser = user;
@@ -5852,15 +5864,35 @@ function saveUserPreferences() {
     showAlert('Preferences saved successfully!', 'success');
 }
 
+// Test function for modal
+function testModal() {
+    console.log('TEST MODAL CLICKED');
+    alert('Test modal clicked!');
+    openPasswordModal();
+}
+
 // Password Modal Functions
 function openPasswordModal() {
     console.log('Opening password modal...');
     const modal = document.getElementById('passwordModal');
+    console.log('Modal element found:', modal);
+    
     if (modal) {
+        // Force display first
+        modal.style.display = 'block';
+        // Then add show class
         modal.classList.add('show');
         console.log('Password modal opened');
+        
+        // Focus on password field
+        const passwordField = document.getElementById('adminPassword');
+        if (passwordField) {
+            passwordField.focus();
+            console.log('Password field focused');
+        }
     } else {
         console.error('Password modal not found');
+        alert('Password modal not found!');
     }
 }
 

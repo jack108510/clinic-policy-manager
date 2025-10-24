@@ -5188,6 +5188,13 @@ function signupUser(event) {
     
     console.log('Signup form submitted');
     
+    // Show loading state on button
+    const signupButton = document.querySelector('#signupForm button[type="submit"]');
+    if (signupButton) {
+        signupButton.textContent = 'Creating Account...';
+        signupButton.disabled = true;
+    }
+    
     const username = document.getElementById('signupUsername').value.trim();
     const email = document.getElementById('signupEmail').value.trim();
     const password = document.getElementById('signupPassword').value.trim();
@@ -5198,6 +5205,11 @@ function signupUser(event) {
     // Validate required fields
     if (!username || !email || !password || !accessCode) {
         showSignupError('Please fill in all required fields.');
+        // Reset button
+        if (signupButton) {
+            signupButton.textContent = 'Create Account';
+            signupButton.disabled = false;
+        }
         return;
     }
     
@@ -5289,6 +5301,11 @@ function signupUser(event) {
         } else {
             showSignupError('Invalid access code. Please check with your administrator for a valid code.');
         }
+        // Reset button
+        if (signupButton) {
+            signupButton.textContent = 'Create Account';
+            signupButton.disabled = false;
+        }
         return;
     }
     
@@ -5296,12 +5313,22 @@ function signupUser(event) {
     const allUsers = masterData ? masterData.users : users;
     if (allUsers.find(user => user.username === username)) {
         showSignupError('Username already exists. Please choose a different username.');
+        // Reset button
+        if (signupButton) {
+            signupButton.textContent = 'Create Account';
+            signupButton.disabled = false;
+        }
         return;
     }
     
     // Check if email already exists across all users
     if (allUsers.find(user => user.email === email)) {
         showSignupError('Email already exists. Please use a different email.');
+        // Reset button
+        if (signupButton) {
+            signupButton.textContent = 'Create Account';
+            signupButton.disabled = false;
+        }
         return;
     }
     
@@ -5342,17 +5369,30 @@ function signupUser(event) {
     updateUserInterface();
     closeSignupModal();
     
-    alert('Account created successfully! You are now logged in.');
+    // Show success message
+    showSuccessMessage('Account created successfully! You are now logged in.');
 }
 
 function loginUser(event) {
     event.preventDefault();
+    
+    // Show loading state on button
+    const loginButton = document.querySelector('#loginForm button[type="submit"]');
+    if (loginButton) {
+        loginButton.textContent = 'Logging in...';
+        loginButton.disabled = true;
+    }
     
     const username = document.getElementById('loginUsername').value.trim();
     const password = document.getElementById('loginPassword').value.trim();
     
     if (!username || !password) {
         showLoginError('Please fill in all required fields.');
+        // Reset button
+        if (loginButton) {
+            loginButton.textContent = 'Login';
+            loginButton.disabled = false;
+        }
         return;
     }
     
@@ -5361,6 +5401,11 @@ function loginUser(event) {
     
     if (!user) {
         showLoginError('Invalid username/email or password. Please try again.');
+        // Reset button
+        if (loginButton) {
+            loginButton.textContent = 'Login';
+            loginButton.disabled = false;
+        }
         return;
     }
     
@@ -5374,7 +5419,8 @@ function loginUser(event) {
     updateUserInterface();
     closeLoginModal();
     
-    alert('Login successful!');
+    // Show success message
+    showSuccessMessage('Login successful! Welcome back!');
 }
 
 function requireLogin() {
@@ -5916,4 +5962,36 @@ function showSignupError(message) {
     } else {
         alert(message); // Fallback to alert if error div not found
     }
+}
+
+function showSuccessMessage(message) {
+    // Create success message element if it doesn't exist
+    let successDiv = document.getElementById('success-message');
+    if (!successDiv) {
+        successDiv = document.createElement('div');
+        successDiv.id = 'success-message';
+        successDiv.className = 'success-message';
+        successDiv.style.cssText = `
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: #4CAF50;
+            color: white;
+            padding: 15px 20px;
+            border-radius: 5px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            z-index: 10000;
+            font-weight: bold;
+            animation: slideIn 0.3s ease-out;
+        `;
+        document.body.appendChild(successDiv);
+    }
+    
+    successDiv.textContent = message;
+    successDiv.style.display = 'block';
+    
+    // Auto-hide after 3 seconds
+    setTimeout(() => {
+        successDiv.style.display = 'none';
+    }, 3000);
 }

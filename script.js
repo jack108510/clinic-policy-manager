@@ -5354,55 +5354,74 @@ function loginUser(event) {
     
     // Show loading state on button
     const loginButton = document.querySelector('#loginForm button[type="submit"]');
-    if (loginButton) {
-        loginButton.textContent = 'Logging in...';
-        loginButton.disabled = true;
-    }
     
-    const username = document.getElementById('loginUsername').value.trim();
-    const password = document.getElementById('loginPassword').value.trim();
-    
-    if (!username || !password) {
-        showLoginError('Please fill in all required fields.');
-        // Reset button
+    // Helper function to reset button
+    const resetButton = () => {
         if (loginButton) {
             loginButton.textContent = 'Login';
             loginButton.disabled = false;
         }
-        return;
-    }
+    };
     
-    // Find user by username/email and password
-    console.log('Looking for user:', { username, password: '***' });
-    console.log('Available users:', users.map(u => ({ username: u.username, email: u.email, hasPassword: !!u.password })));
-    
-    const user = users.find(u => (u.username === username || u.email === username) && u.password === password);
-    
-    if (!user) {
-        console.log('User not found or password incorrect');
-        showLoginError('Invalid username/email or password. Please try again.');
-        // Reset button
+    try {
         if (loginButton) {
-            loginButton.textContent = 'Login';
-            loginButton.disabled = false;
+            loginButton.textContent = 'Logging in...';
+            loginButton.disabled = true;
+            
+            // Failsafe timeout to reset button after 10 seconds
+            setTimeout(() => {
+                if (loginButton.disabled) {
+                    console.log('Login timeout - resetting button');
+                    resetButton();
+                }
+            }, 10000);
         }
-        return;
+        
+        const username = document.getElementById('loginUsername').value.trim();
+        const password = document.getElementById('loginPassword').value.trim();
+        
+        if (!username || !password) {
+            showLoginError('Please fill in all required fields.');
+            resetButton();
+            return;
+        }
+        
+        // Find user by username/email and password
+        console.log('Looking for user:', { username, password: '***' });
+        console.log('Available users:', users.map(u => ({ username: u.username, email: u.email, hasPassword: !!u.password })));
+        
+        const user = users.find(u => (u.username === username || u.email === username) && u.password === password);
+        
+        if (!user) {
+            console.log('User not found or password incorrect');
+            showLoginError('Invalid username/email or password. Please try again.');
+            resetButton();
+            return;
+        }
+        
+        console.log('User found:', user.username);
+        
+        // Set current user and company
+        currentUser = user;
+        currentCompany = user.company;
+        saveToLocalStorage('currentUser', currentUser);
+        saveToLocalStorage('currentCompany', currentCompany);
+        
+        // Update UI
+        updateUserInterface();
+        closeLoginModal();
+        
+        // Show success message
+        showSuccessMessage('Login successful! Welcome back!');
+        
+        // Reset button after successful login
+        resetButton();
+        
+    } catch (error) {
+        console.error('Login error:', error);
+        showLoginError('An error occurred during login. Please try again.');
+        resetButton();
     }
-    
-    console.log('User found:', user.username);
-    
-    // Set current user and company
-    currentUser = user;
-    currentCompany = user.company;
-    saveToLocalStorage('currentUser', currentUser);
-    saveToLocalStorage('currentCompany', currentCompany);
-    
-    // Update UI
-    updateUserInterface();
-    closeLoginModal();
-    
-    // Show success message
-    showSuccessMessage('Login successful! Welcome back!');
 }
 
 function requireLogin() {

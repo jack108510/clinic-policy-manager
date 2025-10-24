@@ -260,26 +260,26 @@ body {
     margin-bottom: 25px;
 }
 
-/* Clinics Section */
-.clinics {
+/* Organizations Section */
+.organizations {
     padding: 80px 0;
     background: #f8fafc;
 }
 
-.clinics h2 {
+.organizations h2 {
     text-align: center;
     font-size: 2.5rem;
     margin-bottom: 50px;
     color: #1f2937;
 }
 
-.clinic-grid {
+.organization-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
     gap: 30px;
 }
 
-.clinic-card {
+.organization-card {
     background: white;
     padding: 30px;
     border-radius: 12px;
@@ -288,23 +288,23 @@ body {
     transition: transform 0.3s;
 }
 
-.clinic-card:hover {
+.organization-card:hover {
     transform: translateY(-3px);
 }
 
-.clinic-card i {
+.organization-card i {
     font-size: 2.5rem;
     color: #2563eb;
     margin-bottom: 15px;
 }
 
-.clinic-card h3 {
+.organization-card h3 {
     font-size: 1.25rem;
     margin-bottom: 10px;
     color: #1f2937;
 }
 
-.clinic-card p {
+.organization-card p {
     color: #6b7280;
 }
 
@@ -430,7 +430,7 @@ body {
     color: #7c3aed;
 }
 
-.policy-clinics {
+.policy-organizations {
     color: #6b7280;
     font-size: 0.9rem;
     margin-bottom: 15px;
@@ -1020,7 +1020,7 @@ body {
         grid-template-columns: 1fr;
     }
     
-    .clinic-grid {
+    .organization-grid {
         grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
     }
     
@@ -1065,14 +1065,14 @@ body {
     }
     
     .policy-types,
-    .clinics,
+    .organizations,
     .policies,
     .admin-section {
         padding: 60px 0;
     }
     
     .policy-types h2,
-    .clinics h2,
+    .organizations h2,
     .policies h2,
     .admin-section h2 {
         font-size: 2rem;

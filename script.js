@@ -237,8 +237,8 @@ function displayPolicies(policies) {
                     <span class="policy-type ${policy.type}">${getTypeLabel(policy.type)}</span>
                 </div>
             </div>
-            <div class="policy-clinics">
-                <strong>Applicable Clinics:</strong> ${getClinicNames(policy.clinics).join(', ')}
+            <div class="policy-organizations">
+                <strong>Applicable Organizations:</strong> ${getOrganizationNames(policy.clinics).join(', ')}
             </div>
             <div class="policy-description">
                 ${policy.description}
@@ -367,14 +367,14 @@ function getTypeLabel(type) {
     return labels[type] || type;
 }
 
-function getClinicNames(clinicCodes) {
-    const clinicNames = {
+function getOrganizationNames(organizationCodes) {
+    const organizationNames = {
         'tudor-glen': 'Tudor Glen',
         'river-valley': 'River Valley',
         'rosslyn': 'Rosslyn',
         'upc': 'UPC'
     };
-    return clinicCodes.map(code => clinicNames[code] || code);
+    return organizationCodes.map(code => organizationNames[code] || code);
 }
 
 function formatDate(dateString) {

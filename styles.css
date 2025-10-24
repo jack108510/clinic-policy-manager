@@ -2203,3 +2203,60 @@ body {
     border-color: #3b82f6;
     box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
 }
+
+
+/* Policy Type Selection Styles */
+.policy-type-selection {
+    margin-bottom: 20px;
+    padding: 15px;
+    background-color: #f8fafc;
+    border-radius: 8px;
+    border: 1px solid #e2e8f0;
+}
+
+.policy-type-selection h4 {
+    margin: 0 0 15px 0;
+    color: #374151;
+    font-size: 1rem;
+    font-weight: 600;
+}
+
+.policy-type-toggles {
+    display: flex;
+    gap: 15px;
+    flex-wrap: wrap;
+}
+
+.policy-type-toggles .toggle-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 15px;
+    background-color: white;
+    border-radius: 6px;
+    border: 1px solid #e2e8f0;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.policy-type-toggles .toggle-item:hover {
+    background-color: #f1f5f9;
+    border-color: #3b82f6;
+}
+
+.policy-type-toggles .toggle-item input[type="radio"] {
+    margin: 0;
+    transform: scale(1.2);
+}
+
+.policy-type-toggles .toggle-item input[type="radio"]:checked + .toggle-label {
+    color: #3b82f6;
+    font-weight: 600;
+}
+
+.policy-type-toggles .toggle-label {
+    font-weight: 500;
+    color: #374151;
+    margin: 0;
+    cursor: pointer;
+}

@@ -244,6 +244,23 @@
                 <span class="close" onclick="closeAIModal()">&times;</span>
             </div>
             <div class="modal-body">
+                <div class="policy-type-selection">
+                    <h4>Select Policy Type:</h4>
+                    <div class="policy-type-toggles">
+                        <label class="toggle-item">
+                            <input type="radio" name="policyType" value="admin" checked>
+                            <span class="toggle-label">Admin Policy</span>
+                        </label>
+                        <label class="toggle-item">
+                            <input type="radio" name="policyType" value="sog">
+                            <span class="toggle-label">Standard Operating Guidelines</span>
+                        </label>
+                        <label class="toggle-item">
+                            <input type="radio" name="policyType" value="memo">
+                            <span class="toggle-label">Communication Memo</span>
+                        </label>
+                    </div>
+                </div>
                 <div class="chat-container">
                     <div class="chat-messages" id="chatMessages">
                         <div class="message ai-message">

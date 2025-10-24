@@ -2768,7 +2768,8 @@ function displayAIPolicy(policy) {
     
     // Show the chat again and ask if anything needs to be changed
     setTimeout(() => {
-        document.getElementById('aiResult').style.display = 'none';
+        // Don't hide the result, keep it visible so user can see the policy
+        // document.getElementById('aiResult').style.display = 'none';
         document.querySelector('.chat-container').style.display = 'block';
         
         addAIMessage(`I've generated your policy! Please review it above. Is there anything you'd like me to change or modify?`);
@@ -4775,8 +4776,12 @@ function generatePolicyFromPrompt(prompt) {
 async function generatePolicyFromPromptData(prompt) {
     const currentDate = new Date().toISOString().split('T')[0];
     
+    // Get the selected policy type
+    const policyType = document.querySelector('input[name="policyType"]:checked').value;
+    const typeLabel = getTypeLabel(policyType);
+    
     // Create a comprehensive prompt for ChatGPT
-    const chatGPTPrompt = createSimpleChatGPTPrompt(prompt, currentDate);
+    const chatGPTPrompt = createSimpleChatGPTPrompt(prompt, currentDate, policyType);
     
     try {
         // Call ChatGPT API to generate the policy
@@ -4784,16 +4789,16 @@ async function generatePolicyFromPromptData(prompt) {
         const generatedContent = chatGPTResponse.choices[0].message.content;
         
         // Parse the ChatGPT response into a structured policy
-        const policyContent = parseChatGPTResponse(generatedContent, prompt, 'auto');
+        const policyContent = parseChatGPTResponse(generatedContent, prompt, policyType);
         
         return {
             ...policyContent,
-            type: 'auto',
+            type: policyType,
             clinics: ['tudor-glen', 'river-valley', 'rosslyn', 'upc'],
             additionalRequirements: prompt,
             keyPoints: prompt,
             clinicNames: 'Tudor Glen, River Valley, Rosslyn, UPC',
-            typeLabel: 'Generated Policy',
+            typeLabel: typeLabel,
             prompt: prompt
         };
     } catch (error) {
@@ -4801,7 +4806,7 @@ async function generatePolicyFromPromptData(prompt) {
         // Fallback to local generation if ChatGPT fails
         const policyContent = generateCSIPolicyWithHeaders(
             prompt,
-            'auto',
+            policyType,
             prompt,
             currentDate,
             prompt,
@@ -4810,12 +4815,12 @@ async function generatePolicyFromPromptData(prompt) {
         
         return {
             ...policyContent,
-            type: 'auto',
+            type: policyType,
             clinics: ['tudor-glen', 'river-valley', 'rosslyn', 'upc'],
             additionalRequirements: prompt,
             keyPoints: prompt,
             clinicNames: 'Tudor Glen, River Valley, Rosslyn, UPC',
-            typeLabel: 'Generated Policy',
+            typeLabel: typeLabel,
             prompt: prompt
         };
     }
@@ -6249,10 +6254,12 @@ Please format your response as a structured policy document with clear headings 
 
 
 // ChatGPT-Style Policy Generation Functions
-function createSimpleChatGPTPrompt(prompt, currentDate) {
-    return `Create a comprehensive policy based on this request: "${prompt}"
+function createSimpleChatGPTPrompt(prompt, currentDate, policyType) {
+    const typeLabel = getTypeLabel(policyType);
+    
+    return `Create a comprehensive ${typeLabel} based on this request: "${prompt}"
 
-Please create a complete, professional policy with all the necessary sections and fields. Include:
+Please create a complete, professional ${typeLabel} with all the necessary sections and fields. Include:
 
 1. Document Title and Header Information
 2. Effective Date: ${currentDate}

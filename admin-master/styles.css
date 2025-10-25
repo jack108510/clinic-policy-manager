@@ -2438,3 +2438,62 @@ input:checked + .toggle-slider:before {
         flex-direction: column;
     }
 }
+
+/* Settings Section Styles */
+.settings-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+    gap: 2rem;
+}
+
+.settings-card {
+    background: white;
+    border-radius: 12px;
+    padding: 2rem;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    border: 1px solid #e5e7eb;
+}
+
+.settings-card h3 {
+    color: #1f2937;
+    font-size: 1.25rem;
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+}
+
+.settings-card p {
+    color: #6b7280;
+    margin-bottom: 1.5rem;
+    line-height: 1.6;
+}
+
+.settings-card .form-group {
+    margin-bottom: 1.5rem;
+}
+
+.settings-card .form-group label {
+    display: block;
+    color: #374151;
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+}
+
+.settings-card .form-group small {
+    display: block;
+    color: #6b7280;
+    margin-top: 0.5rem;
+}
+
+.settings-card .form-group small a {
+    color: #667eea;
+    text-decoration: none;
+}
+
+.settings-card .form-group small a:hover {
+    text-decoration: underline;
+}
+
+.settings-card .btn {
+    margin-right: 1rem;
+    margin-bottom: 0.5rem;
+}

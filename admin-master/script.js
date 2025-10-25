@@ -60,18 +60,20 @@ function generateRandomPassword() {
 }
 
 function initializeData() {
+    // Clear all users
+    users = [];
+    localStorage.setItem('masterUsers', JSON.stringify(users));
+    localStorage.setItem('users', JSON.stringify(users));
+    
     // Load existing data from localStorage or initialize empty arrays
     const savedCompanies = localStorage.getItem('masterCompanies');
-    const savedUsers = localStorage.getItem('masterUsers');
     const savedAccessCodes = localStorage.getItem('masterAccessCodes');
     
     console.log('Loading data from localStorage:');
     console.log('savedCompanies:', savedCompanies);
-    console.log('savedUsers:', savedUsers);
     console.log('savedAccessCodes:', savedAccessCodes);
     
     companies = savedCompanies ? JSON.parse(savedCompanies) : [];
-    users = savedUsers ? JSON.parse(savedUsers) : [];
     accessCodes = savedAccessCodes ? JSON.parse(savedAccessCodes) : [];
     
     console.log('Parsed data:');
@@ -1021,12 +1023,15 @@ function loadMasterAdminData() {
     const savedApiKeys = localStorage.getItem('masterApiKeys');
     const apiKeys = savedApiKeys ? JSON.parse(savedApiKeys) : {};
     
+    // Get global PDF.co API key (shared across all companies)
+    const globalPdfCoApiKey = localStorage.getItem('globalPdfCoApiKey') || apiKeys.pdfCoApiKey || '';
+    
     return {
         companies: companies,
         users: users,
         accessCodes: accessCodes,
         openAIApiKey: apiKeys.openAIApiKey || localStorage.getItem('openAIApiKey') || '',
-        pdfCoApiKey: apiKeys.pdfCoApiKey || localStorage.getItem('pdfCoApiKey') || ''
+        pdfCoApiKey: globalPdfCoApiKey
     };
 }
 
@@ -2173,3 +2178,84 @@ function clearUploadArea() {
         showNotification('Upload area cleared', 'success');
     }
 }
+
+// Global Settings Functions
+function saveGlobalApiKeys() {
+    const pdfCoKey = document.getElementById('globalPdfCoApiKey').value.trim();
+    const openAIKey = document.getElementById('globalOpenAIApiKey').value.trim();
+    
+    if (pdfCoKey) {
+        localStorage.setItem('globalPdfCoApiKey', pdfCoKey);
+        showNotification('PDF.co API key saved successfully!', 'success');
+    }
+    
+    if (openAIKey) {
+        localStorage.setItem('globalOpenAIApiKey', openAIKey);
+        showNotification('OpenAI API key saved successfully!', 'success');
+    }
+    
+    if (!pdfCoKey && !openAIKey) {
+        showNotification('Please enter at least one API key', 'error');
+    }
+    
+    // Update master API keys storage
+    const apiKeys = {
+        openAIApiKey: openAIKey || localStorage.getItem('globalOpenAIApiKey') || '',
+        pdfCoApiKey: pdfCoKey || localStorage.getItem('globalPdfCoApiKey') || ''
+    };
+    localStorage.setItem('masterApiKeys', JSON.stringify(apiKeys));
+}
+
+function clearAllUsers() {
+    if (confirm('Are you sure you want to clear ALL users from both sites? This action cannot be undone.')) {
+        // Clear users from both sites
+        users = [];
+        localStorage.setItem('masterUsers', JSON.stringify(users));
+        localStorage.setItem('users', JSON.stringify(users));
+        
+        // Also clear from main site
+        const event = new Event('clearAllUsers');
+        document.dispatchEvent(event);
+        
+        displayUsers();
+        updateStats();
+        showNotification('All users have been cleared successfully', 'success');
+    }
+}
+
+function exportAllData() {
+    const allData = {
+        companies: companies,
+        users: users,
+        accessCodes: accessCodes,
+        analytics: analytics,
+        timestamp: new Date().toISOString()
+    };
+    
+    const dataStr = JSON.stringify(allData, null, 2);
+    const dataBlob = new Blob([dataStr], { type: 'application/json' });
+    const url = URL.createObjectURL(dataBlob);
+    
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `policy-pro-data-${new Date().toISOString().slice(0, 10)}.json`;
+    link.click();
+    
+    URL.revokeObjectURL(url);
+    showNotification('Data exported successfully!', 'success');
+}
+
+// Load settings when page loads
+document.addEventListener('DOMContentLoaded', function() {
+    // Load saved API keys into settings form
+    const savedPdfCoKey = localStorage.getItem('globalPdfCoApiKey');
+    const savedOpenAIKey = localStorage.getItem('globalOpenAIApiKey');
+    
+    if (savedPdfCoKey && document.getElementById('globalPdfCoApiKey')) {
+        document.getElementById('globalPdfCoApiKey').value = savedPdfCoKey;
+    }
+    
+    if (savedOpenAIKey && document.getElementById('globalOpenAIApiKey')) {
+        document.getElementById('globalOpenAIApiKey').value = savedOpenAIKey;
+    }
+});

@@ -554,6 +554,59 @@
             </section>
 
             <!-- Profile Center Section -->
+            <!-- Settings Section -->
+            <section id="settings" class="content-section">
+                <div class="section-header">
+                    <div class="header-content">
+                        <h2>Global Settings</h2>
+                        <p>Configure API keys and system-wide settings</p>
+                    </div>
+                </div>
+
+                <div class="settings-grid">
+                    <div class="settings-card">
+                        <h3>PDF.co API Configuration</h3>
+                        <p>Configure the PDF.co API key for document processing. This key will be used by all companies.</p>
+                        <div class="form-group">
+                            <label for="globalPdfCoApiKey">PDF.co API Key</label>
+                            <input type="password" id="globalPdfCoApiKey" class="form-control" placeholder="Enter your PDF.co API key">
+                            <small>Get your API key from <a href="https://pdf.co" target="_blank">pdf.co</a></small>
+                        </div>
+                        <button class="btn btn-primary" onclick="saveGlobalApiKeys()">
+                            <i class="fas fa-save"></i>
+                            Save PDF.co API Key
+                        </button>
+                    </div>
+
+                    <div class="settings-card">
+                        <h3>OpenAI API Configuration</h3>
+                        <p>Configure the OpenAI API key for AI-powered policy analysis.</p>
+                        <div class="form-group">
+                            <label for="globalOpenAIApiKey">OpenAI API Key</label>
+                            <input type="password" id="globalOpenAIApiKey" class="form-control" placeholder="Enter your OpenAI API key">
+                            <small>Get your API key from <a href="https://platform.openai.com" target="_blank">platform.openai.com</a></small>
+                        </div>
+                        <button class="btn btn-primary" onclick="saveGlobalApiKeys()">
+                            <i class="fas fa-save"></i>
+                            Save OpenAI API Key
+                        </button>
+                    </div>
+
+                    <div class="settings-card">
+                        <h3>System Maintenance</h3>
+                        <p>Manage system data and perform maintenance tasks.</p>
+                        <button class="btn btn-danger" onclick="clearAllUsers()">
+                            <i class="fas fa-trash"></i>
+                            Clear All Users
+                        </button>
+                        <button class="btn btn-secondary" onclick="exportAllData()">
+                            <i class="fas fa-download"></i>
+                            Export All Data
+                        </button>
+                    </div>
+                </div>
+            </section>
+
             <section id="profile" class="content-section">
                 <div class="section-header">
                     <div class="header-content">

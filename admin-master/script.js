@@ -46,6 +46,30 @@ document.addEventListener('DOMContentLoaded', function() {
     // Add event listeners for modals
     document.getElementById('companyPasswordForm').addEventListener('submit', updateCompanyPassword);
     
+    // Listen for data updates from main site
+    window.addEventListener('masterDataUpdated', function(event) {
+        console.log('Admin-master received data update from main site:', event.detail);
+        
+        if (event.detail && event.detail.users) {
+            users = event.detail.users;
+            displayUsers();
+            updateStats();
+            console.log('Users updated in admin-master:', users.length);
+        }
+        
+        if (event.detail && event.detail.companies) {
+            companies = event.detail.companies;
+            displayCompanies();
+            updateStats();
+        }
+        
+        if (event.detail && event.detail.accessCodes) {
+            accessCodes = event.detail.accessCodes;
+            displayAccessCodes();
+            updateStats();
+        }
+    });
+    
     console.log('Master Admin Dashboard initialized successfully');
 });
 
@@ -60,21 +84,19 @@ function generateRandomPassword() {
 }
 
 function initializeData() {
-    // Clear all users
-    users = [];
-    localStorage.setItem('masterUsers', JSON.stringify(users));
-    localStorage.setItem('users', JSON.stringify(users));
-    
     // Load existing data from localStorage or initialize empty arrays
     const savedCompanies = localStorage.getItem('masterCompanies');
     const savedAccessCodes = localStorage.getItem('masterAccessCodes');
+    const savedUsers = localStorage.getItem('masterUsers');
     
     console.log('Loading data from localStorage:');
     console.log('savedCompanies:', savedCompanies);
     console.log('savedAccessCodes:', savedAccessCodes);
+    console.log('savedUsers:', savedUsers);
     
     companies = savedCompanies ? JSON.parse(savedCompanies) : [];
     accessCodes = savedAccessCodes ? JSON.parse(savedAccessCodes) : [];
+    users = savedUsers ? JSON.parse(savedUsers) : [];
     
     console.log('Parsed data:');
     console.log('companies:', companies);

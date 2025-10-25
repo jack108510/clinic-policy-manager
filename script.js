@@ -5499,6 +5499,15 @@ function signupUser(event) {
         // Also add to local users list for consistency
         users.push(newUser);
         saveToLocalStorage('users', users);
+        
+        // Dispatch event to notify admin-master of the new user
+        window.dispatchEvent(new CustomEvent('masterDataUpdated', {
+            detail: {
+                users: masterData.users,
+                companies: masterData.companies,
+                accessCodes: masterData.accessCodes
+            }
+        }));
     } else {
         // Fallback: add to local users list
         users.push(newUser);

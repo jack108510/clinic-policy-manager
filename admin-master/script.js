@@ -310,15 +310,18 @@ function displayUsers() {
 
 function changeUserRole(userId, newRole) {
     console.log('changeUserRole called with userId:', userId, 'newRole:', newRole);
-    console.log('Current users array:', users);
+    
+    // Reload users from localStorage to ensure we have the latest data
+    const currentUsers = JSON.parse(localStorage.getItem('masterUsers') || '[]');
+    console.log('Current users from localStorage:', currentUsers);
     console.log('Looking for user with ID:', userId);
     
-    const user = users.find(u => u.id === userId || u.id == userId || u.id.toString() === userId.toString());
+    const user = currentUsers.find(u => u.id === userId || u.id == userId || u.id.toString() === userId.toString());
     console.log('Found user:', user);
     
     if (!user) {
         console.error('User not found with id:', userId);
-        console.log('Available user IDs:', users.map(u => ({ id: u.id, username: u.username })));
+        console.log('Available user IDs:', currentUsers.map(u => ({ id: u.id, username: u.username })));
         showAlert('User not found!', 'error');
         return;
     }
@@ -334,7 +337,10 @@ function changeUserRole(userId, newRole) {
     }
     
     // Save to localStorage
-    localStorage.setItem('masterUsers', JSON.stringify(users));
+    localStorage.setItem('masterUsers', JSON.stringify(currentUsers));
+    
+    // Update the global users array
+    users = currentUsers;
     
     // Update display
     displayUsers();

@@ -132,9 +132,24 @@ const aiGeneratedContent = document.getElementById('aiGeneratedContent');
 const draftList = document.getElementById('draftList');
 const draftCountElement = document.getElementById('draftCount');
 
+
+// Clear all sample/demo user data from localStorage
+function clearSampleUserData() {
+    console.log(x27Clearing sample user data from localStorage...x27);
+    const existingUsers = localStorage.getItem(x27masterUsersx27);
+    if (existingUsers) {
+        try {
+            const users = JSON.parse(existingUsers);
+            const sampleEmailPatterns = [x27csiveterinaryx27, x27metroanimalx27, x27admin@csi.comx27, x27staff1@x27, x27staff2@x27, x27staff3@x27, x27staff4@x27, x27staff5@x27, x27staff6@x27, x27sarah_adminx27];
+            const filteredUsers = users.filter(user => { if (!user.email) return true; return !sampleEmailPatterns.some(pattern => user.email.toLowerCase().includes(pattern.toLowerCase())); });
+            if (filteredUsers.length < users.length) { console.log(`Removed ${users.length - filteredUsers.length} sample users`); localStorage.setItem(x27masterUsersx27, JSON.stringify(filteredUsers)); }
+        } catch (error) { console.error(x27Error filtering users:x27, error); }
+    }
+    console.log(x27Sample user data clearedx27);
+}
 // Initialize the application
 document.addEventListener('DOMContentLoaded', function() {
-    console.log('Initializing application...');
+    console.log('Initializing application...'); clearSampleUserData();
     
     // Initialize data displays
     displayPolicies(currentPolicies);

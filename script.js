@@ -4510,8 +4510,9 @@ function openAIModal() {
     document.getElementById('aiModal').style.display = 'block';
     document.getElementById('aiResult').style.display = 'none';
     document.getElementById('aiLoading').style.display = 'none';
-    // Populate policy options
-    populatePolicyOptions();
+    // Show chat interface first
+    document.querySelector('.chat-container').style.display = 'block';
+    document.getElementById('aiSurveyForm').style.display = 'none';
     resetChat();
 }
 
@@ -4962,7 +4963,101 @@ function displayDisciplinaryActions() {
 
 // Duplicate generatePolicyWithChatGPT function removed - using the more comprehensive version defined earlier
 
-// Duplicate createChatGPTPrompt function removed - using the more comprehensive version defined earlier
+function createSimpleChatGPTPrompt(userPrompt, currentDate, policyType, organizationNames, roleNames, disciplinaryActionNames) {
+    console.log('Creating ChatGPT prompt for:', userPrompt);
+    
+    let policyStructure = '';
+    
+    if (policyType === 'admin') {
+        policyStructure = `
+LEVEL 1 — ADMIN POLICY STRUCTURE:
+Please create a comprehensive Admin Policy with the following sections:
+
+Document Title / Header Info:
+• Effective Date: ${currentDate}
+• Last Reviewed: ${currentDate}
+• Approved By: [To be filled by administrator]
+• Version #: 1.0
+
+Required Sections:
+1. Purpose - Clear statement of why this policy exists
+2. Scope - Who and what this policy applies to
+3. Policy Statement - The main policy content
+4. Definitions - Key terms and definitions
+5. Procedure / Implementation - Step-by-step implementation
+6. Responsibilities - Who is responsible for what
+7. Consequences / Accountability - What happens if policy is violated
+8. Related Documents - References to other relevant policies
+9. Review & Approval - Process for reviewing and updating
+
+Organizations: ${organizationNames}
+Responsible Roles: ${roleNames}
+Disciplinary Actions: ${disciplinaryActionNames}`;
+    } else if (policyType === 'sog') {
+        policyStructure = `
+LEVEL 2 — STANDARD OPERATING GUIDELINE (SOG) STRUCTURE:
+Please create a comprehensive SOG with the following sections:
+
+SOG Title / Header Info:
+• Effective Date: ${currentDate}
+• Author: [To be filled by administrator]
+• Approved By: [To be filled by administrator]
+• Version #: 1.0
+
+Required Sections:
+1. Objective - Clear goal of this guideline
+2. Guiding Principles - Core principles to follow
+3. Recommended Approach / Procedure - Detailed procedures
+4. Definitions - Key terms and definitions
+5. Examples / Scenarios - Real-world examples
+6. Responsibilities - Who does what
+7. Escalation / Support - When and how to escalate
+8. Review & Revision - Process for updates
+
+Organizations: ${organizationNames}
+Responsible Roles: ${roleNames}
+Disciplinary Actions: ${disciplinaryActionNames}`;
+    } else if (policyType === 'memo') {
+        policyStructure = `
+LEVEL 3 — COMMUNICATION MEMO STRUCTURE:
+Please create a professional Communication Memo with the following sections:
+
+CSI Communication Memo Header:
+• Date: ${currentDate}
+• From: [Administrator Name]
+• To: All Staff
+• Subject: [Based on user prompt]
+
+Required Sections:
+1. Message - Main communication content
+2. Effective Period - When this takes effect (if applicable)
+3. Next Steps / Action Required - What staff need to do
+4. Contact for Questions - Who to contact for clarification
+
+Organizations: ${organizationNames}
+Responsible Roles: ${roleNames}
+Disciplinary Actions: ${disciplinaryActionNames}`;
+    }
+    
+    const prompt = `You are a professional policy writer for CSI (Comprehensive Specialty Imaging) veterinary clinics. 
+
+USER REQUEST: "${userPrompt}"
+
+${policyStructure}
+
+INSTRUCTIONS:
+- Create a comprehensive, professional policy document
+- Use proper healthcare industry terminology
+- Make it specific to veterinary clinic operations
+- Ensure all required sections are included
+- Write in a clear, professional tone
+- Include specific details relevant to the request
+- Make it actionable and practical for clinic staff
+
+Please generate the complete policy document with all sections properly formatted and filled out.`;
+    
+    return prompt;
+}
 
 // Duplicate function removed - using the main callChatGPTAPI function above
 

@@ -5396,7 +5396,8 @@ function signupUser(event) {
             
             const isValid = code.code === accessCode && 
                 code.status === 'active' && 
-                (!code.expiryDate || new Date(code.expiryDate) > new Date());
+                (!code.expiryDate || new Date(code.expiryDate) > new Date()) &&
+                code.usedBy.length < code.maxCompanies;
                 
             console.log(`  - Overall valid: ${isValid}`);
             if (isValid) {
@@ -5426,22 +5427,30 @@ function signupUser(event) {
             console.log('Access code found and validated successfully!');
         }
     } else {
-        console.log('No master data or access codes found, using fallback');
-        // Fallback to hardcoded access code
-        validAccessCode = accessCode === '123';
+        console.log('No master data or access codes found - access code required');
+        validAccessCode = false;
     }
     
     if (!validAccessCode) {
-        // Check if the code exists but has issues
-        const existingCode = masterData.accessCodes.find(code => code.code === accessCode);
-        if (existingCode) {
-            if (existingCode.status !== 'active') {
-                showSignupError('Access code is not active. Please contact your administrator.');
-            } else {
-                showSignupError('Access code validation failed. Please check with your administrator.');
-            }
+        // Check if master data is available
+        if (!masterData || !masterData.accessCodes || masterData.accessCodes.length === 0) {
+            showSignupError('No access codes are currently available. Please contact your administrator to create access codes in the Master Admin dashboard.');
         } else {
-            showSignupError('Invalid access code. Please check with your administrator for a valid code.');
+            // Check if the code exists but has issues
+            const existingCode = masterData.accessCodes.find(code => code.code === accessCode);
+            if (existingCode) {
+                if (existingCode.status !== 'active') {
+                    showSignupError('Access code is not active. Please contact your administrator.');
+                } else if (existingCode.usedBy.length >= existingCode.maxCompanies) {
+                    showSignupError(`Access code has reached its usage limit (${existingCode.usedBy.length}/${existingCode.maxCompanies}). Please contact your administrator for a new code.`);
+                } else if (existingCode.expiryDate && new Date(existingCode.expiryDate) <= new Date()) {
+                    showSignupError('Access code has expired. Please contact your administrator for a new code.');
+                } else {
+                    showSignupError('Access code validation failed. Please check with your administrator.');
+                }
+            } else {
+                showSignupError('Invalid access code. Please check with your administrator for a valid code.');
+            }
         }
         // Reset button
         if (signupButton) {
@@ -5513,23 +5522,16 @@ function signupUser(event) {
             }
         }));
     } else {
-        // Fallback: add to local users list
-        users.push(newUser);
-        saveToLocalStorage('users', users);
+        // No valid access code - user creation not allowed
+        console.log('User creation blocked - no valid access code provided');
+        showSignupError('A valid access code is required to create an account. Please contact your administrator.');
         
-        // Also update master data even in fallback case
-        const currentMasterUsers = JSON.parse(localStorage.getItem('masterUsers') || '[]');
-        currentMasterUsers.push(newUser);
-        localStorage.setItem('masterUsers', JSON.stringify(currentMasterUsers));
-        
-        // Dispatch event to notify admin-master
-        window.dispatchEvent(new CustomEvent('masterDataUpdated', {
-            detail: {
-                users: currentMasterUsers,
-                companies: masterData ? masterData.companies : [],
-                accessCodes: masterData ? masterData.accessCodes : []
-            }
-        }));
+        // Reset button
+        if (signupButton) {
+            signupButton.textContent = 'Create Account';
+            signupButton.disabled = false;
+        }
+        return;
     }
     
     // Auto-login the new user

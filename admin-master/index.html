@@ -242,6 +242,16 @@
                                 <p>Download reports and data</p>
                             </div>
                         </button>
+
+                        <button class="action-card" onclick="openAIModal()">
+                            <div class="action-icon">
+                                <i class="fas fa-robot"></i>
+                            </div>
+                            <div class="action-content">
+                                <h4>AI Policy Assistant</h4>
+                                <p>Create policies with AI assistance</p>
+                            </div>
+                        </button>
                     </div>
                 </div>
 
@@ -1000,7 +1010,147 @@
         </div>
     </div>
 
+    <!-- AI Policy Assistant Modal -->
+    <div id="aiModal" class="modal">
+        <div class="modal-content chat-modal">
+            <div class="modal-header">
+                <h3><i class="fas fa-robot"></i> AI Policy Assistant</h3>
+                <p class="ai-subtitle">Create professional policies with AI assistance</p>
+                <span class="close" onclick="closeAIModal()">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div class="policy-type-selection">
+                    <h4>Select Policy Type:</h4>
+                    <div class="policy-type-toggles">
+                        <label class="toggle-item">
+                            <input type="radio" name="policyType" value="admin" checked>
+                            <span class="toggle-label">Admin Policy</span>
+                        </label>
+                        <label class="toggle-item">
+                            <input type="radio" name="policyType" value="sog">
+                            <span class="toggle-label">Standard Operating Guidelines</span>
+                        </label>
+                        <label class="toggle-item">
+                            <input type="radio" name="policyType" value="memo">
+                            <span class="toggle-label">Communication Memo</span>
+                        </label>
+                    </div>
+                </div>
+                
+                <div class="policy-options-selection">
+                    <h4>Policy Options:</h4>
+                    <div class="policy-options-grid">
+                        <div class="option-group">
+                            <h5>Applicable Organizations:</h5>
+                            <div class="organization-toggles">
+                                <label class="toggle-item">
+                                    <input type="checkbox" id="org-all" onchange="toggleAllOrganizations()">
+                                    <span class="toggle-label">All Organizations</span>
+                                </label>
+                                <label class="toggle-item">
+                                    <input type="checkbox" id="org-tudor-glen" value="tudor-glen">
+                                    <span class="toggle-label">Tudor Glen</span>
+                                </label>
+                                <label class="toggle-item">
+                                    <input type="checkbox" id="org-river-valley" value="river-valley">
+                                    <span class="toggle-label">River Valley</span>
+                                </label>
+                                <label class="toggle-item">
+                                    <input type="checkbox" id="org-rosslyn" value="rosslyn">
+                                    <span class="toggle-label">Rosslyn</span>
+                                </label>
+                                <label class="toggle-item">
+                                    <input type="checkbox" id="org-upc" value="upc">
+                                    <span class="toggle-label">UPC</span>
+                                </label>
+                            </div>
+                        </div>
+                        
+                        <div class="option-group">
+                            <h5>Responsible Roles:</h5>
+                            <div class="responsibility-toggles" id="responsibilityToggles">
+                                <!-- Roles will be populated from settings -->
+                            </div>
+                        </div>
+                        
+                        <div class="option-group">
+                            <h5>Disciplinary Actions:</h5>
+                            <div class="disciplinary-toggles" id="disciplinaryToggles">
+                                <!-- Disciplinary actions will be populated from settings -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="chat-container">
+                    <div class="chat-messages" id="chatMessages">
+                        <div class="message ai-message">
+                            <div class="message-avatar">
+                                <i class="fas fa-robot"></i>
+                            </div>
+                            <div class="message-content">
+                                <p><strong>Hello! I'm your AI Policy Assistant powered by ChatGPT.</strong></p>
+                                <p>I can create comprehensive, professional healthcare policies for your veterinary clinics. Configure your policy settings above, then describe what you need.</p>
+                                <p><strong>Configure your policy:</strong></p>
+                                <ul>
+                                    <li><strong>Policy Type:</strong> Select Admin Policy, SOG, or Communication Memo</li>
+                                    <li><strong>Organizations:</strong> Choose which clinics this applies to</li>
+                                    <li><strong>Responsible Roles:</strong> Who will implement this policy</li>
+                                    <li><strong>Disciplinary Actions:</strong> What happens if policy is violated</li>
+                                </ul>
+                                <p><strong>Then describe what policy you need:</strong></p>
+                                <ul>
+                                    <li>"Create a patient safety protocol policy"</li>
+                                    <li>"Generate hand hygiene procedures"</li>
+                                    <li>"Write emergency response procedures"</li>
+                                </ul>
+                                <p><strong>What policy would you like me to create?</strong></p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="chat-input-container">
+                        <div class="chat-input">
+                            <input type="text" id="chatInput" placeholder="Type your message here..." onkeypress="handleChatKeyPress(event)">
+                            <button onclick="sendChatMessage()" class="btn btn-primary">
+                                <i class="fas fa-paper-plane"></i>
+                            </button>
+                        </div>
+                        <div class="chat-actions">
+                            <button onclick="resetChat()" class="btn btn-sm btn-secondary">
+                                <i class="fas fa-refresh"></i> Start Over
+                            </button>
+                            <button onclick="generatePolicyFromChat()" class="btn btn-sm btn-success" id="generatePolicyBtn" style="display: none;">
+                                <i class="fas fa-magic"></i> Generate Policy
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                
+                <div id="aiLoading" class="ai-loading" style="display: none;">
+                    <div class="loading-spinner"></div>
+                    <p>Generating your policy with AI...</p>
+                </div>
+                
+                <div id="aiResult" class="ai-result" style="display: none;">
+                    <h4>Generated Policy</h4>
+                    <div class="policy-preview" id="policyPreview"></div>
+                    <div class="policy-actions">
+                        <button onclick="saveGeneratedPolicy()" class="btn btn-primary">
+                            <i class="fas fa-save"></i> Save Policy
+                        </button>
+                        <button onclick="downloadGeneratedPolicy()" class="btn btn-secondary">
+                            <i class="fas fa-download"></i> Download
+                        </button>
+                        <button onclick="regeneratePolicy()" class="btn btn-outline">
+                            <i class="fas fa-redo"></i> Regenerate
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script src="script.js?v=3"></script>
+    <script src="script.js?v=4"></script>
 </body>
 </html>

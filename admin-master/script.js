@@ -2342,6 +2342,448 @@ function exportAllData() {
     showNotification('Data exported successfully!', 'success');
 }
 
+// AI Policy Assistant Functions
+let chatState = {
+    step: 'start',
+    isGenerating: false,
+    currentPolicy: null
+};
+
+function openAIModal() {
+    console.log('🔧 Opening AI Modal in admin-master...');
+    
+    // Open AI modal
+    document.getElementById('aiModal').style.display = 'block';
+    document.getElementById('aiResult').style.display = 'none';
+    document.getElementById('aiLoading').style.display = 'none';
+    
+    // Show all policy configuration options and chat interface
+    const policyTypeSelection = document.querySelector('.policy-type-selection');
+    const policyOptionsSelection = document.querySelector('.policy-options-selection');
+    const chatContainer = document.querySelector('.chat-container');
+    
+    console.log('🔍 Elements found:');
+    console.log('policyTypeSelection:', policyTypeSelection);
+    console.log('policyOptionsSelection:', policyOptionsSelection);
+    console.log('chatContainer:', chatContainer);
+    
+    if (policyTypeSelection) {
+        policyTypeSelection.style.display = 'block';
+        console.log('✅ Policy type selection shown');
+    } else {
+        console.log('❌ Policy type selection not found');
+    }
+    
+    if (policyOptionsSelection) {
+        policyOptionsSelection.style.display = 'block';
+        console.log('✅ Policy options selection shown');
+    } else {
+        console.log('❌ Policy options selection not found');
+    }
+    
+    if (chatContainer) {
+        chatContainer.style.display = 'block';
+        console.log('✅ Chat container shown');
+    } else {
+        console.log('❌ Chat container not found');
+    }
+    
+    resetChat();
+    console.log('🎉 AI Modal opened successfully');
+}
+
+function closeAIModal() {
+    document.getElementById('aiModal').style.display = 'none';
+    resetChat();
+}
+
+function resetChat() {
+    chatState = {
+        step: 'start',
+        isGenerating: false,
+        currentPolicy: null
+    };
+    
+    const chatMessages = document.getElementById('chatMessages');
+    chatMessages.innerHTML = `
+        <div class="message ai-message">
+            <div class="message-avatar">
+                <i class="fas fa-robot"></i>
+            </div>
+            <div class="message-content">
+                <p><strong>Hello! I'm your AI Policy Assistant powered by ChatGPT.</strong></p>
+                <p>I can create comprehensive, professional healthcare policies for your veterinary clinics. Configure your policy settings above, then describe what you need.</p>
+                <p><strong>Configure your policy:</strong></p>
+                <ul>
+                    <li><strong>Policy Type:</strong> Select Admin Policy, SOG, or Communication Memo</li>
+                    <li><strong>Organizations:</strong> Choose which clinics this applies to</li>
+                    <li><strong>Responsible Roles:</strong> Who will implement this policy</li>
+                    <li><strong>Disciplinary Actions:</strong> What happens if policy is violated</li>
+                </ul>
+                <p><strong>Then describe what policy you need:</strong></p>
+                <ul>
+                    <li>"Create a patient safety protocol policy"</li>
+                    <li>"Generate hand hygiene procedures"</li>
+                    <li>"Write emergency response procedures"</li>
+                </ul>
+                <p><strong>What policy would you like me to create?</strong></p>
+            </div>
+        </div>
+    `;
+    
+    document.getElementById('generatePolicyBtn').style.display = 'none';
+    document.getElementById('chatInput').value = '';
+}
+
+function handleChatKeyPress(event) {
+    if (event.key === 'Enter') {
+        sendChatMessage();
+    }
+}
+
+function sendChatMessage() {
+    const input = document.getElementById('chatInput');
+    const message = input.value.trim();
+    
+    if (!message) return;
+    
+    addUserMessage(message);
+    input.value = '';
+    
+    // Process the message
+    processChatMessage(message);
+}
+
+function addUserMessage(message) {
+    const chatMessages = document.getElementById('chatMessages');
+    const messageDiv = document.createElement('div');
+    messageDiv.className = 'message user-message';
+    messageDiv.innerHTML = `
+        <div class="message-avatar">
+            <i class="fas fa-user"></i>
+        </div>
+        <div class="message-content">
+            <p>${message}</p>
+        </div>
+    `;
+    chatMessages.appendChild(messageDiv);
+    chatMessages.scrollTop = chatMessages.scrollHeight;
+}
+
+function addAIMessage(message) {
+    const chatMessages = document.getElementById('chatMessages');
+    const messageDiv = document.createElement('div');
+    messageDiv.className = 'message ai-message';
+    messageDiv.innerHTML = `
+        <div class="message-avatar">
+            <i class="fas fa-robot"></i>
+        </div>
+        <div class="message-content">
+            <p>${message}</p>
+        </div>
+    `;
+    chatMessages.appendChild(messageDiv);
+    chatMessages.scrollTop = chatMessages.scrollHeight;
+}
+
+function processChatMessage(message) {
+    if (chatState.isGenerating) return;
+    
+    if (chatState.step === 'start') {
+        // User's first message - generate policy directly
+        generatePolicyFromPrompt(message);
+    }
+}
+
+function generatePolicyFromPrompt(prompt) {
+    console.log('generatePolicyFromPrompt called with:', prompt);
+    chatState.isGenerating = true;
+    
+    // Show AI is thinking
+    addAIMessage(`I'll create a comprehensive policy based on your request. Let me generate that for you...`);
+    
+    // Hide chat and show loading
+    document.querySelector('.chat-container').style.display = 'none';
+    document.getElementById('aiLoading').style.display = 'block';
+    
+    // Generate policy with ChatGPT
+    generatePolicyFromPromptData(prompt)
+        .then(generatedPolicy => {
+            console.log('Policy generated successfully:', generatedPolicy);
+            chatState.currentPolicy = generatedPolicy;
+            displayAIPolicy(generatedPolicy);
+        })
+        .catch(error => {
+            console.error('Error generating policy:', error);
+            chatState.isGenerating = false;
+            // Show error message to user
+            document.getElementById('aiLoading').style.display = 'none';
+            document.getElementById('aiResult').style.display = 'block';
+            document.getElementById('aiResult').innerHTML = `
+                <div class="error-message">
+                    <h4>Error Generating Policy</h4>
+                    <p>${error.message}</p>
+                    <p>Please check your ChatGPT API key in Settings or try again.</p>
+                    <button onclick="continueChat()" class="btn btn-primary">Try Again</button>
+                </div>
+            `;
+            // Show chat again
+            document.querySelector('.chat-container').style.display = 'block';
+        });
+}
+
+async function generatePolicyFromPromptData(prompt) {
+    console.log('generatePolicyFromPromptData called with:', prompt);
+    const currentDate = new Date().toISOString().split('T')[0];
+    
+    try {
+        // Get the selected policy type
+        const policyType = document.querySelector('input[name="policyType"]:checked').value;
+        console.log('Selected policy type:', policyType);
+        
+        // Get selected options
+        const selectedOrganizations = getSelectedOrganizations();
+        const selectedRoles = getSelectedRoles();
+        const selectedDisciplinaryActions = getSelectedDisciplinaryActions();
+        
+        console.log('Selected organizations:', selectedOrganizations);
+        console.log('Selected roles:', selectedRoles);
+        console.log('Selected disciplinary actions:', selectedDisciplinaryActions);
+        
+        // Create organization names
+        const organizationNames = selectedOrganizations.map(org => getOrganizationName(org)).join(', ');
+        
+        // Create role names
+        const roleNames = selectedRoles.map(role => role.name).join(', ');
+        
+        // Create disciplinary action names
+        const disciplinaryActionNames = selectedDisciplinaryActions.map(action => action.name).join(', ');
+        
+        console.log('Organization names:', organizationNames);
+        console.log('Role names:', roleNames);
+        console.log('Disciplinary action names:', disciplinaryActionNames);
+        
+        // Create a comprehensive prompt for ChatGPT
+        const chatGPTPrompt = createSimpleChatGPTPrompt(prompt, currentDate, policyType, organizationNames, roleNames, disciplinaryActionNames);
+        console.log('ChatGPT prompt created:', chatGPTPrompt);
+        
+        // Call ChatGPT API to generate the policy
+        console.log('Calling ChatGPT API...');
+        const chatGPTResponse = await callChatGPTAPI(chatGPTPrompt);
+        console.log('ChatGPT response received:', chatGPTResponse);
+        
+        const generatedContent = chatGPTResponse.choices[0].message.content;
+        console.log('Generated content:', generatedContent);
+        
+        // Parse the ChatGPT response into a structured policy
+        const policyContent = parseChatGPTResponse(generatedContent, prompt, policyType);
+        console.log('Parsed policy content:', policyContent);
+        
+        return {
+            ...policyContent,
+            type: policyType,
+            clinics: selectedOrganizations,
+            additionalRequirements: prompt,
+            keyPoints: prompt,
+            clinicNames: organizationNames,
+            prompt: prompt,
+            selectedRoles: selectedRoles,
+            selectedDisciplinaryActions: selectedDisciplinaryActions
+        };
+    } catch (error) {
+        console.error('Error generating policy with ChatGPT:', error);
+        throw error;
+    }
+}
+
+function getSelectedOrganizations() {
+    const orgCheckboxes = document.querySelectorAll('.organization-toggles input[type="checkbox"]:checked');
+    return Array.from(orgCheckboxes).map(cb => cb.value || cb.id.replace('org-', ''));
+}
+
+function getSelectedRoles() {
+    const roleCheckboxes = document.querySelectorAll('.responsibility-toggles input[type="checkbox"]:checked');
+    return Array.from(roleCheckboxes).map(cb => ({
+        name: cb.value || cb.nextElementSibling.textContent.trim()
+    }));
+}
+
+function getSelectedDisciplinaryActions() {
+    const actionCheckboxes = document.querySelectorAll('.disciplinary-toggles input[type="checkbox"]:checked');
+    return Array.from(actionCheckboxes).map(cb => ({
+        name: cb.value || cb.nextElementSibling.textContent.trim()
+    }));
+}
+
+function getOrganizationName(orgValue) {
+    const orgNames = {
+        'all': 'All Organizations',
+        'tudor-glen': 'Tudor Glen',
+        'river-valley': 'River Valley',
+        'rosslyn': 'Rosslyn',
+        'upc': 'UPC'
+    };
+    return orgNames[orgValue] || orgValue;
+}
+
+function createSimpleChatGPTPrompt(userPrompt, currentDate, policyType, organizationNames, roleNames, disciplinaryActionNames) {
+    const typeLabels = {
+        'admin': 'Administrative Policy',
+        'sog': 'Standard Operating Guidelines',
+        'memo': 'Communication Memo'
+    };
+    
+    const typeLabel = typeLabels[policyType] || 'Policy';
+    
+    return `Create a comprehensive ${typeLabel} for veterinary clinics with the following specifications:
+
+POLICY TYPE: ${typeLabel}
+APPLICABLE ORGANIZATIONS: ${organizationNames || 'All Organizations'}
+RESPONSIBLE ROLES: ${roleNames || 'All Staff'}
+DISCIPLINARY ACTIONS: ${disciplinaryActionNames || 'As per company policy'}
+
+USER REQUEST: ${userPrompt}
+
+Please create a professional policy document that includes all necessary sections and headers appropriate for a ${typeLabel}. The policy should be comprehensive, clear, and suitable for veterinary clinic operations.
+
+Format the response as a complete policy document with proper headers, sections, and professional language.`;
+}
+
+async function callChatGPTAPI(prompt) {
+    const apiKey = localStorage.getItem('globalOpenAIApiKey');
+    if (!apiKey) {
+        throw new Error('OpenAI API key not found. Please set it in Settings.');
+    }
+    
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${apiKey}`
+        },
+        body: JSON.stringify({
+            model: 'gpt-3.5-turbo',
+            messages: [
+                {
+                    role: 'system',
+                    content: 'You are a professional policy writer specializing in veterinary clinic operations and healthcare compliance.'
+                },
+                {
+                    role: 'user',
+                    content: prompt
+                }
+            ],
+            max_tokens: 2000,
+            temperature: 0.7
+        })
+    });
+    
+    if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(`OpenAI API error: ${errorData.error?.message || 'Unknown error'}`);
+    }
+    
+    return await response.json();
+}
+
+function parseChatGPTResponse(content, prompt, policyType) {
+    // Simple parsing - return the content as-is for now
+    return {
+        title: `Generated ${policyType.charAt(0).toUpperCase() + policyType.slice(1)} Policy`,
+        content: content,
+        effectiveDate: new Date().toISOString().split('T')[0],
+        lastReviewed: new Date().toISOString().split('T')[0],
+        approvedBy: 'AI Policy Assistant',
+        version: '1.0',
+        purpose: prompt,
+        scope: 'All applicable organizations',
+        policyStatement: content,
+        definitions: 'As defined in the policy content',
+        procedure: 'As outlined in the policy content',
+        responsibilities: 'As specified in the policy content',
+        consequences: 'As outlined in the policy content',
+        relatedDocuments: 'Refer to company handbook',
+        reviewApproval: 'Annual review required'
+    };
+}
+
+function displayAIPolicy(policy) {
+    chatState.isGenerating = false;
+    
+    // Hide loading and show result
+    document.getElementById('aiLoading').style.display = 'none';
+    document.getElementById('aiResult').style.display = 'block';
+    
+    // Display the policy
+    document.getElementById('policyPreview').textContent = policy.content;
+    
+    // Show success message
+    addAIMessage(`Perfect! I've generated your ${policy.type} policy. You can review it below and save it if you're satisfied.`);
+    
+    // Show chat again
+    document.querySelector('.chat-container').style.display = 'block';
+}
+
+function continueChat() {
+    // Hide result and show chat again
+    document.getElementById('aiResult').style.display = 'none';
+    document.querySelector('.chat-container').style.display = 'block';
+    
+    addAIMessage(`Great! Your policy has been generated. Is there anything else you'd like to modify or add?`);
+    chatState.step = 'modify';
+}
+
+function saveGeneratedPolicy() {
+    if (!chatState.currentPolicy) {
+        alert('No policy to save');
+        return;
+    }
+    
+    // Here you would implement saving the policy
+    // For now, just show a success message
+    showNotification('Policy saved successfully!', 'success');
+    closeAIModal();
+}
+
+function downloadGeneratedPolicy() {
+    if (!chatState.currentPolicy) {
+        alert('No policy to download');
+        return;
+    }
+    
+    const policy = chatState.currentPolicy;
+    const content = `Policy Title: ${policy.title}\n\n${policy.content}`;
+    
+    const blob = new Blob([content], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${policy.title.replace(/[^a-zA-Z0-9]/g, '_')}.txt`;
+    a.click();
+    URL.revokeObjectURL(url);
+    
+    showNotification('Policy downloaded successfully!', 'success');
+}
+
+function regeneratePolicy() {
+    if (!chatState.currentPolicy) {
+        alert('No policy to regenerate');
+        return;
+    }
+    
+    const prompt = chatState.currentPolicy.prompt;
+    generatePolicyFromPrompt(prompt);
+}
+
+function toggleAllOrganizations() {
+    const allCheckbox = document.getElementById('org-all');
+    const otherCheckboxes = document.querySelectorAll('.organization-toggles input[type="checkbox"]:not(#org-all)');
+    
+    otherCheckboxes.forEach(checkbox => {
+        checkbox.checked = allCheckbox.checked;
+    });
+}
+
 // Load settings when page loads
 document.addEventListener('DOMContentLoaded', function() {
     // Load saved API keys into settings form

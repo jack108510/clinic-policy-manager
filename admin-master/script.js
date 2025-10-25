@@ -257,6 +257,7 @@ function displayCompanies() {
 }
 
 function displayUsers() {
+    console.log('displayUsers called, users count:', users.length);
     const usersList = document.getElementById('usersList');
     usersList.innerHTML = '';
     
@@ -274,6 +275,7 @@ function displayUsers() {
     }
     
     users.forEach(user => {
+        console.log('Processing user:', user.username, 'role:', user.role);
         const row = document.createElement('tr');
         row.innerHTML = `
             <td><input type="checkbox" class="user-checkbox" value="${user.id}"></td>
@@ -290,11 +292,11 @@ function displayUsers() {
             <td><span class="status-badge status-active">Active</span></td>
             <td>
                 <div class="action-buttons">
-                    <button onclick="changeUserRole('${user.id}', '${user.role === 'Admin' ? 'user' : 'Admin'}')" 
-                            class="btn btn-small ${user.role === 'Admin' ? 'btn-warning' : 'btn-success'}"
-                            title="${user.role === 'Admin' ? 'Remove Admin Role' : 'Make Admin'}">
-                        <i class="fas fa-${user.role === 'Admin' ? 'user-minus' : 'user-plus'}"></i> 
-                        ${user.role === 'Admin' ? 'Remove Admin' : 'Make Admin'}
+                    <button onclick="changeUserRole('${user.id}', '${(user.role === 'Admin' || user.role === 'admin') ? 'user' : 'Admin'}')" 
+                            class="btn btn-small ${(user.role === 'Admin' || user.role === 'admin') ? 'btn-warning' : 'btn-success'}"
+                            title="${(user.role === 'Admin' || user.role === 'admin') ? 'Remove Admin Role' : 'Make Admin'}">
+                        <i class="fas fa-${(user.role === 'Admin' || user.role === 'admin') ? 'user-minus' : 'user-plus'}"></i> 
+                        ${(user.role === 'Admin' || user.role === 'admin') ? 'Remove Admin' : 'Make Admin'}
                     </button>
                     <button onclick="deleteUser('${user.id}')" class="btn btn-small btn-danger">
                         <i class="fas fa-trash"></i> Delete
@@ -318,6 +320,13 @@ function changeUserRole(userId, newRole) {
     
     const oldRole = user.role;
     user.role = newRole;
+    
+    // Normalize role format for consistency
+    if (user.role === 'Admin') {
+        user.role = 'admin';
+    } else if (user.role === 'User') {
+        user.role = 'user';
+    }
     
     // Save to localStorage
     localStorage.setItem('masterUsers', JSON.stringify(users));

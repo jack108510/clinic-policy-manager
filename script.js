@@ -5946,6 +5946,7 @@ function checkAdminPassword(event) {
     console.log('checkAdminPassword function called!');
     console.log('Event:', event);
     console.log('Checking admin password...');
+    console.log('Full currentUser object:', JSON.stringify(currentUser, null, 2));
     
     // First, check if user is logged in with their company
     if (!currentUser || !currentCompany) {
@@ -5955,12 +5956,20 @@ function checkAdminPassword(event) {
     }
     
     // Check if user has admin role - bypass password
-    if (currentUser.role === 'admin' || currentUser.role === 'Admin') {
+    console.log('Checking user role:', currentUser.role);
+    console.log('Role comparison results:');
+    console.log('  currentUser.role === "admin":', currentUser.role === 'admin');
+    console.log('  currentUser.role === "Admin":', currentUser.role === 'Admin');
+    console.log('  currentUser.role.toLowerCase() === "admin":', currentUser.role && currentUser.role.toLowerCase() === 'admin');
+    
+    if (currentUser.role === 'admin' || currentUser.role === 'Admin' || (currentUser.role && currentUser.role.toLowerCase() === 'admin')) {
         console.log('User has admin role, granting access without password');
         closePasswordModal();
         openAdminModal();
         showNotification('Admin access granted!', 'success');
         return;
+    } else {
+        console.log('User does not have admin role, requiring password');
     }
     
     const password = document.getElementById('adminPassword').value;

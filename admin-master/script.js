@@ -2447,6 +2447,7 @@ function sendChatMessage() {
     
     if (!message) return;
     
+    console.log('📝 User sent message:', message);
     addUserMessage(message);
     input.value = '';
     
@@ -2496,7 +2497,7 @@ function processChatMessage(message) {
 }
 
 function generatePolicyFromPrompt(prompt) {
-    console.log('generatePolicyFromPrompt called with:', prompt);
+    console.log('🚀 generatePolicyFromPrompt called with:', prompt);
     chatState.isGenerating = true;
     
     // Show AI is thinking
@@ -2505,6 +2506,8 @@ function generatePolicyFromPrompt(prompt) {
     // Hide chat and show loading
     document.querySelector('.chat-container').style.display = 'none';
     document.getElementById('aiLoading').style.display = 'block';
+    
+    console.log('🔄 Starting policy generation process...');
     
     // Generate policy with ChatGPT
     generatePolicyFromPromptData(prompt)
@@ -2650,10 +2653,13 @@ Format the response as a complete policy document with proper headers, sections,
 }
 
 async function callChatGPTAPI(prompt) {
+    console.log('🔑 Checking for OpenAI API key...');
     const apiKey = localStorage.getItem('globalOpenAIApiKey');
     if (!apiKey) {
+        console.error('❌ OpenAI API key not found');
         throw new Error('OpenAI API key not found. Please set it in Settings.');
     }
+    console.log('✅ OpenAI API key found, making request...');
     
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
         method: 'POST',
@@ -2679,11 +2685,16 @@ async function callChatGPTAPI(prompt) {
     });
     
     if (!response.ok) {
+        console.error('❌ OpenAI API request failed:', response.status, response.statusText);
         const errorData = await response.json();
+        console.error('❌ Error details:', errorData);
         throw new Error(`OpenAI API error: ${errorData.error?.message || 'Unknown error'}`);
     }
     
-    return await response.json();
+    console.log('✅ OpenAI API request successful');
+    const result = await response.json();
+    console.log('📄 OpenAI response received:', result);
+    return result;
 }
 
 function parseChatGPTResponse(content, prompt, policyType) {

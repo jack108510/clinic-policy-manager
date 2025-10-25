@@ -4511,8 +4511,8 @@ function openAIModal() {
     document.getElementById('aiResult').style.display = 'none';
     document.getElementById('aiLoading').style.display = 'none';
     
-    // Hide policy selection options and show chat interface
-    document.querySelector('.policy-type-selection').style.display = 'none';
+    // Show policy type selection and chat interface, hide detailed options
+    document.querySelector('.policy-type-selection').style.display = 'block';
     document.querySelector('.policy-options-selection').style.display = 'none';
     document.querySelector('.chat-container').style.display = 'block';
     document.getElementById('aiSurveyForm').style.display = 'none';
@@ -4532,7 +4532,7 @@ function showPolicyOptions() {
 }
 
 function showChatInterface() {
-    document.querySelector('.policy-type-selection').style.display = 'none';
+    document.querySelector('.policy-type-selection').style.display = 'block';
     document.querySelector('.policy-options-selection').style.display = 'none';
     document.querySelector('.chat-container').style.display = 'block';
 }
@@ -4553,7 +4553,7 @@ function resetChat() {
             <div class="message-content">
                 <p><strong>Hello! I'm your AI Policy Assistant powered by ChatGPT.</strong></p>
                 <p>I can create comprehensive, professional healthcare policies for your veterinary clinics. Simply tell me what policy you need, and I'll generate it with all the proper fields and sections.</p>
-                <p><strong>Examples of what you can ask for:</strong></p>
+                <p><strong>First, select the policy type above, then describe what you need:</strong></p>
                 <ul>
                     <li>"Create an admin policy for patient safety protocols"</li>
                     <li>"Generate a standard operating guideline for hand hygiene procedures"</li>

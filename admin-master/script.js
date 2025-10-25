@@ -2795,6 +2795,351 @@ function toggleAllOrganizations() {
     });
 }
 
+// Policy Management Functions
+let policies = [];
+
+function refreshPolicies() {
+    loadPoliciesFromStorage();
+    displayPolicies();
+    updatePolicyBadge();
+}
+
+function loadPoliciesFromStorage() {
+    const savedPolicies = localStorage.getItem('masterPolicies');
+    policies = savedPolicies ? JSON.parse(savedPolicies) : [];
+    console.log('📄 Loaded policies:', policies.length);
+}
+
+function savePoliciesToStorage() {
+    localStorage.setItem('masterPolicies', JSON.stringify(policies));
+    console.log('💾 Saved policies to storage:', policies.length);
+}
+
+function displayPolicies() {
+    const tbody = document.getElementById('policiesTableBody');
+    const noPoliciesMessage = document.getElementById('noPoliciesMessage');
+    
+    if (policies.length === 0) {
+        tbody.innerHTML = '';
+        noPoliciesMessage.style.display = 'block';
+        return;
+    }
+    
+    noPoliciesMessage.style.display = 'none';
+    
+    tbody.innerHTML = policies.map(policy => `
+        <tr>
+            <td>
+                <input type="checkbox" class="policy-checkbox" value="${policy.id}">
+            </td>
+            <td>
+                <strong>${policy.title}</strong>
+            </td>
+            <td>
+                <span class="policy-type-badge ${policy.type}">${getPolicyTypeLabel(policy.type)}</span>
+            </td>
+            <td>${policy.clinicNames || 'All Organizations'}</td>
+            <td>${formatDate(policy.created)}</td>
+            <td>${formatDate(policy.lastModified)}</td>
+            <td>
+                <span class="policy-status ${policy.status || 'active'}">${policy.status || 'Active'}</span>
+            </td>
+            <td>
+                <div class="policy-actions">
+                    <button class="btn btn-sm btn-primary" onclick="viewPolicy('${policy.id}')">
+                        <i class="fas fa-eye"></i> View
+                    </button>
+                    <button class="btn btn-sm btn-secondary" onclick="editPolicy('${policy.id}')">
+                        <i class="fas fa-edit"></i> Edit
+                    </button>
+                    <button class="btn btn-sm btn-danger" onclick="deletePolicy('${policy.id}')">
+                        <i class="fas fa-trash"></i> Delete
+                    </button>
+                </div>
+            </td>
+        </tr>
+    `).join('');
+}
+
+function getPolicyTypeLabel(type) {
+    const labels = {
+        'admin': 'Admin Policy',
+        'sog': 'SOG',
+        'memo': 'Memo'
+    };
+    return labels[type] || type;
+}
+
+function formatDate(dateString) {
+    if (!dateString) return 'N/A';
+    const date = new Date(dateString);
+    return date.toLocaleDateString();
+}
+
+function updatePolicyBadge() {
+    const badge = document.getElementById('policyBadge');
+    if (badge) {
+        badge.textContent = policies.length;
+    }
+}
+
+function filterPolicies() {
+    const searchTerm = document.getElementById('policySearch').value.toLowerCase();
+    const typeFilter = document.getElementById('policyTypeFilter').value;
+    const orgFilter = document.getElementById('policyOrganizationFilter').value;
+    
+    const filteredPolicies = policies.filter(policy => {
+        const matchesSearch = policy.title.toLowerCase().includes(searchTerm) || 
+                             policy.content.toLowerCase().includes(searchTerm);
+        const matchesType = !typeFilter || policy.type === typeFilter;
+        const matchesOrg = !orgFilter || policy.clinicNames?.includes(orgFilter);
+        
+        return matchesSearch && matchesType && matchesOrg;
+    });
+    
+    // Update display with filtered results
+    const tbody = document.getElementById('policiesTableBody');
+    const noPoliciesMessage = document.getElementById('noPoliciesMessage');
+    
+    if (filteredPolicies.length === 0) {
+        tbody.innerHTML = '';
+        noPoliciesMessage.style.display = 'block';
+        return;
+    }
+    
+    noPoliciesMessage.style.display = 'none';
+    
+    tbody.innerHTML = filteredPolicies.map(policy => `
+        <tr>
+            <td>
+                <input type="checkbox" class="policy-checkbox" value="${policy.id}">
+            </td>
+            <td>
+                <strong>${policy.title}</strong>
+            </td>
+            <td>
+                <span class="policy-type-badge ${policy.type}">${getPolicyTypeLabel(policy.type)}</span>
+            </td>
+            <td>${policy.clinicNames || 'All Organizations'}</td>
+            <td>${formatDate(policy.created)}</td>
+            <td>${formatDate(policy.lastModified)}</td>
+            <td>
+                <span class="policy-status ${policy.status || 'active'}">${policy.status || 'Active'}</span>
+            </td>
+            <td>
+                <div class="policy-actions">
+                    <button class="btn btn-sm btn-primary" onclick="viewPolicy('${policy.id}')">
+                        <i class="fas fa-eye"></i> View
+                    </button>
+                    <button class="btn btn-sm btn-secondary" onclick="editPolicy('${policy.id}')">
+                        <i class="fas fa-edit"></i> Edit
+                    </button>
+                    <button class="btn btn-sm btn-danger" onclick="deletePolicy('${policy.id}')">
+                        <i class="fas fa-trash"></i> Delete
+                    </button>
+                </div>
+            </td>
+        </tr>
+    `).join('');
+}
+
+function toggleAllPolicySelection() {
+    const selectAll = document.getElementById('selectAllPolicies');
+    const checkboxes = document.querySelectorAll('.policy-checkbox');
+    
+    checkboxes.forEach(checkbox => {
+        checkbox.checked = selectAll.checked;
+    });
+}
+
+function bulkDeletePolicies() {
+    const selectedCheckboxes = document.querySelectorAll('.policy-checkbox:checked');
+    const selectedIds = Array.from(selectedCheckboxes).map(cb => cb.value);
+    
+    if (selectedIds.length === 0) {
+        showNotification('Please select policies to delete', 'warning');
+        return;
+    }
+    
+    if (confirm(`Are you sure you want to delete ${selectedIds.length} policy(ies)? This action cannot be undone.`)) {
+        policies = policies.filter(policy => !selectedIds.includes(policy.id));
+        savePoliciesToStorage();
+        displayPolicies();
+        updatePolicyBadge();
+        showNotification(`${selectedIds.length} policy(ies) deleted successfully`, 'success');
+    }
+}
+
+function viewPolicy(policyId) {
+    const policy = policies.find(p => p.id === policyId);
+    if (!policy) return;
+    
+    // Create a simple view modal
+    const modal = document.createElement('div');
+    modal.className = 'modal';
+    modal.style.display = 'block';
+    modal.innerHTML = `
+        <div class="modal-content" style="max-width: 800px;">
+            <div class="modal-header">
+                <h3>${policy.title}</h3>
+                <button class="modal-close" onclick="this.closest('.modal').remove()">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="policy-view">
+                    <div class="policy-meta">
+                        <p><strong>Type:</strong> ${getPolicyTypeLabel(policy.type)}</p>
+                        <p><strong>Organizations:</strong> ${policy.clinicNames || 'All Organizations'}</p>
+                        <p><strong>Created:</strong> ${formatDate(policy.created)}</p>
+                        <p><strong>Last Modified:</strong> ${formatDate(policy.lastModified)}</p>
+                    </div>
+                    <div class="policy-content">
+                        <h4>Policy Content:</h4>
+                        <pre style="white-space: pre-wrap; font-family: 'Courier New', monospace; background: #f8f9fa; padding: 20px; border-radius: 8px;">${policy.content}</pre>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(modal);
+}
+
+function editPolicy(policyId) {
+    const policy = policies.find(p => p.id === policyId);
+    if (!policy) return;
+    
+    // Populate the edit form
+    document.getElementById('editPolicyTitle').value = policy.title;
+    document.getElementById('editPolicyType').value = policy.type;
+    document.getElementById('editPolicyContent').value = policy.content;
+    document.getElementById('editPolicyEffectiveDate').value = policy.effectiveDate || '';
+    document.getElementById('editPolicyVersion').value = policy.version || '1.0';
+    
+    // Set organizations
+    const organizations = policy.clinicNames ? policy.clinicNames.split(', ') : [];
+    document.getElementById('editOrgAll').checked = organizations.includes('All Organizations');
+    document.getElementById('editOrgTudorGlen').checked = organizations.includes('Tudor Glen');
+    document.getElementById('editOrgRiverValley').checked = organizations.includes('River Valley');
+    document.getElementById('editOrgRosslyn').checked = organizations.includes('Rosslyn');
+    document.getElementById('editOrgUPC').checked = organizations.includes('UPC');
+    
+    // Store current policy ID for saving
+    document.getElementById('policyEditForm').dataset.policyId = policyId;
+    
+    // Show the modal
+    document.getElementById('policyEditModal').style.display = 'block';
+}
+
+function closePolicyEditModal() {
+    document.getElementById('policyEditModal').style.display = 'none';
+    document.getElementById('policyEditForm').reset();
+    document.getElementById('policyEditForm').removeAttribute('data-policy-id');
+}
+
+function savePolicyChanges() {
+    const policyId = document.getElementById('policyEditForm').dataset.policyId;
+    const policy = policies.find(p => p.id === policyId);
+    
+    if (!policy) return;
+    
+    // Get form data
+    const title = document.getElementById('editPolicyTitle').value;
+    const type = document.getElementById('editPolicyType').value;
+    const content = document.getElementById('editPolicyContent').value;
+    const effectiveDate = document.getElementById('editPolicyEffectiveDate').value;
+    const version = document.getElementById('editPolicyVersion').value;
+    
+    // Get organizations
+    const organizations = [];
+    if (document.getElementById('editOrgAll').checked) organizations.push('All Organizations');
+    if (document.getElementById('editOrgTudorGlen').checked) organizations.push('Tudor Glen');
+    if (document.getElementById('editOrgRiverValley').checked) organizations.push('River Valley');
+    if (document.getElementById('editOrgRosslyn').checked) organizations.push('Rosslyn');
+    if (document.getElementById('editOrgUPC').checked) organizations.push('UPC');
+    
+    // Update policy
+    policy.title = title;
+    policy.type = type;
+    policy.content = content;
+    policy.effectiveDate = effectiveDate;
+    policy.version = version;
+    policy.clinicNames = organizations.join(', ');
+    policy.lastModified = new Date().toISOString();
+    
+    // Save and refresh
+    savePoliciesToStorage();
+    displayPolicies();
+    closePolicyEditModal();
+    showNotification('Policy updated successfully', 'success');
+}
+
+function deletePolicy(policyId) {
+    if (!policyId) {
+        // Delete from edit modal
+        const currentPolicyId = document.getElementById('policyEditForm').dataset.policyId;
+        if (currentPolicyId) {
+            policyId = currentPolicyId;
+        }
+    }
+    
+    if (!policyId) return;
+    
+    const policy = policies.find(p => p.id === policyId);
+    if (!policy) return;
+    
+    if (confirm(`Are you sure you want to delete "${policy.title}"? This action cannot be undone.`)) {
+        policies = policies.filter(p => p.id !== policyId);
+        savePoliciesToStorage();
+        displayPolicies();
+        updatePolicyBadge();
+        closePolicyEditModal();
+        showNotification('Policy deleted successfully', 'success');
+    }
+}
+
+function toggleAllEditOrganizations() {
+    const allCheckbox = document.getElementById('editOrgAll');
+    const otherCheckboxes = document.querySelectorAll('.organization-checkboxes input[type="checkbox"]:not(#editOrgAll)');
+    
+    otherCheckboxes.forEach(checkbox => {
+        checkbox.checked = allCheckbox.checked;
+    });
+}
+
+// Enhanced saveGeneratedPolicy function to save to policies array
+function saveGeneratedPolicy() {
+    if (!chatState.currentPolicy) {
+        alert('No policy to save');
+        return;
+    }
+    
+    const policy = chatState.currentPolicy;
+    
+    // Create a new policy object
+    const newPolicy = {
+        id: Date.now().toString(),
+        title: policy.title,
+        type: policy.type,
+        content: policy.content,
+        clinicNames: policy.clinicNames,
+        effectiveDate: policy.effectiveDate,
+        version: policy.version,
+        created: new Date().toISOString(),
+        lastModified: new Date().toISOString(),
+        status: 'active',
+        prompt: policy.prompt
+    };
+    
+    // Add to policies array
+    policies.push(newPolicy);
+    savePoliciesToStorage();
+    updatePolicyBadge();
+    
+    showNotification('Policy saved successfully!', 'success');
+    closeAIModal();
+}
+
 // Load settings when page loads
 document.addEventListener('DOMContentLoaded', function() {
     // Load saved API keys into settings form
@@ -2808,4 +3153,15 @@ document.addEventListener('DOMContentLoaded', function() {
     if (savedOpenAIKey && document.getElementById('globalOpenAIApiKey')) {
         document.getElementById('globalOpenAIApiKey').value = savedOpenAIKey;
     }
+    
+    initializeData();
+    updateStats();
+    displayCompanies();
+    displayUsers();
+    displayAccessCodes();
+    initializeCharts();
+    
+    // Initialize policy management
+    loadPoliciesFromStorage();
+    updatePolicyBadge();
 });

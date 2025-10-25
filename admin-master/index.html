@@ -92,6 +92,17 @@
                 </div>
 
                 <div class="sidebar-section">
+                    <h3 class="section-title">Policy Management</h3>
+                    <nav class="sidebar-nav">
+                        <a href="#policies" class="nav-item" data-section="policies">
+                            <i class="fas fa-file-alt"></i>
+                            <span>All Policies</span>
+                            <span class="nav-badge" id="policyBadge">0</span>
+                        </a>
+                    </nav>
+                </div>
+
+                <div class="sidebar-section">
                     <h3 class="section-title">Tools & Reports</h3>
                     <nav class="sidebar-nav">
                         <a href="#policy-upload" class="nav-item" data-section="policy-upload">
@@ -395,6 +406,83 @@
 
                 <div class="codes-grid" id="accessCodesList">
                     <!-- Access codes will be loaded here -->
+                </div>
+            </section>
+
+            <!-- Policies Section -->
+            <section id="policies" class="content-section">
+                <div class="section-header">
+                    <div class="header-content">
+                        <h2>Policy Management</h2>
+                        <p>View, edit, and manage all created policies</p>
+                    </div>
+                    <div class="header-actions">
+                        <button class="btn btn-secondary" onclick="refreshPolicies()">
+                            <i class="fas fa-sync-alt"></i>
+                            Refresh
+                        </button>
+                        <button class="btn btn-danger" onclick="bulkDeletePolicies()">
+                            <i class="fas fa-trash"></i>
+                            Bulk Delete
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Policy Search and Filters -->
+                <div class="policy-filters">
+                    <div class="filter-group">
+                        <input type="text" id="policySearch" placeholder="Search policies..." onkeyup="filterPolicies()">
+                        <select id="policyTypeFilter" onchange="filterPolicies()">
+                            <option value="">All Types</option>
+                            <option value="admin">Admin Policy</option>
+                            <option value="sog">Standard Operating Guidelines</option>
+                            <option value="memo">Communication Memo</option>
+                        </select>
+                        <select id="policyOrganizationFilter" onchange="filterPolicies()">
+                            <option value="">All Organizations</option>
+                            <option value="All Organizations">All Organizations</option>
+                            <option value="Tudor Glen">Tudor Glen</option>
+                            <option value="River Valley">River Valley</option>
+                            <option value="Rosslyn">Rosslyn</option>
+                            <option value="UPC">UPC</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Policies Table -->
+                <div class="policies-table-container">
+                    <table class="policies-table">
+                        <thead>
+                            <tr>
+                                <th>
+                                    <input type="checkbox" id="selectAllPolicies" onchange="toggleAllPolicySelection()">
+                                </th>
+                                <th>Title</th>
+                                <th>Type</th>
+                                <th>Organizations</th>
+                                <th>Created</th>
+                                <th>Last Modified</th>
+                                <th>Status</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="policiesTableBody">
+                            <!-- Policies will be loaded here -->
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- No Policies Message -->
+                <div id="noPoliciesMessage" class="no-data-message" style="display: none;">
+                    <div class="no-data-icon">
+                        <i class="fas fa-file-alt"></i>
+                    </div>
+                    <h3>No Policies Found</h3>
+                    <p>No policies have been created yet. Use the AI Policy Assistant to create your first policy.</p>
+                    <button class="btn btn-primary" onclick="openAIModal()">
+                        <i class="fas fa-robot"></i>
+                        Create Policy with AI
+                    </button>
                 </div>
             </section>
 
@@ -1010,6 +1098,82 @@
         </div>
     </div>
 
+    <!-- Policy Edit Modal -->
+    <div id="policyEditModal" class="modal">
+        <div class="modal-content policy-edit-modal">
+            <div class="modal-header">
+                <h3 id="policyEditTitle">Edit Policy</h3>
+                <button class="modal-close" onclick="closePolicyEditModal()">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <form id="policyEditForm">
+                    <div class="form-group">
+                        <label for="editPolicyTitle">Policy Title</label>
+                        <input type="text" id="editPolicyTitle" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="editPolicyType">Policy Type</label>
+                        <select id="editPolicyType" required>
+                            <option value="admin">Admin Policy</option>
+                            <option value="sog">Standard Operating Guidelines</option>
+                            <option value="memo">Communication Memo</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="editPolicyOrganizations">Applicable Organizations</label>
+                        <div class="organization-checkboxes">
+                            <label class="checkbox-item">
+                                <input type="checkbox" id="editOrgAll" onchange="toggleAllEditOrganizations()">
+                                <span>All Organizations</span>
+                            </label>
+                            <label class="checkbox-item">
+                                <input type="checkbox" id="editOrgTudorGlen" value="Tudor Glen">
+                                <span>Tudor Glen</span>
+                            </label>
+                            <label class="checkbox-item">
+                                <input type="checkbox" id="editOrgRiverValley" value="River Valley">
+                                <span>River Valley</span>
+                            </label>
+                            <label class="checkbox-item">
+                                <input type="checkbox" id="editOrgRosslyn" value="Rosslyn">
+                                <span>Rosslyn</span>
+                            </label>
+                            <label class="checkbox-item">
+                                <input type="checkbox" id="editOrgUPC" value="UPC">
+                                <span>UPC</span>
+                            </label>
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="editPolicyContent">Policy Content</label>
+                        <textarea id="editPolicyContent" rows="20" required></textarea>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="editPolicyEffectiveDate">Effective Date</label>
+                        <input type="date" id="editPolicyEffectiveDate" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="editPolicyVersion">Version</label>
+                        <input type="text" id="editPolicyVersion" value="1.0" required>
+                    </div>
+                    
+                    <div class="form-actions">
+                        <button type="button" class="btn btn-secondary" onclick="closePolicyEditModal()">Cancel</button>
+                        <button type="button" class="btn btn-danger" onclick="deletePolicy()">Delete Policy</button>
+                        <button type="submit" class="btn btn-primary">Save Changes</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
     <!-- AI Policy Assistant Modal -->
     <div id="aiModal" class="modal">
         <div class="modal-content chat-modal">
@@ -1151,6 +1315,6 @@
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script src="script.js?v=5"></script>
+    <script src="script.js?v=6"></script>
 </body>
 </html>

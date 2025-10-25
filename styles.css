@@ -2511,3 +2511,281 @@ body {
     color: #6c757d;
     margin-top: 2px;
 }
+
+/* Policy Upload Styles */
+.upload-container {
+    max-width: 100%;
+    margin: 0 auto;
+}
+
+.upload-area {
+    border: 3px dashed #cbd5e0;
+    border-radius: 12px;
+    padding: 3rem;
+    text-align: center;
+    background: #f7fafc;
+    transition: all 0.3s ease;
+    cursor: pointer;
+}
+
+.upload-area:hover {
+    border-color: #667eea;
+    background: #edf2f7;
+}
+
+.upload-area.drag-over {
+    border-color: #667eea;
+    background: #e6fffa;
+    transform: scale(1.02);
+}
+
+.upload-icon {
+    font-size: 4rem;
+    color: #667eea;
+    margin-bottom: 1rem;
+}
+
+.upload-area h3 {
+    color: #2d3748;
+    font-size: 1.5rem;
+    margin-bottom: 0.5rem;
+}
+
+.upload-area p {
+    color: #718096;
+    margin-bottom: 1.5rem;
+}
+
+.upload-info {
+    margin-top: 1rem;
+    color: #a0aec0;
+    font-size: 0.875rem;
+}
+
+/* Processing Status */
+.processing-status {
+    margin: 2rem 0;
+    padding: 2rem;
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    text-align: center;
+}
+
+.processing-content h3 {
+    color: #2d3748;
+    margin: 1rem 0 0.5rem;
+}
+
+.processing-content p {
+    color: #718096;
+    margin-bottom: 1rem;
+}
+
+.processing-icon {
+    font-size: 3rem;
+    color: #667eea;
+}
+
+.progress-bar {
+    width: 100%;
+    height: 8px;
+    background: #e2e8f0;
+    border-radius: 4px;
+    overflow: hidden;
+    margin-top: 1rem;
+}
+
+.progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+    border-radius: 4px;
+    transition: width 0.3s ease;
+    width: 0%;
+}
+
+/* Uploaded Files */
+.uploaded-files {
+    margin: 2rem 0;
+    padding: 2rem;
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.uploaded-files h3 {
+    color: #2d3748;
+    margin-bottom: 1rem;
+}
+
+.file-list {
+    display: grid;
+    gap: 1rem;
+}
+
+.file-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 1rem;
+    background: #f7fafc;
+    border-radius: 8px;
+    border: 1px solid #e2e8f0;
+}
+
+.file-item-info {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.file-icon {
+    width: 48px;
+    height: 48px;
+    background: #667eea;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-size: 1.25rem;
+}
+
+.file-details h4 {
+    color: #2d3748;
+    margin: 0 0 0.25rem 0;
+}
+
+.file-details p {
+    color: #718096;
+    margin: 0;
+    font-size: 0.875rem;
+}
+
+.file-status {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.status-badge {
+    padding: 0.25rem 0.75rem;
+    border-radius: 12px;
+    font-size: 0.75rem;
+    font-weight: 600;
+}
+
+.status-badge.processing {
+    background: #fef3c7;
+    color: #92400e;
+}
+
+.status-badge.completed {
+    background: #d1fae5;
+    color: #065f46;
+}
+
+.status-badge.error {
+    background: #fee2e2;
+    color: #991b1b;
+}
+
+/* Analysis Results */
+.analysis-results {
+    margin: 2rem 0;
+    padding: 2rem;
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.analysis-results h3 {
+    color: #2d3748;
+    margin-bottom: 1.5rem;
+}
+
+.analysis-content {
+    display: grid;
+    gap: 1.5rem;
+}
+
+.analysis-item {
+    background: #f7fafc;
+    padding: 1.5rem;
+    border-radius: 8px;
+    border: 1px solid #e2e8f0;
+}
+
+.analysis-item h4 {
+    color: #2d3748;
+    margin-bottom: 0.75rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.analysis-item h4 i {
+    color: #667eea;
+}
+
+.analysis-field {
+    margin-bottom: 1rem;
+}
+
+.analysis-field label {
+    display: block;
+    color: #4a5568;
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+    font-size: 0.875rem;
+}
+
+.analysis-field .field-value {
+    background: white;
+    padding: 0.75rem;
+    border-radius: 6px;
+    border: 1px solid #e2e8f0;
+    color: #2d3748;
+    min-height: 40px;
+}
+
+.policy-type-badge {
+    display: inline-block;
+    padding: 0.25rem 0.75rem;
+    border-radius: 12px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+}
+
+.policy-type-badge.admin {
+    background: #dbeafe;
+    color: #1e40af;
+}
+
+.policy-type-badge.sog {
+    background: #fce7f3;
+    color: #9f1239;
+}
+
+.policy-type-badge.memo {
+    background: #fef3c7;
+    color: #92400e;
+}
+
+.analysis-actions {
+    display: flex;
+    gap: 1rem;
+    margin-top: 1rem;
+    padding-top: 1rem;
+    border-top: 1px solid #e2e8f0;
+}
+
+.btn-success {
+    background: #10b981;
+    color: white;
+}
+
+.btn-success:hover {
+    background: #059669;
+}

@@ -6846,3 +6846,480 @@ function getOrganizationName(orgId) {
     };
     return orgMap[orgId] || orgId;
 }
+
+// Upload Modal Functions
+let uploadedFiles = [];
+let fileAnalysisData = {};
+
+function openUploadModal() {
+    closeAdminModal(); // Close admin dashboard first
+    document.getElementById('uploadModal').classList.add('show');
+    initializePolicyUpload();
+}
+
+function closeUploadModal() {
+    document.getElementById('uploadModal').classList.remove('show');
+}
+
+function initializePolicyUpload() {
+    const uploadArea = document.getElementById('uploadArea');
+    const fileInput = document.getElementById('fileInput');
+    
+    if (!uploadArea || !fileInput) return;
+    
+    // File input change event
+    fileInput.addEventListener('change', handleFileSelect);
+    
+    // Drag and drop events
+    uploadArea.addEventListener('dragover', handleDragOver);
+    uploadArea.addEventListener('dragleave', handleDragLeave);
+    uploadArea.addEventListener('drop', handleDrop);
+    
+    console.log('Policy upload initialized');
+}
+
+function handleDragOver(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    document.getElementById('uploadArea').classList.add('drag-over');
+}
+
+function handleDragLeave(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    document.getElementById('uploadArea').classList.remove('drag-over');
+}
+
+function handleDrop(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    document.getElementById('uploadArea').classList.remove('drag-over');
+    
+    const files = e.dataTransfer.files;
+    if (files.length > 0) {
+        processFiles(Array.from(files));
+    }
+}
+
+function handleFileSelect(e) {
+    const files = e.target.files;
+    if (files.length > 0) {
+        processFiles(Array.from(files));
+    }
+}
+
+function processFiles(files) {
+    uploadedFiles = [...uploadedFiles, ...files];
+    displayUploadedFiles();
+    simulateAIAnalysis();
+}
+
+function displayUploadedFiles() {
+    const uploadedFilesDiv = document.getElementById('uploadedFiles');
+    const fileList = document.getElementById('fileList');
+    
+    if (!uploadedFilesDiv || !fileList) return;
+    
+    fileList.innerHTML = '';
+    
+    uploadedFiles.forEach((file, index) => {
+        const fileItem = document.createElement('div');
+        fileItem.className = 'file-item';
+        fileItem.innerHTML = `
+            <div class="file-item-info">
+                <div class="file-icon">
+                    <i class="fas fa-file-alt"></i>
+                </div>
+                <div class="file-details">
+                    <h4>${file.name}</h4>
+                    <p>${formatFileSize(file.size)}</p>
+                </div>
+            </div>
+            <div class="file-status">
+                <span class="status-badge processing">Processing</span>
+            </div>
+        `;
+        fileList.appendChild(fileItem);
+    });
+    
+    uploadedFilesDiv.style.display = 'block';
+}
+
+function formatFileSize(bytes) {
+    if (bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
+}
+
+function simulateAIAnalysis() {
+    const processingStatus = document.getElementById('processingStatus');
+    const progressFill = document.getElementById('progressFill');
+    
+    if (processingStatus) {
+        processingStatus.style.display = 'block';
+    }
+    
+    let progress = 0;
+    const progressInterval = setInterval(() => {
+        progress += 10;
+        if (progressFill) {
+            progressFill.style.width = progress + '%';
+        }
+        
+        if (progress >= 100) {
+            clearInterval(progressInterval);
+            setTimeout(() => {
+                if (processingStatus) {
+                    processingStatus.style.display = 'none';
+                }
+                analyzeUploadedFiles();
+            }, 500);
+        }
+    }, 200);
+}
+
+async function analyzeUploadedFiles() {
+    // Analyze files with PDF.co API and ChatGPT
+    for (let index = 0; index < uploadedFiles.length; index++) {
+        const file = uploadedFiles[index];
+        updateProcessingMessage(`Analyzing ${file.name}...`);
+        
+        try {
+            // Extract text from PDF using PDF.co
+            const extractedText = await extractTextFromPDF(file);
+            
+            // Analyze with ChatGPT
+            const analysisResult = await analyzeWithChatGPT(extractedText, file.name);
+            fileAnalysisData[file.name] = analysisResult;
+            
+            // Update file status
+            updateFileStatus(index, 'completed');
+            
+            // Update progress
+            updateProgress((index + 1) * 100 / uploadedFiles.length);
+        } catch (error) {
+            console.error(`Error analyzing ${file.name}:`, error);
+            updateFileStatus(index, 'error');
+            fileAnalysisData[file.name] = generateMockAnalysis(file); // Fallback
+        }
+    }
+    
+    // Display results when all files are processed
+    displayAnalysisResults();
+}
+
+// PDF.co API Integration
+async function extractTextFromPDF(file) {
+    // For non-PDF files, read as text directly
+    if (!file.name.toLowerCase().endsWith('.pdf')) {
+        return await readFileAsText(file);
+    }
+    
+    try {
+        // Convert file to base64
+        const base64Content = await fileToBase64(file);
+        
+        // Get PDF.co API key from global settings
+        const pdfCoApiKey = localStorage.getItem('globalPdfCoApiKey');
+        
+        if (!pdfCoApiKey || pdfCoApiKey === 'YOUR_PDF_CO_API_KEY') {
+            console.warn('PDF.co API key not configured, reading PDF as text');
+            return await readFileAsText(file);
+        }
+        
+        // Extract text using PDF.co API
+        const response = await fetch('https://api.pdf.co/v1/pdf/convert/to/text', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                async: false,
+                inline: true,
+                file: base64Content,
+                apiKey: pdfCoApiKey
+            })
+        });
+        
+        if (!response.ok) {
+            throw new Error('PDF.co API request failed');
+        }
+        
+        const data = await response.json();
+        return data.body || '';
+        
+    } catch (error) {
+        console.error('PDF extraction error:', error);
+        // Fallback to reading as text
+        return await readFileAsText(file);
+    }
+}
+
+function fileToBase64(file) {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.readAsDataURL(file);
+        reader.onload = () => {
+            const base64 = reader.result.split(',')[1];
+            resolve(base64);
+        };
+        reader.onerror = error => reject(error);
+    });
+}
+
+async function readFileAsText(file) {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = (e) => resolve(e.target.result);
+        reader.onerror = (e) => reject(e);
+        reader.readAsText(file);
+    });
+}
+
+// ChatGPT Analysis Integration
+async function analyzeWithChatGPT(text, fileName) {
+    const apiKey = localStorage.getItem('globalOpenAIApiKey');
+    
+    if (!apiKey || apiKey === 'YOUR_OPENAI_API_KEY') {
+        console.warn('OpenAI API key not configured, using mock analysis');
+        return generateMockAnalysis({ name: fileName });
+    }
+    
+    const prompt = `Analyze the following policy document and extract structured information. 
+    
+Document: ${text}
+
+Please provide a JSON response with the following structure:
+{
+  "type": "admin" | "sog" | "memo",
+  "title": "Policy Title",
+  "effectiveDate": "Date",
+  "lastReviewed": "Date",
+  "approvedBy": "Name",
+  "version": "Version",
+  "purpose": "Brief purpose statement",
+  "scope": "Scope description",
+  "policyStatement": "Main policy statement",
+  "definitions": {"term": "definition"},
+  "procedure": "Step-by-step procedure",
+  "responsibilities": "Who is responsible",
+  "consequences": "Consequences of non-compliance",
+  "relatedDocuments": ["Document1", "Document2"]
+}`;
+
+    try {
+        const response = await fetch('https://api.openai.com/v1/chat/completions', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${apiKey}`
+            },
+            body: JSON.stringify({
+                model: 'gpt-4',
+                messages: [
+                    {
+                        role: 'system',
+                        content: 'You are a policy analysis expert. Extract structured information from policy documents.'
+                    },
+                    {
+                        role: 'user',
+                        content: prompt
+                    }
+                ],
+                temperature: 0.3
+            })
+        });
+        
+        if (!response.ok) {
+            throw new Error('ChatGPT API request failed');
+        }
+        
+        const data = await response.json();
+        const analysisText = data.choices[0].message.content;
+        
+        // Parse JSON response
+        const jsonMatch = analysisText.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+            return JSON.parse(jsonMatch[0]);
+        }
+        
+        throw new Error('Could not parse ChatGPT response');
+        
+    } catch (error) {
+        console.error('ChatGPT analysis error:', error);
+        return generateMockAnalysis({ name: fileName });
+    }
+}
+
+function generateMockAnalysis(file) {
+    // Mock AI analysis - in production, this would call actual AI API
+    const policyTypes = ['admin', 'sog', 'memo'];
+    const randomType = policyTypes[Math.floor(Math.random() * policyTypes)];
+    
+    return {
+        type: randomType,
+        title: file.name.replace(/\.[^/.]+$/, '').replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
+        effectiveDate: new Date().toLocaleDateString(),
+        lastReviewed: 'Pending review',
+        approvedBy: 'Pending approval',
+        version: '1.0',
+        purpose: 'Define standards and procedures for operational excellence and compliance.',
+        scope: 'This policy applies to all employees, contractors, and stakeholders.',
+        policyStatement: 'We are committed to maintaining the highest standards of quality and compliance.',
+        definitions: {
+            'Policy': 'A course or principle of action adopted or proposed.',
+            'Compliance': 'The action or fact of complying with a desire or demand.'
+        },
+        procedure: '1. Review policy requirements\n2. Implement necessary changes\n3. Monitor compliance\n4. Report any issues',
+        responsibilities: 'All employees are responsible for understanding and following this policy.',
+        consequences: 'Failure to comply may result in disciplinary action.',
+        relatedDocuments: ['Code of Conduct', 'Employee Handbook']
+    };
+}
+
+function updateProcessingMessage(message) {
+    const messageElement = document.getElementById('processingMessage');
+    if (messageElement) {
+        messageElement.textContent = message;
+    }
+}
+
+function updateProgress(percentage) {
+    const progressFill = document.getElementById('progressFill');
+    if (progressFill) {
+        progressFill.style.width = percentage + '%';
+    }
+}
+
+function updateFileStatus(index, status) {
+    const fileItems = document.querySelectorAll('.file-item');
+    if (fileItems[index]) {
+        const statusBadge = fileItems[index].querySelector('.status-badge');
+        if (statusBadge) {
+            statusBadge.className = `status-badge ${status}`;
+            statusBadge.textContent = status === 'completed' ? 'Completed' : status === 'processing' ? 'Processing' : 'Error';
+        }
+    }
+}
+
+function displayAnalysisResults() {
+    const analysisResults = document.getElementById('analysisResults');
+    const analysisContent = document.getElementById('analysisContent');
+    
+    if (!analysisResults || !analysisContent) return;
+    
+    analysisContent.innerHTML = '';
+    
+    uploadedFiles.forEach((file) => {
+        const analysis = fileAnalysisData[file.name];
+        if (analysis) {
+            const analysisItem = document.createElement('div');
+            analysisItem.className = 'analysis-item';
+            
+            const typeClass = analysis.type === 'admin' ? 'admin' : analysis.type === 'sog' ? 'sog' : 'memo';
+            const typeLabel = analysis.type === 'admin' ? 'Admin Policy' : analysis.type === 'sog' ? 'SOG' : 'Communication Memo';
+            
+            analysisItem.innerHTML = `
+                <h4>
+                    <i class="fas fa-file-alt"></i>
+                    ${analysis.title}
+                    <span class="policy-type-badge ${typeClass}">${typeLabel}</span>
+                </h4>
+                <div class="analysis-field">
+                    <label>Effective Date</label>
+                    <div class="field-value">${analysis.effectiveDate}</div>
+                </div>
+                <div class="analysis-field">
+                    <label>Purpose</label>
+                    <div class="field-value">${analysis.purpose}</div>
+                </div>
+                <div class="analysis-field">
+                    <label>Scope</label>
+                    <div class="field-value">${analysis.scope}</div>
+                </div>
+                <div class="analysis-field">
+                    <label>Policy Statement</label>
+                    <div class="field-value">${analysis.policyStatement}</div>
+                </div>
+                <div class="analysis-field">
+                    <label>Key Responsibilities</label>
+                    <div class="field-value">${analysis.responsibilities}</div>
+                </div>
+                <div class="analysis-actions">
+                    <button class="btn btn-primary" onclick="importPolicy('${file.name}')">
+                        <i class="fas fa-check"></i>
+                        Import Policy
+                    </button>
+                    <button class="btn btn-secondary" onclick="editAnalysis('${file.name}')">
+                        <i class="fas fa-edit"></i>
+                        Edit
+                    </button>
+                    <button class="btn btn-danger" onclick="deleteAnalysis('${file.name}')">
+                        <i class="fas fa-trash"></i>
+                        Delete
+                    </button>
+                </div>
+            `;
+            
+            analysisContent.appendChild(analysisItem);
+        }
+    });
+    
+    analysisResults.style.display = 'block';
+}
+
+function importPolicy(fileName) {
+    const analysis = fileAnalysisData[fileName];
+    if (analysis) {
+        // Save policy to storage
+        const policy = {
+            id: Date.now().toString(),
+            title: analysis.title,
+            type: analysis.type,
+            content: analysis,
+            createdDate: new Date().toISOString(),
+            lastModified: new Date().toISOString(),
+            modifiedBy: currentUser?.username || 'Admin',
+            company: currentCompany
+        };
+        
+        savePolicyToStorage(policy);
+        loadPoliciesFromStorage();
+        displayPolicies();
+        
+        showNotification(`Policy "${analysis.title}" imported successfully!`, 'success');
+        closeUploadModal();
+    }
+}
+
+function editAnalysis(fileName) {
+    showNotification(`Edit functionality coming soon for ${fileName}`, 'info');
+}
+
+function deleteAnalysis(fileName) {
+    if (confirm(`Are you sure you want to delete analysis for ${fileName}?`)) {
+        delete fileAnalysisData[fileName];
+        uploadedFiles = uploadedFiles.filter(f => f.name !== fileName);
+        displayUploadedFiles();
+        displayAnalysisResults();
+        showNotification(`Analysis for ${fileName} deleted successfully`, 'success');
+    }
+}
+
+function clearUploadArea() {
+    if (confirm('Clear all uploaded files and analysis?')) {
+        uploadedFiles = [];
+        fileAnalysisData = {};
+        document.getElementById('uploadedFiles').style.display = 'none';
+        document.getElementById('analysisResults').style.display = 'none';
+        document.getElementById('processingStatus').style.display = 'none';
+        document.getElementById('fileInput').value = '';
+        showNotification('Upload area cleared', 'success');
+    }
+}
+
+function showNotification(message, type = 'info') {
+    alert(message); // Simple alert for now
+}

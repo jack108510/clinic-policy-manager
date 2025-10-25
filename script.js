@@ -5486,6 +5486,10 @@ function signupUser(event) {
         created: new Date().toISOString().split('T')[0]
     };
     
+    console.log('Creating user:', newUser);
+    console.log('masterData available:', !!masterData);
+    console.log('foundAccessCode:', !!foundAccessCode);
+    
     // Update master admin data if available
     if (masterData && foundAccessCode) {
         // Update the access code usage
@@ -5512,6 +5516,20 @@ function signupUser(event) {
         // Fallback: add to local users list
         users.push(newUser);
         saveToLocalStorage('users', users);
+        
+        // Also update master data even in fallback case
+        const currentMasterUsers = JSON.parse(localStorage.getItem('masterUsers') || '[]');
+        currentMasterUsers.push(newUser);
+        localStorage.setItem('masterUsers', JSON.stringify(currentMasterUsers));
+        
+        // Dispatch event to notify admin-master
+        window.dispatchEvent(new CustomEvent('masterDataUpdated', {
+            detail: {
+                users: currentMasterUsers,
+                companies: masterData ? masterData.companies : [],
+                accessCodes: masterData ? masterData.accessCodes : []
+            }
+        }));
     }
     
     // Auto-login the new user

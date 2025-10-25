@@ -48,13 +48,18 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Listen for data updates from main site
     window.addEventListener('masterDataUpdated', function(event) {
-        console.log('Admin-master received data update from main site:', event.detail);
+        console.log('🔔 Admin-master received data update from main site:', event.detail);
+        console.log('Event detail type:', typeof event.detail);
+        console.log('Event detail users:', event.detail?.users?.length || 'no users');
         
         if (event.detail && event.detail.users) {
+            console.log('📝 Updating users in admin-master from', users.length, 'to', event.detail.users.length);
             users = event.detail.users;
             displayUsers();
             updateStats();
-            console.log('Users updated in admin-master:', users.length);
+            console.log('✅ Users updated in admin-master:', users.length);
+        } else {
+            console.log('❌ No users in event detail');
         }
         
         if (event.detail && event.detail.companies) {

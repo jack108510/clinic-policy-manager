@@ -4510,15 +4510,31 @@ function openAIModal() {
     document.getElementById('aiModal').style.display = 'block';
     document.getElementById('aiResult').style.display = 'none';
     document.getElementById('aiLoading').style.display = 'none';
-    // Show chat interface first
+    
+    // Hide policy selection options and show chat interface
+    document.querySelector('.policy-type-selection').style.display = 'none';
+    document.querySelector('.policy-options-selection').style.display = 'none';
     document.querySelector('.chat-container').style.display = 'block';
     document.getElementById('aiSurveyForm').style.display = 'none';
+    
     resetChat();
 }
 
 function closeAIModal() {
     document.getElementById('aiModal').style.display = 'none';
     resetChat();
+}
+
+function showPolicyOptions() {
+    document.querySelector('.policy-type-selection').style.display = 'block';
+    document.querySelector('.policy-options-selection').style.display = 'block';
+    document.querySelector('.chat-container').style.display = 'none';
+}
+
+function showChatInterface() {
+    document.querySelector('.policy-type-selection').style.display = 'none';
+    document.querySelector('.policy-options-selection').style.display = 'none';
+    document.querySelector('.chat-container').style.display = 'block';
 }
 
 function resetChat() {
@@ -4535,14 +4551,15 @@ function resetChat() {
                 <i class="fas fa-robot"></i>
             </div>
             <div class="message-content">
-                <p>Hello! I'm your AI Policy Assistant powered by ChatGPT. I can create comprehensive, professional healthcare policies for you.</p>
-                <p>Simply describe what policy you need, and I'll generate it with all the proper fields and sections. For example:</p>
+                <p><strong>Hello! I'm your AI Policy Assistant powered by ChatGPT.</strong></p>
+                <p>I can create comprehensive, professional healthcare policies for your veterinary clinics. Simply tell me what policy you need, and I'll generate it with all the proper fields and sections.</p>
+                <p><strong>Examples of what you can ask for:</strong></p>
                 <ul>
                     <li>"Create an admin policy for patient safety protocols"</li>
                     <li>"Generate a standard operating guideline for hand hygiene procedures"</li>
                     <li>"Write a communication memo about new emergency procedures"</li>
                 </ul>
-                <p>What policy would you like me to create?</p>
+                <p><strong>What policy would you like me to create?</strong></p>
             </div>
         </div>
     `;

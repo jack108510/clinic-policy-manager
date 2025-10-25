@@ -5290,13 +5290,13 @@ function showSignupModal() {
     console.log('showSignupModal called');
     const modal = document.getElementById('signupModal');
     if (modal) {
-        modal.classList.add('show');
+    modal.classList.add('show');
         console.log('Signup modal shown');
-        
-        // Ensure event listeners are attached when modal is shown
-        setTimeout(() => {
-            setupSignupFormListeners();
-        }, 100);
+    
+    // Ensure event listeners are attached when modal is shown
+    setTimeout(() => {
+        setupSignupFormListeners();
+    }, 100);
     } else {
         console.error('Signup modal element not found');
     }
@@ -5330,6 +5330,7 @@ function signupUser(event) {
     
     console.log('Signup form submitted');
     
+    try {
     // Show loading state on button
     const signupButton = document.querySelector('#signupForm button[type="submit"]');
     if (signupButton) {
@@ -5436,20 +5437,20 @@ function signupUser(event) {
         if (!masterData || !masterData.accessCodes || masterData.accessCodes.length === 0) {
             showSignupError('No access codes are currently available. Please contact your administrator to create access codes in the Master Admin dashboard.');
         } else {
-            // Check if the code exists but has issues
-            const existingCode = masterData.accessCodes.find(code => code.code === accessCode);
-            if (existingCode) {
-                if (existingCode.status !== 'active') {
-                    showSignupError('Access code is not active. Please contact your administrator.');
+        // Check if the code exists but has issues
+        const existingCode = masterData.accessCodes.find(code => code.code === accessCode);
+        if (existingCode) {
+            if (existingCode.status !== 'active') {
+                showSignupError('Access code is not active. Please contact your administrator.');
                 } else if (existingCode.usedBy.length >= existingCode.maxCompanies) {
                     showSignupError(`Access code has reached its usage limit (${existingCode.usedBy.length}/${existingCode.maxCompanies}). Please contact your administrator for a new code.`);
                 } else if (existingCode.expiryDate && new Date(existingCode.expiryDate) <= new Date()) {
                     showSignupError('Access code has expired. Please contact your administrator for a new code.');
-                } else {
-                    showSignupError('Access code validation failed. Please check with your administrator.');
-                }
             } else {
-                showSignupError('Invalid access code. Please check with your administrator for a valid code.');
+                showSignupError('Access code validation failed. Please check with your administrator.');
+            }
+        } else {
+            showSignupError('Invalid access code. Please check with your administrator for a valid code.');
             }
         }
         // Reset button
@@ -5550,13 +5551,30 @@ function signupUser(event) {
     updateUserInterface();
     closeSignupModal();
     
+    // Reset signup button
+    if (signupButton) {
+        signupButton.textContent = 'Create Account';
+        signupButton.disabled = false;
+    }
+    
     // Load policies from storage after successful signup
     if (currentCompany) {
         loadPoliciesFromStorage();
     }
     
     // Show success message
-    showSuccessMessage('Account created successfully! You are now logged in.');
+    showNotification('Account created successfully! You are now logged in.', 'success');
+    
+    } catch (error) {
+        console.error('Error during signup:', error);
+        showSignupError('An error occurred during account creation. Please try again.');
+        
+        // Reset button on error
+        if (signupButton) {
+            signupButton.textContent = 'Create Account';
+            signupButton.disabled = false;
+        }
+    }
 }
 
 function loginUser(event) {

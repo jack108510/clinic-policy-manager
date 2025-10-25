@@ -5871,6 +5871,163 @@ function displayUsers() {
     `).join('');
 }
 
+// Admin Dashboard Functions
+function openPasswordModal() {
+    console.log('Opening password modal...');
+    const modal = document.getElementById('passwordModal');
+    
+    if (modal) {
+        modal.style.display = 'block';
+        modal.classList.add('show');
+        
+        // Focus on password field
+        const passwordField = document.getElementById('adminPassword');
+        if (passwordField) {
+            passwordField.focus();
+        }
+        
+        console.log('Password modal opened');
+    } else {
+        alert('Password modal not found!');
+    }
+}
+
+function closePasswordModal() {
+    console.log('Closing password modal...');
+    const modal = document.getElementById('passwordModal');
+    
+    if (modal) {
+        modal.style.display = 'none';
+        modal.classList.remove('show');
+        
+        // Clear password field
+        const passwordField = document.getElementById('adminPassword');
+        if (passwordField) {
+            passwordField.value = '';
+        }
+        
+        // Hide error messages
+        const errorMessage = document.getElementById('error-message');
+        if (errorMessage) {
+            errorMessage.style.display = 'none';
+        }
+        
+        console.log('Password modal closed');
+    }
+}
+
+function checkAdminPassword(event) {
+    if (event) {
+        event.preventDefault();
+    }
+    
+    console.log('checkAdminPassword function called!');
+    console.log('Event:', event);
+    console.log('Checking admin password...');
+    
+    // First, check if user is logged in with their company
+    if (!currentUser || !currentCompany) {
+        console.log('User not logged in with company');
+        showSignupModal();
+        return;
+    }
+    
+    // Check if user has admin role - bypass password
+    if (currentUser.role === 'admin' || currentUser.role === 'Admin') {
+        console.log('User has admin role, granting access without password');
+        closePasswordModal();
+        openAdminModal();
+        showNotification('Admin access granted!', 'success');
+        return;
+    }
+    
+    const password = document.getElementById('adminPassword').value;
+    console.log('Password entered:', password ? '***' : 'empty');
+    console.log('Current user:', currentUser);
+    console.log('Current company:', currentCompany);
+    
+    // Load master admin data to get company-specific passwords
+    const masterData = loadMasterAdminData();
+    
+    // Check if current company has a specific admin password
+    if (currentCompany && masterData && masterData.companies) {
+        const company = masterData.companies.find(c => c.name === currentCompany);
+        if (company && company.adminPassword) {
+            console.log('Checking company-specific admin password');
+            if (password === company.adminPassword) {
+                console.log('Company admin password correct!');
+                closePasswordModal();
+                openAdminModal();
+                showNotification('Admin access granted!', 'success');
+                return;
+            } else {
+                console.log('Company admin password incorrect');
+                showNotification('Incorrect admin password', 'error');
+                return;
+            }
+        }
+    }
+    
+    // Fallback to default admin password
+    if (password === 'admin123') {
+        console.log('Default admin password correct!');
+        closePasswordModal();
+        openAdminModal();
+        showNotification('Admin access granted!', 'success');
+    } else {
+        console.log('Admin password incorrect');
+        showNotification('Incorrect admin password', 'error');
+    }
+}
+
+function openAdminModal() {
+    console.log('Opening admin modal...');
+    const modal = document.getElementById('adminModal');
+    
+    if (modal) {
+        modal.style.display = 'block';
+        modal.classList.add('show');
+        
+        // Update admin stats
+        updateAdminStats();
+        
+        console.log('Admin modal opened');
+    } else {
+        alert('Admin modal not found!');
+    }
+}
+
+function closeAdminModal() {
+    console.log('Closing admin modal...');
+    const modal = document.getElementById('adminModal');
+    
+    if (modal) {
+        modal.style.display = 'none';
+        modal.classList.remove('show');
+        console.log('Admin modal closed');
+    }
+}
+
+function updateAdminStats() {
+    console.log('Updating admin stats...');
+    
+    // Update policy counts
+    const totalPolicies = policies.length;
+    const draftCount = policies.filter(p => p.status === 'draft').length;
+    const userCount = users.length;
+    
+    // Update DOM elements
+    const totalPoliciesEl = document.getElementById('adminTotalPolicies');
+    const draftCountEl = document.getElementById('adminDraftCount');
+    const userCountEl = document.getElementById('adminUserCount');
+    
+    if (totalPoliciesEl) totalPoliciesEl.textContent = totalPolicies;
+    if (draftCountEl) draftCountEl.textContent = draftCount;
+    if (userCountEl) userCountEl.textContent = userCount;
+    
+    console.log('Admin stats updated:', { totalPolicies, draftCount, userCount });
+}
+
 // API Key Management Functions
 function saveAPIKey() {
     const apiKey = document.getElementById('apiKey').value.trim();
@@ -5985,3 +6142,4 @@ function testPolicyGeneration() {
             alert('Policy generation test failed: ' + error.message);
         });
 }
+

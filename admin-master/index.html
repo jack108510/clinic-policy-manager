@@ -94,6 +94,10 @@
                 <div class="sidebar-section">
                     <h3 class="section-title">Tools & Reports</h3>
                     <nav class="sidebar-nav">
+                        <a href="#policy-upload" class="nav-item" data-section="policy-upload">
+                            <i class="fas fa-upload"></i>
+                            <span>Upload Policies</span>
+                        </a>
                         <a href="#reports" class="nav-item" data-section="reports">
                             <i class="fas fa-file-download"></i>
                             <span>Export Data</span>
@@ -486,6 +490,65 @@
                                 Export CSV
                             </button>
                         </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Policy Upload Section -->
+            <section id="policy-upload" class="content-section">
+                <div class="section-header">
+                    <div class="header-content">
+                        <h2>Policy Upload & AI Analysis</h2>
+                        <p>Upload existing policies and let AI categorize and extract information</p>
+                    </div>
+                    <div class="header-actions">
+                        <button class="btn btn-secondary" onclick="clearUploadArea()">
+                            <i class="fas fa-redo"></i>
+                            Clear
+                        </button>
+                    </div>
+                </div>
+
+                <div class="upload-container">
+                    <!-- Drag and Drop Area -->
+                    <div id="uploadArea" class="upload-area">
+                        <div class="upload-icon">
+                            <i class="fas fa-cloud-upload-alt"></i>
+                        </div>
+                        <h3>Drag & Drop Your Policy Documents Here</h3>
+                        <p>or click to browse</p>
+                        <input type="file" id="fileInput" multiple accept=".pdf,.doc,.docx,.txt" style="display: none;">
+                        <button class="btn btn-primary" onclick="document.getElementById('fileInput').click()">
+                            <i class="fas fa-folder-open"></i>
+                            Choose Files
+                        </button>
+                        <p class="upload-info">Supported formats: PDF, Word, Text files</p>
+                    </div>
+
+                    <!-- Processing Status -->
+                    <div id="processingStatus" class="processing-status" style="display: none;">
+                        <div class="processing-content">
+                            <div class="processing-icon">
+                                <i class="fas fa-cog fa-spin"></i>
+                            </div>
+                            <h3>Processing Documents...</h3>
+                            <p id="processingMessage">Analyzing uploaded policies with AI</p>
+                            <div class="progress-bar">
+                                <div id="progressFill" class="progress-fill"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Uploaded Files Preview -->
+                    <div id="uploadedFiles" class="uploaded-files" style="display: none;">
+                        <h3>Uploaded Documents</h3>
+                        <div id="fileList" class="file-list"></div>
+                    </div>
+
+                    <!-- AI Analysis Results -->
+                    <div id="analysisResults" class="analysis-results" style="display: none;">
+                        <h3>AI Analysis Results</h3>
+                        <div id="analysisContent" class="analysis-content"></div>
                     </div>
                 </div>
             </section>

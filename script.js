@@ -31,6 +31,7 @@ function loadMasterAdminData() {
 // Initialize with master admin data if available
 const masterData = loadMasterAdminData();
 let users = [];
+let policies = [];
 let currentUser = loadFromLocalStorage('currentUser', null);
 let currentCompany = loadFromLocalStorage('currentCompany', null);
 

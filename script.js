@@ -7338,3 +7338,12 @@ function clearUploadArea() {
 function showNotification(message, type = 'info') {
     alert(message); // Simple alert for now
 }
+
+function clearAllLocalStorage() {
+    if (confirm("⚠️ WARNING: This will delete ALL data including policies, users, and settings. This cannot be undone!\n\nAre you sure you want to continue?")) {
+        console.log("Clearing all localStorage data...");
+        localStorage.clear();
+        alert("All data has been cleared. The page will now reload.");
+        location.reload();
+    }
+}

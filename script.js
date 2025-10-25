@@ -5873,12 +5873,32 @@ function displayUsers() {
 
 // Admin Dashboard Functions
 function openPasswordModal() {
-    console.log('Opening password modal...');
+    console.log('openPasswordModal function called!');
+    console.log('Current user:', currentUser);
+    console.log('Current company:', currentCompany);
+    
     const modal = document.getElementById('passwordModal');
+    console.log('Password modal element:', modal);
     
     if (modal) {
+        console.log('Modal found, opening...');
         modal.style.display = 'block';
         modal.classList.add('show');
+        
+        // Update company info in modal
+        const companyNameEl = document.getElementById('adminCompanyName');
+        const companyUserEl = document.getElementById('adminCompanyUser');
+        const passwordCompanyEl = document.getElementById('adminPasswordCompanyName');
+        
+        if (companyNameEl && currentCompany) {
+            companyNameEl.textContent = currentCompany;
+        }
+        if (companyUserEl && currentUser) {
+            companyUserEl.textContent = currentUser.username;
+        }
+        if (passwordCompanyEl && currentCompany) {
+            passwordCompanyEl.textContent = currentCompany;
+        }
         
         // Focus on password field
         const passwordField = document.getElementById('adminPassword');
@@ -5886,8 +5906,9 @@ function openPasswordModal() {
             passwordField.focus();
         }
         
-        console.log('Password modal opened');
+        console.log('Password modal opened successfully');
     } else {
+        console.error('Password modal not found!');
         alert('Password modal not found!');
     }
 }

@@ -5330,13 +5330,16 @@ function signupUser(event) {
     
     console.log('Signup form submitted');
     
-    try {
-    // Show loading state on button
+    // Get button reference outside try block so it's available in catch
     const signupButton = document.querySelector('#signupForm button[type="submit"]');
-    if (signupButton) {
-        signupButton.textContent = 'Creating Account...';
-        signupButton.disabled = true;
-    }
+    console.log('Signup button found:', !!signupButton);
+    
+    try {
+        // Show loading state on button
+        if (signupButton) {
+            signupButton.textContent = 'Creating Account...';
+            signupButton.disabled = true;
+        }
     
     const username = document.getElementById('signupUsername').value.trim();
     const email = document.getElementById('signupEmail').value.trim();
@@ -5567,6 +5570,14 @@ function signupUser(event) {
     
     } catch (error) {
         console.error('Error during signup:', error);
+        console.error('Error stack:', error.stack);
+        console.error('Error details:', {
+            message: error.message,
+            name: error.name,
+            line: error.lineNumber,
+            column: error.columnNumber
+        });
+        
         showSignupError('An error occurred during account creation. Please try again.');
         
         // Reset button on error

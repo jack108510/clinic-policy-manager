@@ -5335,21 +5335,25 @@ function signupUser(event) {
     console.log('Signup button found:', !!signupButton);
     
     try {
+        console.log('Step 1: Starting signup process');
+        
         // Show loading state on button
         if (signupButton) {
             signupButton.textContent = 'Creating Account...';
             signupButton.disabled = true;
         }
+        console.log('Step 2: Button state updated');
     
     const username = document.getElementById('signupUsername').value.trim();
     const email = document.getElementById('signupEmail').value.trim();
     const password = document.getElementById('signupPassword').value.trim();
     const accessCode = document.getElementById('signupAccessCode').value.trim();
     
-    console.log('Form data:', { username, email, password: '***', accessCode });
+    console.log('Step 3: Form data extracted:', { username, email, password: '***', accessCode });
     
     // Validate required fields
     if (!username || !email || !password || !accessCode) {
+        console.log('Step 4: Validation failed - missing fields');
         showSignupError('Please fill in all required fields.');
         // Reset button
         if (signupButton) {
@@ -5358,10 +5362,12 @@ function signupUser(event) {
         }
         return;
     }
+    console.log('Step 5: Field validation passed');
     
     // Validate access code against master admin data
+    console.log('Step 6: Loading master admin data...');
     const masterData = loadMasterAdminData();
-    console.log('Master data loaded:', masterData);
+    console.log('Step 7: Master data loaded:', masterData);
     console.log('Access codes available:', masterData.accessCodes);
     console.log('Access code entered:', accessCode);
     
@@ -5385,10 +5391,13 @@ function signupUser(event) {
         console.log('No access codes found in master data');
     }
     
+    console.log('Step 8: Starting access code validation...');
+    
     let validAccessCode = false;
     let foundAccessCode = null;
     
     if (masterData && masterData.accessCodes && masterData.accessCodes.length > 0) {
+        console.log('Step 9: Checking access codes...');
         console.log('Starting access code validation...');
         console.log('Looking for code:', accessCode);
         
@@ -5410,7 +5419,7 @@ function signupUser(event) {
             return isValid;
         });
         
-        console.log('Found access code:', foundAccessCode);
+        console.log('Step 10: Access code search completed. Found:', foundAccessCode);
         validAccessCode = !!foundAccessCode;
         
         // Show why the access code wasn't found
@@ -5431,11 +5440,14 @@ function signupUser(event) {
             console.log('Access code found and validated successfully!');
         }
     } else {
-        console.log('No master data or access codes found - access code required');
+        console.log('Step 11: No master data or access codes found - access code required');
         validAccessCode = false;
     }
     
+    console.log('Step 12: Access code validation result:', validAccessCode);
+    
     if (!validAccessCode) {
+        console.log('Step 13: Access code validation failed, showing error');
         // Check if master data is available
         if (!masterData || !masterData.accessCodes || masterData.accessCodes.length === 0) {
             showSignupError('No access codes are currently available. Please contact your administrator to create access codes in the Master Admin dashboard.');
@@ -5464,9 +5476,13 @@ function signupUser(event) {
         return;
     }
     
+    console.log('Step 14: Access code validation passed, checking username/email...');
+    
     // Check if username already exists across all users
     const allUsers = masterData ? masterData.users : users;
+    console.log('Step 15: Checking username uniqueness...');
     if (allUsers.find(user => user.username === username)) {
+        console.log('Step 16: Username already exists');
         showSignupError('Username already exists. Please choose a different username.');
         // Reset button
         if (signupButton) {
@@ -5475,9 +5491,12 @@ function signupUser(event) {
         }
         return;
     }
+    console.log('Step 17: Username is unique');
     
     // Check if email already exists across all users
+    console.log('Step 18: Checking email uniqueness...');
     if (allUsers.find(user => user.email === email)) {
+        console.log('Step 19: Email already exists');
         showSignupError('Email already exists. Please use a different email.');
         // Reset button
         if (signupButton) {
@@ -5486,8 +5505,10 @@ function signupUser(event) {
         }
         return;
     }
+    console.log('Step 20: Email is unique');
     
     // Create new user with company based on access code
+    console.log('Step 21: Creating user object...');
     const newUser = {
         id: Date.now(),
         username: username,
@@ -5499,12 +5520,14 @@ function signupUser(event) {
         created: new Date().toISOString().split('T')[0]
     };
     
+    console.log('Step 22: User object created:', newUser);
     console.log('Creating user:', newUser);
     console.log('masterData available:', !!masterData);
     console.log('foundAccessCode:', !!foundAccessCode);
     
     // Update master admin data if available
     if (masterData && foundAccessCode) {
+        console.log('Step 23: Updating master admin data...');
         // Update the access code usage
         foundAccessCode.usedBy.push(newUser.company);
         localStorage.setItem('masterAccessCodes', JSON.stringify(masterData.accessCodes));
@@ -5518,6 +5541,7 @@ function signupUser(event) {
         saveToLocalStorage('users', users);
         
         // Dispatch event to notify admin-master of the new user
+        console.log('Step 24: Dispatching masterDataUpdated event...');
         window.dispatchEvent(new CustomEvent('masterDataUpdated', {
             detail: {
                 users: masterData.users,
@@ -5525,7 +5549,9 @@ function signupUser(event) {
                 accessCodes: masterData.accessCodes
             }
         }));
+        console.log('Step 25: Event dispatched successfully');
     } else {
+        console.log('Step 26: No valid access code - user creation not allowed');
         // No valid access code - user creation not allowed
         console.log('User creation blocked - no valid access code provided');
         showSignupError('A valid access code is required to create an account. Please contact your administrator.');
@@ -5538,35 +5564,42 @@ function signupUser(event) {
         return;
     }
     
+    console.log('Step 27: Auto-logging in user...');
     // Auto-login the new user
     currentUser = newUser;
     currentCompany = newUser.company;
     saveToLocalStorage('currentUser', currentUser);
     saveToLocalStorage('currentCompany', currentCompany);
     
-    console.log('User saved to localStorage:', {
+    console.log('Step 28: User saved to localStorage:', {
         users: users.length,
         currentUser: currentUser.username,
         currentCompany: currentCompany
     });
     
+    console.log('Step 29: Updating UI...');
     // Update UI
     updateUserInterface();
     closeSignupModal();
     
+    console.log('Step 30: Resetting signup button...');
     // Reset signup button
     if (signupButton) {
         signupButton.textContent = 'Create Account';
         signupButton.disabled = false;
     }
     
+    console.log('Step 31: Loading policies...');
     // Load policies from storage after successful signup
     if (currentCompany) {
         loadPoliciesFromStorage();
     }
     
+    console.log('Step 32: Showing success message...');
     // Show success message
     showNotification('Account created successfully! You are now logged in.', 'success');
+    
+    console.log('Step 33: Signup process completed successfully!');
     
     } catch (error) {
         console.error('Error during signup:', error);

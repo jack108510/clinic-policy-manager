@@ -5407,15 +5407,10 @@ function signupUser(event) {
             console.log(`  - Status active: ${code.status === 'active'}`);
             console.log(`  - Not expired: ${!code.expiryDate || new Date(code.expiryDate) > new Date()}`);
             console.log(`  - Code object:`, code);
-            console.log(`  - usedBy property:`, code.usedBy);
-            console.log(`  - maxCompanies property:`, code.maxCompanies);
-            console.log(`  - usedBy length:`, code.usedBy ? code.usedBy.length : 'undefined');
-            console.log(`  - Usage check:`, code.usedBy ? `${code.usedBy.length} < ${code.maxCompanies}` : 'usedBy is undefined');
             
             const isValid = code.code === accessCode && 
                 code.status === 'active' && 
-                (!code.expiryDate || new Date(code.expiryDate) > new Date()) &&
-                (code.usedBy ? code.usedBy.length < code.maxCompanies : true);
+                (!code.expiryDate || new Date(code.expiryDate) > new Date());
                 
             console.log(`  - Overall valid: ${isValid}`);
             if (isValid) {
@@ -5457,20 +5452,18 @@ function signupUser(event) {
         if (!masterData || !masterData.accessCodes || masterData.accessCodes.length === 0) {
             showSignupError('No access codes are currently available. Please contact your administrator to create access codes in the Master Admin dashboard.');
         } else {
-        // Check if the code exists but has issues
-        const existingCode = masterData.accessCodes.find(code => code.code === accessCode);
-        if (existingCode) {
-            if (existingCode.status !== 'active') {
-                showSignupError('Access code is not active. Please contact your administrator.');
-                } else if (existingCode.usedBy.length >= existingCode.maxCompanies) {
-                    showSignupError(`Access code has reached its usage limit (${existingCode.usedBy.length}/${existingCode.maxCompanies}). Please contact your administrator for a new code.`);
+            // Check if the code exists but has issues
+            const existingCode = masterData.accessCodes.find(code => code.code === accessCode);
+            if (existingCode) {
+                if (existingCode.status !== 'active') {
+                    showSignupError('Access code is not active. Please contact your administrator.');
                 } else if (existingCode.expiryDate && new Date(existingCode.expiryDate) <= new Date()) {
                     showSignupError('Access code has expired. Please contact your administrator for a new code.');
+                } else {
+                    showSignupError('Access code validation failed. Please check with your administrator.');
+                }
             } else {
-                showSignupError('Access code validation failed. Please check with your administrator.');
-            }
-        } else {
-            showSignupError('Invalid access code. Please check with your administrator for a valid code.');
+                showSignupError('Invalid access code. Please check with your administrator for a valid code.');
             }
         }
         // Reset button

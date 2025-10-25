@@ -567,7 +567,7 @@ function launchNewCompany() {
     const accessCodeSelect = document.getElementById('accessCode');
     accessCodeSelect.innerHTML = '<option value="">Select Access Code</option>';
     
-    accessCodes.filter(code => code.status === 'active' && code.usedBy.length < code.maxCompanies)
+    accessCodes.filter(code => code.status === 'active')
         .forEach(code => {
             const option = document.createElement('option');
             option.value = code.code;

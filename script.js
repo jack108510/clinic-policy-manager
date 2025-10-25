@@ -147,6 +147,26 @@ document.addEventListener('DOMContentLoaded', function() {
     addLoginChecksToAllElements();
     updateUserInterface();
     
+    // Mobile menu toggle
+    const navToggle = document.querySelector('.nav-toggle');
+    const navMenu = document.querySelector('.nav-menu');
+    
+    if (navToggle && navMenu) {
+        navToggle.addEventListener('click', function() {
+            navMenu.classList.toggle('active');
+        });
+    }
+    
+    // Listen for master data updates
+    window.addEventListener('masterDataUpdated', function(event) {
+        console.log('Master data updated event received:', event.detail);
+        // Update local users data if needed
+        if (event.detail && event.detail.users) {
+            users = event.detail.users;
+            saveToLocalStorage('users', users);
+        }
+    });
+    
     // Load policies from storage if user is logged in
     if (currentUser && currentCompany) {
         console.log('Loading policies from storage for company:', currentCompany);
@@ -170,11 +190,13 @@ document.addEventListener('DOMContentLoaded', function() {
 
 // Check if user is logged in before allowing access to features
 function requireLogin() {
+    console.log('requireLogin called, currentUser:', currentUser);
     if (!currentUser) {
         console.log('User not logged in, showing signup modal');
         showSignupModal();
         return false;
     }
+    console.log('User is logged in, allowing access');
     return true;
 }
 
@@ -394,18 +416,9 @@ function createNewPolicy() {
 }
 
 // Modal Functions
-function openCreateModal() {
-    // Close admin dashboard first
-    closeAdminModal();
-    // Open create policy modal
-    createModal.style.display = 'block';
-    document.body.style.overflow = 'hidden';
-}
+// Duplicate openCreateModal function removed - using the more complete version defined later
 
-function closeCreateModal() {
-    createModal.style.display = 'none';
-    document.body.style.overflow = 'auto';
-}
+// Duplicate closeCreateModal function removed - using the more complete version defined later
 
 // Close modal when clicking outside
 window.addEventListener('click', function(e) {
@@ -567,23 +580,9 @@ style.textContent = `
 document.head.appendChild(style);
 
 // AI Policy Generation Functions
-function openAIModal() {
-    // Close admin dashboard first
-    closeAdminModal();
-    // Open AI modal
-    aiModal.style.display = 'block';
-    document.body.style.overflow = 'hidden';
-    // Reset form and hide results
-    aiForm.style.display = 'block';
-    aiLoading.style.display = 'none';
-    aiResult.style.display = 'none';
-    aiForm.reset();
-}
+// Duplicate openAIModal function removed - using the more complete version defined later
 
-function closeAIModal() {
-    aiModal.style.display = 'none';
-    document.body.style.overflow = 'auto';
-}
+// Duplicate closeAIModal function removed - using the more complete version defined later
 
 function generateAIPolicy() {
     const topic = document.getElementById('aiPolicyTopic').value;
@@ -5446,13 +5445,19 @@ function setupSignupFormListeners() {
 
 // User Management Functions
 function showSignupModal() {
+    console.log('showSignupModal called');
     const modal = document.getElementById('signupModal');
-    modal.classList.add('show');
-    
-    // Ensure event listeners are attached when modal is shown
-    setTimeout(() => {
-        setupSignupFormListeners();
-    }, 100);
+    if (modal) {
+        modal.classList.add('show');
+        console.log('Signup modal shown');
+        
+        // Ensure event listeners are attached when modal is shown
+        setTimeout(() => {
+            setupSignupFormListeners();
+        }, 100);
+    } else {
+        console.error('Signup modal element not found');
+    }
 }
 
 function closeSignupModal() {
@@ -5462,7 +5467,14 @@ function closeSignupModal() {
 }
 
 function showLoginModal() {
-    document.getElementById('loginModal').classList.add('show');
+    console.log('showLoginModal called');
+    const modal = document.getElementById('loginModal');
+    if (modal) {
+        modal.classList.add('show');
+        console.log('Login modal shown');
+    } else {
+        console.error('Login modal element not found');
+    }
 }
 
 function closeLoginModal() {
@@ -5756,14 +5768,7 @@ function loginUser(event) {
     }
 }
 
-function requireLogin() {
-    if (!currentUser) {
-        alert('Please sign up or log in to access this feature.');
-        showSignupModal();
-        return false;
-    }
-    return true;
-}
+// Duplicate requireLogin function removed - using the one defined earlier
 
 function logoutUser() {
     currentUser = null;
@@ -6060,30 +6065,7 @@ function showSettingsTab(tabName) {
     event.target.classList.add('active');
 }
 
-// Mobile menu toggle (if needed)
-document.addEventListener('DOMContentLoaded', function() {
-    const navToggle = document.querySelector('.nav-toggle');
-    const navMenu = document.querySelector('.nav-menu');
-    
-    if (navToggle && navMenu) {
-        navToggle.addEventListener('click', function() {
-            navMenu.classList.toggle('active');
-        });
-    }
-    
-    // Initialize user interface
-    updateUserInterface();
-    
-    // Listen for master data updates
-    window.addEventListener('masterDataUpdated', function(event) {
-        console.log('Master data updated event received:', event.detail);
-        // Update local users data if needed
-        if (event.detail && event.detail.users) {
-            users = event.detail.users;
-            saveToLocalStorage('users', users);
-        }
-    });
-});
+// Mobile menu toggle functionality moved to main DOMContentLoaded listener
 
 // Master Admin Data Loading
 function loadMasterAdminData() {

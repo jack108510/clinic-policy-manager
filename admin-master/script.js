@@ -310,10 +310,15 @@ function displayUsers() {
 
 function changeUserRole(userId, newRole) {
     console.log('changeUserRole called with userId:', userId, 'newRole:', newRole);
+    console.log('Current users array:', users);
+    console.log('Looking for user with ID:', userId);
     
-    const user = users.find(u => u.id === userId);
+    const user = users.find(u => u.id === userId || u.id == userId || u.id.toString() === userId.toString());
+    console.log('Found user:', user);
+    
     if (!user) {
         console.error('User not found with id:', userId);
+        console.log('Available user IDs:', users.map(u => ({ id: u.id, username: u.username })));
         showAlert('User not found!', 'error');
         return;
     }

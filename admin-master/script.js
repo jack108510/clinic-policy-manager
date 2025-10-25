@@ -1017,11 +1017,31 @@ function saveUsers() {
     localStorage.setItem('masterUsers', JSON.stringify(users));
 }
 
+function loadMasterAdminData() {
+    const savedApiKeys = localStorage.getItem('masterApiKeys');
+    const apiKeys = savedApiKeys ? JSON.parse(savedApiKeys) : {};
+    
+    return {
+        companies: companies,
+        users: users,
+        accessCodes: accessCodes,
+        openAIApiKey: apiKeys.openAIApiKey || localStorage.getItem('openAIApiKey') || '',
+        pdfCoApiKey: apiKeys.pdfCoApiKey || localStorage.getItem('pdfCoApiKey') || ''
+    };
+}
+
 function saveData() {
     localStorage.setItem('masterCompanies', JSON.stringify(companies));
     localStorage.setItem('masterUsers', JSON.stringify(users));
     localStorage.setItem('masterAccessCodes', JSON.stringify(accessCodes));
     localStorage.setItem('masterAnalytics', JSON.stringify(analytics));
+    
+    // Save API keys if they exist
+    const apiKeys = {
+        openAIApiKey: localStorage.getItem('openAIApiKey') || '',
+        pdfCoApiKey: localStorage.getItem('pdfCoApiKey') || ''
+    };
+    localStorage.setItem('masterApiKeys', JSON.stringify(apiKeys));
     
     // Sync to main site
     syncToMainSite();
@@ -1827,22 +1847,179 @@ function simulateAIAnalysis() {
     }, 200);
 }
 
-function analyzeUploadedFiles() {
-    // Simulate AI analysis on each file
-    uploadedFiles.forEach((file, index) => {
-        setTimeout(() => {
-            const analysisResult = generateMockAnalysis(file);
+async function analyzeUploadedFiles() {
+    // Analyze files with PDF.co API and ChatGPT
+    for (let index = 0; index < uploadedFiles.length; index++) {
+        const file = uploadedFiles[index];
+        updateProcessingMessage(`Analyzing ${file.name}...`);
+        
+        try {
+            // Extract text from PDF using PDF.co
+            const extractedText = await extractTextFromPDF(file);
+            
+            // Analyze with ChatGPT
+            const analysisResult = await analyzeWithChatGPT(extractedText, file.name);
             fileAnalysisData[file.name] = analysisResult;
             
             // Update file status
             updateFileStatus(index, 'completed');
             
-            // Display analysis results
-            if (index === uploadedFiles.length - 1) {
-                displayAnalysisResults();
-            }
-        }, index * 1000);
+            // Update progress
+            updateProgress((index + 1) * 100 / uploadedFiles.length);
+        } catch (error) {
+            console.error(`Error analyzing ${file.name}:`, error);
+            updateFileStatus(index, 'error');
+            fileAnalysisData[file.name] = generateMockAnalysis(file); // Fallback
+        }
+    }
+    
+    // Display results when all files are processed
+    displayAnalysisResults();
+}
+
+// PDF.co API Integration
+async function extractTextFromPDF(file) {
+    // For non-PDF files, read as text directly
+    if (!file.name.toLowerCase().endsWith('.pdf')) {
+        return await readFileAsText(file);
+    }
+    
+    try {
+        // Convert file to base64
+        const base64Content = await fileToBase64(file);
+        
+        // Get PDF.co API key from master admin settings
+        const masterData = loadMasterAdminData();
+        const pdfCoApiKey = masterData?.pdfCoApiKey;
+        
+        if (!pdfCoApiKey || pdfCoApiKey === 'YOUR_PDF_CO_API_KEY') {
+            console.warn('PDF.co API key not configured, reading PDF as text');
+            return await readFileAsText(file);
+        }
+        
+        // Extract text using PDF.co API
+        const response = await fetch('https://api.pdf.co/v1/pdf/convert/to/text', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                async: false,
+                inline: true,
+                file: base64Content,
+                apiKey: pdfCoApiKey
+            })
+        });
+        
+        if (!response.ok) {
+            throw new Error('PDF.co API request failed');
+        }
+        
+        const data = await response.json();
+        return data.body || '';
+        
+    } catch (error) {
+        console.error('PDF extraction error:', error);
+        // Fallback to reading as text
+        return await readFileAsText(file);
+    }
+}
+
+function fileToBase64(file) {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.readAsDataURL(file);
+        reader.onload = () => {
+            const base64 = reader.result.split(',')[1];
+            resolve(base64);
+        };
+        reader.onerror = error => reject(error);
     });
+}
+
+async function readFileAsText(file) {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = (e) => resolve(e.target.result);
+        reader.onerror = (e) => reject(e);
+        reader.readAsText(file);
+    });
+}
+
+// ChatGPT Analysis Integration
+async function analyzeWithChatGPT(text, fileName) {
+    const masterData = loadMasterAdminData();
+    const apiKey = masterData?.openAIApiKey || 'YOUR_OPENAI_API_KEY';
+    
+    if (apiKey === 'YOUR_OPENAI_API_KEY') {
+        console.warn('OpenAI API key not configured, using mock analysis');
+        return generateMockAnalysis({ name: fileName });
+    }
+    
+    const prompt = `Analyze the following policy document and extract structured information. 
+    
+Document: ${text}
+
+Please provide a JSON response with the following structure:
+{
+  "type": "admin" | "sog" | "memo",
+  "title": "Policy Title",
+  "effectiveDate": "Date",
+  "lastReviewed": "Date",
+  "approvedBy": "Name",
+  "version": "Version",
+  "purpose": "Brief purpose statement",
+  "scope": "Scope description",
+  "policyStatement": "Main policy statement",
+  "definitions": {"term": "definition"},
+  "procedure": "Step-by-step procedure",
+  "responsibilities": "Who is responsible",
+  "consequences": "Consequences of non-compliance",
+  "relatedDocuments": ["Document1", "Document2"]
+}`;
+
+    try {
+        const response = await fetch('https://api.openai.com/v1/chat/completions', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${apiKey}`
+            },
+            body: JSON.stringify({
+                model: 'gpt-4',
+                messages: [
+                    {
+                        role: 'system',
+                        content: 'You are a policy analysis expert. Extract structured information from policy documents.'
+                    },
+                    {
+                        role: 'user',
+                        content: prompt
+                    }
+                ],
+                temperature: 0.3
+            })
+        });
+        
+        if (!response.ok) {
+            throw new Error('ChatGPT API request failed');
+        }
+        
+        const data = await response.json();
+        const analysisText = data.choices[0].message.content;
+        
+        // Parse JSON response
+        const jsonMatch = analysisText.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+            return JSON.parse(jsonMatch[0]);
+        }
+        
+        throw new Error('Could not parse ChatGPT response');
+        
+    } catch (error) {
+        console.error('ChatGPT analysis error:', error);
+        return generateMockAnalysis({ name: fileName });
+    }
 }
 
 function generateMockAnalysis(file) {
@@ -1869,6 +2046,20 @@ function generateMockAnalysis(file) {
         consequences: 'Failure to comply may result in disciplinary action.',
         relatedDocuments: ['Code of Conduct', 'Employee Handbook']
     };
+}
+
+function updateProcessingMessage(message) {
+    const messageElement = document.getElementById('processingMessage');
+    if (messageElement) {
+        messageElement.textContent = message;
+    }
+}
+
+function updateProgress(percentage) {
+    const progressFill = document.getElementById('progressFill');
+    if (progressFill) {
+        progressFill.style.width = percentage + '%';
+    }
 }
 
 function updateFileStatus(index, status) {

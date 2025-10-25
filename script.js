@@ -277,15 +277,11 @@ function setupEventListeners() {
             checkAdminPassword(e);
         });
         
-        // Also add direct click event listener for the submit button as backup
-        const adminButton = passwordForm.querySelector('button[type="submit"]');
-        console.log('Admin button found:', adminButton);
+        // Check if admin button exists and log its onclick handler
+        const adminButton = passwordForm.querySelector('button[type="button"]');
         if (adminButton) {
-            adminButton.addEventListener('click', function(e) {
-                console.log('Admin button clicked directly!');
-                e.preventDefault();
-                checkAdminPassword(e);
-            });
+            console.log('Admin button found:', adminButton);
+            console.log('Admin button onclick handler:', adminButton.onclick);
         }
     } else {
         console.error('Password form not found!');

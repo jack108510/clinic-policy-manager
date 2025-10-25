@@ -411,6 +411,18 @@ body {
     margin-right: 4px;
 }
 
+.action-buttons {
+    display: flex;
+    gap: 5px;
+    flex-wrap: wrap;
+}
+
+.action-buttons .btn-small {
+    padding: 6px 10px;
+    font-size: 0.75rem;
+    white-space: nowrap;
+}
+
 /* Stats Grid */
 .stats-grid {
     display: grid;

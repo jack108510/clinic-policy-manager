@@ -289,13 +289,46 @@ function displayUsers() {
             <td>${formatDate(user.lastLogin || user.created)}</td>
             <td><span class="status-badge status-active">Active</span></td>
             <td>
-                <button onclick="deleteUser('${user.id}')" class="btn btn-small btn-danger">
-                    <i class="fas fa-trash"></i> Delete
-                </button>
+                <div class="action-buttons">
+                    <button onclick="changeUserRole('${user.id}', '${user.role === 'Admin' ? 'user' : 'Admin'}')" 
+                            class="btn btn-small ${user.role === 'Admin' ? 'btn-warning' : 'btn-success'}"
+                            title="${user.role === 'Admin' ? 'Remove Admin Role' : 'Make Admin'}">
+                        <i class="fas fa-${user.role === 'Admin' ? 'user-minus' : 'user-plus'}"></i> 
+                        ${user.role === 'Admin' ? 'Remove Admin' : 'Make Admin'}
+                    </button>
+                    <button onclick="deleteUser('${user.id}')" class="btn btn-small btn-danger">
+                        <i class="fas fa-trash"></i> Delete
+                    </button>
+                </div>
             </td>
         `;
         usersList.appendChild(row);
     });
+}
+
+function changeUserRole(userId, newRole) {
+    console.log('changeUserRole called with userId:', userId, 'newRole:', newRole);
+    
+    const user = users.find(u => u.id === userId);
+    if (!user) {
+        console.error('User not found with id:', userId);
+        showAlert('User not found!', 'error');
+        return;
+    }
+    
+    const oldRole = user.role;
+    user.role = newRole;
+    
+    // Save to localStorage
+    localStorage.setItem('masterUsers', JSON.stringify(users));
+    
+    // Update display
+    displayUsers();
+    
+    // Sync to main site
+    syncToMainSite();
+    
+    showAlert(`User ${user.username} role changed from ${oldRole} to ${newRole}`, 'success');
 }
 
 function deleteUser(userId) {

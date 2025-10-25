@@ -310,18 +310,35 @@ function displayUsers() {
 
 function changeUserRole(userId, newRole) {
     console.log('changeUserRole called with userId:', userId, 'newRole:', newRole);
+    console.log('userId type:', typeof userId);
     
     // Reload users from localStorage to ensure we have the latest data
     const currentUsers = JSON.parse(localStorage.getItem('masterUsers') || '[]');
     console.log('Current users from localStorage:', currentUsers);
     console.log('Looking for user with ID:', userId);
     
-    const user = currentUsers.find(u => u.id === userId || u.id == userId || u.id.toString() === userId.toString());
-    console.log('Found user:', user);
+    // Try multiple lookup methods
+    const user1 = currentUsers.find(u => u.id === userId);
+    const user2 = currentUsers.find(u => u.id == userId);
+    const user3 = currentUsers.find(u => u.id.toString() === userId.toString());
+    const user4 = currentUsers.find(u => u.id.toString() === userId.toString());
+    
+    console.log('Lookup results:');
+    console.log('  Strict equality (===):', user1);
+    console.log('  Loose equality (==):', user2);
+    console.log('  String comparison:', user3);
+    console.log('  toString comparison:', user4);
+    
+    const user = user1 || user2 || user3 || user4;
+    console.log('Final user found:', user);
     
     if (!user) {
         console.error('User not found with id:', userId);
-        console.log('Available user IDs:', currentUsers.map(u => ({ id: u.id, username: u.username })));
+        console.log('Available user IDs:', currentUsers.map(u => ({ 
+            id: u.id, 
+            idType: typeof u.id,
+            username: u.username 
+        })));
         showAlert('User not found!', 'error');
         return;
     }

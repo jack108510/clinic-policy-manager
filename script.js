@@ -340,13 +340,13 @@ function addLoginChecksToAllElements() {
 }
 
 // Display Policies
-function displayPolicies(policies) {
-    if (policies.length === 0) {
+function displayPolicies(policiesToDisplay = policies) {
+    if (!policiesToDisplay || policiesToDisplay.length === 0) {
         policiesGrid.innerHTML = '<div class="no-policies">No policies found matching your criteria.</div>';
         return;
     }
 
-    policiesGrid.innerHTML = policies.map(policy => `
+    policiesGrid.innerHTML = policiesToDisplay.map(policy => `
         <div class="policy-item" data-type="${policy.type}">
             <div class="policy-header">
                 <div>
@@ -5241,7 +5241,7 @@ function loadPoliciesFromStorage() {
     policies.push(...companyPolicies);
     
     // Display policies
-    displayPolicies();
+    displayPolicies(policies);
     
     console.log(`Loaded ${companyPolicies.length} policies for company ${currentCompany}`);
 }

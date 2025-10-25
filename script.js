@@ -5406,11 +5406,16 @@ function signupUser(event) {
             console.log(`  - Code match: ${code.code === accessCode}`);
             console.log(`  - Status active: ${code.status === 'active'}`);
             console.log(`  - Not expired: ${!code.expiryDate || new Date(code.expiryDate) > new Date()}`);
+            console.log(`  - Code object:`, code);
+            console.log(`  - usedBy property:`, code.usedBy);
+            console.log(`  - maxCompanies property:`, code.maxCompanies);
+            console.log(`  - usedBy length:`, code.usedBy ? code.usedBy.length : 'undefined');
+            console.log(`  - Usage check:`, code.usedBy ? `${code.usedBy.length} < ${code.maxCompanies}` : 'usedBy is undefined');
             
             const isValid = code.code === accessCode && 
                 code.status === 'active' && 
                 (!code.expiryDate || new Date(code.expiryDate) > new Date()) &&
-                code.usedBy.length < code.maxCompanies;
+                (code.usedBy ? code.usedBy.length < code.maxCompanies : true);
                 
             console.log(`  - Overall valid: ${isValid}`);
             if (isValid) {

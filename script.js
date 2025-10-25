@@ -4511,9 +4511,9 @@ function openAIModal() {
     document.getElementById('aiResult').style.display = 'none';
     document.getElementById('aiLoading').style.display = 'none';
     
-    // Show policy type selection and chat interface, hide detailed options
+    // Show all policy configuration options and chat interface
     document.querySelector('.policy-type-selection').style.display = 'block';
-    document.querySelector('.policy-options-selection').style.display = 'none';
+    document.querySelector('.policy-options-selection').style.display = 'block';
     document.querySelector('.chat-container').style.display = 'block';
     document.getElementById('aiSurveyForm').style.display = 'none';
     
@@ -4533,7 +4533,7 @@ function showPolicyOptions() {
 
 function showChatInterface() {
     document.querySelector('.policy-type-selection').style.display = 'block';
-    document.querySelector('.policy-options-selection').style.display = 'none';
+    document.querySelector('.policy-options-selection').style.display = 'block';
     document.querySelector('.chat-container').style.display = 'block';
 }
 
@@ -4552,12 +4552,19 @@ function resetChat() {
             </div>
             <div class="message-content">
                 <p><strong>Hello! I'm your AI Policy Assistant powered by ChatGPT.</strong></p>
-                <p>I can create comprehensive, professional healthcare policies for your veterinary clinics. Simply tell me what policy you need, and I'll generate it with all the proper fields and sections.</p>
-                <p><strong>First, select the policy type above, then describe what you need:</strong></p>
+                <p>I can create comprehensive, professional healthcare policies for your veterinary clinics. Configure your policy settings above, then describe what you need.</p>
+                <p><strong>Configure your policy:</strong></p>
                 <ul>
-                    <li>"Create an admin policy for patient safety protocols"</li>
-                    <li>"Generate a standard operating guideline for hand hygiene procedures"</li>
-                    <li>"Write a communication memo about new emergency procedures"</li>
+                    <li><strong>Policy Type:</strong> Select Admin Policy, SOG, or Communication Memo</li>
+                    <li><strong>Organizations:</strong> Choose which clinics this applies to</li>
+                    <li><strong>Responsible Roles:</strong> Who will implement this policy</li>
+                    <li><strong>Disciplinary Actions:</strong> What happens if policy is violated</li>
+                </ul>
+                <p><strong>Then describe what policy you need:</strong></p>
+                <ul>
+                    <li>"Create a patient safety protocol policy"</li>
+                    <li>"Generate hand hygiene procedures"</li>
+                    <li>"Write emergency response procedures"</li>
                 </ul>
                 <p><strong>What policy would you like me to create?</strong></p>
             </div>

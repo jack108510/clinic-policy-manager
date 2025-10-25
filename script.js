@@ -5430,10 +5430,7 @@ function signupUser(event) {
                     codeMatch: code.code === accessCode,
                     statusActive: code.status === 'active',
                     notExpired: !code.expiryDate || new Date(code.expiryDate) > new Date(),
-                    withinLimit: code.usedBy.length <= code.maxCompanies,
-                    usedBy: code.usedBy,
-                    maxCompanies: code.maxCompanies,
-                    currentUsage: `${code.usedBy.length}/${code.maxCompanies}`
+                    usedBy: code.usedBy
                 });
             });
         } else {

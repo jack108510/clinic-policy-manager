@@ -4679,16 +4679,29 @@ let chatState = {
 };
 
 function populateRolesAndDisciplinaryActions() {
+    console.log('populateRolesAndDisciplinaryActions called');
+    
     // Load from admin settings or use defaults
     const defaultRoles = ['Clinic Manager', 'Medical Director', 'Staff'];
     const defaultDisciplinaryActions = ['Verbal Warning', 'Written Warning', 'Suspension', 'Termination'];
     
     // Load organizations from localStorage
     const allOrgs = organizations[currentCompany] || organizations['Default Company'] || ['Tudor Glen', 'River Valley', 'Rosslyn', 'UPC'];
+    console.log('Organizations loaded:', allOrgs);
+    
+    // Check what's stored in localStorage
+    const storedRoles = localStorage.getItem('adminRoles') || localStorage.getItem('masterRoles') || localStorage.getItem('roles');
+    const storedDisciplinaryActions = localStorage.getItem('adminDisciplinaryActions') || localStorage.getItem('masterDisciplinaryActions') || localStorage.getItem('disciplinaryActions');
+    
+    console.log('Stored roles key:', storedRoles);
+    console.log('Stored disciplinary actions key:', storedDisciplinaryActions);
     
     // Get saved settings from admin or use defaults
-    const roles = JSON.parse(localStorage.getItem('adminRoles') || JSON.stringify(defaultRoles));
-    const disciplinaryActions = JSON.parse(localStorage.getItem('adminDisciplinaryActions') || JSON.stringify(defaultDisciplinaryActions));
+    const roles = storedRoles ? JSON.parse(storedRoles) : defaultRoles;
+    const disciplinaryActions = storedDisciplinaryActions ? JSON.parse(storedDisciplinaryActions) : defaultDisciplinaryActions;
+    
+    console.log('Roles to display:', roles);
+    console.log('Disciplinary actions to display:', disciplinaryActions);
     
     // Populate responsibility toggles
     const responsibilityToggles = document.getElementById('responsibilityToggles');

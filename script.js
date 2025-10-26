@@ -742,7 +742,13 @@ async function sendFileToWebhook(file, statusElement) {
             statusElement.className = 'status-badge error';
         }
         
-        showNotification(`Failed to upload ${file.name}: ${error.message}`, 'error');
+        // Handle CORS error specifically
+        let errorMessage = error.message;
+        if (error.message.includes('Failed to fetch') || error.message.includes('CORS')) {
+            errorMessage = 'Unable to reach webhook server. Please ensure the webhook server is running at http://localhost:5678 and CORS is configured.';
+        }
+        
+        showNotification(`Failed to upload ${file.name}: ${errorMessage}`, 'error');
     }
 }
 

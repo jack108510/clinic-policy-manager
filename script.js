@@ -3818,13 +3818,17 @@ async function sendPolicyGenerationWebhook(policyData) {
         });
         
         if (response.ok) {
+            const responseData = await response.text();
             console.log('Webhook sent successfully');
+            console.log('Webhook response:', responseData);
+            return responseData;
         } else {
             console.warn('Webhook failed:', response.status);
+            throw new Error(`Webhook failed with status: ${response.status}`);
         }
     } catch (error) {
-        console.error('Webhook error (non-blocking):', error);
-        // Don't throw - webhook failures shouldn't break policy generation
+        console.error('Webhook error:', error);
+        throw error; // Now we throw so caller can handle it
     }
 }
 
@@ -5299,7 +5303,7 @@ function startEditing(element) {
 }
 
 // Policy saving and storage functions
-function savePolicyToStorage(policy) {
+async function savePolicyToStorage(policy) {
     if (!policy || !currentCompany) {
         console.error('Cannot save policy: missing policy or company');
         return;
@@ -5331,14 +5335,18 @@ function savePolicyToStorage(policy) {
     // Save back to localStorage
     localStorage.setItem(`policies_${currentCompany}`, JSON.stringify(companyPolicies));
     
-    // Send webhook notification with loading indicator
+    // Send webhook notification with loading indicator and wait for response
     if (policy.generatedBy === 'ChatGPT' || policy.type) {
         showWebhookLoading();
-        sendPolicyGenerationWebhook(policy).then(() => {
+        
+        try {
+            const webhookResponse = await sendPolicyGenerationWebhook(policy);
             hideWebhookLoading();
-        }).catch(() => {
+            console.log('Webhook response received:', webhookResponse);
+        } catch (error) {
             hideWebhookLoading();
-        });
+            console.error('Webhook error:', error);
+        }
     }
     
     // Sync to master admin dashboard

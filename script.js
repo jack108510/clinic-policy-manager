@@ -6446,6 +6446,7 @@ function openUsersModal() {
                                     <th>Name</th>
                                     <th>Email</th>
                                     <th>Role</th>
+                                    <th>Organizations</th>
                                     <th>Company</th>
                                     <th>Created</th>
                                     <th>Actions</th>
@@ -6460,6 +6461,7 @@ function openUsersModal() {
                                         <td>${user.username || 'N/A'}</td>
                                         <td>${user.email || 'N/A'}</td>
                                         <td><span class="policy-type-badge ${user.role === 'admin' ? 'admin' : 'user'}">${user.role || 'User'}</span></td>
+                                        <td><small>${(user.organizations && user.organizations.length > 0) ? user.organizations.join(', ') : 'No organizations assigned'}</small></td>
                                         <td>${user.company || 'N/A'}</td>
                                         <td>${user.created ? new Date(user.created).toLocaleDateString() : 'N/A'}</td>
                                         <td>
@@ -6586,6 +6588,8 @@ function viewUser(userId) {
 function editUser(userId) {
     console.log('editUser called with userId:', userId);
     const allUsers = JSON.parse(localStorage.getItem('masterUsers') || '[]');
+    const allOrganizations = JSON.parse(localStorage.getItem('organizations') || '{}');
+    
     console.log('All users:', allUsers);
     
     const user = allUsers.find(u => u.id === userId || u.id === String(userId));
@@ -6596,15 +6600,86 @@ function editUser(userId) {
         return;
     }
     
-    const newRole = prompt('Enter new role (admin/user):', user.role);
-    if (!newRole) return;
+    // Get organizations for this company
+    const companyOrgs = allOrganizations[user.company] || [];
     
-    user.role = newRole.toLowerCase();
-    localStorage.setItem('masterUsers', JSON.stringify(allUsers));
+    // Get user's current organizations (if they exist)
+    const userOrgs = user.organizations || [];
     
-    showNotification('User updated successfully', 'success');
-    closeUsersModal();
-    openUsersModal(); // Refresh modal
+    // Create modal for editing user
+    const editModal = document.createElement('div');
+    editModal.className = 'modal';
+    editModal.id = 'editUserModal';
+    editModal.style.display = 'block';
+    editModal.innerHTML = `
+        <div class="modal-content" style="max-width: 600px;">
+            <div class="modal-header">
+                <h3>Edit User - ${user.username}</h3>
+                <span class="close" onclick="document.getElementById('editUserModal').remove()">&times;</span>
+            </div>
+            <div class="modal-body">
+                <form id="editUserForm">
+                    <div class="form-group">
+                        <label for="editUserRole">Role:</label>
+                        <select id="editUserRole" class="form-control" required>
+                            <option value="user" ${user.role === 'user' ? 'selected' : ''}>User</option>
+                            <option value="admin" ${user.role === 'admin' ? 'selected' : ''}>Admin</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Organizations (select all that apply):</label>
+                        <div style="margin-top: 10px;">
+                            ${companyOrgs.length > 0 ? companyOrgs.map(org => `
+                                <label style="display: block; margin-bottom: 8px;">
+                                    <input type="checkbox" name="organizations" value="${org}" 
+                                           ${userOrgs.includes(org) ? 'checked' : ''}>
+                                    ${org}
+                                </label>
+                            `).join('') : '<p style="color: #666;">No organizations configured for this company.</p>'}
+                        </div>
+                    </div>
+                    
+                    <div class="form-actions">
+                        <button type="submit" class="btn btn-primary">Save Changes</button>
+                        <button type="button" class="btn btn-secondary" onclick="document.getElementById('editUserModal').remove()">Cancel</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    `;
+    
+    document.body.appendChild(editModal);
+    
+    // Handle form submission
+    document.getElementById('editUserForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        const newRole = document.getElementById('editUserRole').value;
+        const checkboxes = document.querySelectorAll('input[name="organizations"]:checked');
+        const selectedOrgs = Array.from(checkboxes).map(cb => cb.value);
+        
+        // Update user
+        user.role = newRole;
+        user.organizations = selectedOrgs;
+        
+        // Save to localStorage
+        localStorage.setItem('masterUsers', JSON.stringify(allUsers));
+        
+        // Dispatch master data updated event
+        window.dispatchEvent(new CustomEvent('masterDataUpdated', {
+            detail: {
+                users: allUsers
+            }
+        }));
+        
+        showNotification('User updated successfully', 'success');
+        editModal.remove();
+        
+        // Refresh the users modal
+        closeUsersModal();
+        openUsersModal();
+    });
 }
 
 function deleteUser(userId) {

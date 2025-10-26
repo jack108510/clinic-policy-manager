@@ -578,6 +578,153 @@ function deleteOrganization(index, orgName) {
     }
 }
 
+function openUploadModal() {
+    document.getElementById('uploadModal').style.display = 'block';
+    
+    // Setup file input handler
+    const fileInput = document.getElementById('fileInput');
+    if (fileInput) {
+        fileInput.onchange = handleFileUpload;
+    }
+    
+    // Setup drag and drop
+    const uploadArea = document.getElementById('uploadArea');
+    if (uploadArea) {
+        uploadArea.ondragover = (e) => e.preventDefault();
+        uploadArea.ondrop = handleFileDrop;
+    }
+}
+
+function closeUploadModal() {
+    document.getElementById('uploadModal').style.display = 'none';
+    clearUploadArea();
+}
+
+function handleFileUpload(event) {
+    const files = event.target.files;
+    processFiles(files);
+}
+
+function handleFileDrop(event) {
+    event.preventDefault();
+    const files = event.dataTransfer.files;
+    
+    // Update file input for consistency
+    const fileInput = document.getElementById('fileInput');
+    if (fileInput) {
+        fileInput.files = files;
+    }
+    
+    processFiles(files);
+}
+
+function processFiles(files) {
+    if (!files || files.length === 0) return;
+    
+    // Show uploaded files
+    const uploadedFiles = document.getElementById('uploadedFiles');
+    const fileList = document.getElementById('fileList');
+    
+    if (uploadedFiles && fileList) {
+        uploadedFiles.style.display = 'block';
+        fileList.innerHTML = '';
+        
+        Array.from(files).forEach((file, index) => {
+            const fileCard = document.createElement('div');
+            fileCard.className = 'file-card';
+            fileCard.innerHTML = `
+                <div class="file-info">
+                    <i class="fas fa-file-pdf"></i>
+                    <div>
+                        <strong>${file.name}</strong>
+                        <p>${formatFileSize(file.size)}</p>
+                    </div>
+                </div>
+                <div class="file-status">
+                    <span class="status-badge pending">Pending</span>
+                </div>
+            `;
+            fileList.appendChild(fileCard);
+        });
+        
+        // Show processing status
+        showProcessingStatus();
+    }
+}
+
+function showProcessingStatus() {
+    const processingStatus = document.getElementById('processingStatus');
+    const uploadedFiles = document.getElementById('uploadedFiles');
+    const analysisResults = document.getElementById('analysisResults');
+    
+    if (processingStatus) {
+        processingStatus.style.display = 'block';
+    }
+    if (uploadedFiles) {
+        uploadedFiles.style.display = 'none';
+    }
+    if (analysisResults) {
+        analysisResults.style.display = 'none';
+    }
+    
+    // Simulate processing
+    setTimeout(() => {
+        if (processingStatus) processingStatus.style.display = 'none';
+        if (uploadedFiles) uploadedFiles.style.display = 'block';
+        if (analysisResults) analysisResults.style.display = 'block';
+        
+        const analysisContent = document.getElementById('analysisContent');
+        if (analysisContent) {
+            analysisContent.innerHTML = `
+                <div class="analysis-item success">
+                    <i class="fas fa-check-circle"></i>
+                    <div>
+                        <strong>Documents processed successfully</strong>
+                        <p>AI analysis complete. You can now view and manage these policies in the policy management section.</p>
+                    </div>
+                </div>
+            `;
+        }
+        
+        showNotification('Documents uploaded and processed successfully', 'success');
+    }, 2000);
+}
+
+function clearUploadArea() {
+    const fileInput = document.getElementById('fileInput');
+    if (fileInput) {
+        fileInput.value = '';
+    }
+    
+    const fileList = document.getElementById('fileList');
+    if (fileList) {
+        fileList.innerHTML = '';
+    }
+    
+    const uploadedFiles = document.getElementById('uploadedFiles');
+    if (uploadedFiles) {
+        uploadedFiles.style.display = 'none';
+    }
+    
+    const processingStatus = document.getElementById('processingStatus');
+    if (processingStatus) {
+        processingStatus.style.display = 'none';
+    }
+    
+    const analysisResults = document.getElementById('analysisResults');
+    if (analysisResults) {
+        analysisResults.style.display = 'none';
+    }
+}
+
+function formatFileSize(bytes) {
+    if (bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return Math.round(bytes / Math.pow(k, i)) + ' ' + sizes[i];
+}
+
 function formatDate(dateString) {
     const date = new Date(dateString);
     return date.toLocaleDateString('en-US', {

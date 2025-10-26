@@ -4161,7 +4161,20 @@ function hideWebhookLoading() {
 
 // Webhook function to send policy generation data
 async function sendPolicyGenerationWebhook(policyData) {
-    const webhookUrl = 'http://localhost:5678/webhook/05da961e-9df0-490e-815f-92d8bc9f9c1e';
+    // Get webhook URL from localStorage or use default
+    // Check if it's an AI-generated policy (should use ChatGPT webhook)
+    const isAIGenerated = policyData.generatedBy === 'ChatGPT' || policyData.type;
+    
+    let webhookUrl;
+    if (isAIGenerated) {
+        // AI Policy Assistant webhook
+        webhookUrl = localStorage.getItem('webhookUrlAI') || 'http://localhost:5678/webhook/05da961e-9df0-490e-815f-92d8bc9f9c1e';
+    } else {
+        // Manual policy or other webhook
+        webhookUrl = localStorage.getItem('webhookUrlManual') || localStorage.getItem('webhookUrlAI') || 'http://localhost:5678/webhook/05da961e-9df0-490e-815f-92d8bc9f9c1e';
+    }
+    
+    console.log('Using webhook URL:', webhookUrl, 'for AI-generated:', isAIGenerated);
     
     const webhookData = {
         timestamp: new Date().toISOString(),
@@ -4169,7 +4182,8 @@ async function sendPolicyGenerationWebhook(policyData) {
         organizations: policyData.clinicNames || policyData.organizationNames,
         userPrompt: policyData.prompt || policyData.userPrompt,
         company: currentCompany || 'Unknown',
-        username: currentUser?.username || 'Unknown'
+        username: currentUser?.username || 'Unknown',
+        tool: isAIGenerated ? 'ai-policy-assistant' : 'manual-policy'
     };
     
     try {
@@ -5337,8 +5351,58 @@ function showSettingsTab(tabName) {
     document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
     
     // Show selected tab
-    document.getElementById(tabName + 'Tab').classList.add('active');
+    const tabElement = document.getElementById(tabName + 'Tab');
+    if (tabElement) {
+        tabElement.classList.add('active');
+    }
     event.target.classList.add('active');
+    
+    // Load webhook URLs when webhooks tab is opened
+    if (tabName === 'webhooks') {
+        loadWebhookUrls();
+    }
+}
+
+function loadWebhookUrls() {
+    const aiUrlInput = document.getElementById('webhookUrlAI');
+    const manualUrlInput = document.getElementById('webhookUrlManual');
+    
+    if (aiUrlInput) {
+        const savedUrl = localStorage.getItem('webhookUrlAI');
+        if (savedUrl) {
+            aiUrlInput.value = savedUrl;
+        }
+    }
+    
+    if (manualUrlInput) {
+        const savedUrl = localStorage.getItem('webhookUrlManual');
+        if (savedUrl) {
+            manualUrlInput.value = savedUrl;
+        }
+    }
+}
+
+function saveWebhookUrls() {
+    const aiUrl = document.getElementById('webhookUrlAI')?.value.trim();
+    const manualUrl = document.getElementById('webhookUrlManual')?.value.trim();
+    const statusDiv = document.getElementById('webhookStatus');
+    
+    if (aiUrl) {
+        localStorage.setItem('webhookUrlAI', aiUrl);
+    }
+    
+    if (manualUrl) {
+        localStorage.setItem('webhookUrlManual', manualUrl);
+    }
+    
+    if (statusDiv) {
+        statusDiv.innerHTML = '<div class="notification success">Webhook URLs saved successfully!</div>';
+        setTimeout(() => {
+            statusDiv.innerHTML = '';
+        }, 3000);
+    }
+    
+    console.log('Webhook URLs saved:', { aiUrl, manualUrl });
 }
 
 function addRole() {

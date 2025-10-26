@@ -5369,6 +5369,10 @@ async function savePolicyToStorage(policy) {
                     </div>
                 `;
             }
+            
+            // Only sync to master admin dashboard if webhook succeeded
+            syncPoliciesToMasterAdmin(companyPolicies);
+            console.log(`Policy saved for company ${currentCompany}:`, policy.title);
         } catch (error) {
             console.error('Webhook error:', error);
             
@@ -5393,11 +5397,6 @@ async function savePolicyToStorage(policy) {
             }
         }
     }
-    
-    // Sync to master admin dashboard
-    syncPoliciesToMasterAdmin(companyPolicies);
-    
-    console.log(`Policy saved for company ${currentCompany}:`, policy.title);
 }
 
 function loadCompanyPolicies() {
@@ -5418,6 +5417,12 @@ function loadCompanyPolicies() {
 }
 
 function syncPoliciesToMasterAdmin(policies) {
+    // Safety check
+    if (!policies || !Array.isArray(policies)) {
+        console.error('syncPoliciesToMasterAdmin: policies is not an array:', policies);
+        return;
+    }
+    
     // Load master admin data
     const masterData = loadMasterAdminData();
     

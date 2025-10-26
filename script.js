@@ -6384,7 +6384,78 @@ function viewPolicy(policyId) {
         return;
     }
     
-    alert(`Policy: ${policy.title}\n\nContent: ${policy.content || 'No content available'}`);
+    // Show the policy view modal
+    const modal = document.getElementById('policyViewModal');
+    const titleElement = document.getElementById('policyViewTitle');
+    const contentElement = document.getElementById('policyViewContent');
+    
+    if (!modal || !titleElement || !contentElement) {
+        console.error('Policy view modal elements not found');
+        return;
+    }
+    
+    // Set title
+    titleElement.textContent = policy.title || 'Policy Details';
+    
+    // Format the policy content
+    const formattedContent = formatPolicyContentForDisplay(policy.content);
+    
+    // Build the full policy HTML
+    const policyHTML = `
+        <div class="policy-view-header" style="background: #f8f9fa; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
+            <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 15px;">
+                <div>
+                    <h4 style="margin: 0 0 10px 0; color: #1f2937;">${policy.title}</h4>
+                    <span class="policy-type-badge" style="display: inline-block; padding: 4px 12px; background: #2563eb; color: white; border-radius: 4px; font-size: 0.875rem;">
+                        ${policy.type || 'Policy'}
+                    </span>
+                </div>
+            </div>
+        </div>
+        
+        <div class="policy-view-meta" style="margin-bottom: 25px; padding: 15px; background: #f8f9fa; border-radius: 8px;">
+            ${policy.effectiveDate ? `
+                <div style="margin-bottom: 8px;">
+                    <strong><i class="fas fa-calendar"></i> Effective Date:</strong> 
+                    <span>${policy.effectiveDate}</span>
+                </div>
+            ` : ''}
+            ${policy.version ? `
+                <div style="margin-bottom: 8px;">
+                    <strong><i class="fas fa-code-branch"></i> Version:</strong> 
+                    <span>${policy.version}</span>
+                </div>
+            ` : ''}
+            ${policy.approvedBy ? `
+                <div style="margin-bottom: 8px;">
+                    <strong><i class="fas fa-user-check"></i> Approved By:</strong> 
+                    <span>${policy.approvedBy}</span>
+                </div>
+            ` : ''}
+            ${policy.clinics ? `
+                <div style="margin-bottom: 8px;">
+                    <strong><i class="fas fa-building"></i> Applicable Organizations:</strong> 
+                    <span>${policy.clinics}</span>
+                </div>
+            ` : ''}
+        </div>
+        
+        <div class="policy-view-content" style="line-height: 1.8;">
+            ${formattedContent}
+        </div>
+    `;
+    
+    contentElement.innerHTML = policyHTML;
+    
+    // Show the modal
+    modal.style.display = 'block';
+}
+
+function closePolicyViewModal() {
+    const modal = document.getElementById('policyViewModal');
+    if (modal) {
+        modal.style.display = 'none';
+    }
 }
 
 function editPolicy(policyId) {

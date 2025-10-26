@@ -5609,7 +5609,7 @@ function openPoliciesModal() {
     // Load policies for current company
     const policies = loadCompanyPolicies();
     
-    // Create modal content
+    // Create modal content with search and bulk actions
     const modalHtml = `
         <div id="policiesModal" class="modal" style="display: block;">
             <div class="modal-content" style="max-width: 1000px;">
@@ -5618,10 +5618,35 @@ function openPoliciesModal() {
                     <span class="close" onclick="closePoliciesModal()">&times;</span>
                 </div>
                 <div class="modal-body">
-                    <div class="policies-table-container">
+                    <!-- Search Bar -->
+                    <div class="policy-filters" style="margin-bottom: 20px;">
+                        <input type="text" id="policySearchInput" class="form-control" 
+                               placeholder="Search policies by title, type, or content..." 
+                               onkeyup="searchPolicies()"
+                               style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px;">
+                    </div>
+                    
+                    <!-- Bulk Actions -->
+                    <div class="bulk-actions" style="margin-bottom: 15px;">
+                        <button class="btn btn-sm btn-secondary" onclick="selectAllPolicies()">
+                            <i class="fas fa-check-square"></i> Select All
+                        </button>
+                        <button class="btn btn-sm btn-warning" onclick="bulkEditPolicies()" id="bulkEditBtn" disabled>
+                            <i class="fas fa-edit"></i> Edit Selected
+                        </button>
+                        <button class="btn btn-sm btn-danger" onclick="bulkDeletePolicies()" id="bulkDeleteBtn" disabled>
+                            <i class="fas fa-trash"></i> Delete Selected
+                        </button>
+                        <span id="selectedCount" style="margin-left: 15px; color: #666;">0 selected</span>
+                    </div>
+                    
+                    <div class="policies-table-container" style="max-height: 500px; overflow-y: auto;">
                         <table class="policies-table">
                             <thead>
                                 <tr>
+                                    <th style="width: 40px;">
+                                        <input type="checkbox" id="selectAllCheckbox" onchange="toggleSelectAll(this)">
+                                    </th>
                                     <th>Title</th>
                                     <th>Type</th>
                                     <th>Effective Date</th>
@@ -5631,7 +5656,10 @@ function openPoliciesModal() {
                             </thead>
                             <tbody id="policiesTableBody">
                                 ${policies.map(policy => `
-                                    <tr>
+                                    <tr data-policy-id="${policy.id}">
+                                        <td>
+                                            <input type="checkbox" class="policy-checkbox" data-policy-id="${policy.id}" onchange="updateSelectedCount()">
+                                        </td>
                                         <td>${policy.title || 'Untitled'}</td>
                                         <td><span class="policy-type-badge">${policy.type || 'N/A'}</span></td>
                                         <td>${policy.effectiveDate || 'N/A'}</td>
@@ -5664,6 +5692,76 @@ function openPoliciesModal() {
     }
     
     document.body.insertAdjacentHTML('beforeend', modalHtml);
+}
+
+function searchPolicies() {
+    const searchTerm = document.getElementById('policySearchInput').value.toLowerCase();
+    const rows = document.querySelectorAll('#policiesTableBody tr');
+    
+    rows.forEach(row => {
+        const text = row.textContent.toLowerCase();
+        row.style.display = text.includes(searchTerm) ? '' : 'none';
+    });
+}
+
+function toggleSelectAll(checkbox) {
+    const checkboxes = document.querySelectorAll('.policy-checkbox');
+    checkboxes.forEach(cb => {
+        cb.checked = checkbox.checked;
+        updateBulkActionButtons();
+    });
+}
+
+function updateSelectedCount() {
+    const checkboxes = document.querySelectorAll('.policy-checkbox:checked');
+    const count = checkboxes.length;
+    document.getElementById('selectedCount').textContent = `${count} selected`;
+    updateBulkActionButtons();
+}
+
+function updateBulkActionButtons() {
+    const checkboxes = document.querySelectorAll('.policy-checkbox:checked');
+    const count = checkboxes.length;
+    const bulkEditBtn = document.getElementById('bulkEditBtn');
+    const bulkDeleteBtn = document.getElementById('bulkDeleteBtn');
+    
+    if (bulkEditBtn) bulkEditBtn.disabled = count === 0;
+    if (bulkDeleteBtn) bulkDeleteBtn.disabled = count === 0;
+}
+
+function selectAllPolicies() {
+    const checkboxes = document.querySelectorAll('.policy-checkbox');
+    const selectAllCheckbox = document.getElementById('selectAllCheckbox');
+    
+    checkboxes.forEach(cb => cb.checked = true);
+    if (selectAllCheckbox) selectAllCheckbox.checked = true;
+    updateSelectedCount();
+}
+
+function bulkEditPolicies() {
+    const checkboxes = document.querySelectorAll('.policy-checkbox:checked');
+    if (checkboxes.length === 0) return;
+    
+    showNotification('Bulk edit functionality coming soon', 'info');
+}
+
+function bulkDeletePolicies() {
+    const checkboxes = document.querySelectorAll('.policy-checkbox:checked');
+    if (checkboxes.length === 0) return;
+    
+    if (!confirm(`Are you sure you want to delete ${checkboxes.length} policy/policies?`)) {
+        return;
+    }
+    
+    const policies = loadCompanyPolicies();
+    const idsToDelete = Array.from(checkboxes).map(cb => cb.dataset.policyId);
+    const filtered = policies.filter(p => !idsToDelete.includes(p.id));
+    
+    localStorage.setItem(`policies_${currentCompany}`, JSON.stringify(filtered));
+    
+    showNotification(`${checkboxes.length} policies deleted successfully`, 'success');
+    closePoliciesModal();
+    openPoliciesModal(); // Refresh modal
 }
 
 function closePoliciesModal() {

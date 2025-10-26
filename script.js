@@ -502,6 +502,33 @@ function addOrganizationToCompany(company, organizationName) {
     }
 }
 
+function addOrganization() {
+    const orgInput = document.getElementById('newOrganization');
+    if (!orgInput) {
+        showNotification('Organization input not found', 'error');
+        return;
+    }
+    
+    const orgName = orgInput.value.trim();
+    if (!orgName) {
+        showNotification('Please enter an organization name', 'error');
+        return;
+    }
+    
+    // Add to current company
+    addOrganizationToCompany(currentCompany, orgName);
+    
+    // Clear input
+    orgInput.value = '';
+    
+    showNotification(`Organization "${orgName}" added successfully`, 'success');
+    
+    // Refresh organizations display
+    if (typeof displayOrganizations === 'function') {
+        displayOrganizations();
+    }
+}
+
 function formatDate(dateString) {
     const date = new Date(dateString);
     return date.toLocaleDateString('en-US', {

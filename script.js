@@ -5591,6 +5591,7 @@ function loadWebhookUrls() {
     const aiUrlInput = document.getElementById('webhookUrlAI');
     const manualUrlInput = document.getElementById('webhookUrlManual');
     const reportUrlInput = document.getElementById('webhookUrlReport');
+    const emailUrlInput = document.getElementById('emailWebhookUrl');
     
     if (aiUrlInput) {
         const savedUrl = localStorage.getItem('webhookUrlAI');
@@ -5612,12 +5613,20 @@ function loadWebhookUrls() {
             reportUrlInput.value = savedUrl;
         }
     }
+    
+    if (emailUrlInput) {
+        const savedUrl = localStorage.getItem('emailWebhookUrl');
+        if (savedUrl) {
+            emailUrlInput.value = savedUrl;
+        }
+    }
 }
 
 function saveWebhookUrls() {
     const aiUrl = document.getElementById('webhookUrlAI')?.value.trim();
     const manualUrl = document.getElementById('webhookUrlManual')?.value.trim();
     const reportUrl = document.getElementById('webhookUrlReport')?.value.trim();
+    const emailUrl = document.getElementById('emailWebhookUrl')?.value.trim();
     const statusDiv = document.getElementById('webhookStatus');
     
     if (aiUrl) {
@@ -5632,6 +5641,10 @@ function saveWebhookUrls() {
         localStorage.setItem('webhookUrlReport', reportUrl);
     }
     
+    if (emailUrl) {
+        localStorage.setItem('emailWebhookUrl', emailUrl);
+    }
+    
     if (statusDiv) {
         statusDiv.innerHTML = '<div class="notification success">Webhook URLs saved successfully!</div>';
         setTimeout(() => {
@@ -5639,7 +5652,7 @@ function saveWebhookUrls() {
         }, 3000);
     }
     
-    console.log('Webhook URLs saved:', { aiUrl, manualUrl, reportUrl });
+    console.log('Webhook URLs saved:', { aiUrl, manualUrl, reportUrl, emailUrl });
 }
 
 function addRole() {
@@ -7329,7 +7342,11 @@ function signupUser(event) {
         return;
     }
     
-    console.log('Step 27: Auto-logging in user...');
+    console.log('Step 27: Sending welcome email...');
+    // Send welcome email to new user
+    sendWelcomeEmail(newUser);
+    
+    console.log('Step 28: Auto-logging in user...');
     // Auto-login the new user
     currentUser = newUser;
     currentCompany = newUser.company;
@@ -7383,6 +7400,59 @@ function signupUser(event) {
             signupButton.textContent = 'Create Account';
             signupButton.disabled = false;
         }
+    }
+}
+
+// Send welcome email to new user
+async function sendWelcomeEmail(user) {
+    try {
+        console.log('Sending welcome email to:', user.email);
+        
+        // Get email webhook URL from settings
+        const emailWebhookUrl = localStorage.getItem('emailWebhookUrl') || 'http://localhost:5678/webhook-email';
+        
+        // Prepare email data
+        const emailData = {
+            to: user.email,
+            subject: 'Welcome to Policy Pro!',
+            html: `
+                <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+                    <h2 style="color: #2563eb;">Welcome to Policy Pro!</h2>
+                    <p>Hi ${user.username},</p>
+                    <p>Your account has been successfully created. Here are your account details:</p>
+                    <div style="background: #f0f8ff; padding: 15px; border-radius: 8px; margin: 20px 0;">
+                        <p style="margin: 5px 0;"><strong>Username:</strong> ${user.username}</p>
+                        <p style="margin: 5px 0;"><strong>Email:</strong> ${user.email}</p>
+                        <p style="margin: 5px 0;"><strong>Company:</strong> ${user.company}</p>
+                    </div>
+                    <p>You can now access all your company policies and documents.</p>
+                    <p style="margin-top: 30px;">Best regards,<br>The Policy Pro Team</p>
+                </div>
+            `,
+            text: `Welcome to Policy Pro!\n\nHi ${user.username},\n\nYour account has been successfully created.\n\nUsername: ${user.username}\nEmail: ${user.email}\nCompany: ${user.company}\n\nYou can now access all your company policies and documents.\n\nBest regards,\nThe Policy Pro Team`,
+            type: 'welcome_email',
+            recipient: user.email,
+            company: user.company,
+            timestamp: new Date().toISOString()
+        };
+        
+        // Send to webhook
+        const response = await fetch(emailWebhookUrl, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(emailData)
+        });
+        
+        if (response.ok) {
+            console.log('Welcome email sent successfully');
+        } else {
+            console.warn('Welcome email webhook failed:', response.status);
+        }
+    } catch (error) {
+        console.error('Error sending welcome email:', error);
+        // Don't block signup process if email fails
     }
 }
 

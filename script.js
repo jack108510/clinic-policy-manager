@@ -4697,8 +4697,19 @@ function populateRolesAndDisciplinaryActions() {
     console.log('Stored disciplinary actions key:', storedDisciplinaryActions);
     
     // Get saved settings from admin or use defaults
-    const roles = storedRoles ? JSON.parse(storedRoles) : defaultRoles;
-    const disciplinaryActions = storedDisciplinaryActions ? JSON.parse(storedDisciplinaryActions) : defaultDisciplinaryActions;
+    // Parse stored data - could be objects or arrays
+    let roles = defaultRoles;
+    let disciplinaryActions = defaultDisciplinaryActions;
+    
+    if (storedRoles) {
+        const parsed = JSON.parse(storedRoles);
+        roles = Array.isArray(parsed) ? parsed.map(r => typeof r === 'object' ? r.name : r) : defaultRoles;
+    }
+    
+    if (storedDisciplinaryActions) {
+        const parsed = JSON.parse(storedDisciplinaryActions);
+        disciplinaryActions = Array.isArray(parsed) ? parsed.map(a => typeof a === 'object' ? a.name : a) : defaultDisciplinaryActions;
+    }
     
     console.log('Roles to display:', roles);
     console.log('Disciplinary actions to display:', disciplinaryActions);

@@ -5941,11 +5941,13 @@ function bulkDeleteUsers() {
 }
 
 function viewUser(userId) {
+    console.log('viewUser called with userId:', userId);
     const allUsers = JSON.parse(localStorage.getItem('masterUsers') || '[]');
-    const user = allUsers.find(u => u.id === userId);
+    const user = allUsers.find(u => u.id === userId || u.id === String(userId));
     
     if (!user) {
-        showNotification('User not found', 'error');
+        console.error('User not found. ID:', userId, 'Available IDs:', allUsers.map(u => u.id));
+        showNotification('User not found. Please try refreshing the page.', 'error');
         return;
     }
     
@@ -5953,11 +5955,15 @@ function viewUser(userId) {
 }
 
 function editUser(userId) {
+    console.log('editUser called with userId:', userId);
     const allUsers = JSON.parse(localStorage.getItem('masterUsers') || '[]');
-    const user = allUsers.find(u => u.id === userId);
+    console.log('All users:', allUsers);
+    
+    const user = allUsers.find(u => u.id === userId || u.id === String(userId));
     
     if (!user) {
-        showNotification('User not found', 'error');
+        console.error('User not found. ID:', userId, 'Available IDs:', allUsers.map(u => u.id));
+        showNotification('User not found. Please try refreshing the page.', 'error');
         return;
     }
     

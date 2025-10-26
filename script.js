@@ -2842,6 +2842,84 @@ function saveAIPolicy() {
     showNotification('AI-generated policy saved successfully!', 'success');
 }
 
+function formatMarkdownForDisplay(markdown) {
+    if (!markdown) return '';
+    
+    let html = markdown
+        // Headers
+        .replace(/^### (.*$)/gm, '<h4 style="color: #2563eb; margin-top: 20px; margin-bottom: 10px; font-weight: 600;">$1</h4>')
+        .replace(/^## (.*$)/gm, '<h3 style="color: #1e40af; margin-top: 25px; margin-bottom: 12px; font-weight: 700; border-bottom: 2px solid #e5e7eb; padding-bottom: 8px;">$1</h3>')
+        .replace(/^# (.*$)/gm, '<h2 style="color: #1e3a8a; margin-top: 30px; margin-bottom: 15px; font-weight: 700;">$1</h2>')
+        // Bold
+        .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+        // Lists
+        .replace(/^\- (.*$)/gm, '<li style="margin: 5px 0; padding-left: 20px;">$1</li>')
+        .replace(/^1\. (.*$)/gm, '<li style="margin: 5px 0; padding-left: 20px; list-style-type: decimal;">$1</li>')
+        // Line breaks
+        .replace(/\n/g, '<br>');
+    
+    // Wrap list items in <ul> tags
+    html = html.replace(/(<li[^>]*>.*?<\/li>)/gs, '<ul style="margin: 15px 0; padding-left: 30px;">$1</ul>');
+    
+    // Wrap in paragraph
+    return '<div style="padding: 15px; line-height: 1.8;">' + html + '</div>';
+}
+
+function saveWebhookPolicy() {
+    const webhookPolicy = window.currentWebhookPolicy;
+    
+    if (!webhookPolicy) {
+        showNotification('No policy data to save', 'error');
+        return;
+    }
+    
+    // Parse the webhook policy data
+    let policyData = null;
+    if (Array.isArray(webhookPolicy) && webhookPolicy.length > 0) {
+        policyData = webhookPolicy[0];
+    } else if (typeof webhookPolicy === 'object') {
+        policyData = webhookPolicy;
+    } else {
+        showNotification('Invalid policy data format', 'error');
+        return;
+    }
+    
+    // Create policy object
+    const newPolicy = {
+        id: 'policy_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9),
+        title: policyData.policy_title || 'Generated Policy',
+        type: policyData.policy_type || 'admin',
+        clinics: policyData.applies_to || 'All Organizations',
+        content: policyData.markdown || '',
+        effectiveDate: policyData.effective_date || new Date().toISOString().split('T')[0],
+        version: policyData.version || '1.0',
+        approvedBy: policyData.approved_by || 'Administrator',
+        company: currentCompany,
+        created: new Date().toISOString(),
+        updated: new Date().toISOString(),
+        generatedBy: 'Webhook'
+    };
+    
+    // Save the policy
+    if (!currentCompany) {
+        showNotification('Please log in first', 'error');
+        return;
+    }
+    
+    const companyPolicies = loadCompanyPolicies();
+    companyPolicies.push(newPolicy);
+    localStorage.setItem(`policies_${currentCompany}`, JSON.stringify(companyPolicies));
+    
+    showNotification('Policy saved successfully!', 'success');
+    closeAIModal();
+    
+    // Reload policies if on admin dashboard
+    if (typeof loadMainPoliciesFromStorage === 'function') {
+        loadMainPoliciesFromStorage();
+        displayMainPolicies();
+    }
+}
+
 // Draft Management Functions
 function storeDraft() {
     const policy = window.currentGeneratedPolicy;
@@ -5356,19 +5434,83 @@ async function savePolicyToStorage(policy) {
             
             const aiGeneratedContent = document.getElementById('aiGeneratedContent');
             if (aiGeneratedContent) {
-                aiGeneratedContent.innerHTML = `
-                    <div style="text-align: center; padding: 40px;">
-                        <h4 style="color: #0066cc; margin-bottom: 20px;">✅ Webhook Response Received</h4>
-                        <div style="background: #f0f8ff; border: 2px solid #0066cc; border-radius: 8px; padding: 20px; margin: 20px auto; max-width: 800px;">
-                            <h5 style="color: #0066cc; margin: 0 0 15px 0;">Response:</h5>
-                            <pre style="background: white; padding: 15px; border-radius: 4px; overflow-x: auto; white-space: pre-wrap; word-wrap: break-word; text-align: left; margin: 0;">${webhookResponse}</pre>
+                // Try to parse the webhook response as JSON
+                let responseData = null;
+                try {
+                    responseData = JSON.parse(webhookResponse);
+                } catch (e) {
+                    // Not JSON, show as text
+                    responseData = webhookResponse;
+                }
+                
+                // Format the response based on whether it's structured data
+                let displayContent = '';
+                
+                if (Array.isArray(responseData) && responseData.length > 0 && responseData[0].markdown) {
+                    // It's a formatted policy from webhook
+                    const policy = responseData[0];
+                    displayContent = `
+                        <div class="policy-preview professional">
+                            <div class="policy-header">
+                                <h4>${policy.policy_title || 'Generated Policy'}</h4>
+                                <span class="policy-type-badge admin">${policy.policy_type || 'Policy'}</span>
+                            </div>
+                            
+                            <div class="policy-meta">
+                                <div class="meta-item"><strong>Company:</strong> ${policy.company}</div>
+                                <div class="meta-item"><strong>Effective Date:</strong> ${policy.effective_date}</div>
+                                <div class="meta-item"><strong>Applies To:</strong> ${policy.applies_to}</div>
+                                <div class="meta-item"><strong>Author:</strong> ${policy.author}</div>
+                                <div class="meta-item"><strong>Version:</strong> ${policy.version}</div>
+                            </div>
+                            
+                            <div class="policy-content-display" style="max-height: 600px; overflow-y: auto;">
+                                ${formatMarkdownForDisplay(policy.markdown)}
+                            </div>
+                            
+                            <div class="ai-result-actions" style="margin-top: 20px;">
+                                <button class="btn btn-success" onclick="saveWebhookPolicy()">
+                                    <i class="fas fa-save"></i> Save Policy
+                                </button>
+                                <button class="btn btn-secondary" onclick="closeAIModal()">
+                                    <i class="fas fa-times"></i> Close
+                                </button>
+                            </div>
                         </div>
-                        <div class="ai-result-actions">
-                            <button class="btn btn-primary" onclick="closeAIModal()">Close</button>
+                    `;
+                } else if (typeof responseData === 'object') {
+                    // Generic JSON response
+                    displayContent = `
+                        <div style="text-align: center; padding: 40px;">
+                            <h4 style="color: #0066cc; margin-bottom: 20px;">✅ Webhook Response Received</h4>
+                            <div style="background: #f0f8ff; border: 2px solid #0066cc; border-radius: 8px; padding: 20px; margin: 20px auto; max-width: 800px;">
+                                <pre style="background: white; padding: 15px; border-radius: 4px; overflow-x: auto; white-space: pre-wrap; word-wrap: break-word; text-align: left; margin: 0;">${JSON.stringify(responseData, null, 2)}</pre>
+                            </div>
+                            <div class="ai-result-actions">
+                                <button class="btn btn-primary" onclick="closeAIModal()">Close</button>
+                            </div>
                         </div>
-                    </div>
-                `;
+                    `;
+                } else {
+                    // Plain text response
+                    displayContent = `
+                        <div style="text-align: center; padding: 40px;">
+                            <h4 style="color: #0066cc; margin-bottom: 20px;">✅ Webhook Response Received</h4>
+                            <div style="background: #f0f8ff; border: 2px solid #0066cc; border-radius: 8px; padding: 20px; margin: 20px auto; max-width: 800px;">
+                                <pre style="background: white; padding: 15px; border-radius: 4px; overflow-x: auto; white-space: pre-wrap; word-wrap: break-word; text-align: left; margin: 0;">${webhookResponse}</pre>
+                            </div>
+                            <div class="ai-result-actions">
+                                <button class="btn btn-primary" onclick="closeAIModal()">Close</button>
+                            </div>
+                        </div>
+                    `;
+                }
+                
+                aiGeneratedContent.innerHTML = displayContent;
             }
+            
+            // Store the webhook policy data for saving
+            window.currentWebhookPolicy = responseData;
             
             // Only sync to master admin dashboard if webhook succeeded
             syncPoliciesToMasterAdmin(companyPolicies);

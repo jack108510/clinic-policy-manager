@@ -5605,6 +5605,104 @@ async function savePolicyToStorage(policy) {
     }
 }
 
+function openPoliciesModal() {
+    // Load policies for current company
+    const policies = loadCompanyPolicies();
+    
+    // Create modal content
+    const modalHtml = `
+        <div id="policiesModal" class="modal" style="display: block;">
+            <div class="modal-content" style="max-width: 1000px;">
+                <div class="modal-header">
+                    <h3>Manage Policies</h3>
+                    <span class="close" onclick="closePoliciesModal()">&times;</span>
+                </div>
+                <div class="modal-body">
+                    <div class="policies-table-container">
+                        <table class="policies-table">
+                            <thead>
+                                <tr>
+                                    <th>Title</th>
+                                    <th>Type</th>
+                                    <th>Effective Date</th>
+                                    <th>Version</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="policiesTableBody">
+                                ${policies.map(policy => `
+                                    <tr>
+                                        <td>${policy.title || 'Untitled'}</td>
+                                        <td><span class="policy-type-badge">${policy.type || 'N/A'}</span></td>
+                                        <td>${policy.effectiveDate || 'N/A'}</td>
+                                        <td>${policy.version || '1.0'}</td>
+                                        <td>
+                                            <button class="btn btn-sm btn-primary" onclick="viewPolicy('${policy.id}')">
+                                                <i class="fas fa-eye"></i> View
+                                            </button>
+                                            <button class="btn btn-sm btn-warning" onclick="editPolicy('${policy.id}')">
+                                                <i class="fas fa-edit"></i> Edit
+                                            </button>
+                                            <button class="btn btn-sm btn-danger" onclick="deletePolicy('${policy.id}')">
+                                                <i class="fas fa-trash"></i> Delete
+                                            </button>
+                                        </td>
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    // Create and show modal
+    const existingModal = document.getElementById('policiesModal');
+    if (existingModal) {
+        existingModal.remove();
+    }
+    
+    document.body.insertAdjacentHTML('beforeend', modalHtml);
+}
+
+function closePoliciesModal() {
+    const modal = document.getElementById('policiesModal');
+    if (modal) {
+        modal.remove();
+    }
+}
+
+function viewPolicy(policyId) {
+    const policies = loadCompanyPolicies();
+    const policy = policies.find(p => p.id === policyId);
+    
+    if (!policy) {
+        showNotification('Policy not found', 'error');
+        return;
+    }
+    
+    alert(`Policy: ${policy.title}\n\nContent: ${policy.content || 'No content available'}`);
+}
+
+function editPolicy(policyId) {
+    showNotification('Edit functionality coming soon', 'info');
+}
+
+function deletePolicy(policyId) {
+    if (!confirm('Are you sure you want to delete this policy?')) {
+        return;
+    }
+    
+    const policies = loadCompanyPolicies();
+    const filtered = policies.filter(p => p.id !== policyId);
+    localStorage.setItem(`policies_${currentCompany}`, JSON.stringify(filtered));
+    
+    showNotification('Policy deleted successfully', 'success');
+    closePoliciesModal();
+    openPoliciesModal(); // Refresh modal
+}
+
 function loadCompanyPolicies() {
     if (!currentCompany) {
         return [];

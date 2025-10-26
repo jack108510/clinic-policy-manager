@@ -5349,40 +5349,47 @@ async function savePolicyToStorage(policy) {
             const webhookResponse = await sendPolicyGenerationWebhook(policy);
             console.log('Webhook response received:', webhookResponse);
             
-            // Display the webhook response
-            const aiResult = document.getElementById('aiResult');
-            const aiGeneratedContent = document.getElementById('aiGeneratedContent');
+            // Show ONLY the webhook response, not the policy
+            document.getElementById('aiLoading').style.display = 'none';
+            document.getElementById('aiResult').style.display = 'block';
             
-            if (aiResult && aiGeneratedContent) {
-                // Add webhook response to the policy display
-                const existingContent = aiGeneratedContent.innerHTML;
-                aiGeneratedContent.innerHTML = existingContent + `
-                    <div style="background: #f0f8ff; border: 2px solid #0066cc; border-radius: 8px; padding: 15px; margin-top: 20px;">
-                        <h5 style="color: #0066cc; margin: 0 0 10px 0;">Webhook Response:</h5>
-                        <pre style="background: white; padding: 10px; border-radius: 4px; overflow-x: auto; white-space: pre-wrap; word-wrap: break-word;">${webhookResponse}</pre>
+            const aiGeneratedContent = document.getElementById('aiGeneratedContent');
+            if (aiGeneratedContent) {
+                aiGeneratedContent.innerHTML = `
+                    <div style="text-align: center; padding: 40px;">
+                        <h4 style="color: #0066cc; margin-bottom: 20px;">✅ Webhook Response Received</h4>
+                        <div style="background: #f0f8ff; border: 2px solid #0066cc; border-radius: 8px; padding: 20px; margin: 20px auto; max-width: 800px;">
+                            <h5 style="color: #0066cc; margin: 0 0 15px 0;">Response:</h5>
+                            <pre style="background: white; padding: 15px; border-radius: 4px; overflow-x: auto; white-space: pre-wrap; word-wrap: break-word; text-align: left; margin: 0;">${webhookResponse}</pre>
+                        </div>
+                        <div class="ai-result-actions">
+                            <button class="btn btn-primary" onclick="closeAIModal()">Close</button>
+                        </div>
                     </div>
                 `;
             }
-            
-            hideWebhookLoading();
         } catch (error) {
             console.error('Webhook error:', error);
             
-            // Show error in result area
-            const aiResult = document.getElementById('aiResult');
-            const aiGeneratedContent = document.getElementById('aiGeneratedContent');
+            // Show ONLY the webhook error, not the policy
+            document.getElementById('aiLoading').style.display = 'none';
+            document.getElementById('aiResult').style.display = 'block';
             
-            if (aiResult && aiGeneratedContent) {
-                const existingContent = aiGeneratedContent.innerHTML;
-                aiGeneratedContent.innerHTML = existingContent + `
-                    <div style="background: #ffe6e6; border: 2px solid #cc0000; border-radius: 8px; padding: 15px; margin-top: 20px;">
-                        <h5 style="color: #cc0000; margin: 0 0 10px 0;">Webhook Error:</h5>
-                        <p style="margin: 0; color: #cc0000;">${error.message}</p>
+            const aiGeneratedContent = document.getElementById('aiGeneratedContent');
+            if (aiGeneratedContent) {
+                aiGeneratedContent.innerHTML = `
+                    <div style="text-align: center; padding: 40px;">
+                        <h4 style="color: #cc0000; margin-bottom: 20px;">❌ Webhook Error</h4>
+                        <div style="background: #ffe6e6; border: 2px solid #cc0000; border-radius: 8px; padding: 20px; margin: 20px auto; max-width: 800px;">
+                            <h5 style="color: #cc0000; margin: 0 0 15px 0;">Error Message:</h5>
+                            <p style="margin: 0; color: #cc0000; font-size: 16px;">${error.message}</p>
+                        </div>
+                        <div class="ai-result-actions">
+                            <button class="btn btn-primary" onclick="closeAIModal()">Close</button>
+                        </div>
                     </div>
                 `;
             }
-            
-            hideWebhookLoading();
         }
     }
     

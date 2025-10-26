@@ -6405,81 +6405,125 @@ function openUsersModal() {
     const allUsers = JSON.parse(localStorage.getItem('masterUsers') || '[]');
     const users = allUsers.filter(u => u.company === currentCompany);
     
-    // Create modal content with search and bulk actions
+    // Create a completely redesigned modal
     const modalHtml = `
         <div id="usersModal" class="modal" style="display: block; z-index: 3000;">
-            <div class="modal-content" style="max-width: 1000px;">
-                <div class="modal-header">
-                    <h3>Manage Users</h3>
-                    <span class="close" onclick="closeUsersModal()">&times;</span>
-                </div>
-                <div class="modal-body">
-                    <!-- Search Bar -->
-                    <div class="policy-filters" style="margin-bottom: 20px;">
-                        <input type="text" id="userSearchInput" class="form-control" 
-                               placeholder="Search users by name, email, or role..." 
-                               onkeyup="searchUsers()"
-                               style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px;">
+            <div class="modal-content" style="max-width: 1200px; padding: 0;">
+                <!-- Header with title and actions -->
+                <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; color: white; border-radius: 8px 8px 0 0;">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <div>
+                            <h2 style="margin: 0; color: white; font-size: 28px;">
+                                <i class="fas fa-users"></i> Manage Users
+                            </h2>
+                            <p style="margin: 5px 0 0 0; color: rgba(255,255,255,0.9);">${users.length} user(s) in ${currentCompany}</p>
+                        </div>
+                        <button onclick="closeUsersModal()" style="background: rgba(255,255,255,0.2); border: none; color: white; font-size: 28px; cursor: pointer; padding: 5px 15px; border-radius: 4px;">
+                            &times;
+                        </button>
                     </div>
-                    
-                    <!-- Bulk Actions -->
-                    <div class="bulk-actions" style="margin-bottom: 15px;">
-                        <button class="btn btn-sm btn-secondary" onclick="selectAllUsers()">
+                </div>
+                
+                <!-- Toolbar -->
+                <div style="padding: 20px; background: #f8f9fa; border-bottom: 1px solid #dee2e6;">
+                    <div style="display: flex; gap: 15px; align-items: center; flex-wrap: wrap;">
+                        <!-- Search -->
+                        <div style="flex: 1; min-width: 200px;">
+                            <input type="text" id="userSearchInput" placeholder="Search users..." 
+                                   onkeyup="searchUsers()"
+                                   style="width: 100%; padding: 12px 15px; border: 1px solid #ddd; border-radius: 6px; font-size: 14px;">
+                        </div>
+                        
+                        <!-- Bulk Actions -->
+                        <button onclick="selectAllUsers()" style="padding: 12px 20px; background: #6c757d; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 14px;">
                             <i class="fas fa-check-square"></i> Select All
                         </button>
-                        <button class="btn btn-sm btn-warning" onclick="bulkEditUsers()" id="bulkEditUserBtn" disabled>
-                            <i class="fas fa-edit"></i> Edit Selected
+                        <button onclick="bulkEditUsers()" id="bulkEditUserBtn" disabled 
+                                style="padding: 12px 20px; background: #ffc107; color: #000; border: none; border-radius: 6px; cursor: pointer; font-size: 14px; opacity: 0.5; cursor: not-allowed;">
+                            <i class="fas fa-edit"></i> Bulk Edit
                         </button>
-                        <button class="btn btn-sm btn-danger" onclick="bulkDeleteUsers()" id="bulkDeleteUserBtn" disabled>
+                        <button onclick="bulkDeleteUsers()" id="bulkDeleteUserBtn" disabled 
+                                style="padding: 12px 20px; background: #dc3545; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 14px; opacity: 0.5; cursor: not-allowed;">
                             <i class="fas fa-trash"></i> Delete Selected
                         </button>
-                        <span id="selectedUserCount" style="margin-left: 15px; color: #666;">0 selected</span>
+                        
+                        <div id="selectedUserCount" style="padding: 12px 15px; color: #666; font-size: 14px; font-weight: 600;">
+                            0 selected
+                        </div>
                     </div>
-                    
-                    <div class="policies-table-container" style="max-height: 500px; overflow-y: auto;">
-                        <table class="policies-table">
-                            <thead>
-                                <tr>
-                                    <th style="width: 40px;">
-                                        <input type="checkbox" id="selectAllUserCheckbox" onchange="toggleSelectAllUsers(this)">
-                                    </th>
-                                    <th>Name</th>
-                                    <th>Email</th>
-                                    <th>Role</th>
-                                    <th>Organizations</th>
-                                    <th>Company</th>
-                                    <th>Created</th>
-                                    <th>Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody id="usersTableBody">
-                                ${users.map(user => `
-                                    <tr data-user-id="${user.id}">
-                                        <td>
-                                            <input type="checkbox" class="user-checkbox" data-user-id="${user.id}" onchange="updateSelectedUserCount()">
-                                        </td>
-                                        <td>${user.username || 'N/A'}</td>
-                                        <td>${user.email || 'N/A'}</td>
-                                        <td><span class="policy-type-badge ${user.role === 'admin' ? 'admin' : 'user'}">${user.role || 'User'}</span></td>
-                                        <td><small>${(user.organizations && user.organizations.length > 0) ? user.organizations.join(', ') : 'No organizations assigned'}</small></td>
-                                        <td>${user.company || 'N/A'}</td>
-                                        <td>${user.created ? new Date(user.created).toLocaleDateString() : 'N/A'}</td>
-                                        <td>
-                                            <button class="btn btn-sm btn-primary" onclick="viewUser('${user.id}')">
-                                                <i class="fas fa-eye"></i> View
-                                            </button>
-                                            <button class="btn btn-sm btn-warning" onclick="editUser('${user.id}')">
-                                                <i class="fas fa-edit"></i> Edit
-                                            </button>
-                                            <button class="btn btn-sm btn-danger" onclick="deleteUser('${user.id}')">
-                                                <i class="fas fa-trash"></i> Delete
-                                            </button>
-                                        </td>
-                                    </tr>
-                                `).join('')}
-                            </tbody>
-                        </table>
-                    </div>
+                </div>
+                
+                <!-- User Cards Grid -->
+                <div style="padding: 20px; max-height: 600px; overflow-y: auto;">
+                    ${users.length === 0 ? `
+                        <div style="text-align: center; padding: 60px 20px; color: #999;">
+                            <i class="fas fa-users" style="font-size: 64px; margin-bottom: 20px; opacity: 0.3;"></i>
+                            <h3 style="margin: 0; color: #666;">No Users Found</h3>
+                            <p style="margin: 10px 0 0 0;">No users have been created for this company yet.</p>
+                        </div>
+                    ` : `
+                        <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 20px;">
+                            ${users.map(user => `
+                                <div class="user-card" style="background: white; border: 1px solid #e0e0e0; border-radius: 12px; padding: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); transition: transform 0.2s, box-shadow 0.2s;">
+                                    <div style="display: flex; align-items: flex-start; gap: 15px;">
+                                        <!-- Checkbox -->
+                                        <input type="checkbox" class="user-checkbox" data-user-id="${user.id}" onchange="updateSelectedUserCount()"
+                                               style="margin-top: 5px; width: 18px; height: 18px; cursor: pointer;">
+                                        
+                                        <!-- User Info -->
+                                        <div style="flex: 1;">
+                                            <!-- Header -->
+                                            <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 12px;">
+                                                <div>
+                                                    <h3 style="margin: 0; font-size: 18px; color: #333;">${user.username || 'N/A'}</h3>
+                                                    <p style="margin: 4px 0 0 0; color: #666; font-size: 14px;">${user.email || 'No email'}</p>
+                                                </div>
+                                                <span class="policy-type-badge ${user.role === 'admin' ? 'admin' : 'user'}" 
+                                                      style="padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; white-space: nowrap;">
+                                                    ${user.role === 'admin' ? '<i class="fas fa-crown"></i> Admin' : '<i class="fas fa-user"></i> User'}
+                                                </span>
+                                            </div>
+                                            
+                                            <!-- Organizations -->
+                                            <div style="margin-bottom: 15px;">
+                                                <div style="font-size: 12px; color: #888; margin-bottom: 6px; font-weight: 600;">
+                                                    <i class="fas fa-building"></i> Organizations
+                                                </div>
+                                                <div style="display: flex; flex-wrap: wrap; gap: 6px;">
+                                                    ${(user.organizations && user.organizations.length > 0) ? 
+                                                        user.organizations.map(org => `
+                                                            <span style="background: #e3f2fd; color: #1976d2; padding: 4px 10px; border-radius: 12px; font-size: 12px; font-weight: 500;">
+                                                                ${org}
+                                                            </span>
+                                                        `).join('') : 
+                                                        '<span style="color: #999; font-size: 12px; font-style: italic;">No organizations assigned</span>'
+                                                    }
+                                                </div>
+                                            </div>
+                                            
+                                            <!-- Company & Created -->
+                                            <div style="display: flex; gap: 15px; font-size: 12px; color: #888; margin-bottom: 15px; padding-top: 12px; border-top: 1px solid #f0f0f0;">
+                                                <div><i class="fas fa-building"></i> ${user.company}</div>
+                                                <div><i class="fas fa-calendar"></i> ${user.created ? new Date(user.created).toLocaleDateString() : 'N/A'}</div>
+                                            </div>
+                                            
+                                            <!-- Actions -->
+                                            <div style="display: flex; gap: 8px;">
+                                                <button onclick="editUser('${user.id}')" 
+                                                        style="flex: 1; padding: 8px 12px; background: #ffc107; color: #000; border: none; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 600; transition: background 0.2s;">
+                                                    <i class="fas fa-edit"></i> Edit
+                                                </button>
+                                                <button onclick="deleteUser('${user.id}')" 
+                                                        style="flex: 1; padding: 8px 12px; background: #dc3545; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 600; transition: background 0.2s;">
+                                                    <i class="fas fa-trash"></i> Delete
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            `).join('')}
+                        </div>
+                    `}
                 </div>
             </div>
         </div>
@@ -6503,11 +6547,11 @@ function closeUsersModal() {
 
 function searchUsers() {
     const searchTerm = document.getElementById('userSearchInput').value.toLowerCase();
-    const rows = document.querySelectorAll('#usersTableBody tr');
+    const cards = document.querySelectorAll('.user-card');
     
-    rows.forEach(row => {
-        const text = row.textContent.toLowerCase();
-        row.style.display = text.includes(searchTerm) ? '' : 'none';
+    cards.forEach(card => {
+        const text = card.textContent.toLowerCase();
+        card.style.display = text.includes(searchTerm) ? '' : 'none';
     });
 }
 

@@ -473,6 +473,8 @@ function getTypeLabel(type) {
     const labels = {
         'admin': 'Admin Policy',
         'sog': 'Standard Operating Guidelines',
+        'protocol': 'Protocol',
+        'memo': 'Communication Memo',
         'memos': 'Communication Memos'
     };
     return labels[type] || type;

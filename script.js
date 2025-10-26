@@ -6318,6 +6318,68 @@ function getOrganizationName(orgId) {
     return orgMap[orgId] || orgId;
 }
 
+function getSelectedOrganizations() {
+    const orgCheckboxes = document.querySelectorAll('.organization-toggles input[type="checkbox"]:checked');
+    const selected = [];
+    
+    orgCheckboxes.forEach(cb => {
+        if (cb.id !== 'org-all' && cb.value) {
+            selected.push(cb.value);
+        } else if (cb.id === 'org-all' && cb.checked) {
+            return ['tudor-glen', 'river-valley', 'rosslyn', 'upc'];
+        }
+    });
+    
+    if (selected.length === 0 || document.getElementById('org-all')?.checked) {
+        return ['tudor-glen', 'river-valley', 'rosslyn', 'upc'];
+    }
+    
+    return selected;
+}
+
+function getSelectedRoles() {
+    const roleCheckboxes = document.querySelectorAll('input[name="responsibleRoles"]:checked');
+    const roles = [];
+    
+    roleCheckboxes.forEach(cb => {
+        if (cb.value && cb.checked) {
+            roles.push({ name: cb.value });
+        }
+    });
+    
+    if (roles.length === 0) {
+        return [
+            { name: 'Clinic Manager' },
+            { name: 'Medical Director' },
+            { name: 'Staff' }
+        ];
+    }
+    
+    return roles;
+}
+
+function getSelectedDisciplinaryActions() {
+    const actionCheckboxes = document.querySelectorAll('input[name="disciplinaryActions"]:checked');
+    const actions = [];
+    
+    actionCheckboxes.forEach(cb => {
+        if (cb.value && cb.checked) {
+            actions.push({ name: cb.value });
+        }
+    });
+    
+    if (actions.length === 0) {
+        return [
+            { name: 'Verbal Warning' },
+            { name: 'Written Warning' },
+            { name: 'Suspension' },
+            { name: 'Termination' }
+        ];
+    }
+    
+    return actions;
+}
+
 // Test function for policy generation
 function testPolicyGeneration() {
     console.log('Testing policy generation...');

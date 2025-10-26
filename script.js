@@ -2750,8 +2750,9 @@ function displayAIPolicy(policy) {
         return;
     }
     
-    aiLoading.style.display = 'none';
-    aiResult.style.display = 'block';
+    // Don't show the policy yet - wait for webhook
+    // aiLoading.style.display = 'none';
+    // aiResult.style.display = 'block';
     
     // Use the new professional formatting
     const formattedContent = formatPolicyContent(policy, policy.type);
@@ -2779,8 +2780,8 @@ function displayAIPolicy(policy) {
     // Store the generated policy for saving
     window.currentGeneratedPolicy = policy;
     
-    // Automatically save the generated policy
-    savePolicyToStorage(policy);
+    // DO NOT automatically save - wait for webhook to complete first
+    // savePolicyToStorage(policy);
     
     // Update chat state and ask if anything needs to be changed
     chatState.step = 'policy_generated';

@@ -5771,6 +5771,221 @@ function closePoliciesModal() {
     }
 }
 
+function openUsersModal() {
+    // Load users for current company
+    const allUsers = JSON.parse(localStorage.getItem('masterUsers') || '[]');
+    const users = allUsers.filter(u => u.company === currentCompany);
+    
+    // Create modal content with search and bulk actions
+    const modalHtml = `
+        <div id="usersModal" class="modal" style="display: block;">
+            <div class="modal-content" style="max-width: 1000px;">
+                <div class="modal-header">
+                    <h3>Manage Users</h3>
+                    <span class="close" onclick="closeUsersModal()">&times;</span>
+                </div>
+                <div class="modal-body">
+                    <!-- Search Bar -->
+                    <div class="policy-filters" style="margin-bottom: 20px;">
+                        <input type="text" id="userSearchInput" class="form-control" 
+                               placeholder="Search users by name, email, or role..." 
+                               onkeyup="searchUsers()"
+                               style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px;">
+                    </div>
+                    
+                    <!-- Bulk Actions -->
+                    <div class="bulk-actions" style="margin-bottom: 15px;">
+                        <button class="btn btn-sm btn-secondary" onclick="selectAllUsers()">
+                            <i class="fas fa-check-square"></i> Select All
+                        </button>
+                        <button class="btn btn-sm btn-warning" onclick="bulkEditUsers()" id="bulkEditUserBtn" disabled>
+                            <i class="fas fa-edit"></i> Edit Selected
+                        </button>
+                        <button class="btn btn-sm btn-danger" onclick="bulkDeleteUsers()" id="bulkDeleteUserBtn" disabled>
+                            <i class="fas fa-trash"></i> Delete Selected
+                        </button>
+                        <span id="selectedUserCount" style="margin-left: 15px; color: #666;">0 selected</span>
+                    </div>
+                    
+                    <div class="policies-table-container" style="max-height: 500px; overflow-y: auto;">
+                        <table class="policies-table">
+                            <thead>
+                                <tr>
+                                    <th style="width: 40px;">
+                                        <input type="checkbox" id="selectAllUserCheckbox" onchange="toggleSelectAllUsers(this)">
+                                    </th>
+                                    <th>Name</th>
+                                    <th>Email</th>
+                                    <th>Role</th>
+                                    <th>Company</th>
+                                    <th>Created</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="usersTableBody">
+                                ${users.map(user => `
+                                    <tr data-user-id="${user.id}">
+                                        <td>
+                                            <input type="checkbox" class="user-checkbox" data-user-id="${user.id}" onchange="updateSelectedUserCount()">
+                                        </td>
+                                        <td>${user.username || 'N/A'}</td>
+                                        <td>${user.email || 'N/A'}</td>
+                                        <td><span class="policy-type-badge ${user.role === 'admin' ? 'admin' : 'user'}">${user.role || 'User'}</span></td>
+                                        <td>${user.company || 'N/A'}</td>
+                                        <td>${user.created ? new Date(user.created).toLocaleDateString() : 'N/A'}</td>
+                                        <td>
+                                            <button class="btn btn-sm btn-primary" onclick="viewUser('${user.id}')">
+                                                <i class="fas fa-eye"></i> View
+                                            </button>
+                                            <button class="btn btn-sm btn-warning" onclick="editUser('${user.id}')">
+                                                <i class="fas fa-edit"></i> Edit
+                                            </button>
+                                            <button class="btn btn-sm btn-danger" onclick="deleteUser('${user.id}')">
+                                                <i class="fas fa-trash"></i> Delete
+                                            </button>
+                                        </td>
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    // Create and show modal
+    const existingModal = document.getElementById('usersModal');
+    if (existingModal) {
+        existingModal.remove();
+    }
+    
+    document.body.insertAdjacentHTML('beforeend', modalHtml);
+}
+
+function closeUsersModal() {
+    const modal = document.getElementById('usersModal');
+    if (modal) {
+        modal.remove();
+    }
+}
+
+function searchUsers() {
+    const searchTerm = document.getElementById('userSearchInput').value.toLowerCase();
+    const rows = document.querySelectorAll('#usersTableBody tr');
+    
+    rows.forEach(row => {
+        const text = row.textContent.toLowerCase();
+        row.style.display = text.includes(searchTerm) ? '' : 'none';
+    });
+}
+
+function toggleSelectAllUsers(checkbox) {
+    const checkboxes = document.querySelectorAll('.user-checkbox');
+    checkboxes.forEach(cb => {
+        cb.checked = checkbox.checked;
+        updateBulkUserActionButtons();
+    });
+}
+
+function updateSelectedUserCount() {
+    const checkboxes = document.querySelectorAll('.user-checkbox:checked');
+    const count = checkboxes.length;
+    document.getElementById('selectedUserCount').textContent = `${count} selected`;
+    updateBulkUserActionButtons();
+}
+
+function updateBulkUserActionButtons() {
+    const checkboxes = document.querySelectorAll('.user-checkbox:checked');
+    const count = checkboxes.length;
+    const bulkEditBtn = document.getElementById('bulkEditUserBtn');
+    const bulkDeleteBtn = document.getElementById('bulkDeleteUserBtn');
+    
+    if (bulkEditBtn) bulkEditBtn.disabled = count === 0;
+    if (bulkDeleteBtn) bulkDeleteBtn.disabled = count === 0;
+}
+
+function selectAllUsers() {
+    const checkboxes = document.querySelectorAll('.user-checkbox');
+    const selectAllCheckbox = document.getElementById('selectAllUserCheckbox');
+    
+    checkboxes.forEach(cb => cb.checked = true);
+    if (selectAllCheckbox) selectAllCheckbox.checked = true;
+    updateSelectedUserCount();
+}
+
+function bulkEditUsers() {
+    const checkboxes = document.querySelectorAll('.user-checkbox:checked');
+    if (checkboxes.length === 0) return;
+    
+    showNotification('Bulk edit functionality coming soon', 'info');
+}
+
+function bulkDeleteUsers() {
+    const checkboxes = document.querySelectorAll('.user-checkbox:checked');
+    if (checkboxes.length === 0) return;
+    
+    if (!confirm(`Are you sure you want to delete ${checkboxes.length} user(s)? This action cannot be undone.`)) {
+        return;
+    }
+    
+    const allUsers = JSON.parse(localStorage.getItem('masterUsers') || '[]');
+    const idsToDelete = Array.from(checkboxes).map(cb => cb.dataset.userId);
+    const filtered = allUsers.filter(p => !idsToDelete.includes(p.id));
+    
+    localStorage.setItem('masterUsers', JSON.stringify(filtered));
+    
+    showNotification(`${checkboxes.length} user(s) deleted successfully`, 'success');
+    closeUsersModal();
+    openUsersModal(); // Refresh modal
+}
+
+function viewUser(userId) {
+    const allUsers = JSON.parse(localStorage.getItem('masterUsers') || '[]');
+    const user = allUsers.find(u => u.id === userId);
+    
+    if (!user) {
+        showNotification('User not found', 'error');
+        return;
+    }
+    
+    alert(`User: ${user.username}\nEmail: ${user.email}\nRole: ${user.role}\nCompany: ${user.company}\nCreated: ${user.created ? new Date(user.created).toLocaleDateString() : 'N/A'}`);
+}
+
+function editUser(userId) {
+    const allUsers = JSON.parse(localStorage.getItem('masterUsers') || '[]');
+    const user = allUsers.find(u => u.id === userId);
+    
+    if (!user) {
+        showNotification('User not found', 'error');
+        return;
+    }
+    
+    const newRole = prompt('Enter new role (admin/user):', user.role);
+    if (!newRole) return;
+    
+    user.role = newRole.toLowerCase();
+    localStorage.setItem('masterUsers', JSON.stringify(allUsers));
+    
+    showNotification('User updated successfully', 'success');
+    closeUsersModal();
+    openUsersModal(); // Refresh modal
+}
+
+function deleteUser(userId) {
+    if (!confirm('Are you sure you want to delete this user?')) {
+        return;
+    }
+    
+    const allUsers = JSON.parse(localStorage.getItem('masterUsers') || '[]');
+    const filtered = allUsers.filter(u => u.id !== userId);
+    localStorage.setItem('masterUsers', JSON.stringify(filtered));
+    
+    showNotification('User deleted successfully', 'success');
+    closeUsersModal();
+    openUsersModal(); // Refresh modal
+}
+
 function viewPolicy(policyId) {
     const policies = loadCompanyPolicies();
     const policy = policies.find(p => p.id === policyId);

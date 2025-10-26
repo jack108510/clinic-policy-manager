@@ -3801,7 +3801,7 @@ function hideWebhookLoading() {
 
 // Webhook function to send policy generation data
 async function sendPolicyGenerationWebhook(policyData) {
-    const webhookUrl = 'http://localhost:5678/webhook-test/05da961e-9df0-490e-815f-92d8bc9f9c1e';
+    const webhookUrl = 'http://localhost:5678/webhook/05da961e-9df0-490e-815f-92d8bc9f9c1e';
     
     const webhookData = {
         timestamp: new Date().toISOString(),

@@ -6729,19 +6729,27 @@ function viewUser(userId) {
 }
 
 function editUser(userId) {
-    console.log('editUser called with userId:', userId);
+    console.log('editUser called with userId:', userId, typeof userId);
     const allUsers = JSON.parse(localStorage.getItem('masterUsers') || '[]');
     const allOrganizations = JSON.parse(localStorage.getItem('organizations') || '{}');
     
-    console.log('All users:', allUsers);
+    console.log('Total users in storage:', allUsers.length);
+    console.log('User IDs in storage:', allUsers.map(u => ({ id: u.id, type: typeof u.id, username: u.username })));
     
-    const user = allUsers.find(u => u.id === userId || u.id === String(userId));
+    // Try multiple matching strategies
+    let user = allUsers.find(u => u.id === userId);
+    if (!user) user = allUsers.find(u => u.id == userId); // Loose equality
+    if (!user) user = allUsers.find(u => String(u.id) === String(userId)); // String comparison
+    if (!user) user = allUsers.find(u => u.id === parseInt(userId)); // Number comparison
     
     if (!user) {
-        console.error('User not found. ID:', userId, 'Available IDs:', allUsers.map(u => u.id));
+        console.error('User not found. Searched for:', userId, 'Type:', typeof userId);
+        console.error('Available IDs:', allUsers.map(u => ({ id: u.id, type: typeof u.id, username: u.username })));
         showNotification('User not found. Please try refreshing the page.', 'error');
         return;
     }
+    
+    console.log('Found user:', user);
     
     // Get organizations for this company
     const companyOrgs = allOrganizations[user.company] || [];

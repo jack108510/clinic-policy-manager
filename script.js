@@ -6407,7 +6407,7 @@ function openUsersModal() {
     
     // Create modal content with search and bulk actions
     const modalHtml = `
-        <div id="usersModal" class="modal" style="display: block;">
+        <div id="usersModal" class="modal" style="display: block; z-index: 3000;">
             <div class="modal-content" style="max-width: 1000px;">
                 <div class="modal-header">
                     <h3>Manage Users</h3>

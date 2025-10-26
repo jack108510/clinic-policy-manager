@@ -6121,6 +6121,15 @@ async function savePolicyToStorage(policy) {
         // Don't block policy saving if webhook fails
     }
     
+    // Send new policy notification emails to all company users
+    try {
+        await sendNewPolicyNotificationEmail(policy);
+        console.log('New policy notification emails sent successfully');
+    } catch (error) {
+        console.error('Failed to send new policy notification emails:', error);
+        // Don't block policy saving if email sending fails
+    }
+    
     // Send webhook notification with loading indicator and wait for response
     if (policy.generatedBy === 'ChatGPT' || policy.type) {
         showWebhookLoading();
@@ -7454,6 +7463,127 @@ async function sendWelcomeEmail(user) {
         console.error('Error sending welcome email:', error);
         // Don't block signup process if email fails
     }
+}
+
+// Send new policy notification email to all company users
+async function sendNewPolicyNotificationEmail(policy) {
+    try {
+        console.log('Sending new policy notification emails for:', policy.title);
+        
+        // Get email webhook URL from settings
+        const emailWebhookUrl = localStorage.getItem('emailWebhookUrl') || 'http://localhost:5678/webhook-email';
+        
+        // Get all users for this company
+        const companyUsers = getCompanyUserEmails();
+        
+        if (companyUsers.length === 0) {
+            console.log('No users to notify for company:', currentCompany);
+            return;
+        }
+        
+        // Create user-friendly date format
+        const effectiveDate = policy.effectiveDate ? new Date(policy.effectiveDate).toLocaleDateString() : 'Not specified';
+        
+        // Prepare email data for batch sending
+        const emailData = {
+            to: companyUsers.map(user => user.email), // Array of email addresses
+            subject: `New Policy: ${policy.title}`,
+            html: `
+                <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+                    <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; border-radius: 10px; text-align: center; margin-bottom: 30px;">
+                        <h1 style="color: white; margin: 0; font-size: 28px;">📋 New Policy Published</h1>
+                        <p style="color: rgba(255,255,255,0.9); margin: 10px 0 0 0;">A new policy has been added to ${currentCompany}</p>
+                    </div>
+                    
+                    <div style="background: #f8f9fa; padding: 20px; border-radius: 8px; border-left: 4px solid #667eea;">
+                        <h2 style="color: #333; margin: 0 0 10px 0;">${policy.title}</h2>
+                        <p style="color: #666; margin: 0;">${policy.type ? policy.type.charAt(0).toUpperCase() + policy.type.slice(1) : 'Policy'} Policy</p>
+                    </div>
+                    
+                    <div style="margin: 25px 0;">
+                        <h3 style="color: #333; font-size: 18px; margin-bottom: 15px;">Policy Details:</h3>
+                        <table style="width: 100%; border-collapse: collapse;">
+                            <tr>
+                                <td style="padding: 8px 0; color: #666; font-weight: 600;">Policy Type:</td>
+                                <td style="padding: 8px 0; color: #333;">${getTypeLabel(policy.type)}</td>
+                            </tr>
+                            <tr>
+                                <td style="padding: 8px 0; color: #666; font-weight: 600;">Effective Date:</td>
+                                <td style="padding: 8px 0; color: #333;">${effectiveDate}</td>
+                            </tr>
+                            ${policy.version ? `
+                            <tr>
+                                <td style="padding: 8px 0; color: #666; font-weight: 600;">Version:</td>
+                                <td style="padding: 8px 0; color: #333;">${policy.version}</td>
+                            </tr>
+                            ` : ''}
+                            ${policy.clinicNames ? `
+                            <tr>
+                                <td style="padding: 8px 0; color: #666; font-weight: 600;">Applies To:</td>
+                                <td style="padding: 8px 0; color: #333;">${policy.clinicNames}</td>
+                            </tr>
+                            ` : ''}
+                            <tr>
+                                <td style="padding: 8px 0; color: #666; font-weight: 600;">Created By:</td>
+                                <td style="padding: 8px 0; color: #333;">${policy.modifiedBy || 'Administrator'}</td>
+                            </tr>
+                        </table>
+                    </div>
+                    
+                    ${policy.content ? `
+                    <div style="margin: 25px 0;">
+                        <h3 style="color: #333; font-size: 18px; margin-bottom: 15px;">Policy Preview:</h3>
+                        <div style="background: #f8f9fa; padding: 15px; border-radius: 8px; border: 1px solid #e0e0e0; max-height: 200px; overflow-y: auto;">
+                            <p style="color: #666; line-height: 1.6; margin: 0;">${truncateText(policy.content, 500)}</p>
+                        </div>
+                    </div>
+                    ` : ''}
+                    
+                    <div style="background: #e7f3ff; padding: 20px; border-radius: 8px; text-align: center; margin: 30px 0;">
+                        <p style="margin: 0 0 15px 0; color: #333;">📖 View this policy in your Policy Pro dashboard</p>
+                        <a href="#" style="display: inline-block; background: #667eea; color: white; padding: 12px 30px; text-decoration: none; border-radius: 6px; font-weight: 600;">View Policy</a>
+                    </div>
+                    
+                    <div style="border-top: 1px solid #e0e0e0; padding-top: 20px; margin-top: 30px; text-align: center; color: #999; font-size: 13px;">
+                        <p style="margin: 0;">This is an automated notification from Policy Pro</p>
+                        <p style="margin: 5px 0 0 0;">© ${new Date().getFullYear()} Policy Pro. All rights reserved.</p>
+                    </div>
+                </div>
+            `,
+            text: `New Policy: ${policy.title}\n\nA new policy has been added to ${currentCompany}.\n\nPolicy Type: ${getTypeLabel(policy.type)}\nEffective Date: ${effectiveDate}\n${policy.version ? `Version: ${policy.version}\n` : ''}${policy.clinicNames ? `Applies To: ${policy.clinicNames}\n` : ''}\nCreated By: ${policy.modifiedBy || 'Administrator'}\n\nView this policy in your Policy Pro dashboard.\n\n---\nThis is an automated notification from Policy Pro`,
+            type: 'new_policy_notification',
+            recipients: companyUsers,
+            policyId: policy.id,
+            policyTitle: policy.title,
+            company: currentCompany,
+            timestamp: new Date().toISOString()
+        };
+        
+        // Send to webhook
+        const response = await fetch(emailWebhookUrl, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(emailData)
+        });
+        
+        if (response.ok) {
+            console.log('New policy notification emails sent successfully to', companyUsers.length, 'users');
+        } else {
+            console.warn('New policy notification webhook failed:', response.status);
+        }
+    } catch (error) {
+        console.error('Error sending new policy notification emails:', error);
+        // Don't block policy saving if email sending fails
+    }
+}
+
+// Helper function to truncate text for email preview
+function truncateText(text, maxLength) {
+    if (!text) return '';
+    if (text.length <= maxLength) return text;
+    return text.substring(0, maxLength) + '...';
 }
 
 function loginUser(event) {

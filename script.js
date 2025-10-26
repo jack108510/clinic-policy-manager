@@ -4884,7 +4884,8 @@ async function generatePolicyFromPromptData(prompt) {
             typeLabel: typeLabel,
             prompt: prompt,
             selectedRoles: selectedRoles,
-            selectedDisciplinaryActions: selectedDisciplinaryActions
+            selectedDisciplinaryActions: selectedDisciplinaryActions,
+            generatedBy: 'ChatGPT'
         };
     } catch (error) {
         console.error('Error generating policy with ChatGPT:', error);

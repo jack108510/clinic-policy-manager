@@ -531,8 +531,50 @@ function addOrganization() {
     showNotification(`Organization "${orgName}" added successfully`, 'success');
     
     // Refresh organizations display
-    if (typeof displayOrganizations === 'function') {
+    displayOrganizations();
+}
+
+function displayOrganizations() {
+    const organizationsList = document.getElementById('organizationsList');
+    if (!organizationsList) {
+        console.log('organizationsList not found');
+        return;
+    }
+    
+    // Get organizations for current company
+    const companyOrgs = organizations[currentCompany] || [];
+    
+    if (companyOrgs.length === 0) {
+        organizationsList.innerHTML = '<p class="no-items">No organizations added yet.</p>';
+        return;
+    }
+    
+    // Display organizations
+    organizationsList.innerHTML = companyOrgs.map((org, index) => `
+        <div class="item-card">
+            <div class="item-info">
+                <h4>${org}</h4>
+            </div>
+            <div class="item-actions">
+                <button onclick="deleteOrganization(${index}, '${org}')" class="btn btn-sm btn-danger">
+                    <i class="fas fa-trash"></i> Delete
+                </button>
+            </div>
+        </div>
+    `).join('');
+}
+
+function deleteOrganization(index, orgName) {
+    if (!confirm(`Are you sure you want to delete "${orgName}"?`)) {
+        return;
+    }
+    
+    const companyOrgs = organizations[currentCompany];
+    if (companyOrgs && companyOrgs.length > index) {
+        companyOrgs.splice(index, 1);
+        saveToLocalStorage('organizations', organizations);
         displayOrganizations();
+        showNotification(`Organization "${orgName}" deleted successfully`, 'success');
     }
 }
 

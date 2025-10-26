@@ -698,38 +698,46 @@ async function sendFileToWebhook(file, statusElement) {
     const webhookUrl = 'http://localhost:5678/webhook/b501e849-7a23-49d6-9502-66fb14b5a77e';
     
     try {
-        // Convert file to base64 or FormData
-        const formData = new FormData();
-        formData.append('file', file);
+        // Convert file to base64
+        const base64File = await fileToBase64(file);
         
-        // Add metadata
-        formData.append('filename', file.name);
-        formData.append('size', file.size);
-        formData.append('type', file.type);
-        formData.append('company', currentCompany || 'Unknown');
-        formData.append('username', currentUser?.username || 'Unknown');
-        formData.append('timestamp', new Date().toISOString());
+        // Build query parameters like the policy webhook
+        const webhookData = {
+            filename: file.name,
+            size: file.size,
+            type: file.type,
+            company: currentCompany || 'Unknown',
+            username: currentUser?.username || 'Unknown',
+            timestamp: new Date().toISOString(),
+            file: base64File
+        };
         
         console.log('Sending file to webhook:', file.name, 'URL:', webhookUrl);
-        console.log('FormData entries:', Array.from(formData.entries()));
         
-        // Try with no-cors mode to avoid CORS issues
-        const response = await fetch(webhookUrl, {
-            method: 'POST',
-            body: formData,
-            mode: 'no-cors' // This will allow the request but we can't read the response
+        // Use GET request with query parameters like the working webhook
+        const queryParams = new URLSearchParams(webhookData);
+        const response = await fetch(`${webhookUrl}?${queryParams}`, {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json'
+            }
         });
         
-        console.log('Request sent (no-cors mode)');
+        console.log('Response status:', response.status, 'OK:', response.ok);
         
-        // With no-cors, response is opaque so we can't check status
-        // Just assume success if no error is thrown
-        if (statusElement) {
-            statusElement.textContent = 'Uploaded ✓';
-            statusElement.className = 'status-badge success';
+        if (response.ok) {
+            const responseData = await response.text();
+            console.log('File uploaded successfully:', responseData);
+            
+            if (statusElement) {
+                statusElement.textContent = 'Uploaded ✓';
+                statusElement.className = 'status-badge success';
+            }
+        } else {
+            const errorText = await response.text();
+            console.error('Upload failed with status:', response.status, 'Response:', errorText);
+            throw new Error(`Upload failed with status: ${response.status}`);
         }
-        
-        console.log('File upload initiated successfully');
     } catch (error) {
         console.error('Webhook upload error:', error);
         console.error('Error details:', error.message, error.stack);
@@ -747,6 +755,19 @@ async function sendFileToWebhook(file, statusElement) {
         
         showNotification(`Failed to upload ${file.name}: ${errorMessage}`, 'error');
     }
+}
+
+function fileToBase64(file) {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.readAsDataURL(file);
+        reader.onload = () => {
+            // Remove data URL prefix (e.g., "data:application/pdf;base64,")
+            const base64 = reader.result.split(',')[1];
+            resolve(base64);
+        };
+        reader.onerror = error => reject(error);
+    });
 }
 
 function showProcessingStatus() {

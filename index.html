@@ -278,6 +278,18 @@
                             </small>
                         </div>
                         
+                        <div class="form-group" style="margin-top: 20px;">
+                            <label for="webhookUrlReport">
+                                <i class="fas fa-file-alt"></i> Policy Report Webhook URL
+                            </label>
+                            <input type="text" id="webhookUrlReport" class="form-control" 
+                                   placeholder="http://localhost:5678/webhook-report" 
+                                   style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px;">
+                            <small style="color: #666; display: block; margin-top: 5px;">
+                                This webhook will send the full policy report and all company user emails when a policy is saved
+                            </small>
+                        </div>
+                        
                         <button onclick="saveWebhookUrls()" class="btn btn-primary" style="margin-top: 20px;">
                             <i class="fas fa-save"></i> Save Webhook URLs
                         </button>
@@ -868,6 +880,6 @@
         </div>
     </footer>
 
-    <script src="script.js?v=64&t=20250128"></script>
+    <script src="script.js?v=65&t=20250128"></script>
 </body>
 </html>

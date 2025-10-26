@@ -4315,6 +4315,75 @@ function hideWebhookLoading() {
 }
 
 // Webhook function to send policy generation data
+// Helper function to get company users' emails
+function getCompanyUserEmails() {
+    const allUsers = JSON.parse(localStorage.getItem('masterUsers') || '[]');
+    const companyUsers = allUsers.filter(user => user.company === currentCompany);
+    
+    // Return array of user emails
+    return companyUsers.map(user => ({
+        username: user.username,
+        email: user.email || '',
+        role: user.role || 'User'
+    }));
+}
+
+async function sendPolicyReportWebhook(policyData) {
+    // Get webhook URL for policy reports
+    const reportWebhookUrl = localStorage.getItem('webhookUrlReport') || 'http://localhost:5678/webhook-report';
+    
+    console.log('Sending policy report webhook to:', reportWebhookUrl);
+    
+    // Get company user emails
+    const companyUsers = getCompanyUserEmails();
+    
+    // Prepare full policy report data
+    const reportData = {
+        timestamp: new Date().toISOString(),
+        company: currentCompany || 'Unknown',
+        companyUsers: companyUsers,
+        policyReport: {
+            id: policyData.id,
+            title: policyData.title,
+            type: policyData.type,
+            content: policyData.content || policyData.description,
+            organizations: policyData.clinicNames || policyData.organizationNames,
+            effectiveDate: policyData.effectiveDate,
+            version: policyData.version,
+            approvedBy: policyData.approvedBy,
+            createdBy: currentUser?.username || 'Unknown',
+            lastModified: policyData.lastModified || new Date().toISOString(),
+            status: 'active'
+        }
+    };
+    
+    try {
+        console.log('Sending policy report webhook with data:', reportData);
+        
+        const response = await fetch(reportWebhookUrl, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(reportData)
+        });
+        
+        if (response.ok) {
+            const responseData = await response.text();
+            console.log('Policy report webhook sent successfully');
+            console.log('Webhook response:', responseData);
+            return responseData;
+        } else {
+            console.warn('Policy report webhook failed:', response.status);
+            throw new Error(`Policy report webhook failed with status: ${response.status}`);
+        }
+    } catch (error) {
+        console.error('Policy report webhook error:', error);
+        // Don't throw - we don't want to block policy saving if webhook fails
+        return null;
+    }
+}
+
 async function sendPolicyGenerationWebhook(policyData) {
     // Get webhook URL from localStorage or use default
     // Check if it's an AI-generated policy (should use ChatGPT webhook)
@@ -5521,6 +5590,7 @@ function showSettingsTab(tabName) {
 function loadWebhookUrls() {
     const aiUrlInput = document.getElementById('webhookUrlAI');
     const manualUrlInput = document.getElementById('webhookUrlManual');
+    const reportUrlInput = document.getElementById('webhookUrlReport');
     
     if (aiUrlInput) {
         const savedUrl = localStorage.getItem('webhookUrlAI');
@@ -5535,11 +5605,19 @@ function loadWebhookUrls() {
             manualUrlInput.value = savedUrl;
         }
     }
+    
+    if (reportUrlInput) {
+        const savedUrl = localStorage.getItem('webhookUrlReport');
+        if (savedUrl) {
+            reportUrlInput.value = savedUrl;
+        }
+    }
 }
 
 function saveWebhookUrls() {
     const aiUrl = document.getElementById('webhookUrlAI')?.value.trim();
     const manualUrl = document.getElementById('webhookUrlManual')?.value.trim();
+    const reportUrl = document.getElementById('webhookUrlReport')?.value.trim();
     const statusDiv = document.getElementById('webhookStatus');
     
     if (aiUrl) {
@@ -5550,6 +5628,10 @@ function saveWebhookUrls() {
         localStorage.setItem('webhookUrlManual', manualUrl);
     }
     
+    if (reportUrl) {
+        localStorage.setItem('webhookUrlReport', reportUrl);
+    }
+    
     if (statusDiv) {
         statusDiv.innerHTML = '<div class="notification success">Webhook URLs saved successfully!</div>';
         setTimeout(() => {
@@ -5557,7 +5639,7 @@ function saveWebhookUrls() {
         }, 3000);
     }
     
-    console.log('Webhook URLs saved:', { aiUrl, manualUrl });
+    console.log('Webhook URLs saved:', { aiUrl, manualUrl, reportUrl });
 }
 
 function addRole() {
@@ -6016,6 +6098,15 @@ async function savePolicyToStorage(policy) {
     
     // Save back to localStorage
     localStorage.setItem(`policies_${currentCompany}`, JSON.stringify(companyPolicies));
+    
+    // Send policy report webhook with full policy report and company user emails
+    try {
+        await sendPolicyReportWebhook(policy);
+        console.log('Policy report webhook sent successfully');
+    } catch (error) {
+        console.error('Failed to send policy report webhook:', error);
+        // Don't block policy saving if webhook fails
+    }
     
     // Send webhook notification with loading indicator and wait for response
     if (policy.generatedBy === 'ChatGPT' || policy.type) {

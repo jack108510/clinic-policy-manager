@@ -3088,6 +3088,41 @@ function formatMarkdownForDisplay(markdown) {
     return '<div style="padding: 15px; line-height: 1.8;">' + html + '</div>';
 }
 
+function formatPolicyContentForDisplay(content) {
+    if (!content) {
+        return '<p style="color: #666; font-style: italic;">No content available</p>';
+    }
+    
+    // If content is already HTML, return it
+    if (typeof content === 'string' && content.includes('<')) {
+        return content;
+    }
+    
+    // If content is a plain string, format it
+    if (typeof content === 'string') {
+        return formatMarkdownForDisplay(content);
+    }
+    
+    // If content is an object with sections, format those
+    if (typeof content === 'object') {
+        let html = '';
+        for (const [sectionName, sectionContent] of Object.entries(content)) {
+            if (sectionContent) {
+                const displayName = sectionName.charAt(0).toUpperCase() + sectionName.slice(1).replace(/([A-Z])/g, ' $1');
+                html += `
+                    <div class="policy-section" style="margin-bottom: 25px;">
+                        <h3 style="color: #1e40af; margin-top: 25px; margin-bottom: 12px; font-weight: 700; border-bottom: 2px solid #e5e7eb; padding-bottom: 8px;">${displayName}</h3>
+                        <div style="line-height: 1.8;">${typeof sectionContent === 'string' ? formatMarkdownForDisplay(sectionContent) : JSON.stringify(sectionContent)}</div>
+                    </div>
+                `;
+            }
+        }
+        return html || '<p style="color: #666; font-style: italic;">No content available</p>';
+    }
+    
+    return '<p style="color: #666; font-style: italic;">Content format not supported</p>';
+}
+
 function parseWebhookPolicyMarkdown(markdown) {
     if (!markdown) return {};
     

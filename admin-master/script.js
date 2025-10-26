@@ -3140,6 +3140,179 @@ function saveGeneratedPolicy() {
     closeAIModal();
 }
 
+// Email Marketing Functions
+let emailCampaigns = [];
+
+function loadEmailCampaigns() {
+    const saved = localStorage.getItem('emailCampaigns');
+    emailCampaigns = saved ? JSON.parse(saved) : [];
+    displayEmailCampaigns();
+}
+
+function saveEmailCampaigns() {
+    localStorage.setItem('emailCampaigns', JSON.stringify(emailCampaigns));
+}
+
+function displayEmailCampaigns() {
+    const grid = document.getElementById('emailCampaignsGrid');
+    if (!grid) return;
+    
+    if (emailCampaigns.length === 0) {
+        grid.innerHTML = `
+            <div style="text-align: center; padding: 60px 20px; color: #999; grid-column: 1 / -1;">
+                <i class="fas fa-envelope" style="font-size: 64px; margin-bottom: 20px; opacity: 0.3;"></i>
+                <h3 style="margin: 0; color: #666;">No Email Campaigns</h3>
+                <p style="margin: 10px 0 0 0;">Create your first email campaign to get started.</p>
+            </div>
+        `;
+        updateEmailCampaignBadge();
+        return;
+    }
+    
+    grid.innerHTML = emailCampaigns.map(campaign => `
+        <div class="campaign-card" style="background: white; border: 1px solid #e0e0e0; border-radius: 12px; padding: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+            <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 15px;">
+                <div>
+                    <h3 style="margin: 0; font-size: 18px; color: #333;">${campaign.subject}</h3>
+                    <p style="margin: 5px 0 0 0; color: #666; font-size: 14px;">${campaign.recipientType} Campaign</p>
+                </div>
+                <span class="status-badge ${campaign.status === 'scheduled' ? 'status-pending' : campaign.status === 'sent' ? 'status-success' : 'status-inactive'}" 
+                      style="padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 600;">
+                    ${campaign.status.charAt(0).toUpperCase() + campaign.status.slice(1)}
+                </span>
+            </div>
+            
+            <div style="margin-bottom: 15px; padding: 12px; background: #f8f9fa; border-radius: 8px;">
+                <div style="font-size: 13px; color: #666; margin-bottom: 5px;">
+                    <i class="fas fa-users"></i> Recipients: ${campaign.recipientType === 'All Users' ? 'All' : campaign.recipientType}
+                </div>
+                <div style="font-size: 13px; color: #666;">
+                    <i class="fas fa-clock"></i> ${campaign.scheduleDate ? new Date(campaign.scheduleDate).toLocaleString() : 'Send immediately'}
+                </div>
+            </div>
+            
+            <div style="display: flex; gap: 8px;">
+                <button onclick="viewEmailCampaign('${campaign.id}')" 
+                        style="flex: 1; padding: 8px 12px; background: #0066cc; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 600;">
+                    <i class="fas fa-eye"></i> View
+                </button>
+                <button onclick="deleteEmailCampaign('${campaign.id}')" 
+                        style="flex: 1; padding: 8px 12px; background: #dc3545; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 600;">
+                    <i class="fas fa-trash"></i> Delete
+                </button>
+            </div>
+        </div>
+    `).join('');
+    
+    updateEmailCampaignBadge();
+}
+
+function updateEmailCampaignBadge() {
+    const badge = document.getElementById('emailCampaignBadge');
+    if (badge) {
+        badge.textContent = emailCampaigns.length;
+    }
+}
+
+function openCreateEmailModal() {
+    // Create modal
+    const modal = document.createElement('div');
+    modal.className = 'modal show';
+    modal.id = 'createEmailModal';
+    modal.innerHTML = `
+        <div class="modal-content" style="max-width: 700px;">
+            <div class="modal-header">
+                <h3>Create Email Campaign</h3>
+                <button class="modal-close" onclick="closeCreateEmailModal()">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <form id="createEmailForm" onsubmit="saveEmailCampaign(event)">
+                    <div class="form-group">
+                        <label for="emailSubject">Email Subject</label>
+                        <input type="text" id="emailSubject" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="emailRecipientType">Send To</label>
+                        <select id="emailRecipientType" required>
+                            <option value="All Users">All Users</option>
+                            <option value="All Admins">All Admins</option>
+                            <option value="Specific Company">Specific Company</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="emailContent">Email Content</label>
+                        <textarea id="emailContent" rows="10" required style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px;"></textarea>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="emailScheduleDate">Schedule Send Date (optional)</label>
+                        <input type="datetime-local" id="emailScheduleDate">
+                        <small>Leave empty to send immediately</small>
+                    </div>
+                    
+                    <div class="form-actions">
+                        <button type="submit" class="btn btn-primary">Create Campaign</button>
+                        <button type="button" class="btn btn-secondary" onclick="closeCreateEmailModal()">Cancel</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    `;
+    
+    document.body.appendChild(modal);
+}
+
+function closeCreateEmailModal() {
+    const modal = document.getElementById('createEmailModal');
+    if (modal) modal.remove();
+}
+
+function saveEmailCampaign(event) {
+    event.preventDefault();
+    
+    const newCampaign = {
+        id: Date.now().toString(),
+        subject: document.getElementById('emailSubject').value,
+        recipientType: document.getElementById('emailRecipientType').value,
+        content: document.getElementById('emailContent').value,
+        scheduleDate: document.getElementById('emailScheduleDate').value || null,
+        status: 'scheduled',
+        created: new Date().toISOString()
+    };
+    
+    emailCampaigns.push(newCampaign);
+    saveEmailCampaigns();
+    displayEmailCampaigns();
+    
+    closeCreateEmailModal();
+    showAlert('Email campaign created successfully!', 'success');
+}
+
+function viewEmailCampaign(campaignId) {
+    const campaign = emailCampaigns.find(c => c.id === campaignId);
+    if (!campaign) return;
+    
+    alert(`Subject: ${campaign.subject}\n\nRecipients: ${campaign.recipientType}\n\nContent:\n${campaign.content}`);
+}
+
+function deleteEmailCampaign(campaignId) {
+    if (confirm('Are you sure you want to delete this email campaign?')) {
+        emailCampaigns = emailCampaigns.filter(c => c.id !== campaignId);
+        saveEmailCampaigns();
+        displayEmailCampaigns();
+        showAlert('Email campaign deleted successfully', 'success');
+    }
+}
+
+function refreshEmailCampaigns() {
+    loadEmailCampaigns();
+    showAlert('Email campaigns refreshed', 'success');
+}
+
 // Load settings when page loads
 document.addEventListener('DOMContentLoaded', function() {
     // Load saved API keys into settings form
@@ -3164,4 +3337,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // Initialize policy management
     loadPoliciesFromStorage();
     updatePolicyBadge();
+    
+    // Initialize email marketing
+    loadEmailCampaigns();
 });

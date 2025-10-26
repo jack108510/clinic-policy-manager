@@ -103,6 +103,17 @@
                 </div>
 
                 <div class="sidebar-section">
+                    <h3 class="section-title">Email Marketing</h3>
+                    <nav class="sidebar-nav">
+                        <a href="#email-marketing" class="nav-item" data-section="email-marketing">
+                            <i class="fas fa-envelope"></i>
+                            <span>Campaigns</span>
+                            <span class="nav-badge" id="emailCampaignBadge">0</span>
+                        </a>
+                    </nav>
+                </div>
+
+                <div class="sidebar-section">
                     <h3 class="section-title">Tools & Reports</h3>
                     <nav class="sidebar-nav">
                         <a href="#policy-upload" class="nav-item" data-section="policy-upload">
@@ -821,6 +832,31 @@
             </section>
 
             <!-- Help Section -->
+            <!-- Email Marketing Section -->
+            <section id="email-marketing" class="content-section">
+                <div class="section-header">
+                    <div class="header-content">
+                        <h2>Email Marketing</h2>
+                        <p>Create and schedule email campaigns</p>
+                    </div>
+                    <div class="header-actions">
+                        <button class="btn btn-primary" onclick="openCreateEmailModal()">
+                            <i class="fas fa-plus"></i>
+                            Create Campaign
+                        </button>
+                        <button class="btn btn-secondary" onclick="refreshEmailCampaigns()">
+                            <i class="fas fa-sync-alt"></i>
+                            Refresh
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Campaigns Grid -->
+                <div class="campaigns-grid" id="emailCampaignsGrid">
+                    <!-- Campaigns will be loaded here -->
+                </div>
+            </section>
+
             <section id="help" class="content-section">
                 <div class="section-header">
                     <h2>Help & Support</h2>
@@ -1315,6 +1351,6 @@
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script src="script.js?v=6"></script>
+    <script src="script.js?v=7"></script>
 </body>
 </html>

@@ -286,6 +286,17 @@ function setupEventListeners() {
     } else {
         console.error('Password form not found!');
     }
+    
+    // Event delegation for policy view buttons (dynamically added)
+    document.addEventListener('click', function(e) {
+        if (e.target.closest('.policy-view-btn')) {
+            const button = e.target.closest('.policy-view-btn');
+            const policyId = button.getAttribute('data-policy-id');
+            console.log('Policy view button clicked with ID:', policyId);
+            e.preventDefault();
+            viewPolicy(policyId);
+        }
+    });
 
     // Smooth scrolling for navigation links
     document.querySelectorAll('a[href^="#"]').forEach(anchor => {
@@ -365,7 +376,7 @@ function displayPolicies(policiesToDisplay = policies) {
                 <span>Updated: ${formatDate(policy.updated)}</span>
             </div>
             <div class="policy-actions" style="margin-top: 15px; padding-top: 15px; border-top: 1px solid #e5e7eb;">
-                <button class="btn btn-primary btn-sm" onclick="viewPolicy('${policy.id}')" style="width: 100%;">
+                <button class="btn btn-primary btn-sm policy-view-btn" data-policy-id="${policy.id}" style="width: 100%;">
                     <i class="fas fa-eye"></i> View Full Policy
                 </button>
             </div>
@@ -6381,13 +6392,20 @@ function deleteUser(userId) {
 }
 
 function viewPolicy(policyId) {
+    console.log('viewPolicy called with policyId:', policyId);
     const policies = loadCompanyPolicies();
-    const policy = policies.find(p => p.id === policyId);
+    console.log('Available policies:', policies.map(p => ({ id: p.id, title: p.title })));
+    
+    // Handle both string and number IDs
+    const policy = policies.find(p => p.id === policyId || p.id === String(policyId) || String(p.id) === policyId);
     
     if (!policy) {
+        console.error('Policy not found with ID:', policyId);
         showNotification('Policy not found', 'error');
         return;
     }
+    
+    console.log('Found policy:', policy);
     
     // Show the policy view modal
     const modal = document.getElementById('policyViewModal');

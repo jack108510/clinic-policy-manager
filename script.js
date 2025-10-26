@@ -4686,8 +4686,19 @@ function populateRolesAndDisciplinaryActions() {
     const defaultDisciplinaryActions = ['Verbal Warning', 'Written Warning', 'Suspension', 'Termination'];
     
     // Load organizations from localStorage
-    const allOrgs = organizations[currentCompany] || organizations['Default Company'] || ['Tudor Glen', 'River Valley', 'Rosslyn', 'UPC'];
-    console.log('Organizations loaded:', allOrgs);
+    // First, reload the organizations object from localStorage in case it was updated
+    const orgData = localStorage.getItem('organizations');
+    if (orgData) {
+        const loadedOrgs = JSON.parse(orgData);
+        console.log('Reloaded organizations from localStorage:', loadedOrgs);
+        // Get organizations for current company
+        var allOrgs = loadedOrgs[currentCompany] || loadedOrgs['Default Company'] || ['Tudor Glen', 'River Valley', 'Rosslyn', 'UPC'];
+    } else {
+        // Use the in-memory organizations object
+        var allOrgs = organizations[currentCompany] || organizations['Default Company'] || ['Tudor Glen', 'River Valley', 'Rosslyn', 'UPC'];
+    }
+    
+    console.log('Organizations loaded for company:', currentCompany, 'Orgs:', allOrgs);
     
     // Check what's stored in localStorage
     const storedRoles = localStorage.getItem('adminRoles') || localStorage.getItem('masterRoles') || localStorage.getItem('roles');

@@ -2786,24 +2786,6 @@ function displayAIPolicy(policy) {
     // Update chat state and ask if anything needs to be changed
     chatState.step = 'policy_generated';
     
-    // Show the chat again and ask if anything needs to be changed
-    setTimeout(() => {
-        // Keep the result visible and show chat below it
-        document.querySelector('.chat-container').style.display = 'block';
-        
-        addAIMessage(`I've generated your policy! Please review it above. Is there anything you'd like me to change or modify?`);
-        
-        // Show quick options
-        const chatMessages = document.getElementById('chatMessages');
-        const quickOptions = document.createElement('div');
-        quickOptions.className = 'quick-options';
-        quickOptions.innerHTML = `
-            <button class="btn btn-sm btn-success" onclick="processChatMessage('No, it looks perfect!')">Perfect as is!</button>
-            <button class="btn btn-sm btn-warning" onclick="processChatMessage('Yes, I need some changes')">Yes, I need changes</button>
-        `;
-        chatMessages.appendChild(quickOptions);
-        chatMessages.scrollTop = chatMessages.scrollHeight;
-    }, 1000);
 }
 
 function editAIPolicy() {
@@ -4821,7 +4803,9 @@ function generatePolicyFromPrompt(prompt) {
         .then(generatedPolicy => {
             console.log('Policy generated successfully:', generatedPolicy);
             chatState.currentPolicy = generatedPolicy;
-            displayAIPolicy(generatedPolicy);
+            
+            // Save policy through webhook
+            savePolicyToStorage(generatedPolicy);
         })
         .catch(error => {
             console.error('Error generating policy:', error);
@@ -5514,7 +5498,7 @@ async function savePolicyToStorage(policy) {
             
             // Only sync to master admin dashboard if webhook succeeded
             syncPoliciesToMasterAdmin(companyPolicies);
-            console.log(`Policy saved for company ${currentCompany}:`, policy.title);
+    console.log(`Policy saved for company ${currentCompany}:`, policy.title);
         } catch (error) {
             console.error('Webhook error:', error);
             

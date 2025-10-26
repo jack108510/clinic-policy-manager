@@ -695,7 +695,7 @@ async function processFiles(files) {
 
 async function sendFileToWebhook(file, statusElement) {
     console.log('sendFileToWebhook called with file:', file.name, 'statusElement:', statusElement);
-    const webhookUrl = 'http://localhost:5678/webhook-test/b501e849-7a23-49d6-9502-66fb14b5a77e';
+    const webhookUrl = 'http://localhost:5678/webhook/b501e849-7a23-49d6-9502-66fb14b5a77e';
     
     try {
         // Convert file to base64 or FormData

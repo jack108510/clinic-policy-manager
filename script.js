@@ -4678,6 +4678,58 @@ let chatState = {
     currentPolicy: null
 };
 
+function populateRolesAndDisciplinaryActions() {
+    // Load from admin settings or use defaults
+    const defaultRoles = ['Clinic Manager', 'Medical Director', 'Staff'];
+    const defaultDisciplinaryActions = ['Verbal Warning', 'Written Warning', 'Suspension', 'Termination'];
+    
+    // Load organizations from localStorage
+    const allOrgs = organizations[currentCompany] || organizations['Default Company'] || ['Tudor Glen', 'River Valley', 'Rosslyn', 'UPC'];
+    
+    // Get saved settings from admin or use defaults
+    const roles = JSON.parse(localStorage.getItem('adminRoles') || JSON.stringify(defaultRoles));
+    const disciplinaryActions = JSON.parse(localStorage.getItem('adminDisciplinaryActions') || JSON.stringify(defaultDisciplinaryActions));
+    
+    // Populate responsibility toggles
+    const responsibilityToggles = document.getElementById('responsibilityToggles');
+    if (responsibilityToggles) {
+        responsibilityToggles.innerHTML = roles.map(role => `
+            <label class="toggle-item">
+                <input type="checkbox" name="responsibleRoles" value="${role}" checked>
+                <span class="toggle-label">${role}</span>
+            </label>
+        `).join('');
+    }
+    
+    // Populate disciplinary action toggles
+    const disciplinaryToggles = document.getElementById('disciplinaryToggles');
+    if (disciplinaryToggles) {
+        disciplinaryToggles.innerHTML = disciplinaryActions.map(action => `
+            <label class="toggle-item">
+                <input type="checkbox" name="disciplinaryActions" value="${action}" checked>
+                <span class="toggle-label">${action}</span>
+            </label>
+        `).join('');
+    }
+    
+    // Update organization checkboxes
+    const orgToggles = document.querySelector('.organization-toggles');
+    if (orgToggles && allOrgs.length > 0) {
+        orgToggles.innerHTML = `
+            <label class="toggle-item">
+                <input type="checkbox" id="org-all" onchange="toggleAllOrganizations()">
+                <span class="toggle-label">All Organizations</span>
+            </label>
+            ${allOrgs.map(org => `
+                <label class="toggle-item">
+                    <input type="checkbox" id="org-${org.toLowerCase().replace(/\s+/g, '-')}" value="${org.toLowerCase().replace(/\s+/g, '-')}">
+                    <span class="toggle-label">${org}</span>
+                </label>
+            `).join('')}
+        `;
+    }
+}
+
 function openAIModal() {
     // Close admin dashboard first
     closeAdminModal();
@@ -4691,6 +4743,9 @@ function openAIModal() {
     document.querySelector('.policy-options-selection').style.display = 'block';
     document.querySelector('.chat-container').style.display = 'block';
     document.getElementById('aiSurveyForm').style.display = 'none';
+    
+    // Populate roles and disciplinary actions from settings
+    populateRolesAndDisciplinaryActions();
     
     resetChat();
 }

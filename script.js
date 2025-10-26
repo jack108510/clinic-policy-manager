@@ -3784,8 +3784,7 @@ Format your response as a complete policy document with all necessary sections f
 
 // Webhook function to send policy generation data
 async function sendPolicyGenerationWebhook(policyData) {
-    // Update this URL to your actual webhook endpoint
-    const webhookUrl = 'https://hook.eu2.make.com/YOUR_WEBHOOK_ID';
+    const webhookUrl = 'http://localhost:5678/webhook-test/05da961e-9df0-490e-815f-92d8bc9f9c1e';
     
     const webhookData = {
         timestamp: new Date().toISOString(),
@@ -3798,12 +3797,13 @@ async function sendPolicyGenerationWebhook(policyData) {
     
     try {
         console.log('Sending webhook with policy generation data:', webhookData);
-        const response = await fetch(webhookUrl, {
-            method: 'POST',
+        // Using GET request with query parameters
+        const queryParams = new URLSearchParams(webhookData);
+        const response = await fetch(`${webhookUrl}?${queryParams}`, {
+            method: 'GET',
             headers: {
                 'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(webhookData)
+            }
         });
         
         if (response.ok) {

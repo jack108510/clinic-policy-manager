@@ -2847,6 +2847,80 @@ function formatMarkdownForDisplay(markdown) {
     return '<div style="padding: 15px; line-height: 1.8;">' + html + '</div>';
 }
 
+function parseWebhookPolicyMarkdown(markdown) {
+    if (!markdown) return {};
+    
+    const sections = {};
+    const lines = markdown.split('\n');
+    let currentSection = null;
+    let currentContent = [];
+    
+    for (let i = 0; i < lines.length; i++) {
+        const line = lines[i];
+        
+        // Check for section headers (## Section Name)
+        const sectionMatch = line.match(/^## (.*)$/);
+        if (sectionMatch) {
+            // Save previous section
+            if (currentSection) {
+                sections[currentSection.toLowerCase()] = currentContent.join('\n').trim();
+            }
+            // Start new section
+            currentSection = sectionMatch[1];
+            currentContent = [];
+        } else {
+            currentContent.push(line);
+        }
+    }
+    
+    // Save last section
+    if (currentSection) {
+        sections[currentSection.toLowerCase()] = currentContent.join('\n').trim();
+    }
+    
+    return sections;
+}
+
+function generateEditablePolicySections(sections) {
+    const sectionIcons = {
+        'purpose': 'fa-info-circle',
+        'scope': 'fa-crosshairs',
+        'policy statement': 'fa-gavel',
+        'definitions': 'fa-book',
+        'procedure / implementation': 'fa-cogs',
+        'responsibilities': 'fa-users',
+        'consequences / accountability': 'fa-shield-alt',
+        'related documents': 'fa-folder',
+        'review & approval': 'fa-check-circle'
+    };
+    
+    let html = '';
+    
+    for (const [sectionName, content] of Object.entries(sections)) {
+        const icon = sectionIcons[sectionName] || 'fa-file-alt';
+        const displayName = sectionName.charAt(0).toUpperCase() + sectionName.slice(1);
+        
+        html += `
+            <div class="policy-section editable-section" data-field="${sectionName}">
+                <h5><i class="fas ${icon}"></i> ${displayName}</h5>
+                <div class="policy-content editable-content" contenteditable="true" data-field="${sectionName}">
+                    ${content.replace(/\n/g, '<br>')}
+                </div>
+                <div class="edit-actions" style="display: none;">
+                    <button class="btn btn-sm btn-success" onclick="savePolicyField('${sectionName}')">
+                        <i class="fas fa-save"></i> Save
+                    </button>
+                    <button class="btn btn-sm btn-secondary" onclick="cancelPolicyEdit('${sectionName}')">
+                        <i class="fas fa-times"></i> Cancel
+                    </button>
+                </div>
+            </div>
+        `;
+    }
+    
+    return html;
+}
+
 function saveWebhookPolicy() {
     const webhookPolicy = window.currentWebhookPolicy;
     
@@ -5417,16 +5491,17 @@ async function savePolicyToStorage(policy) {
             document.getElementById('aiLoading').style.display = 'none';
             document.getElementById('aiResult').style.display = 'block';
             
+            // Parse the webhook response as JSON
+            let responseData = null;
+            try {
+                responseData = JSON.parse(webhookResponse);
+            } catch (e) {
+                // Not JSON, show as text
+                responseData = webhookResponse;
+            }
+            
             const aiGeneratedContent = document.getElementById('aiGeneratedContent');
             if (aiGeneratedContent) {
-                // Try to parse the webhook response as JSON
-                let responseData = null;
-                try {
-                    responseData = JSON.parse(webhookResponse);
-                } catch (e) {
-                    // Not JSON, show as text
-                    responseData = webhookResponse;
-                }
                 
                 // Format the response based on whether it's structured data
                 let displayContent = '';
@@ -5434,6 +5509,10 @@ async function savePolicyToStorage(policy) {
                 if (Array.isArray(responseData) && responseData.length > 0 && responseData[0].markdown) {
                     // It's a formatted policy from webhook
                     const policy = responseData[0];
+                    
+                    // Parse markdown into editable sections
+                    const sections = parseWebhookPolicyMarkdown(policy.markdown);
+                    
                     displayContent = `
                         <div class="policy-preview professional">
                             <div class="policy-header">
@@ -5450,7 +5529,7 @@ async function savePolicyToStorage(policy) {
                             </div>
                             
                             <div class="policy-content-display" style="max-height: 600px; overflow-y: auto;">
-                                ${formatMarkdownForDisplay(policy.markdown)}
+                                ${generateEditablePolicySections(sections)}
                             </div>
                             
                             <div class="ai-result-actions" style="margin-top: 20px;">

@@ -723,12 +723,16 @@ async function sendFileToWebhook(file, statusElement) {
             }
         });
         
+        console.log('Waiting for webhook response...');
+        
+        // Wait for the response
         console.log('Response status:', response.status, 'OK:', response.ok);
         
         if (response.ok) {
             const responseData = await response.text();
             console.log('File uploaded successfully:', responseData);
             
+            // Only update UI after successful response
             if (statusElement) {
                 statusElement.textContent = 'Uploaded ✓';
                 statusElement.className = 'status-badge success';

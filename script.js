@@ -4686,15 +4686,25 @@ function populateRolesAndDisciplinaryActions() {
     // Load organizations from localStorage
     // First, reload the organizations object from localStorage in case it was updated
     const orgData = localStorage.getItem('organizations');
-    let allOrgs;
+    let allOrgs = [];
+    
+    console.log('Current company:', currentCompany);
+    console.log('Organizations from localStorage:', orgData);
+    
     if (orgData) {
         const loadedOrgs = JSON.parse(orgData);
+        console.log('Parsed organizations:', loadedOrgs);
+        console.log('Company keys in loadedOrgs:', Object.keys(loadedOrgs));
+        
         // Get organizations for current company
-        allOrgs = loadedOrgs[currentCompany] || loadedOrgs['Default Company'] || [];
+        allOrgs = loadedOrgs[currentCompany] || [];
+        console.log('Organizations for company:', allOrgs);
     } else {
         // Use the in-memory organizations object
-        allOrgs = organizations[currentCompany] || organizations['Default Company'] || [];
+        allOrgs = organizations[currentCompany] || [];
     }
+    
+    console.log('Final allOrgs:', allOrgs);
     
     // Check what's stored in localStorage
     const storedRoles = localStorage.getItem('adminRoles') || localStorage.getItem('masterRoles') || localStorage.getItem('roles');

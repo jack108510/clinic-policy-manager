@@ -6710,6 +6710,7 @@ function editUser(userId) {
     editModal.className = 'modal';
     editModal.id = 'editUserModal';
     editModal.style.display = 'block';
+    editModal.style.zIndex = '3100';
     editModal.innerHTML = `
         <div class="modal-content" style="max-width: 600px;">
             <div class="modal-header">

@@ -45,6 +45,7 @@ body {
     font-size: 1.5rem;
     font-weight: bold;
     color: #2563eb;
+    height: auto;
 }
 
 .nav-logo i {
@@ -53,9 +54,10 @@ body {
 }
 
 .logo-img {
-    width: auto;
-    height: 200px;
-    margin-right: 0;
+    width: auto !important;
+    height: 200px !important;
+    margin-right: 0 !important;
+    max-width: none !important;
 }
 
 .nav-menu {

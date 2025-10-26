@@ -6549,7 +6549,106 @@ function bulkEditUsers() {
     const checkboxes = document.querySelectorAll('.user-checkbox:checked');
     if (checkboxes.length === 0) return;
     
-    showNotification('Bulk edit functionality coming soon', 'info');
+    const allUsers = JSON.parse(localStorage.getItem('masterUsers') || '[]');
+    const selectedIds = Array.from(checkboxes).map(cb => cb.dataset.userId);
+    const selectedUsers = allUsers.filter(u => selectedIds.includes(u.id) || selectedIds.includes(String(u.id)));
+    
+    // Get organizations from the first selected user's company
+    const allOrganizations = JSON.parse(localStorage.getItem('organizations') || '{}');
+    const companyOrgs = selectedUsers.length > 0 ? (allOrganizations[selectedUsers[0].company] || []) : [];
+    
+    // Create bulk edit modal
+    const bulkEditModal = document.createElement('div');
+    bulkEditModal.className = 'modal';
+    bulkEditModal.id = 'bulkEditUserModal';
+    bulkEditModal.style.display = 'block';
+    bulkEditModal.style.zIndex = '3100';
+    bulkEditModal.innerHTML = `
+        <div class="modal-content" style="max-width: 600px;">
+            <div class="modal-header">
+                <h3>Bulk Edit ${selectedUsers.length} User(s)</h3>
+                <span class="close" onclick="document.getElementById('bulkEditUserModal').remove()">&times;</span>
+            </div>
+            <div class="modal-body">
+                <form id="bulkEditUserForm">
+                    <div class="form-group">
+                        <label for="bulkEditRole">Change Role To:</label>
+                        <select id="bulkEditRole" class="form-control">
+                            <option value="">-- Don't change --</option>
+                            <option value="user">User</option>
+                            <option value="admin">Admin</option>
+                        </select>
+                        <small style="color: #666;">Only selected users will be updated</small>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Update Organizations:</label>
+                        <div style="margin-top: 10px;">
+                            ${companyOrgs.length > 0 ? companyOrgs.map(org => `
+                                <label style="display: block; margin-bottom: 8px;">
+                                    <input type="checkbox" name="bulkOrganizations" value="${org}">
+                                    ${org}
+                                </label>
+                            `).join('') : '<p style="color: #666;">No organizations configured for this company.</p>'}
+                        </div>
+                        <small style="color: #666;">Checking an organization will ADD it to all selected users. Unchecked organizations will not be modified.</small>
+                    </div>
+                    
+                    <div class="form-actions">
+                        <button type="submit" class="btn btn-primary">Apply Changes to All Selected Users</button>
+                        <button type="button" class="btn btn-secondary" onclick="document.getElementById('bulkEditUserModal').remove()">Cancel</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    `;
+    
+    document.body.appendChild(bulkEditModal);
+    
+    // Handle form submission
+    document.getElementById('bulkEditUserForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        const newRole = document.getElementById('bulkEditRole').value;
+        const orgCheckboxes = document.querySelectorAll('input[name="bulkOrganizations"]:checked');
+        const orgsToAdd = Array.from(orgCheckboxes).map(cb => cb.value);
+        
+        // Update all selected users
+        selectedUsers.forEach(user => {
+            if (newRole) {
+                user.role = newRole;
+            }
+            
+            if (orgsToAdd.length > 0) {
+                if (!user.organizations) {
+                    user.organizations = [];
+                }
+                // Add organizations if they don't already exist
+                orgsToAdd.forEach(org => {
+                    if (!user.organizations.includes(org)) {
+                        user.organizations.push(org);
+                    }
+                });
+            }
+        });
+        
+        // Save to localStorage
+        localStorage.setItem('masterUsers', JSON.stringify(allUsers));
+        
+        // Dispatch master data updated event
+        window.dispatchEvent(new CustomEvent('masterDataUpdated', {
+            detail: {
+                users: allUsers
+            }
+        }));
+        
+        showNotification(`${selectedUsers.length} user(s) updated successfully`, 'success');
+        bulkEditModal.remove();
+        
+        // Refresh the users modal
+        closeUsersModal();
+        openUsersModal();
+    });
 }
 
 function bulkDeleteUsers() {

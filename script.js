@@ -4703,12 +4703,22 @@ function populateRolesAndDisciplinaryActions() {
     
     if (storedRoles) {
         const parsed = JSON.parse(storedRoles);
-        roles = Array.isArray(parsed) ? parsed.map(r => typeof r === 'object' ? r.name : r) : defaultRoles;
+        console.log('Parsed roles:', parsed);
+        roles = Array.isArray(parsed) ? parsed.map(r => {
+            console.log('Processing role:', r, 'Type:', typeof r, 'Is object:', typeof r === 'object');
+            return typeof r === 'object' && r !== null && r.name ? r.name : (typeof r === 'string' ? r : String(r));
+        }) : defaultRoles;
+        console.log('Final roles array:', roles);
     }
     
     if (storedDisciplinaryActions) {
         const parsed = JSON.parse(storedDisciplinaryActions);
-        disciplinaryActions = Array.isArray(parsed) ? parsed.map(a => typeof a === 'object' ? a.name : a) : defaultDisciplinaryActions;
+        console.log('Parsed disciplinary actions:', parsed);
+        disciplinaryActions = Array.isArray(parsed) ? parsed.map(a => {
+            console.log('Processing action:', a, 'Type:', typeof a, 'Is object:', typeof a === 'object');
+            return typeof a === 'object' && a !== null && a.name ? a.name : (typeof a === 'string' ? a : String(a));
+        }) : defaultDisciplinaryActions;
+        console.log('Final disciplinary actions array:', disciplinaryActions);
     }
     
     console.log('Roles to display:', roles);

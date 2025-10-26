@@ -503,13 +503,17 @@ function addOrganizationToCompany(company, organizationName) {
 }
 
 function addOrganization() {
-    const orgInput = document.getElementById('newOrganization');
-    if (!orgInput) {
+    const orgNameInput = document.getElementById('newOrganizationName');
+    const orgAddressInput = document.getElementById('newOrganizationAddress');
+    const orgPhoneInput = document.getElementById('newOrganizationPhone');
+    const orgEmailInput = document.getElementById('newOrganizationEmail');
+    
+    if (!orgNameInput) {
         showNotification('Organization input not found', 'error');
         return;
     }
     
-    const orgName = orgInput.value.trim();
+    const orgName = orgNameInput.value.trim();
     if (!orgName) {
         showNotification('Please enter an organization name', 'error');
         return;
@@ -518,8 +522,11 @@ function addOrganization() {
     // Add to current company
     addOrganizationToCompany(currentCompany, orgName);
     
-    // Clear input
-    orgInput.value = '';
+    // Clear inputs
+    orgNameInput.value = '';
+    if (orgAddressInput) orgAddressInput.value = '';
+    if (orgPhoneInput) orgPhoneInput.value = '';
+    if (orgEmailInput) orgEmailInput.value = '';
     
     showNotification(`Organization "${orgName}" added successfully`, 'success');
     

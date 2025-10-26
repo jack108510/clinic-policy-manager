@@ -4683,10 +4683,13 @@ function sendChatMessage() {
     const input = document.getElementById('chatInput');
     const message = input.value.trim();
     
-    if (!message) return;
+    if (!message || chatState.isGenerating) return;
     
-    addUserMessage(message);
+    // Clear input immediately
     input.value = '';
+    
+    // Add user message once
+    addUserMessage(message);
     
     // Process the message based on current step
     processChatMessage(message);
@@ -4697,26 +4700,21 @@ function processChatMessage(message) {
     
     if (chatState.step === 'start') {
         // User's first message - generate policy directly
-        addUserMessage(message);
         generatePolicyFromPrompt(message);
     } else if (chatState.step === 'policy_generated') {
         // User wants to modify the policy
         if (message.toLowerCase().includes('yes') || message.toLowerCase().includes('modify') || message.toLowerCase().includes('change')) {
-            addUserMessage(message);
             addAIMessage(`What would you like me to change or modify in the policy? Please describe the specific changes you need.`);
             chatState.step = 'modify_policy';
         } else if (message.toLowerCase().includes('no') || message.toLowerCase().includes('perfect') || message.toLowerCase().includes('good')) {
-            addUserMessage(message);
             addAIMessage(`Great! Your policy is ready. You can save it, export it, or create another policy. What would you like to do next?`);
             chatState.step = 'policy_complete';
         } else {
             // Treat as modification request
-            addUserMessage(message);
             modifyPolicy(message);
         }
     } else if (chatState.step === 'modify_policy') {
         // User is providing modification details
-        addUserMessage(message);
         modifyPolicy(message);
     }
 }
@@ -4725,10 +4723,7 @@ function generatePolicyFromPrompt(prompt) {
     console.log('generatePolicyFromPrompt called with:', prompt);
     chatState.isGenerating = true;
     
-    // Show AI is thinking
-    addAIMessage(`I'll create a comprehensive policy based on your request. Let me generate that for you...`);
-    
-    // Hide chat and show loading
+    // Hide chat and show loading immediately
     document.querySelector('.chat-container').style.display = 'none';
     document.getElementById('aiLoading').style.display = 'block';
     
@@ -5498,10 +5493,10 @@ function signupUser(event) {
         console.log('Step 1: Starting signup process');
         
         // Show loading state on button
-        if (signupButton) {
-            signupButton.textContent = 'Creating Account...';
-            signupButton.disabled = true;
-        }
+    if (signupButton) {
+        signupButton.textContent = 'Creating Account...';
+        signupButton.disabled = true;
+    }
         console.log('Step 2: Button state updated');
     
     const username = document.getElementById('signupUsername').value.trim();
@@ -5609,18 +5604,18 @@ function signupUser(event) {
         if (!masterData || !masterData.accessCodes || masterData.accessCodes.length === 0) {
             showSignupError('No access codes are currently available. Please contact your administrator to create access codes in the Master Admin dashboard.');
         } else {
-            // Check if the code exists but has issues
-            const existingCode = masterData.accessCodes.find(code => code.code === accessCode);
-            if (existingCode) {
-                if (existingCode.status !== 'active') {
-                    showSignupError('Access code is not active. Please contact your administrator.');
+        // Check if the code exists but has issues
+        const existingCode = masterData.accessCodes.find(code => code.code === accessCode);
+        if (existingCode) {
+            if (existingCode.status !== 'active') {
+                showSignupError('Access code is not active. Please contact your administrator.');
                 } else if (existingCode.expiryDate && new Date(existingCode.expiryDate) <= new Date()) {
                     showSignupError('Access code has expired. Please contact your administrator for a new code.');
-                } else {
-                    showSignupError('Access code validation failed. Please check with your administrator.');
-                }
             } else {
-                showSignupError('Invalid access code. Please check with your administrator for a valid code.');
+                showSignupError('Access code validation failed. Please check with your administrator.');
+            }
+        } else {
+            showSignupError('Invalid access code. Please check with your administrator for a valid code.');
             }
         }
         // Reset button
@@ -6061,10 +6056,10 @@ function openPasswordModal() {
         }
         
         // Focus on password field
-        const passwordField = document.getElementById('adminPassword');
-        if (passwordField) {
-            passwordField.focus();
-        }
+            const passwordField = document.getElementById('adminPassword');
+            if (passwordField) {
+                passwordField.focus();
+            }
         
         console.log('Password modal opened successfully');
     } else {
@@ -6271,8 +6266,8 @@ function testAPIKey() {
         } else {
             showAPIStatus(`API connection failed: ${response.status} ${response.statusText}`, 'error');
         }
-    })
-    .catch(error => {
+        })
+        .catch(error => {
         showAPIStatus(`API connection failed: ${error.message}`, 'error');
     })
     .finally(() => {

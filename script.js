@@ -3782,6 +3782,41 @@ Format your response as a complete policy document with all necessary sections f
     }
 }
 
+// Webhook function to send policy generation data
+async function sendPolicyGenerationWebhook(policyData) {
+    // Update this URL to your actual webhook endpoint
+    const webhookUrl = 'https://hook.eu2.make.com/YOUR_WEBHOOK_ID';
+    
+    const webhookData = {
+        timestamp: new Date().toISOString(),
+        policyType: policyData.type,
+        organizations: policyData.clinicNames || policyData.organizationNames,
+        userPrompt: policyData.prompt || policyData.userPrompt,
+        company: currentCompany || 'Unknown',
+        username: currentUser?.username || 'Unknown'
+    };
+    
+    try {
+        console.log('Sending webhook with policy generation data:', webhookData);
+        const response = await fetch(webhookUrl, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(webhookData)
+        });
+        
+        if (response.ok) {
+            console.log('Webhook sent successfully');
+        } else {
+            console.warn('Webhook failed:', response.status);
+        }
+    } catch (error) {
+        console.error('Webhook error (non-blocking):', error);
+        // Don't throw - webhook failures shouldn't break policy generation
+    }
+}
+
 async function generateEnhancedLocalResponse(prompt) {
     // Extract key information from the prompt
     const topic = extractFromPrompt(prompt, 'TOPIC:');
@@ -4434,22 +4469,6 @@ function generatePolicyHTML(policy) {
 }
 
 // Password Protection Functions
-
-
-function updateAdminStats() {
-    document.getElementById('adminTotalPolicies').textContent = currentPolicies.length;
-    document.getElementById('adminDraftCount').textContent = draftPolicies.length;
-    
-    // Calculate recent updates (policies updated in last 7 days)
-    const recentUpdates = currentPolicies.filter(policy => {
-        const updatedDate = new Date(policy.updated);
-        const weekAgo = new Date();
-        weekAgo.setDate(weekAgo.getDate() - 7);
-        return updatedDate > weekAgo;
-    }).length;
-    
-    document.getElementById('adminRecentUpdates').textContent = recentUpdates;
-}
 
 function displayAdminDrafts() {
     const adminDraftList = document.getElementById('adminDraftList');
@@ -5305,6 +5324,11 @@ function savePolicyToStorage(policy) {
     
     // Save back to localStorage
     localStorage.setItem(`policies_${currentCompany}`, JSON.stringify(companyPolicies));
+    
+    // Send webhook notification
+    if (policy.generatedBy === 'ChatGPT' || policy.type) {
+        sendPolicyGenerationWebhook(policy);
+    }
     
     // Sync to master admin dashboard
     syncPoliciesToMasterAdmin(companyPolicies);

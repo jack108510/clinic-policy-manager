@@ -3785,12 +3785,18 @@ Format your response as a complete policy document with all necessary sections f
 // Webhook loading indicator functions
 function showWebhookLoading() {
     console.log('Showing webhook loading indicator');
-    // You can add a visual loading indicator here if needed
+    // Keep the AI loading screen visible
+    document.getElementById('aiLoading').style.display = 'block';
+    const loadingText = document.getElementById('aiLoading').querySelector('p');
+    if (loadingText) {
+        loadingText.textContent = 'Sending policy to webhook and waiting for response...';
+    }
 }
 
 function hideWebhookLoading() {
     console.log('Hiding webhook loading indicator');
-    // You can hide the loading indicator here
+    // Webhook complete - now show the policy results
+    document.getElementById('aiLoading').style.display = 'none';
 }
 
 // Webhook function to send policy generation data
@@ -5341,11 +5347,42 @@ async function savePolicyToStorage(policy) {
         
         try {
             const webhookResponse = await sendPolicyGenerationWebhook(policy);
-            hideWebhookLoading();
             console.log('Webhook response received:', webhookResponse);
-        } catch (error) {
+            
+            // Display the webhook response
+            const aiResult = document.getElementById('aiResult');
+            const aiGeneratedContent = document.getElementById('aiGeneratedContent');
+            
+            if (aiResult && aiGeneratedContent) {
+                // Add webhook response to the policy display
+                const existingContent = aiGeneratedContent.innerHTML;
+                aiGeneratedContent.innerHTML = existingContent + `
+                    <div style="background: #f0f8ff; border: 2px solid #0066cc; border-radius: 8px; padding: 15px; margin-top: 20px;">
+                        <h5 style="color: #0066cc; margin: 0 0 10px 0;">Webhook Response:</h5>
+                        <pre style="background: white; padding: 10px; border-radius: 4px; overflow-x: auto; white-space: pre-wrap; word-wrap: break-word;">${webhookResponse}</pre>
+                    </div>
+                `;
+            }
+            
             hideWebhookLoading();
+        } catch (error) {
             console.error('Webhook error:', error);
+            
+            // Show error in result area
+            const aiResult = document.getElementById('aiResult');
+            const aiGeneratedContent = document.getElementById('aiGeneratedContent');
+            
+            if (aiResult && aiGeneratedContent) {
+                const existingContent = aiGeneratedContent.innerHTML;
+                aiGeneratedContent.innerHTML = existingContent + `
+                    <div style="background: #ffe6e6; border: 2px solid #cc0000; border-radius: 8px; padding: 15px; margin-top: 20px;">
+                        <h5 style="color: #cc0000; margin: 0 0 10px 0;">Webhook Error:</h5>
+                        <p style="margin: 0; color: #cc0000;">${error.message}</p>
+                    </div>
+                `;
+            }
+            
+            hideWebhookLoading();
         }
     }
     

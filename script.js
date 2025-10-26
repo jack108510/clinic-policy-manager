@@ -3782,6 +3782,17 @@ Format your response as a complete policy document with all necessary sections f
     }
 }
 
+// Webhook loading indicator functions
+function showWebhookLoading() {
+    console.log('Showing webhook loading indicator');
+    // You can add a visual loading indicator here if needed
+}
+
+function hideWebhookLoading() {
+    console.log('Hiding webhook loading indicator');
+    // You can hide the loading indicator here
+}
+
 // Webhook function to send policy generation data
 async function sendPolicyGenerationWebhook(policyData) {
     const webhookUrl = 'http://localhost:5678/webhook-test/05da961e-9df0-490e-815f-92d8bc9f9c1e';
@@ -5325,9 +5336,14 @@ function savePolicyToStorage(policy) {
     // Save back to localStorage
     localStorage.setItem(`policies_${currentCompany}`, JSON.stringify(companyPolicies));
     
-    // Send webhook notification
+    // Send webhook notification with loading indicator
     if (policy.generatedBy === 'ChatGPT' || policy.type) {
-        sendPolicyGenerationWebhook(policy);
+        showWebhookLoading();
+        sendPolicyGenerationWebhook(policy).then(() => {
+            hideWebhookLoading();
+        }).catch(() => {
+            hideWebhookLoading();
+        });
     }
     
     // Sync to master admin dashboard

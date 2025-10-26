@@ -636,7 +636,7 @@ function handleFileDrop(event) {
     processFiles(files);
 }
 
-function processFiles(files) {
+async function processFiles(files) {
     if (!files || files.length === 0) return;
     
     // Show uploaded files
@@ -647,6 +647,7 @@ function processFiles(files) {
         uploadedFiles.style.display = 'block';
         fileList.innerHTML = '';
         
+        const fileCards = [];
         Array.from(files).forEach((file, index) => {
             const fileCard = document.createElement('div');
             fileCard.className = 'file-card';
@@ -659,14 +660,67 @@ function processFiles(files) {
                     </div>
                 </div>
                 <div class="file-status">
-                    <span class="status-badge pending">Pending</span>
+                    <span class="status-badge pending" id="status-${index}">Uploading...</span>
                 </div>
             `;
             fileList.appendChild(fileCard);
+            fileCards.push({ element: fileCard, index, statusElement: document.getElementById(`status-${index}`) });
         });
         
-        // Show processing status
+        // Send each file to webhook
+        for (const fileCard of fileCards) {
+            const file = files[fileCard.index];
+            await sendFileToWebhook(file, fileCard.statusElement);
+        }
+        
+        // Show processing status after all files are uploaded
         showProcessingStatus();
+    }
+}
+
+async function sendFileToWebhook(file, statusElement) {
+    const webhookUrl = 'http://localhost:5678/webhook-test/b501e849-7a23-49d6-9502-66fb14b5a77e';
+    
+    try {
+        // Convert file to base64 or FormData
+        const formData = new FormData();
+        formData.append('file', file);
+        
+        // Add metadata
+        formData.append('filename', file.name);
+        formData.append('size', file.size);
+        formData.append('type', file.type);
+        formData.append('company', currentCompany || 'Unknown');
+        formData.append('username', currentUser?.username || 'Unknown');
+        formData.append('timestamp', new Date().toISOString());
+        
+        console.log('Sending file to webhook:', file.name);
+        
+        const response = await fetch(webhookUrl, {
+            method: 'POST',
+            body: formData
+        });
+        
+        if (response.ok) {
+            const responseData = await response.text();
+            console.log('File uploaded successfully:', responseData);
+            
+            if (statusElement) {
+                statusElement.textContent = 'Uploaded ✓';
+                statusElement.className = 'status-badge success';
+            }
+        } else {
+            throw new Error(`Upload failed with status: ${response.status}`);
+        }
+    } catch (error) {
+        console.error('Webhook upload error:', error);
+        
+        if (statusElement) {
+            statusElement.textContent = 'Failed ✗';
+            statusElement.className = 'status-badge error';
+        }
+        
+        showNotification(`Failed to upload ${file.name}: ${error.message}`, 'error');
     }
 }
 

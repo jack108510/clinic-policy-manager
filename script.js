@@ -619,8 +619,15 @@ function closeUploadModal() {
 }
 
 function handleFileUpload(event) {
+    console.log('handleFileUpload called', event);
     const files = event.target.files;
-    processFiles(files);
+    console.log('Files selected:', files);
+    if (files && files.length > 0) {
+        console.log('Processing files:', files.length, 'files');
+        processFiles(files);
+    } else {
+        console.log('No files selected');
+    }
 }
 
 function handleFileDrop(event) {
@@ -637,11 +644,19 @@ function handleFileDrop(event) {
 }
 
 async function processFiles(files) {
-    if (!files || files.length === 0) return;
+    console.log('processFiles called with:', files);
+    if (!files || files.length === 0) {
+        console.log('No files provided to processFiles');
+        return;
+    }
+    
+    console.log('Processing', files.length, 'files');
     
     // Show uploaded files
     const uploadedFiles = document.getElementById('uploadedFiles');
     const fileList = document.getElementById('fileList');
+    
+    console.log('Upload elements found:', { uploadedFiles, fileList });
     
     if (uploadedFiles && fileList) {
         uploadedFiles.style.display = 'block';
@@ -679,6 +694,7 @@ async function processFiles(files) {
 }
 
 async function sendFileToWebhook(file, statusElement) {
+    console.log('sendFileToWebhook called with file:', file.name, 'statusElement:', statusElement);
     const webhookUrl = 'http://localhost:5678/webhook-test/b501e849-7a23-49d6-9502-66fb14b5a77e';
     
     try {
@@ -694,12 +710,15 @@ async function sendFileToWebhook(file, statusElement) {
         formData.append('username', currentUser?.username || 'Unknown');
         formData.append('timestamp', new Date().toISOString());
         
-        console.log('Sending file to webhook:', file.name);
+        console.log('Sending file to webhook:', file.name, 'URL:', webhookUrl);
+        console.log('FormData entries:', Array.from(formData.entries()));
         
         const response = await fetch(webhookUrl, {
             method: 'POST',
             body: formData
         });
+        
+        console.log('Response status:', response.status, 'OK:', response.ok);
         
         if (response.ok) {
             const responseData = await response.text();
@@ -710,10 +729,13 @@ async function sendFileToWebhook(file, statusElement) {
                 statusElement.className = 'status-badge success';
             }
         } else {
+            const errorText = await response.text();
+            console.error('Upload failed with status:', response.status, 'Response:', errorText);
             throw new Error(`Upload failed with status: ${response.status}`);
         }
     } catch (error) {
         console.error('Webhook upload error:', error);
+        console.error('Error details:', error.message, error.stack);
         
         if (statusElement) {
             statusElement.textContent = 'Failed ✗';

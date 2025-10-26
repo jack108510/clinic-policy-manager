@@ -364,6 +364,11 @@ function displayPolicies(policiesToDisplay = policies) {
                 <span>Created: ${formatDate(policy.created)}</span>
                 <span>Updated: ${formatDate(policy.updated)}</span>
             </div>
+            <div class="policy-actions" style="margin-top: 15px; padding-top: 15px; border-top: 1px solid #e5e7eb;">
+                <button class="btn btn-primary btn-sm" onclick="viewPolicy('${policy.id}')" style="width: 100%;">
+                    <i class="fas fa-eye"></i> View Full Policy
+                </button>
+            </div>
         </div>
     `).join('');
 }

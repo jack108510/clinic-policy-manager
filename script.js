@@ -4679,8 +4679,6 @@ let chatState = {
 };
 
 function populateRolesAndDisciplinaryActions() {
-    console.log('populateRolesAndDisciplinaryActions called');
-    
     // Load from admin settings or use defaults
     const defaultRoles = ['Clinic Manager', 'Medical Director', 'Staff'];
     const defaultDisciplinaryActions = ['Verbal Warning', 'Written Warning', 'Suspension', 'Termination'];
@@ -4688,24 +4686,19 @@ function populateRolesAndDisciplinaryActions() {
     // Load organizations from localStorage
     // First, reload the organizations object from localStorage in case it was updated
     const orgData = localStorage.getItem('organizations');
+    let allOrgs;
     if (orgData) {
         const loadedOrgs = JSON.parse(orgData);
-        console.log('Reloaded organizations from localStorage:', loadedOrgs);
         // Get organizations for current company
-        var allOrgs = loadedOrgs[currentCompany] || loadedOrgs['Default Company'] || ['Tudor Glen', 'River Valley', 'Rosslyn', 'UPC'];
+        allOrgs = loadedOrgs[currentCompany] || loadedOrgs['Default Company'] || [];
     } else {
         // Use the in-memory organizations object
-        var allOrgs = organizations[currentCompany] || organizations['Default Company'] || ['Tudor Glen', 'River Valley', 'Rosslyn', 'UPC'];
+        allOrgs = organizations[currentCompany] || organizations['Default Company'] || [];
     }
-    
-    console.log('Organizations loaded for company:', currentCompany, 'Orgs:', allOrgs);
     
     // Check what's stored in localStorage
     const storedRoles = localStorage.getItem('adminRoles') || localStorage.getItem('masterRoles') || localStorage.getItem('roles');
     const storedDisciplinaryActions = localStorage.getItem('adminDisciplinaryActions') || localStorage.getItem('masterDisciplinaryActions') || localStorage.getItem('disciplinaryActions');
-    
-    console.log('Stored roles key:', storedRoles);
-    console.log('Stored disciplinary actions key:', storedDisciplinaryActions);
     
     // Get saved settings from admin or use defaults
     // Parse stored data - could be objects or arrays
@@ -4714,26 +4707,17 @@ function populateRolesAndDisciplinaryActions() {
     
     if (storedRoles) {
         const parsed = JSON.parse(storedRoles);
-        console.log('Parsed roles:', parsed);
         roles = Array.isArray(parsed) ? parsed.map(r => {
-            console.log('Processing role:', r, 'Type:', typeof r, 'Is object:', typeof r === 'object');
             return typeof r === 'object' && r !== null && r.name ? r.name : (typeof r === 'string' ? r : String(r));
         }) : defaultRoles;
-        console.log('Final roles array:', roles);
     }
     
     if (storedDisciplinaryActions) {
         const parsed = JSON.parse(storedDisciplinaryActions);
-        console.log('Parsed disciplinary actions:', parsed);
         disciplinaryActions = Array.isArray(parsed) ? parsed.map(a => {
-            console.log('Processing action:', a, 'Type:', typeof a, 'Is object:', typeof a === 'object');
             return typeof a === 'object' && a !== null && a.name ? a.name : (typeof a === 'string' ? a : String(a));
         }) : defaultDisciplinaryActions;
-        console.log('Final disciplinary actions array:', disciplinaryActions);
     }
-    
-    console.log('Roles to display:', roles);
-    console.log('Disciplinary actions to display:', disciplinaryActions);
     
     // Populate responsibility toggles
     const responsibilityToggles = document.getElementById('responsibilityToggles');

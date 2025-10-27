@@ -3379,6 +3379,9 @@ function saveWebhookPolicy() {
         return;
     }
     
+    // Get selected category
+    const categoryId = document.getElementById('aiPolicyCategory')?.value || null;
+    
     // Parse the webhook policy data
     let policyData = null;
     if (Array.isArray(webhookPolicy) && webhookPolicy.length > 0) {
@@ -3390,9 +3393,14 @@ function saveWebhookPolicy() {
         return;
     }
     
-    // Create policy object
+    // Create policy object with temporary ID
+    const tempId = 'policy_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+    
+    // Generate policy code if category is selected
+    const policyCode = categoryId ? generatePolicyCode(categoryId, tempId) : null;
+    
     const newPolicy = {
-        id: 'policy_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9),
+        id: tempId,
         title: policyTitle, // Use the manually entered title
         type: policyData.policy_type || 'admin',
         clinics: policyData.applies_to || 'All Organizations',
@@ -3403,7 +3411,9 @@ function saveWebhookPolicy() {
         company: currentCompany,
         created: new Date().toISOString(),
         updated: new Date().toISOString(),
-        generatedBy: 'Webhook'
+        generatedBy: 'Webhook',
+        categoryId: categoryId,
+        policyCode: policyCode
     };
     
     // Save the policy
@@ -6283,6 +6293,19 @@ async function savePolicyToStorage(policy) {
                                 ${generateEditablePolicySections(sections)}
                             </div>
                             
+                            <div class="form-group" style="margin-top: 20px; margin-bottom: 20px;">
+                                <label for="aiPolicyCategory" style="display: block; margin-bottom: 5px; font-weight: 600; color: #333;">
+                                    <i class="fas fa-tags"></i> Select Category (for policy code generation)
+                                </label>
+                                <select id="aiPolicyCategory" onchange="updateAIPolicyCode()" style="width: 100%; padding: 12px; border: 2px solid #ddd; border-radius: 6px; font-size: 1rem;">
+                                    <option value="">No Category (optional)</option>
+                                </select>
+                                <small style="color: #666; display: block; margin-top: 5px;">Policy code will be generated in format: Category#.Policy#.Year</small>
+                                <div id="aiPolicyCodeDisplay" style="display: none; margin-top: 10px; padding: 10px; background: #f0f8ff; border-radius: 6px;">
+                                    <strong>Policy Code:</strong> <span id="aiPolicyCodeText"></span>
+                                </div>
+                            </div>
+                            
                             <div class="ai-result-actions" style="margin-top: 20px;">
                                 <button class="btn btn-success" onclick="saveWebhookPolicy()">
                                     <i class="fas fa-save"></i> Save Policy
@@ -6322,6 +6345,9 @@ async function savePolicyToStorage(policy) {
                 }
                 
                 aiGeneratedContent.innerHTML = displayContent;
+                
+                // Populate category dropdown after HTML is rendered
+                populateAICategoryDropdown();
             }
             
             // Store the webhook policy data for saving
@@ -8757,6 +8783,20 @@ async function sendFollowUpPrompt() {
                         <div class="policy-content-display" style="max-height: 600px; overflow-y: auto;">
                             ${generateEditablePolicySections(parseWebhookPolicyMarkdown(policy.markdown))}
                         </div>
+                        
+                        <div class="form-group" style="margin-top: 20px; margin-bottom: 20px;">
+                            <label for="aiPolicyCategory" style="display: block; margin-bottom: 5px; font-weight: 600; color: #333;">
+                                <i class="fas fa-tags"></i> Select Category (for policy code generation)
+                            </label>
+                            <select id="aiPolicyCategory" onchange="updateAIPolicyCode()" style="width: 100%; padding: 12px; border: 2px solid #ddd; border-radius: 6px; font-size: 1rem;">
+                                <option value="">No Category (optional)</option>
+                            </select>
+                            <small style="color: #666; display: block; margin-top: 5px;">Policy code will be generated in format: Category#.Policy#.Year</small>
+                            <div id="aiPolicyCodeDisplay" style="display: none; margin-top: 10px; padding: 10px; background: #f0f8ff; border-radius: 6px;">
+                                <strong>Policy Code:</strong> <span id="aiPolicyCodeText"></span>
+                            </div>
+                        </div>
+                        
                         <div class="ai-result-actions" style="margin-top: 20px;">
                             <button class="btn btn-success" onclick="saveWebhookPolicy()">
                                 <i class="fas fa-save"></i> Save Policy
@@ -8767,6 +8807,9 @@ async function sendFollowUpPrompt() {
                         </div>
                     </div>
                 `;
+                
+                // Populate category dropdown after HTML is rendered
+                populateAICategoryDropdown();
             } else {
                 document.getElementById('aiGeneratedContent').innerHTML = `<pre>${webhookResponse}</pre>`;
             }
@@ -9120,4 +9163,44 @@ function populateCategoriesDropdown() {
         option.textContent = `${category.number} - ${category.name}`;
         select.appendChild(option);
     });
+}
+
+// Populate AI category dropdown
+function populateAICategoryDropdown() {
+    loadCategories();
+    const select = document.getElementById('aiPolicyCategory');
+    if (!select) return;
+    
+    select.innerHTML = '<option value="">No Category (optional)</option>';
+    categories.forEach(category => {
+        const option = document.createElement('option');
+        option.value = category.id;
+        option.textContent = `${category.number} - ${category.name}`;
+        select.appendChild(option);
+    });
+}
+
+// Update AI policy code display
+function updateAIPolicyCode() {
+    const categoryId = document.getElementById('aiPolicyCategory')?.value;
+    const codeDisplay = document.getElementById('aiPolicyCodeDisplay');
+    const codeText = document.getElementById('aiPolicyCodeText');
+    
+    if (categoryId && codeDisplay && codeText) {
+        // Generate a temporary code (we'll regenerate when saving)
+        loadCategories();
+        const category = categories.find(cat => cat.id === parseInt(categoryId) || cat.id === categoryId);
+        if (category) {
+            const policies = loadCompanyPolicies();
+            const categoryPolicies = policies.filter(p => (p.categoryId === parseInt(categoryId) || p.categoryId === categoryId) && p.policyCode);
+            const policyNumber = categoryPolicies.length + 1;
+            const currentYear = new Date().getFullYear();
+            const code = `${category.number}.${policyNumber}.${currentYear}`;
+            
+            codeText.textContent = code;
+            codeDisplay.style.display = 'block';
+        }
+    } else if (codeDisplay) {
+        codeDisplay.style.display = 'none';
+    }
 }

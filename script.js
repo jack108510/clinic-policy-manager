@@ -8646,25 +8646,29 @@ async function sendFollowUpPrompt() {
     const aiGeneratedElement = document.getElementById('aiGeneratedContent');
     let currentPolicyText = '';
     if (aiGeneratedElement) {
-        // Extract text from the policy sections
+        // Extract text from the policy sections - but limit the size
         const sections = aiGeneratedElement.querySelectorAll('.policy-section');
-        currentPolicyText = Array.from(sections).map(section => {
+        currentPolicyText = Array.from(sections).slice(0, 5).map(section => {
             const title = section.querySelector('h5')?.textContent || '';
             const content = section.querySelector('.policy-content')?.textContent || '';
-            return `${title}\n${content}`;
+            // Truncate content to max 500 chars per section
+            return `${title}\n${content.substring(0, 500)}`;
         }).join('\n\n');
     }
     
-    // Prepare the follow-up data - only send text, not HTML
+    // Limit conversation history to last 3 messages
+    const limitedConversation = previousMessages.slice(-3);
+    
+    // Prepare the follow-up data - minimal data to avoid URL length issues
     const followUpData = {
-        previousConversation: previousMessages,
-        currentPolicyText: currentPolicyText,
         newPrompt: followUpPrompt,
         company: currentCompany || 'Unknown',
-        username: currentUser?.username || 'Unknown'
+        username: currentUser?.username || 'Unknown',
+        hasPreviousConversation: limitedConversation.length > 0,
+        previousUserPrompt: limitedConversation.filter(m => m.role === 'user').pop()?.content || ''
     };
     
-    console.log('Sending follow-up prompt with conversation history:', followUpData);
+    console.log('Sending follow-up prompt with minimal data:', followUpData);
     
     // Show loading state
     document.getElementById('aiLoading').style.display = 'block';
@@ -8674,14 +8678,9 @@ async function sendFollowUpPrompt() {
         // Get webhook URL
         const webhookUrl = localStorage.getItem('webhookUrlAI') || 'http://localhost:5678/webhook/05da961e-9df0-490e-815f-92d8bc9f9c1e';
         
-        // Send to webhook using POST to avoid URL length limits
-        const response = await fetch(webhookUrl, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(followUpData)
-        });
+        // Use GET method to avoid CORS issues
+        const queryParams = new URLSearchParams(followUpData);
+        const response = await fetch(`${webhookUrl}?${queryParams}`);
         
         if (response.ok) {
             const webhookResponse = await response.text();

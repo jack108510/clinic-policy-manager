@@ -54,13 +54,15 @@ window.addEventListener('masterDataUpdated', function(event) {
     console.log('Master data updated:', updatedData);
     
     // Update local data with new master data
-    users = updatedData.users;
-    if (currentCompany) {
-        users = users.filter(user => user.company === currentCompany);
+    if (updatedData.users && Array.isArray(updatedData.users)) {
+        users = updatedData.users;
+        if (currentCompany) {
+            users = users.filter(user => user.company === currentCompany);
+        }
+        
+        // Save updated data
+        saveToLocalStorage('users', users);
     }
-    
-    // Save updated data
-    saveToLocalStorage('users', users);
     
     // Refresh UI if needed
     if (typeof updateUserInterface === 'function') {
@@ -8640,14 +8642,26 @@ async function sendFollowUpPrompt() {
         };
     });
     
-    // Get the current policy content
-    const currentPolicyContent = document.getElementById('aiGeneratedContent').innerHTML;
+    // Get the current policy content - extract only the text, not HTML
+    const aiGeneratedElement = document.getElementById('aiGeneratedContent');
+    let currentPolicyText = '';
+    if (aiGeneratedElement) {
+        // Extract text from the policy sections
+        const sections = aiGeneratedElement.querySelectorAll('.policy-section');
+        currentPolicyText = Array.from(sections).map(section => {
+            const title = section.querySelector('h5')?.textContent || '';
+            const content = section.querySelector('.policy-content')?.textContent || '';
+            return `${title}\n${content}`;
+        }).join('\n\n');
+    }
     
-    // Prepare the follow-up data
+    // Prepare the follow-up data - only send text, not HTML
     const followUpData = {
         previousConversation: previousMessages,
-        currentPolicyContent: currentPolicyContent,
-        newPrompt: followUpPrompt
+        currentPolicyText: currentPolicyText,
+        newPrompt: followUpPrompt,
+        company: currentCompany || 'Unknown',
+        username: currentUser?.username || 'Unknown'
     };
     
     console.log('Sending follow-up prompt with conversation history:', followUpData);
@@ -8660,8 +8674,14 @@ async function sendFollowUpPrompt() {
         // Get webhook URL
         const webhookUrl = localStorage.getItem('webhookUrlAI') || 'http://localhost:5678/webhook/05da961e-9df0-490e-815f-92d8bc9f9c1e';
         
-        // Send to webhook
-        const response = await fetch(`${webhookUrl}?data=${encodeURIComponent(JSON.stringify(followUpData))}`);
+        // Send to webhook using POST to avoid URL length limits
+        const response = await fetch(webhookUrl, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(followUpData)
+        });
         
         if (response.ok) {
             const webhookResponse = await response.text();

@@ -298,7 +298,7 @@ function displayUsers() {
                         <i class="fas fa-${(user.role === 'Admin' || user.role === 'admin') ? 'user-minus' : 'user-plus'}"></i> 
                         ${(user.role === 'Admin' || user.role === 'admin') ? 'Remove Admin' : 'Make Admin'}
                     </button>
-                    <button onclick="deleteUser('${user.id}')" class="btn btn-small btn-danger">
+                    <button onclick="deleteUser(${user.id})" class="btn btn-small btn-danger">
                         <i class="fas fa-trash"></i> Delete
                     </button>
                 </div>

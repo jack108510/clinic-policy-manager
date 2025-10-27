@@ -5625,9 +5625,11 @@ function showSettingsTab(tabName) {
     }
     event.target.classList.add('active');
     
-    // Load webhook URLs when webhooks tab is opened
+    // Load data when specific tab is opened
     if (tabName === 'webhooks') {
         loadWebhookUrls();
+    } else if (tabName === 'documents') {
+        loadDocuments();
     }
 }
 
@@ -7107,6 +7109,9 @@ function editPolicy(policyId) {
     // Populate organizations checkboxes
     populateEditOrganizations(policy);
     
+    // Populate related documents checkboxes
+    populateEditRelatedDocuments(policy);
+    
     // Show modal
     document.getElementById('policyEditModal').style.display = 'block';
 }
@@ -7224,6 +7229,10 @@ function savePolicyEdit(event) {
     const selectedOrgs = Array.from(document.querySelectorAll('input[name="editOrganizations"]:checked'))
         .map(cb => cb.value);
     
+    // Get selected related documents
+    const selectedDocs = Array.from(document.querySelectorAll('input[name="editRelatedDocuments"]:checked'))
+        .map(cb => parseInt(cb.value));
+    
     // Update policy with structured fields
     policies[policyIndex] = {
         ...policies[policyIndex],
@@ -7244,6 +7253,9 @@ function savePolicyEdit(event) {
         
         // Additional/legacy content
         content: document.getElementById('editPolicyContent').value,
+        
+        // Related documents
+        relatedDocuments: selectedDocs,
         
         // Metadata
         lastModified: new Date().toISOString(),
@@ -8597,3 +8609,109 @@ async function sendFollowUpPrompt() {
     }
 }
 
+
+// Document Management Functions
+let documents = [];
+
+function loadDocuments() {
+    const stored = localStorage.getItem('documents');
+    documents = stored ? JSON.parse(stored) : [];
+    displayDocuments();
+}
+
+function saveDocuments() {
+    localStorage.setItem('documents', JSON.stringify(documents));
+}
+
+function displayDocuments() {
+    const documentsList = document.getElementById('documentsList');
+    if (!documentsList) return;
+    
+    if (documents.length === 0) {
+        documentsList.innerHTML = '<p style="color: #999; text-align: center; padding: 20px;">No documents added yet.</p>';
+        return;
+    }
+    
+    documentsList.innerHTML = documents.map((doc, index) => `
+        <div class="item-card" style="background: white; border: 1px solid #e0e0e0; border-radius: 8px; padding: 15px; margin-bottom: 10px;">
+            <div style="display: flex; justify-content: space-between; align-items: start;">
+                <div style="flex: 1;">
+                    <h4 style="margin: 0 0 5px 0; color: #333;">${doc.name}</h4>
+                    ${doc.description ? `<p style="margin: 0 0 10px 0; color: #666; font-size: 14px;">${doc.description}</p>` : ''}
+                    <p style="margin: 0; color: #0066cc; font-size: 14px;">${doc.url}</p>
+                </div>
+                <button onclick="deleteDocument(${index})" class="btn btn-small btn-danger">
+                    <i class="fas fa-trash"></i>
+                </button>
+            </div>
+        </div>
+    `).join('');
+}
+
+function addDocument() {
+    const name = document.getElementById('newDocumentName').value.trim();
+    const url = document.getElementById('newDocumentUrl').value.trim();
+    const description = document.getElementById('newDocumentDescription').value.trim();
+    
+    if (!name || !url) {
+        showNotification('Please fill in document name and URL', 'error');
+        return;
+    }
+    
+    const newDocument = {
+        id: Date.now(),
+        name: name,
+        url: url,
+        description: description,
+        created: new Date().toISOString()
+    };
+    
+    documents.push(newDocument);
+    saveDocuments();
+    displayDocuments();
+    
+    // Clear form
+    document.getElementById('newDocumentName').value = '';
+    document.getElementById('newDocumentUrl').value = '';
+    document.getElementById('newDocumentDescription').value = '';
+    
+    showNotification('Document added successfully', 'success');
+}
+
+function deleteDocument(index) {
+    if (confirm('Are you sure you want to delete this document?')) {
+        documents.splice(index, 1);
+        saveDocuments();
+        displayDocuments();
+        showNotification('Document deleted successfully', 'success');
+    }
+}
+
+function populateEditRelatedDocuments(policy) {
+    const docsList = document.getElementById('editRelatedDocumentsList');
+    if (!docsList) return;
+    
+    if (documents.length === 0) {
+        docsList.innerHTML = '<p style="color: #666; padding: 10px; background: #f8f9fa; border-radius: 4px;">No documents available. Add documents in Settings.</p>';
+        return;
+    }
+    
+    const policyDocIds = policy.relatedDocuments || [];
+    const policyDocIdArray = Array.isArray(policyDocIds) ? policyDocIds : [];
+    
+    docsList.innerHTML = documents.map(doc => {
+        const isChecked = policyDocIdArray.includes(doc.id);
+        return `
+            <label style="display: flex; align-items: center; gap: 8px; padding: 12px; background: white; border-radius: 4px; border: 1px solid #e0e0e0; cursor: pointer; margin-bottom: 8px;">
+                <input type="checkbox" name="editRelatedDocuments" value="${doc.id}" ${isChecked ? 'checked' : ''}>
+                <div style="flex: 1;">
+                    <strong>${doc.name}</strong>
+                    ${doc.description ? `<p style="margin: 4px 0 0 0; font-size: 13px; color: #666;">${doc.description}</p>` : ''}
+                    <a href="${doc.url}" target="_blank" style="font-size: 12px; color: #0066cc;">
+                        <i class="fas fa-external-link-alt"></i> View Document
+                    </a>
+                </div>
+            </label>
+        `;
+    }).join('');
+}

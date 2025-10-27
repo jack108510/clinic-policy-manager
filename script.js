@@ -247,24 +247,64 @@ function requireLogin() {
 
 // Event Listeners
 function setupEventListeners() {
-    // Search functionality
+    // Smart search functionality
     if (policySearch) {
         policySearch.addEventListener('input', function() {
             if (!requireLogin()) return;
-            const searchTerm = this.value.toLowerCase();
-            const filteredPolicies = currentPolicies.filter(policy => {
+            const searchTerm = this.value.trim().toLowerCase();
+            
+            if (!searchTerm) {
+                displayPolicies(currentPolicies);
+                return;
+            }
+            
+            // Smart search with fuzzy matching
+            const filteredPolicies = currentPolicies.map(policy => {
+                // Collect all searchable text
                 const title = (policy.title || '').toLowerCase();
                 const description = (policy.description || '').toLowerCase();
                 const content = (policy.content || '').toLowerCase();
                 const type = (policy.type || '').toLowerCase();
                 const policyCode = (policy.policyCode || '').toLowerCase();
+                const organizations = (policy.clinicNames || policy.organizations || policy.clinics || '').toLowerCase();
                 
-                return title.includes(searchTerm) || 
-                       description.includes(searchTerm) || 
-                       content.includes(searchTerm) ||
-                       type.includes(searchTerm) ||
-                       policyCode.includes(searchTerm);
-            });
+                // Calculate a relevance score
+                let score = 0;
+                const exactMatch = title === searchTerm;
+                const titleStarts = title.startsWith(searchTerm);
+                const titleIncludes = title.includes(searchTerm);
+                const descIncludes = description.includes(searchTerm);
+                const contentIncludes = content.includes(searchTerm);
+                const codeIncludes = policyCode.includes(searchTerm);
+                const orgIncludes = organizations.includes(searchTerm);
+                
+                // Scoring system
+                if (exactMatch) score += 100; // Exact match gets highest score
+                if (titleStarts) score += 50; // Starts with search term
+                if (titleIncludes) score += 25; // Contains in title
+                if (descIncludes) score += 15; // Contains in description
+                if (type.includes(searchTerm)) score += 20; // Type match
+                if (codeIncludes) score += 30; // Policy code match
+                if (orgIncludes) score += 10; // Organization match
+                if (contentIncludes) score += 5; // Content match (lowest priority)
+                
+                // Check if words in search term appear
+                const searchWords = searchTerm.split(' ').filter(w => w.length > 0);
+                let wordMatches = 0;
+                searchWords.forEach(word => {
+                    if (title.includes(word)) wordMatches++;
+                    if (description.includes(word)) wordMatches++;
+                    if (codeIncludes) wordMatches += 2; // Code matches are important
+                });
+                
+                // Bonus for multiple word matches
+                if (wordMatches > 1) score += wordMatches * 5;
+                
+                return { policy, score };
+            }).filter(result => result.score > 0)
+              .sort((a, b) => b.score - a.score) // Sort by relevance
+              .map(result => result.policy); // Extract just the policies
+            
             displayPolicies(filteredPolicies);
         });
     }

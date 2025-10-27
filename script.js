@@ -414,23 +414,23 @@ function displayPolicies(policiesToDisplay = policies) {
         
         return `
             <div class="policy-item" data-type="${policy.type}" onclick="viewPolicy('${policy.id}')">
-                <div class="policy-header">
+            <div class="policy-header">
                     <h3 class="policy-title">${policy.title || 'Untitled Policy'}</h3>
                     <span class="policy-type-badge ${typeClass}">${typeLabel}</span>
-                </div>
-                <div class="policy-organizations">
+            </div>
+            <div class="policy-organizations">
                     <i class="fas fa-building"></i> ${organizations}
-                </div>
+            </div>
                 <div class="policy-dates">
                     <div class="policy-date-item">
                         <i class="fas fa-calendar-plus"></i> Created: ${createdDate}
-                    </div>
+            </div>
                     ${updatedDate !== 'N/A' ? `
                     <div class="policy-date-item">
                         <i class="fas fa-calendar-check"></i> Updated: ${updatedDate}
-                    </div>
+            </div>
                     ` : ''}
-                </div>
+        </div>
             </div>
         `;
     }).join('');
@@ -7356,18 +7356,56 @@ function syncPoliciesToMasterAdmin(policies) {
 function loadPoliciesFromStorage() {
     const companyPolicies = loadCompanyPolicies();
     
+    // Filter policies based on user's organizations if user is not admin
+    let visiblePolicies = companyPolicies;
+    
+    if (currentUser && currentUser.role === 'user' && currentUser.organizations) {
+        // User is not an admin, filter policies by their assigned organizations
+        const userOrganizations = Array.isArray(currentUser.organizations) 
+            ? currentUser.organizations 
+            : currentUser.organizations.split(',').map(org => org.trim());
+        
+        console.log('Filtering policies for user organizations:', userOrganizations);
+        
+        visiblePolicies = companyPolicies.filter(policy => {
+            // Get the policy's applicable organizations
+            const policyOrganizations = policy.clinicNames || policy.organizations || policy.clinics || '';
+            const policyOrgArray = Array.isArray(policyOrganizations) 
+                ? policyOrganizations 
+                : policyOrganizations.split(',').map(org => org.trim());
+            
+            // Check if "All Organizations" is in the policy
+            if (policyOrgArray.includes('All Organizations') || policyOrgArray.length === 0) {
+                return true; // Show policies that apply to all organizations
+            }
+            
+            // Check if any of the user's organizations match the policy's organizations
+            const hasMatchingOrg = userOrganizations.some(userOrg => 
+                policyOrgArray.some(policyOrg => 
+                    policyOrg.includes(userOrg) || userOrg.includes(policyOrg)
+                )
+            );
+            
+            return hasMatchingOrg;
+        });
+        
+        console.log(`Filtered ${visiblePolicies.length} policies from ${companyPolicies.length} total policies`);
+    } else {
+        console.log('User is admin or has no organization restrictions');
+    }
+    
     // Update the global policies array
     policies.length = 0; // Clear existing policies
-    policies.push(...companyPolicies);
+    policies.push(...visiblePolicies);
     
     // Also update currentPolicies for the main view
     currentPolicies.length = 0; // Clear existing currentPolicies
-    currentPolicies.push(...companyPolicies);
+    currentPolicies.push(...visiblePolicies);
     
     // Display policies
-    displayPolicies(policies);
+    displayPolicies(visiblePolicies);
     
-    console.log(`Loaded ${companyPolicies.length} policies for company ${currentCompany}`);
+    console.log(`Loaded ${visiblePolicies.length} policies for company ${currentCompany}`);
 }
 
 // Setup signup form event listeners

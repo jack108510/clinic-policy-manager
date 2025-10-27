@@ -370,32 +370,66 @@ function changeUserRole(userId, newRole) {
 
 function deleteUser(userId) {
     console.log('deleteUser called with userId:', userId);
-    console.log('Current users array:', users);
+    console.log('userId type:', typeof userId);
     
-    const user = users.find(u => u.id == userId || u.id === userId);
+    // Reload users from localStorage to ensure we have the latest data
+    const currentUsers = JSON.parse(localStorage.getItem('masterUsers') || '[]');
+    console.log('Current users from localStorage:', currentUsers.length);
+    
+    // Try multiple lookup methods to handle different ID types
+    const user = currentUsers.find(u => {
+        return u.id === userId || 
+               u.id == userId || 
+               String(u.id) === String(userId) ||
+               parseInt(u.id) === parseInt(userId);
+    });
+    
     console.log('Found user:', user);
     
     if (!user) {
+        console.error('User not found with id:', userId);
+        console.log('Available user IDs:', currentUsers.map(u => ({ 
+            id: u.id, 
+            idType: typeof u.id,
+            username: u.username 
+        })));
         showAlert('User not found!', 'error');
         return;
     }
     
-    if (confirm(`Are you sure you want to delete user "${user.username}" from ${user.company}? This action cannot be undone.`)) {
-        // Find and remove user
-        const userIndex = users.findIndex(u => u.id == userId || u.id === userId);
+    if (confirm(`Are you sure you want to delete user "${user.username}" (${user.email}) from ${user.company}? This action cannot be undone.`)) {
+        // Find and remove user with flexible ID matching
+        const userIndex = currentUsers.findIndex(u => {
+            return u.id === userId || 
+                   u.id == userId || 
+                   String(u.id) === String(userId) ||
+                   parseInt(u.id) === parseInt(userId);
+        });
+        
         console.log('User index to delete:', userIndex);
         
         if (userIndex !== -1) {
-            const deletedUser = users[userIndex];
-            users.splice(userIndex, 1);
+            const deletedUser = currentUsers[userIndex];
             
-            console.log('Users after deletion:', users);
+            // Remove user from array
+            currentUsers.splice(userIndex, 1);
             
-            // Save updated users
-            saveUsers();
+            // Save updated users to localStorage
+            localStorage.setItem('masterUsers', JSON.stringify(currentUsers));
             
-            // Sync to main site
-            syncToMainSite();
+            // Update global users array
+            users = currentUsers;
+            
+            console.log('Users after deletion:', users.length);
+            
+            // Dispatch event to sync with main site
+            window.dispatchEvent(new CustomEvent('masterDataUpdated', {
+                detail: {
+                    users: users,
+                    companies: companies,
+                    accessCodes: accessCodes
+                }
+            }));
             
             // Update display
             displayUsers();

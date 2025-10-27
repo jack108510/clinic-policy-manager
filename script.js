@@ -7013,7 +7013,114 @@ function closePolicyViewModal() {
 }
 
 function editPolicy(policyId) {
-    showNotification('Edit functionality coming soon', 'info');
+    console.log('editPolicy called with policyId:', policyId);
+    const policies = loadCompanyPolicies();
+    
+    // Handle both string and number IDs
+    const policy = policies.find(p => p.id === policyId || p.id === String(policyId) || String(p.id) === policyId);
+    
+    if (!policy) {
+        console.error('Policy not found with ID:', policyId);
+        showNotification('Policy not found', 'error');
+        return;
+    }
+    
+    console.log('Found policy to edit:', policy);
+    
+    // Populate edit form
+    document.getElementById('editPolicyId').value = policy.id;
+    document.getElementById('editPolicyTitle').value = policy.title || '';
+    document.getElementById('editPolicyType').value = policy.type || 'admin';
+    document.getElementById('editPolicyContent').value = policy.content || policy.description || '';
+    document.getElementById('editPolicyEffectiveDate').value = policy.effectiveDate || new Date().toISOString().split('T')[0];
+    document.getElementById('editPolicyVersion').value = policy.version || '1.0';
+    
+    // Populate organizations checkboxes
+    populateEditOrganizations(policy);
+    
+    // Show modal
+    document.getElementById('policyEditModal').style.display = 'block';
+}
+
+function populateEditOrganizations(policy) {
+    const orgsList = document.getElementById('editOrganizationsList');
+    if (!orgsList) return;
+    
+    // Get organizations from localStorage
+    const organizations = JSON.parse(localStorage.getItem('organizations') || '{}');
+    const companyOrgs = organizations[currentCompany] || [];
+    
+    // Get organizations from policy (handle different formats)
+    const policyOrgs = policy.clinicNames || policy.organizations || policy.clinics || '';
+    const policyOrgArray = Array.isArray(policyOrgs) ? policyOrgs : policyOrgs.split(',').map(o => o.trim());
+    
+    if (companyOrgs.length === 0) {
+        orgsList.innerHTML = '<p style="color: #666;">No organizations configured. Add organizations in Settings.</p>';
+        return;
+    }
+    
+    orgsList.innerHTML = companyOrgs.map(org => {
+        const orgName = typeof org === 'object' ? org.name : org;
+        const isChecked = policyOrgArray.includes(orgName) || policyOrgArray.includes('All Organizations');
+        return `
+            <label style="display: flex; align-items: center; gap: 8px; padding: 8px 12px; background: #f8f9fa; border-radius: 4px; border: 1px solid #e0e0e0; cursor: pointer; margin-bottom: 8px;">
+                <input type="checkbox" name="editOrganizations" value="${orgName}" ${isChecked ? 'checked' : ''}>
+                <span>${orgName}</span>
+            </label>
+        `;
+    }).join('');
+}
+
+function savePolicyEdit(event) {
+    event.preventDefault();
+    
+    const policyId = document.getElementById('editPolicyId').value;
+    const policies = loadCompanyPolicies();
+    const policyIndex = policies.findIndex(p => p.id === policyId);
+    
+    if (policyIndex === -1) {
+        showNotification('Policy not found', 'error');
+        return;
+    }
+    
+    // Get selected organizations
+    const selectedOrgs = Array.from(document.querySelectorAll('input[name="editOrganizations"]:checked'))
+        .map(cb => cb.value);
+    
+    // Update policy
+    policies[policyIndex] = {
+        ...policies[policyIndex],
+        title: document.getElementById('editPolicyTitle').value,
+        type: document.getElementById('editPolicyType').value,
+        content: document.getElementById('editPolicyContent').value,
+        clinicNames: selectedOrgs.join(', '),
+        effectiveDate: document.getElementById('editPolicyEffectiveDate').value,
+        version: document.getElementById('editPolicyVersion').value,
+        lastModified: new Date().toISOString(),
+        modifiedBy: currentUser ? currentUser.username : 'Unknown'
+    };
+    
+    // Save to localStorage
+    localStorage.setItem(`policies_${currentCompany}`, JSON.stringify(policies));
+    
+    // Trigger sync events
+    localStorage.setItem(`policies_${currentCompany}_updated`, new Date().toISOString());
+    window.dispatchEvent(new CustomEvent('companyPoliciesUpdated', {
+        detail: { company: currentCompany, policies: policies }
+    }));
+    
+    // Refresh displays
+    loadPoliciesFromStorage();
+    
+    // Close modal
+    closePolicyEditModal();
+    
+    showNotification('Policy updated successfully', 'success');
+}
+
+function closePolicyEditModal() {
+    document.getElementById('policyEditModal').style.display = 'none';
+    document.getElementById('policyEditForm').reset();
 }
 
 function deletePolicy(policyId) {

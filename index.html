@@ -163,6 +163,63 @@
         </div>
     </div>
 
+    <!-- Policy Edit Modal -->
+    <div id="policyEditModal" class="modal" style="z-index: 2600;">
+        <div class="modal-content" style="max-width: 900px; max-height: 90vh; overflow-y: auto;">
+            <div class="modal-header">
+                <h3>Edit Policy</h3>
+                <span class="close" onclick="closePolicyEditModal()">&times;</span>
+            </div>
+            <div class="modal-body">
+                <form id="policyEditForm" onsubmit="savePolicyEdit(event)">
+                    <input type="hidden" id="editPolicyId">
+                    
+                    <div class="form-group">
+                        <label for="editPolicyTitle">Policy Title</label>
+                        <input type="text" id="editPolicyTitle" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="editPolicyType">Policy Type</label>
+                        <select id="editPolicyType" required>
+                            <option value="admin">Admin Policy</option>
+                            <option value="sog">Standard Operating Guidelines</option>
+                            <option value="protocol">Protocol</option>
+                            <option value="memo">Communication Memo</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="editPolicyOrganizations">Applicable Organizations</label>
+                        <div id="editOrganizationsList">
+                            <!-- Organizations checkboxes will be populated here -->
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="editPolicyContent">Policy Content</label>
+                        <textarea id="editPolicyContent" rows="15" style="font-family: monospace;" required></textarea>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="editPolicyEffectiveDate">Effective Date</label>
+                        <input type="date" id="editPolicyEffectiveDate" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="editPolicyVersion">Version</label>
+                        <input type="text" id="editPolicyVersion" value="1.0" required>
+                    </div>
+                    
+                    <div class="form-actions">
+                        <button type="button" class="btn btn-secondary" onclick="closePolicyEditModal()">Cancel</button>
+                        <button type="submit" class="btn btn-primary">Save Changes</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
     <!-- Settings Modal -->
     <div id="settingsModal" class="modal">
         <div class="modal-content">
@@ -892,6 +949,6 @@
         </div>
     </footer>
 
-    <script src="script.js?v=77&t=20250128"></script>
+    <script src="script.js?v=78&t=20250128"></script>
 </body>
 </html>

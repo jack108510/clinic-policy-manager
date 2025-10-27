@@ -275,11 +275,17 @@
                         
                         <div class="form-group" style="margin-top: 15px;">
                             <label for="editPolicyCode">Category</label>
-                            <select id="editPolicyCode" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px;">
+                            <select id="editPolicyCode" onchange="updatePolicyCode()" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px;">
                                 <option value="">Select a category (optional)</option>
                                 <!-- Categories will be dynamically populated here -->
                             </select>
                             <small style="color: #666; display: block; margin-top: 5px;">Manage categories in Settings > Categories</small>
+                        </div>
+                        
+                        <div class="form-group" id="policyCodeDisplay" style="margin-top: 15px; display: none;">
+                            <label>Generated Policy Code</label>
+                            <input type="text" id="editPolicyCodeDisplay" readonly style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px; background: #f8f9fa; font-weight: bold; color: #667eea;">
+                            <small style="color: #666; display: block; margin-top: 5px;">Code format: categoryNumber.policyNumberInCategory.year</small>
                         </div>
                     </div>
                     
@@ -1298,6 +1304,6 @@
         </div>
     </footer>
 
-    <script src="script.js?v=101&t=20250128"></script>
+    <script src="script.js?v=102&t=20250128"></script>
 </body>
 </html>

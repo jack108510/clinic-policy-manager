@@ -7066,6 +7066,25 @@ function closePolicyViewModal() {
     }
 }
 
+function updatePolicyCode() {
+    const categoryId = document.getElementById('editPolicyCode')?.value;
+    const policyId = document.getElementById('editPolicyId')?.value;
+    const codeDisplay = document.getElementById('policyCodeDisplay');
+    const codeInput = document.getElementById('editPolicyCodeDisplay');
+    
+    if (categoryId && codeDisplay && codeInput) {
+        const code = generatePolicyCode(categoryId, policyId);
+        if (code) {
+            codeInput.value = code;
+            codeDisplay.style.display = 'block';
+        } else {
+            codeDisplay.style.display = 'none';
+        }
+    } else if (codeDisplay) {
+        codeDisplay.style.display = 'none';
+    }
+}
+
 function editPolicy(policyId) {
     console.log('editPolicy called with policyId:', policyId);
     const policies = loadCompanyPolicies();
@@ -7130,6 +7149,18 @@ function editPolicy(policyId) {
         const categorySelect = document.getElementById('editPolicyCode');
         if (categorySelect) {
             categorySelect.value = policy.categoryId;
+        }
+        // Update policy code display
+        setTimeout(() => updatePolicyCode(), 100);
+    }
+    
+    // Show existing policy code if it exists
+    if (policy.policyCode) {
+        const codeDisplay = document.getElementById('policyCodeDisplay');
+        const codeInput = document.getElementById('editPolicyCodeDisplay');
+        if (codeDisplay && codeInput) {
+            codeInput.value = policy.policyCode;
+            codeDisplay.style.display = 'block';
         }
     }
     
@@ -7257,6 +7288,9 @@ function savePolicyEdit(event) {
     // Get selected category
     const categoryId = document.getElementById('editPolicyCode')?.value || null;
     
+    // Generate policy code if category is selected
+    const policyCode = categoryId ? generatePolicyCode(categoryId, policyId) : null;
+    
     // Update policy with structured fields
     policies[policyIndex] = {
         ...policies[policyIndex],
@@ -7267,6 +7301,7 @@ function savePolicyEdit(event) {
         effectiveDate: document.getElementById('editPolicyEffectiveDate').value,
         version: document.getElementById('editPolicyVersion').value,
         categoryId: categoryId,
+        policyCode: policyCode,
         
         // Structured policy sections
         purpose: document.getElementById('editPolicyPurpose').value,
@@ -8899,6 +8934,41 @@ function loadCategories() {
     const stored = localStorage.getItem('categories');
     categories = stored ? JSON.parse(stored) : [];
     displayCategories();
+}
+
+// Generate policy code in format: categoryNumber.policyNumberInCategory.year
+function generatePolicyCode(categoryId, policyId) {
+    if (!categoryId) return null;
+    
+    loadCategories(); // Ensure categories are loaded
+    const category = categories.find(cat => cat.id === parseInt(categoryId) || cat.id === categoryId);
+    if (!category) return null;
+    
+    // Get all policies in this category
+    const policies = loadCompanyPolicies();
+    const categoryIdNum = parseInt(categoryId);
+    const policiesInCategory = policies.filter(p => (p.categoryId === categoryIdNum || p.categoryId === categoryId) && p.policyCode);
+    
+    // Find the policy's position in the category (or get next number if new)
+    let policyNumber;
+    if (policyId && policiesInCategory.length > 0) {
+        // Policy already exists - find its position
+        const sortedPolicies = policiesInCategory.sort((a, b) => {
+            const dateA = a.created ? new Date(a.created) : a.date ? new Date(a.date) : new Date(0);
+            const dateB = b.created ? new Date(b.created) : b.date ? new Date(b.date) : new Date(0);
+            return dateA - dateB;
+        });
+        policyNumber = sortedPolicies.findIndex(p => p.id === policyId) + 1;
+        if (policyNumber === 0) {
+            policyNumber = policiesInCategory.length + 1;
+        }
+    } else {
+        // New policy - get next number
+        policyNumber = policiesInCategory.length + 1;
+    }
+    
+    const currentYear = new Date().getFullYear();
+    return `${category.number}.${policyNumber}.${currentYear}`;
 }
 
 function saveCategories() {

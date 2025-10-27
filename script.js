@@ -8748,13 +8748,8 @@ async function sendFollowUpPrompt() {
                             ${policy.effective_date ? `<span>Effective Date: ${policy.effective_date}</span>` : ''}
                             ${policy.version ? `<span>Version: ${policy.version}</span>` : ''}
                         </div>
-                        <div class="policy-content">
-                            ${parseWebhookPolicyMarkdown(policy.markdown).map(section => `
-                                <div class="policy-section">
-                                    <h4>${section.title}</h4>
-                                    <p>${section.content}</p>
-                                </div>
-                            `).join('')}
+                        <div class="policy-content-display" style="max-height: 600px; overflow-y: auto;">
+                            ${generateEditablePolicySections(parseWebhookPolicyMarkdown(policy.markdown))}
                         </div>
                         <div class="ai-result-actions" style="margin-top: 20px;">
                             <button class="btn btn-success" onclick="saveWebhookPolicy()">

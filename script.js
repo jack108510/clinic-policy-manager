@@ -402,15 +402,27 @@ function displayPolicies(policiesToDisplay = policies) {
 
     policiesGrid.innerHTML = policiesToDisplay.map(policy => `
         <div class="policy-item" data-type="${policy.type}">
-            <div class="policy-header" style="display: flex; justify-content: space-between; align-items: center;">
+            <div class="policy-header">
                 <div>
-                    <h3 class="policy-title" style="margin: 0;">${policy.title || 'Untitled Policy'}</h3>
+                    <h3 class="policy-title">${policy.title || 'Untitled Policy'}</h3>
+                    <span class="policy-type ${policy.type}">${getTypeLabel(policy.type)}</span>
                 </div>
-                <div>
-                    <button class="btn btn-primary btn-sm policy-view-btn" data-policy-id="${policy.id}">
-                        <i class="fas fa-eye"></i> View
-                    </button>
-                </div>
+            </div>
+            <div class="policy-organizations">
+                <strong>Applicable Organizations:</strong> ${policy.clinicNames || policy.organizations || policy.clinics || 'All Organizations'}
+            </div>
+            <div class="policy-description">
+                ${policy.description || policy.content || 'No description available'}
+            </div>
+            <div class="policy-meta">
+                <span>Created: ${formatDate(policy.created)}</span>
+                ${policy.updated ? `<span>Updated: ${formatDate(policy.updated)}</span>` : ''}
+                ${policy.lastModified ? `<span>Last Modified: ${formatDate(policy.lastModified)}</span>` : ''}
+            </div>
+            <div class="policy-actions" style="margin-top: 15px; padding-top: 15px; border-top: 1px solid #e5e7eb;">
+                <button class="btn btn-primary btn-sm policy-view-btn" data-policy-id="${policy.id}" style="width: 100%;">
+                    <i class="fas fa-eye"></i> View Full Policy
+                </button>
             </div>
         </div>
     `).join('');

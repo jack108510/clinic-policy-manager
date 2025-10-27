@@ -464,15 +464,40 @@ function filterPolicies(filter) {
 
 // Create New Policy
 function createNewPolicy() {
-    const formData = {
-        title: document.getElementById('policyTitle').value,
-        type: document.getElementById('policyType').value,
-        clinics: Array.from(document.getElementById('clinicApplicability').selectedOptions).map(option => option.value),
-        purpose: document.getElementById('policyPurpose')?.value || '',
-        procedure: document.getElementById('policyProcedure')?.value || '',
-        roles: document.getElementById('policyRoles')?.value || '',
-        compliance: document.getElementById('policyCompliance')?.value || ''
-    };
+    console.log('createNewPolicy called');
+    
+    // Get basic form data
+    const titleEl = document.getElementById('policyTitle');
+    const typeEl = document.getElementById('policyType');
+    const clinicsEl = document.getElementById('clinicApplicability');
+    
+    if (!titleEl || !typeEl || !clinicsEl) {
+        console.error('Required form elements not found');
+        showNotification('Please fill in all required fields', 'error');
+        return;
+    }
+    
+    // Collect all form data from dynamic fields
+    const dynamicFields = document.getElementById('dynamicManualFormFields');
+    const formData = {};
+    
+    if (dynamicFields) {
+        const inputs = dynamicFields.querySelectorAll('input, textarea, select');
+        inputs.forEach(input => {
+            if (input.id && input.value) {
+                formData[input.id] = input.value;
+            }
+        });
+    }
+    
+    const title = titleEl.value.trim();
+    const type = typeEl.value;
+    const clinics = Array.from(clinicsEl.selectedOptions).map(option => option.value);
+    
+    if (!title || !type || clinics.length === 0) {
+        showNotification('Please fill in all required fields', 'error');
+        return;
+    }
 
     // Get selected category
     const categoryId = document.getElementById('manualPolicyCategory')?.value || null;
@@ -481,13 +506,20 @@ function createNewPolicy() {
     // Generate policy code if category is selected
     const policyCode = categoryId ? generatePolicyCode(categoryId, tempId) : null;
 
+    // Build policy content from form data
+    let description = '';
+    if (formData.purpose) description += `Purpose: ${formData.purpose}\n`;
+    if (formData.scope) description += `Scope: ${formData.scope}\n`;
+    if (formData.procedure) description += `Procedure: ${formData.procedure}\n`;
+    if (formData.roles) description += `Roles: ${formData.roles}\n`;
+
     const newPolicy = {
         id: tempId,
-        title: formData.title,
-        type: formData.type,
-        clinics: formData.clinics,
-        description: formData.purpose,
-        company: currentCompany || 'Default Company', // Assign to current company
+        title: title,
+        type: type,
+        clinics: clinics,
+        description: description.trim() || title,
+        company: currentCompany || 'Default Company',
         created: new Date().toISOString().split('T')[0],
         updated: new Date().toISOString().split('T')[0],
         categoryId: categoryId,

@@ -7811,9 +7811,12 @@ function loginUser(event) {
         
         // Find user by username/email and password
         console.log('Looking for user:', { username, password: '***' });
-        console.log('Available users:', users.map(u => ({ username: u.username, email: u.email, hasPassword: !!u.password })));
         
-        const user = users.find(u => (u.username === username || u.email === username) && u.password === password);
+        // Load all users from masterUsers (from localStorage) to include all users across all companies
+        const allUsers = JSON.parse(localStorage.getItem('masterUsers') || '[]');
+        console.log('Available users:', allUsers.map(u => ({ username: u.username, email: u.email, hasPassword: !!u.password })));
+        
+        const user = allUsers.find(u => (u.username === username || u.email === username) && u.password === password);
         
         if (!user) {
             console.log('User not found or password incorrect');
@@ -7860,8 +7863,11 @@ function logoutUser() {
     saveToLocalStorage('currentUser', null);
     saveToLocalStorage('currentCompany', null);
     
-    updateUserInterface();
-    alert('Logged out successfully!');
+    // Clear admin session flag
+    localStorage.removeItem('adminSessionActive');
+    
+    // Reload page to clear all state
+    window.location.reload();
 }
 
 function updateUserInterface() {

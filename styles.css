@@ -190,6 +190,18 @@ body:not(.user-logged-in) .navbar {
     }
 }
 
+/* Pricing Card Styles */
+.pricing-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+}
+
+@media (max-width: 768px) {
+    #pricingModal .modal-content div[style*="grid-template-columns: repeat(3, 1fr)"] {
+        grid-template-columns: 1fr !important;
+    }
+}
+
 .container {
     max-width: 1200px;
     margin: 0 auto;

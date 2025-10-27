@@ -8763,20 +8763,28 @@ function showIndividualSignup() {
 function showCompanySignup() {
     closeSignupModal();
     setTimeout(() => {
-        const modal = document.getElementById('companySignupModal');
+        const modal = document.getElementById('pricingModal');
         if (modal) {
             modal.classList.add('show');
         }
     }, 300);
 }
 
-function closeCompanySignupModal() {
-    const modal = document.getElementById('companySignupModal');
+function closePricingModal() {
+    const modal = document.getElementById('pricingModal');
     if (modal) {
         modal.classList.remove('show');
-        document.getElementById('companySignupForm').reset();
-        document.getElementById('company-signup-error-message').style.display = 'none';
     }
+}
+
+function selectPlan(plan) {
+    console.log('Selected plan:', plan);
+    closePricingModal();
+    // Store the selected plan in localStorage or global variable
+    localStorage.setItem('selectedPlan', plan);
+    
+    // Show notification about plan selection
+    showNotification('Thank you for selecting the ' + plan.charAt(0).toUpperCase() + plan.slice(1) + ' plan. You can complete your account setup now.', 'success');
 }
 
 function closeIndividualSignupModal() {

@@ -168,6 +168,37 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
     
+    // Listen for company policies updates (from other admins)
+    window.addEventListener('companyPoliciesUpdated', function(event) {
+        console.log('Company policies updated event received:', event.detail);
+        if (event.detail && event.detail.company === currentCompany && event.detail.policies) {
+            console.log('Reloading policies from other admin:', event.detail.policies.length);
+            loadPoliciesFromStorage();
+            showNotification('Policies updated by another admin', 'info');
+        }
+    });
+    
+    // Poll for policy updates from other admins (every 2 seconds)
+    let lastPolicyUpdate = currentCompany ? localStorage.getItem(`policies_${currentCompany}_updated`) : null;
+    setInterval(function() {
+        if (currentUser && currentCompany) {
+            const currentUpdate = localStorage.getItem(`policies_${currentCompany}_updated`);
+            if (currentUpdate && currentUpdate !== lastPolicyUpdate) {
+                console.log('Detected policy update, reloading...');
+                lastPolicyUpdate = currentUpdate;
+                loadPoliciesFromStorage();
+                showNotification('Policies have been updated', 'info');
+            }
+        }
+    }, 2000);
+    
+    // Reload policies when window regains focus (in case another tab made changes)
+    window.addEventListener('focus', function() {
+        if (currentUser && currentCompany) {
+            loadPoliciesFromStorage();
+        }
+    });
+    
     // Load policies from storage if user is logged in
     if (currentUser && currentCompany) {
         console.log('Loading policies from storage for company:', currentCompany);
@@ -6124,6 +6155,14 @@ async function savePolicyToStorage(policy) {
     
     // Save back to localStorage
     localStorage.setItem(`policies_${currentCompany}`, JSON.stringify(companyPolicies));
+    
+    // Save timestamp to trigger cross-browser sync
+    localStorage.setItem(`policies_${currentCompany}_updated`, new Date().toISOString());
+    
+    // Dispatch event to notify other admins/users in the same company
+    window.dispatchEvent(new CustomEvent('companyPoliciesUpdated', {
+        detail: { company: currentCompany, policies: companyPolicies }
+    }));
     
     // Send policy report webhook with full policy report and company user emails
     try {

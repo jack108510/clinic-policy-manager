@@ -8345,7 +8345,7 @@ function openPasswordModal() {
     console.log('🔍 Full currentUser object:', currentUser);
     
     // Check role in multiple possible formats
-    const userRole = currentUser.role || currentUser.userRole || '';
+    const userRole = currentUser.role || currentUser.userRole || currentUser.user_role || '';
     const isAdmin = userRole === 'admin' || 
                    userRole === 'Admin' || 
                    userRole === 'Administrator' ||
@@ -8353,13 +8353,14 @@ function openPasswordModal() {
     
     console.log('🔍 Role check results:', { userRole, isAdmin });
     
-    if (isAdmin) {
+    // Only bypass password for actual admins, not for 'user' role
+    if (isAdmin && userRole.toLowerCase() !== 'user') {
         console.log('✅ User has admin role, granting access without password');
         openAdminModal();
         showNotification('Admin access granted!', 'success');
         return;
     } else {
-        console.log('❌ User is not an admin, showing password prompt');
+        console.log('❌ User is not an admin or has user role, showing password prompt');
     }
     
     const modal = document.getElementById('passwordModal');

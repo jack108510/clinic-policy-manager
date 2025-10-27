@@ -8852,7 +8852,8 @@ function selectPlan(plan) {
 }
 
 function showCompanyCodeSignup() {
-    closePricingModal();
+    closeSignupModal(); // Close the signup type selection modal
+    closePricingModal(); // Close pricing modal if open
     setTimeout(() => {
         const modal = document.getElementById('companyCodeSignupModal');
         if (modal) {

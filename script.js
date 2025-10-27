@@ -8758,11 +8758,6 @@ function showWelcomeLogin() {
 // Check if user should see welcome modal
 function checkWelcomeModal() {
     if (!currentUser) {
-        // Check if user has seen this before
-        const hasSeenWelcome = localStorage.getItem('hasSeenWelcome');
-        if (!hasSeenWelcome) {
-            showWelcomeModal();
-            localStorage.setItem('hasSeenWelcome', 'true');
-        }
+        showWelcomeModal();
     }
 }

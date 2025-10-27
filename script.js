@@ -7418,7 +7418,7 @@ async function sendWelcomeEmail(user) {
         console.log('Sending welcome email to:', user.email);
         
         // Get email webhook URL from settings
-        const emailWebhookUrl = localStorage.getItem('emailWebhookUrl') || 'http://localhost:5678/webhook-email';
+        const emailWebhookUrl = localStorage.getItem('emailWebhookUrl') || 'http://localhost:5678/webhook/d523361e-1e04-4c16-a86e-bbb1d7729fcb';
         
         // Prepare email data
         const emailData = {
@@ -7471,7 +7471,7 @@ async function sendNewPolicyNotificationEmail(policy) {
         console.log('Sending new policy notification emails for:', policy.title);
         
         // Get email webhook URL from settings
-        const emailWebhookUrl = localStorage.getItem('emailWebhookUrl') || 'http://localhost:5678/webhook-email';
+        const emailWebhookUrl = localStorage.getItem('emailWebhookUrl') || 'http://localhost:5678/webhook/d523361e-1e04-4c16-a86e-bbb1d7729fcb';
         
         // Get all users for this company
         const companyUsers = getCompanyUserEmails();

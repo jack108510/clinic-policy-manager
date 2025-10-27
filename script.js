@@ -400,32 +400,40 @@ function displayPolicies(policiesToDisplay = policies) {
         return;
     }
 
-    policiesGrid.innerHTML = policiesToDisplay.map(policy => `
-        <div class="policy-item" data-type="${policy.type}">
-            <div class="policy-header">
-                <div>
+    policiesGrid.innerHTML = policiesToDisplay.map(policy => {
+        // Get policy type label
+        const typeLabel = getTypeLabel(policy.type);
+        const typeClass = policy.type || 'admin';
+        
+        // Get organizations
+        const organizations = policy.clinicNames || policy.organizations || policy.clinics || 'All Organizations';
+        
+        // Get dates
+        const createdDate = policy.created ? formatDate(policy.created) : 'N/A';
+        const updatedDate = policy.updated ? formatDate(policy.updated) : (policy.lastModified ? formatDate(policy.lastModified) : 'N/A');
+        
+        return `
+            <div class="policy-item" data-type="${policy.type}" onclick="viewPolicy('${policy.id}')">
+                <div class="policy-header">
                     <h3 class="policy-title">${policy.title || 'Untitled Policy'}</h3>
-                    <span class="policy-type ${policy.type}">${getTypeLabel(policy.type)}</span>
+                    <span class="policy-type-badge ${typeClass}">${typeLabel}</span>
+                </div>
+                <div class="policy-organizations">
+                    <i class="fas fa-building"></i> ${organizations}
+                </div>
+                <div class="policy-dates">
+                    <div class="policy-date-item">
+                        <i class="fas fa-calendar-plus"></i> Created: ${createdDate}
+                    </div>
+                    ${updatedDate !== 'N/A' ? `
+                    <div class="policy-date-item">
+                        <i class="fas fa-calendar-check"></i> Updated: ${updatedDate}
+                    </div>
+                    ` : ''}
                 </div>
             </div>
-            <div class="policy-organizations">
-                <strong>Applicable Organizations:</strong> ${policy.clinicNames || policy.organizations || policy.clinics || 'All Organizations'}
-            </div>
-            <div class="policy-description">
-                ${policy.description || policy.content || 'No description available'}
-            </div>
-            <div class="policy-meta">
-                <span>Created: ${formatDate(policy.created)}</span>
-                ${policy.updated ? `<span>Updated: ${formatDate(policy.updated)}</span>` : ''}
-                ${policy.lastModified ? `<span>Last Modified: ${formatDate(policy.lastModified)}</span>` : ''}
-            </div>
-            <div class="policy-actions" style="margin-top: 15px; padding-top: 15px; border-top: 1px solid #e5e7eb;">
-                <button class="btn btn-primary btn-sm policy-view-btn" data-policy-id="${policy.id}" style="width: 100%;">
-                    <i class="fas fa-eye"></i> View Full Policy
-                </button>
-            </div>
-        </div>
-    `).join('');
+        `;
+    }).join('');
 }
 
 // Filter Policies

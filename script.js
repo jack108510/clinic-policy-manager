@@ -8704,14 +8704,18 @@ async function sendFollowUpPrompt() {
         // Get webhook URL
         const webhookUrl = localStorage.getItem('webhookUrlAI') || 'http://localhost:5678/webhook/05da961e-9df0-490e-815f-92d8bc9f9c1e';
         
-        // Use POST method with JSON body to handle large conversation history
-        const response = await fetch(webhookUrl, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(followUpData)
+        // Use GET method with URL parameters to avoid CORS preflight
+        // Truncate conversation history to last 3 messages to avoid URL length issues
+        const recentHistory = conversationHistory.slice(-3);
+        const params = new URLSearchParams({
+            conversationHistory: JSON.stringify(recentHistory),
+            currentPolicyText: currentPolicyText.substring(0, 500), // Truncate to avoid URL length issues
+            newPrompt: followUpPrompt,
+            company: currentCompany || 'Unknown',
+            username: currentUser?.username || 'Unknown'
         });
+        
+        const response = await fetch(`${webhookUrl}?${params.toString()}`);
         
         if (response.ok) {
             const webhookResponse = await response.text();

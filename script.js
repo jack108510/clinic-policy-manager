@@ -7069,13 +7069,23 @@ function editPolicy(policyId) {
     
     console.log('Found policy to edit:', policy);
     
-    // Populate edit form
+    // Populate edit form with structured fields
     document.getElementById('editPolicyId').value = policy.id;
     document.getElementById('editPolicyTitle').value = policy.title || '';
     document.getElementById('editPolicyType').value = policy.type || 'admin';
-    document.getElementById('editPolicyContent').value = policy.content || policy.description || '';
     document.getElementById('editPolicyEffectiveDate').value = policy.effectiveDate || new Date().toISOString().split('T')[0];
     document.getElementById('editPolicyVersion').value = policy.version || '1.0';
+    
+    // Populate structured policy sections
+    document.getElementById('editPolicyPurpose').value = policy.purpose || '';
+    document.getElementById('editPolicyScope').value = policy.scope || '';
+    document.getElementById('editPolicyStatement').value = policy.policyStatement || '';
+    document.getElementById('editPolicyProcedures').value = policy.procedures || '';
+    document.getElementById('editPolicyResponsibilities').value = policy.responsibilities || '';
+    document.getElementById('editPolicyConsequences').value = policy.consequences || policy.accountability || '';
+    
+    // Store legacy content in additional content field
+    document.getElementById('editPolicyContent').value = policy.content || policy.description || '';
     
     // Populate organizations checkboxes
     populateEditOrganizations(policy);
@@ -7129,15 +7139,28 @@ function savePolicyEdit(event) {
     const selectedOrgs = Array.from(document.querySelectorAll('input[name="editOrganizations"]:checked'))
         .map(cb => cb.value);
     
-    // Update policy
+    // Update policy with structured fields
     policies[policyIndex] = {
         ...policies[policyIndex],
+        // Basic fields
         title: document.getElementById('editPolicyTitle').value,
         type: document.getElementById('editPolicyType').value,
-        content: document.getElementById('editPolicyContent').value,
         clinicNames: selectedOrgs.join(', '),
         effectiveDate: document.getElementById('editPolicyEffectiveDate').value,
         version: document.getElementById('editPolicyVersion').value,
+        
+        // Structured policy sections
+        purpose: document.getElementById('editPolicyPurpose').value,
+        scope: document.getElementById('editPolicyScope').value,
+        policyStatement: document.getElementById('editPolicyStatement').value,
+        procedures: document.getElementById('editPolicyProcedures').value,
+        responsibilities: document.getElementById('editPolicyResponsibilities').value,
+        consequences: document.getElementById('editPolicyConsequences').value,
+        
+        // Additional/legacy content
+        content: document.getElementById('editPolicyContent').value,
+        
+        // Metadata
         lastModified: new Date().toISOString(),
         modifiedBy: currentUser ? currentUser.username : 'Unknown'
     };

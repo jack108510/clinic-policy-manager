@@ -165,55 +165,110 @@
 
     <!-- Policy Edit Modal -->
     <div id="policyEditModal" class="modal" style="z-index: 2600;">
-        <div class="modal-content" style="max-width: 900px; max-height: 90vh; overflow-y: auto;">
-            <div class="modal-header">
-                <h3>Edit Policy</h3>
-                <span class="close" onclick="closePolicyEditModal()">&times;</span>
+        <div class="modal-content" style="max-width: 1000px; max-height: 90vh; overflow-y: auto;">
+            <div class="modal-header" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 20px;">
+                <h3 style="margin: 0; color: white;"><i class="fas fa-edit"></i> Edit Policy</h3>
+                <span class="close" onclick="closePolicyEditModal()" style="color: white;">&times;</span>
             </div>
-            <div class="modal-body">
+            <div class="modal-body" style="padding: 25px;">
                 <form id="policyEditForm" onsubmit="savePolicyEdit(event)">
                     <input type="hidden" id="editPolicyId">
                     
-                    <div class="form-group">
-                        <label for="editPolicyTitle">Policy Title</label>
-                        <input type="text" id="editPolicyTitle" required>
+                    <!-- Basic Information -->
+                    <div style="background: #f8f9fa; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
+                        <h4 style="margin: 0 0 15px 0; color: #333; display: flex; align-items: center; gap: 10px;">
+                            <i class="fas fa-info-circle"></i> Basic Information
+                        </h4>
+                        
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                            <div class="form-group">
+                                <label for="editPolicyTitle">Policy Title</label>
+                                <input type="text" id="editPolicyTitle" required style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px;">
+                            </div>
+                            
+                            <div class="form-group">
+                                <label for="editPolicyType">Policy Type</label>
+                                <select id="editPolicyType" required style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px;">
+                                    <option value="admin">Admin Policy</option>
+                                    <option value="sog">Standard Operating Guidelines</option>
+                                    <option value="protocol">Protocol</option>
+                                    <option value="memo">Communication Memo</option>
+                                </select>
+                            </div>
+                        </div>
+                        
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-top: 15px;">
+                            <div class="form-group">
+                                <label for="editPolicyEffectiveDate">Effective Date</label>
+                                <input type="date" id="editPolicyEffectiveDate" required style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px;">
+                            </div>
+                            
+                            <div class="form-group">
+                                <label for="editPolicyVersion">Version</label>
+                                <input type="text" id="editPolicyVersion" value="1.0" required style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px;">
+                            </div>
+                        </div>
                     </div>
                     
-                    <div class="form-group">
-                        <label for="editPolicyType">Policy Type</label>
-                        <select id="editPolicyType" required>
-                            <option value="admin">Admin Policy</option>
-                            <option value="sog">Standard Operating Guidelines</option>
-                            <option value="protocol">Protocol</option>
-                            <option value="memo">Communication Memo</option>
-                        </select>
-                    </div>
-                    
-                    <div class="form-group">
-                        <label for="editPolicyOrganizations">Applicable Organizations</label>
+                    <!-- Organizations -->
+                    <div style="background: #f8f9fa; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
+                        <h4 style="margin: 0 0 15px 0; color: #333; display: flex; align-items: center; gap: 10px;">
+                            <i class="fas fa-building"></i> Applicable Organizations
+                        </h4>
                         <div id="editOrganizationsList">
                             <!-- Organizations checkboxes will be populated here -->
                         </div>
                     </div>
                     
-                    <div class="form-group">
-                        <label for="editPolicyContent">Policy Content</label>
-                        <textarea id="editPolicyContent" rows="15" style="font-family: monospace;" required></textarea>
+                    <!-- Policy Sections -->
+                    <div style="background: #f8f9fa; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
+                        <h4 style="margin: 0 0 15px 0; color: #333; display: flex; align-items: center; gap: 10px;">
+                            <i class="fas fa-file-text"></i> Policy Content
+                        </h4>
+                        
+                        <div class="form-group">
+                            <label for="editPolicyPurpose">Purpose</label>
+                            <textarea id="editPolicyPurpose" rows="3" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px;" placeholder="State the purpose of this policy..."></textarea>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="editPolicyScope">Scope</label>
+                            <textarea id="editPolicyScope" rows="3" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px;" placeholder="Who does this policy apply to?"></textarea>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="editPolicyStatement">Policy Statement</label>
+                            <textarea id="editPolicyStatement" rows="4" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px;" placeholder="The main policy statement..."></textarea>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="editPolicyProcedures">Procedures</label>
+                            <textarea id="editPolicyProcedures" rows="4" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px;" placeholder="Step-by-step procedures..."></textarea>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="editPolicyResponsibilities">Responsibilities</label>
+                            <textarea id="editPolicyResponsibilities" rows="3" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px;" placeholder="Who is responsible for what?"></textarea>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="editPolicyConsequences">Consequences / Non-Compliance</label>
+                            <textarea id="editPolicyConsequences" rows="3" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px;" placeholder="What happens if not followed?"></textarea>
+                        </div>
                     </div>
                     
+                    <!-- Additional Content (for legacy or custom content) -->
                     <div class="form-group">
-                        <label for="editPolicyEffectiveDate">Effective Date</label>
-                        <input type="date" id="editPolicyEffectiveDate" required>
+                        <label for="editPolicyContent">Additional Content (Optional)</label>
+                        <textarea id="editPolicyContent" rows="5" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px; font-family: monospace;" placeholder="Any additional notes or custom content..."></textarea>
+                        <small style="color: #666;">Use this field for any additional information that doesn't fit in the structured fields above.</small>
                     </div>
                     
-                    <div class="form-group">
-                        <label for="editPolicyVersion">Version</label>
-                        <input type="text" id="editPolicyVersion" value="1.0" required>
-                    </div>
-                    
-                    <div class="form-actions">
-                        <button type="button" class="btn btn-secondary" onclick="closePolicyEditModal()">Cancel</button>
-                        <button type="submit" class="btn btn-primary">Save Changes</button>
+                    <div class="form-actions" style="display: flex; gap: 10px; justify-content: flex-end; margin-top: 25px;">
+                        <button type="button" class="btn btn-secondary" onclick="closePolicyEditModal()" style="padding: 12px 24px;">Cancel</button>
+                        <button type="submit" class="btn btn-primary" style="padding: 12px 24px;">
+                            <i class="fas fa-save"></i> Save Changes
+                        </button>
                     </div>
                 </form>
             </div>
@@ -949,6 +1004,6 @@
         </div>
     </footer>
 
-    <script src="script.js?v=80&t=20250128"></script>
+    <script src="script.js?v=81&t=20250128"></script>
 </body>
 </html>

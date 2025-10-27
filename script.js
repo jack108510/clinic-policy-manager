@@ -8833,6 +8833,25 @@ function selectPlan(plan) {
     showNotification('Thank you for selecting the ' + plan.charAt(0).toUpperCase() + plan.slice(1) + ' plan. You can complete your account setup now.', 'success');
 }
 
+function showCompanyCodeSignup() {
+    closePricingModal();
+    setTimeout(() => {
+        const modal = document.getElementById('companyCodeSignupModal');
+        if (modal) {
+            modal.classList.add('show');
+        }
+    }, 300);
+}
+
+function closeCompanyCodeSignupModal() {
+    const modal = document.getElementById('companyCodeSignupModal');
+    if (modal) {
+        modal.classList.remove('show');
+        document.getElementById('companyCodeSignupForm').reset();
+        document.getElementById('company-code-signup-error-message').style.display = 'none';
+    }
+}
+
 function closeIndividualSignupModal() {
     const modal = document.getElementById('individualSignupModal');
     if (modal) {

@@ -137,8 +137,10 @@ const draftCountElement = document.getElementById('draftCount');
 document.addEventListener('DOMContentLoaded', function() {
     console.log('Initializing application...');
     
-    // Check if user should see welcome modal
-    checkWelcomeModal();
+    // Check if user is already logged in
+    if (currentUser) {
+        document.body.classList.add('user-logged-in');
+    }
     
     // Initialize data displays
     displayPolicies(currentPolicies);
@@ -7715,6 +7717,16 @@ function signupUser(event) {
     }
     
     console.log('Step 32: Showing success message...');
+    
+    // Add user-logged-in class to body
+    document.body.classList.add('user-logged-in');
+    
+    // Hide welcome modal
+    const welcomeModal = document.getElementById('welcomeModal');
+    if (welcomeModal) {
+        welcomeModal.style.display = 'none';
+    }
+    
     // Show success message
     showNotification('Account created successfully! You are now logged in.', 'success');
     
@@ -7936,6 +7948,15 @@ function loginUser(event) {
         // Update UI
         updateUserInterface();
         closeLoginModal();
+        
+        // Add user-logged-in class to body
+        document.body.classList.add('user-logged-in');
+        
+        // Hide welcome modal
+        const welcomeModal = document.getElementById('welcomeModal');
+        if (welcomeModal) {
+            welcomeModal.style.display = 'none';
+        }
         
         // Show success message
         showSuccessMessage('Login successful! Welcome back!');

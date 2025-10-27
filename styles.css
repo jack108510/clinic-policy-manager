@@ -12,6 +12,184 @@ body {
     background-color: #f8fafc;
 }
 
+/* Landing Page Styles */
+.landing-page {
+    display: none;
+}
+
+body:not(.user-logged-in) .landing-page {
+    display: block;
+}
+
+body:not(.user-logged-in) .hero,
+body:not(.user-logged-in) .policy-types,
+body:not(.user-logged-in) .organizations,
+body:not(.user-logged-in) .policies,
+body:not(.user-logged-in) .admin-section,
+body:not(.user-logged-in) footer,
+body:not(.user-logged-in) .navbar {
+    display: none !important;
+    visibility: hidden !important;
+}
+
+.landing-hero {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+}
+
+.landing-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 20px 40px;
+}
+
+.landing-logo {
+    display: flex;
+    align-items: center;
+}
+
+.landing-auth {
+    display: flex;
+    gap: 15px;
+}
+
+.btn-landing {
+    padding: 10px 20px;
+    border: 2px solid white;
+    background: transparent;
+    color: white;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: 600;
+    transition: all 0.3s ease;
+}
+
+.btn-landing:hover {
+    background: white;
+    color: #667eea;
+}
+
+.landing-content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+    padding: 0 40px;
+}
+
+.landing-title {
+    font-size: 4rem;
+    font-weight: bold;
+    margin-bottom: 20px;
+    color: white;
+}
+
+.landing-subtitle {
+    font-size: 1.5rem;
+    margin-bottom: 40px;
+    color: rgba(255, 255, 255, 0.9);
+}
+
+.landing-buttons {
+    display: flex;
+    gap: 20px;
+}
+
+.btn-large {
+    padding: 15px 40px;
+    font-size: 1.1rem;
+}
+
+.landing-about {
+    background: white;
+    padding: 80px 20px;
+}
+
+.landing-about h2 {
+    text-align: center;
+    font-size: 2.5rem;
+    margin-bottom: 50px;
+    color: #1f2937;
+}
+
+.about-content {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 30px;
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+.about-card {
+    background: #f8fafc;
+    padding: 30px;
+    border-radius: 12px;
+    text-align: center;
+    transition: transform 0.3s;
+}
+
+.about-card:hover {
+    transform: translateY(-5px);
+}
+
+.about-icon {
+    width: 60px;
+    height: 60px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 20px;
+    color: white;
+    font-size: 1.5rem;
+}
+
+.about-card h3 {
+    font-size: 1.25rem;
+    margin-bottom: 15px;
+    color: #1f2937;
+}
+
+.about-card p {
+    color: #6b7280;
+    line-height: 1.6;
+}
+
+@media (max-width: 768px) {
+    .landing-header {
+        padding: 15px 20px;
+    }
+    
+    .landing-title {
+        font-size: 2.5rem;
+    }
+    
+    .landing-subtitle {
+        font-size: 1.2rem;
+    }
+    
+    .landing-buttons {
+        flex-direction: column;
+        width: 100%;
+        max-width: 300px;
+    }
+    
+    .btn-large {
+        width: 100%;
+    }
+    
+    .about-content {
+        grid-template-columns: 1fr;
+    }
+}
+
 .container {
     max-width: 1200px;
     margin: 0 auto;

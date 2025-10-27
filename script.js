@@ -32,6 +32,7 @@ function loadMasterAdminData() {
 const masterData = loadMasterAdminData();
 let users = [];
 let policies = [];
+let conversationHistory = []; // Store full conversation history for AI context
 let currentUser = loadFromLocalStorage('currentUser', null);
 let currentCompany = loadFromLocalStorage('currentCompany', null);
 
@@ -5345,6 +5346,9 @@ function resetChat() {
         currentPolicy: null
     };
     
+    // Clear conversation history
+    conversationHistory = [];
+    
     const chatMessages = document.getElementById('chatMessages');
     chatMessages.innerHTML = `
         <div class="message ai-message">
@@ -5395,6 +5399,9 @@ function addUserMessage(message) {
     `;
     chatMessages.appendChild(messageDiv);
     chatMessages.scrollTop = chatMessages.scrollHeight;
+    
+    // Store in conversation history
+    conversationHistory.push({ role: 'user', content: message });
 }
 
 function getClinicNames(clinicIds) {
@@ -5432,6 +5439,9 @@ function addAIMessage(message, quickOptions = null) {
     `;
     chatMessages.appendChild(messageDiv);
     chatMessages.scrollTop = chatMessages.scrollHeight;
+    
+    // Store in conversation history
+    conversationHistory.push({ role: 'assistant', content: message });
 }
 
 function selectQuickOption(option) {
@@ -8654,17 +8664,8 @@ async function sendFollowUpPrompt() {
         return;
     }
     
-    // Get the chat history (previous messages)
-    const chatMessages = document.getElementById('chatMessages');
-    const previousMessages = Array.from(chatMessages.querySelectorAll('.message')).map(msg => {
-        const avatar = msg.querySelector('.message-avatar');
-        const content = msg.querySelector('.message-content p').textContent;
-        const isAI = avatar && avatar.querySelector('.fa-robot');
-        return {
-            role: isAI ? 'assistant' : 'user',
-            content: content
-        };
-    });
+    // Add current follow-up to conversation history
+    conversationHistory.push({ role: 'user', content: followUpPrompt });
     
     // Get the current policy content - extract only the text, not HTML
     const aiGeneratedElement = document.getElementById('aiGeneratedContent');
@@ -8672,32 +8673,28 @@ async function sendFollowUpPrompt() {
     if (aiGeneratedElement) {
         // Extract text from the policy sections - but limit the size
         const sections = aiGeneratedElement.querySelectorAll('.policy-section');
-        currentPolicyText = Array.from(sections).slice(0, 5).map(section => {
+        currentPolicyText = Array.from(sections).slice(0, 3).map(section => {
             const title = section.querySelector('h5')?.textContent || '';
             const content = section.querySelector('.policy-content')?.textContent || '';
-            // Truncate content to max 500 chars per section
-            return `${title}\n${content.substring(0, 500)}`;
+            // Truncate content to max 300 chars per section
+            return `${title}\n${content.substring(0, 300)}`;
         }).join('\n\n');
     }
     
-    // Limit conversation history to last 3 messages
-    const limitedConversation = previousMessages.slice(-3);
-    
-    // Get the last AI response
-    const lastAIResponse = limitedConversation.filter(m => m.role === 'assistant').pop()?.content || '';
-    const lastUserPrompt = limitedConversation.filter(m => m.role === 'user').pop()?.content || '';
-    
-    // Prepare the follow-up data - minimal data to avoid URL length issues
+    // Prepare the follow-up data with full conversation history
     const followUpData = {
+        conversationHistory: conversationHistory,
+        currentPolicyText: currentPolicyText,
         newPrompt: followUpPrompt,
         company: currentCompany || 'Unknown',
-        username: currentUser?.username || 'Unknown',
-        hasPreviousConversation: limitedConversation.length > 0,
-        previousUserPrompt: lastUserPrompt,
-        previousAIResponse: lastAIResponse.substring(0, 500) // Limit to 500 chars
+        username: currentUser?.username || 'Unknown'
     };
     
-    console.log('Sending follow-up prompt with minimal data:', followUpData);
+    console.log('Sending follow-up prompt with full conversation history:', {
+        conversationLength: conversationHistory.length,
+        newPrompt: followUpPrompt,
+        company: currentCompany
+    });
     
     // Show loading state
     document.getElementById('aiLoading').style.display = 'block';
@@ -8707,9 +8704,14 @@ async function sendFollowUpPrompt() {
         // Get webhook URL
         const webhookUrl = localStorage.getItem('webhookUrlAI') || 'http://localhost:5678/webhook/05da961e-9df0-490e-815f-92d8bc9f9c1e';
         
-        // Use GET method to avoid CORS issues
-        const queryParams = new URLSearchParams(followUpData);
-        const response = await fetch(`${webhookUrl}?${queryParams}`);
+        // Use POST method with JSON body to handle large conversation history
+        const response = await fetch(webhookUrl, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(followUpData)
+        });
         
         if (response.ok) {
             const webhookResponse = await response.text();
@@ -8763,6 +8765,11 @@ async function sendFollowUpPrompt() {
                 `;
             } else {
                 document.getElementById('aiGeneratedContent').innerHTML = `<pre>${webhookResponse}</pre>`;
+            }
+            
+            // Add AI response to conversation history
+            if (responseData && Array.isArray(responseData) && responseData.length > 0 && responseData[0].markdown) {
+                conversationHistory.push({ role: 'assistant', content: 'Policy updated based on your request' });
             }
             
             // Clear the follow-up input

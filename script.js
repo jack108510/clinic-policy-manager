@@ -5638,8 +5638,8 @@ function showSettingsTab(tabName) {
         loadWebhookUrls();
     } else if (tabName === 'documents') {
         loadDocuments();
-    } else if (tabName === 'policyCodes') {
-        loadPolicyCodes();
+    } else if (tabName === 'categories') {
+        loadCategories();
     }
 }
 
@@ -7122,14 +7122,14 @@ function editPolicy(policyId) {
     // Populate related documents checkboxes
     populateEditRelatedDocuments(policy);
     
-    // Populate policy codes dropdown
-    populatePolicyCodesDropdown();
+    // Populate categories dropdown
+    populateCategoriesDropdown();
     
-    // Set selected policy code if it exists
-    if (policy.policyCodeId) {
-        const codeSelect = document.getElementById('editPolicyCode');
-        if (codeSelect) {
-            codeSelect.value = policy.policyCodeId;
+    // Set selected category if it exists
+    if (policy.categoryId) {
+        const categorySelect = document.getElementById('editPolicyCode');
+        if (categorySelect) {
+            categorySelect.value = policy.categoryId;
         }
     }
     
@@ -7254,8 +7254,8 @@ function savePolicyEdit(event) {
     const selectedDocs = Array.from(document.querySelectorAll('input[name="editRelatedDocuments"]:checked'))
         .map(cb => parseInt(cb.value));
     
-    // Get selected policy code
-    const policyCodeId = document.getElementById('editPolicyCode')?.value || null;
+    // Get selected category
+    const categoryId = document.getElementById('editPolicyCode')?.value || null;
     
     // Update policy with structured fields
     policies[policyIndex] = {
@@ -7266,7 +7266,7 @@ function savePolicyEdit(event) {
         clinicNames: selectedOrgs.join(', '),
         effectiveDate: document.getElementById('editPolicyEffectiveDate').value,
         version: document.getElementById('editPolicyVersion').value,
-        policyCodeId: policyCodeId,
+        categoryId: categoryId,
         
         // Structured policy sections
         purpose: document.getElementById('editPolicyPurpose').value,
@@ -8694,7 +8694,7 @@ async function sendFollowUpPrompt() {
 
 // Document Management Functions
 let documents = [];
-let policyCodes = [];
+let categories = [];
 
 function loadDocuments() {
     const stored = localStorage.getItem('documents');
@@ -8894,38 +8894,36 @@ function checkWelcomeModal() {
     }
 }
 
-// Policy Codes Management Functions
-function loadPolicyCodes() {
-    const stored = localStorage.getItem('policyCodes');
-    policyCodes = stored ? JSON.parse(stored) : [];
-    displayPolicyCodes();
+// Categories Management Functions
+function loadCategories() {
+    const stored = localStorage.getItem('categories');
+    categories = stored ? JSON.parse(stored) : [];
+    displayCategories();
 }
 
-function savePolicyCodes() {
-    localStorage.setItem('policyCodes', JSON.stringify(policyCodes));
+function saveCategories() {
+    localStorage.setItem('categories', JSON.stringify(categories));
 }
 
-function displayPolicyCodes() {
-    const codesList = document.getElementById('policyCodesList');
-    if (!codesList) return;
+function displayCategories() {
+    const categoriesList = document.getElementById('categoriesList');
+    if (!categoriesList) return;
     
-    if (policyCodes.length === 0) {
-        codesList.innerHTML = '<p style="color: #999; text-align: center; padding: 20px;">No policy codes created yet. Add your first code above.</p>';
+    if (categories.length === 0) {
+        categoriesList.innerHTML = '<p style="color: #999; text-align: center; padding: 20px;">No categories created yet. Add your first category above.</p>';
         return;
     }
     
-    codesList.innerHTML = policyCodes.map((code, index) => `
+    categoriesList.innerHTML = categories.map((category, index) => `
         <div class="item-card" style="background: white; border: 1px solid #e0e0e0; border-radius: 8px; padding: 15px; margin-bottom: 10px;">
             <div style="display: flex; justify-content: space-between; align-items: start;">
                 <div style="flex: 1;">
                     <h4 style="margin: 0 0 5px 0; color: #333; display: flex; align-items: center; gap: 10px;">
-                        <span style="background: #667eea; color: white; padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: bold;">${code.code}</span>
-                        <span>${code.name}</span>
-                        <span style="background: #f0f0f0; color: #666; padding: 2px 8px; border-radius: 12px; font-size: 12px;">${code.type}</span>
+                        <span style="background: #667eea; color: white; padding: 6px 12px; border-radius: 4px; font-size: 14px; font-weight: bold;">${category.number || 'N/A'}</span>
+                        <span style="font-size: 16px;">${category.name || 'Untitled Category'}</span>
                     </h4>
-                    ${code.description ? `<p style="margin: 0 0 10px 0; color: #666; font-size: 14px;">${code.description}</p>` : ''}
                 </div>
-                <button onclick="deletePolicyCode(${index})" class="btn btn-small btn-danger">
+                <button onclick="deleteCategory(${index})" class="btn btn-small btn-danger">
                     <i class="fas fa-trash"></i>
                 </button>
             </div>
@@ -8933,58 +8931,52 @@ function displayPolicyCodes() {
     `).join('');
 }
 
-function addPolicyCode() {
-    const code = document.getElementById('newPolicyCode')?.value.trim();
-    const name = document.getElementById('newPolicyCodeName')?.value.trim();
-    const description = document.getElementById('newPolicyCodeDescription')?.value.trim();
-    const type = document.getElementById('newPolicyCodeType')?.value;
+function addCategory() {
+    const name = document.getElementById('newCategoryName')?.value.trim();
+    const number = document.getElementById('newCategoryNumber')?.value;
     
-    if (!code || !name) {
-        showNotification('Please fill in code and name', 'error');
+    if (!name || !number) {
+        showNotification('Please fill in category name and number', 'error');
         return;
     }
     
-    const newCode = {
+    const newCategory = {
         id: Date.now(),
-        code: code,
         name: name,
-        description: description,
-        type: type || 'Other',
+        number: parseInt(number),
         created: new Date().toISOString()
     };
     
-    policyCodes.push(newCode);
-    savePolicyCodes();
-    displayPolicyCodes();
+    categories.push(newCategory);
+    saveCategories();
+    displayCategories();
     
     // Clear form
-    document.getElementById('newPolicyCode').value = '';
-    document.getElementById('newPolicyCodeName').value = '';
-    document.getElementById('newPolicyCodeDescription').value = '';
-    document.getElementById('newPolicyCodeType').value = '';
+    document.getElementById('newCategoryName').value = '';
+    document.getElementById('newCategoryNumber').value = '';
     
-    showNotification('Policy code added successfully', 'success');
+    showNotification('Category added successfully', 'success');
 }
 
-function deletePolicyCode(index) {
-    if (confirm('Are you sure you want to delete this policy code?')) {
-        policyCodes.splice(index, 1);
-        savePolicyCodes();
-        displayPolicyCodes();
-        showNotification('Policy code deleted successfully', 'success');
+function deleteCategory(index) {
+    if (confirm('Are you sure you want to delete this category?')) {
+        categories.splice(index, 1);
+        saveCategories();
+        displayCategories();
+        showNotification('Category deleted successfully', 'success');
     }
 }
 
-function populatePolicyCodesDropdown() {
-    loadPolicyCodes();
+function populateCategoriesDropdown() {
+    loadCategories();
     const select = document.getElementById('editPolicyCode');
     if (!select) return;
     
-    select.innerHTML = '<option value="">Select a policy code (optional)</option>';
-    policyCodes.forEach(code => {
+    select.innerHTML = '<option value="">Select a category (optional)</option>';
+    categories.forEach(category => {
         const option = document.createElement('option');
-        option.value = code.id;
-        option.textContent = `${code.code} - ${code.name}`;
+        option.value = category.id;
+        option.textContent = `${category.number} - ${category.name}`;
         select.appendChild(option);
     });
 }

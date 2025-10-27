@@ -274,12 +274,12 @@
                         </div>
                         
                         <div class="form-group" style="margin-top: 15px;">
-                            <label for="editPolicyCode">Policy Code</label>
+                            <label for="editPolicyCode">Category</label>
                             <select id="editPolicyCode" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px;">
-                                <option value="">Select a policy code (optional)</option>
-                                <!-- Policy codes will be dynamically populated here -->
+                                <option value="">Select a category (optional)</option>
+                                <!-- Categories will be dynamically populated here -->
                             </select>
-                            <small style="color: #666; display: block; margin-top: 5px;">Manage codes in Settings > Policy Codes</small>
+                            <small style="color: #666; display: block; margin-top: 5px;">Manage categories in Settings > Categories</small>
                         </div>
                     </div>
                     
@@ -380,8 +380,8 @@
                     <button class="tab-btn" onclick="showSettingsTab('documents')">
                         <i class="fas fa-file-alt"></i> Documents
                     </button>
-                    <button class="tab-btn" onclick="showSettingsTab('policyCodes')">
-                        <i class="fas fa-barcode"></i> Policy Codes
+                    <button class="tab-btn" onclick="showSettingsTab('categories')">
+                        <i class="fas fa-folder"></i> Categories
                     </button>
                     <button class="tab-btn" onclick="showSettingsTab('webhooks')">
                         <i class="fas fa-link"></i> Webhooks
@@ -471,34 +471,29 @@
                     </div>
                 </div>
                 
-                <!-- Policy Codes Tab -->
-                <div id="policyCodesTab" class="settings-tab">
+                <!-- Categories Tab -->
+                <div id="categoriesTab" class="settings-tab">
                     <div class="settings-section">
-                        <h3>Create Your Policy Coding System</h3>
-                        <p style="margin-bottom: 20px; color: #666;">Define custom categories and codes to organize your policies</p>
+                        <h3>Manage Policy Categories</h3>
+                        <p style="margin-bottom: 20px; color: #666;">Create categories to organize your policies</p>
                         
                         <div class="add-item-form" style="background: #f8f9fa; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
-                            <h4 style="margin: 0 0 15px 0; color: #333;">Add New Policy Code</h4>
-                            <input type="text" id="newPolicyCode" placeholder="Code (e.g., SAF-001)" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px; margin-bottom: 10px;">
-                            <input type="text" id="newPolicyCodeName" placeholder="Code Name (e.g., Safety Protocol)" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px; margin-bottom: 10px;">
-                            <input type="text" id="newPolicyCodeDescription" placeholder="Description (optional)" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px; margin-bottom: 10px;">
-                            <select id="newPolicyCodeType" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px; margin-bottom: 10px;">
-                                <option value="">Select Category</option>
-                                <option value="Safety">Safety</option>
-                                <option value="Operations">Operations</option>
-                                <option value="Compliance">Compliance</option>
-                                <option value="HR">HR</option>
-                                <option value="Clinical">Clinical</option>
-                                <option value="Administrative">Administrative</option>
-                                <option value="Other">Other</option>
-                            </select>
-                            <button onclick="addPolicyCode()" class="btn btn-primary">
-                                <i class="fas fa-plus"></i> Add Code
+                            <h4 style="margin: 0 0 15px 0; color: #333;">Add New Category</h4>
+                            <div style="display: grid; grid-template-columns: 1fr 150px; gap: 15px; align-items: end;">
+                                <div>
+                                    <input type="text" id="newCategoryName" placeholder="Category Name (e.g., Safety Policies)" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px;">
+                                </div>
+                                <div>
+                                    <input type="number" id="newCategoryNumber" placeholder="Number" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px;">
+                                </div>
+                            </div>
+                            <button onclick="addCategory()" class="btn btn-primary" style="margin-top: 15px;">
+                                <i class="fas fa-plus"></i> Add Category
                             </button>
                         </div>
                         
-                        <div id="policyCodesList" class="items-list" style="margin-top: 20px;">
-                            <!-- Policy codes will be displayed here -->
+                        <div id="categoriesList" class="items-list" style="margin-top: 20px;">
+                            <!-- Categories will be displayed here -->
                         </div>
                     </div>
                 </div>
@@ -1303,6 +1298,6 @@
         </div>
     </footer>
 
-    <script src="script.js?v=100&t=20250128"></script>
+    <script src="script.js?v=101&t=20250128"></script>
 </body>
 </html>

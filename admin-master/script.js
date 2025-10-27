@@ -46,6 +46,16 @@ document.addEventListener('DOMContentLoaded', function() {
     // Add event listeners for modals
     document.getElementById('companyPasswordForm').addEventListener('submit', updateCompanyPassword);
     
+    // Add event listener for delete buttons using event delegation
+    document.addEventListener('click', function(event) {
+        if (event.target.closest('.delete-user-btn')) {
+            const button = event.target.closest('.delete-user-btn');
+            const userId = button.getAttribute('data-user-id');
+            console.log('Delete button clicked, userId:', userId, 'type:', typeof userId);
+            deleteUser(userId);
+        }
+    });
+    
     // Listen for data updates from main site
     window.addEventListener('masterDataUpdated', function(event) {
         console.log('🔔 Admin-master received data update from main site:', event.detail);
@@ -306,7 +316,7 @@ function displayUsers() {
                         <i class="fas fa-${(user.role === 'Admin' || user.role === 'admin') ? 'user-minus' : 'user-plus'}"></i> 
                         ${(user.role === 'Admin' || user.role === 'admin') ? 'Remove Admin' : 'Make Admin'}
                     </button>
-                    <button onclick="console.log('Delete clicked for user:', ${JSON.stringify(user)}); deleteUser('${user.id}')" class="btn btn-small btn-danger">
+                    <button class="btn btn-small btn-danger delete-user-btn" data-user-id="${user.id}">
                         <i class="fas fa-trash"></i> Delete
                     </button>
                 </div>

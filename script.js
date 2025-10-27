@@ -7122,6 +7122,17 @@ function editPolicy(policyId) {
     // Populate related documents checkboxes
     populateEditRelatedDocuments(policy);
     
+    // Populate policy codes dropdown
+    populatePolicyCodesDropdown();
+    
+    // Set selected policy code if it exists
+    if (policy.policyCodeId) {
+        const codeSelect = document.getElementById('editPolicyCode');
+        if (codeSelect) {
+            codeSelect.value = policy.policyCodeId;
+        }
+    }
+    
     // Show modal
     document.getElementById('policyEditModal').style.display = 'block';
 }
@@ -7243,6 +7254,9 @@ function savePolicyEdit(event) {
     const selectedDocs = Array.from(document.querySelectorAll('input[name="editRelatedDocuments"]:checked'))
         .map(cb => parseInt(cb.value));
     
+    // Get selected policy code
+    const policyCodeId = document.getElementById('editPolicyCode')?.value || null;
+    
     // Update policy with structured fields
     policies[policyIndex] = {
         ...policies[policyIndex],
@@ -7252,6 +7266,7 @@ function savePolicyEdit(event) {
         clinicNames: selectedOrgs.join(', '),
         effectiveDate: document.getElementById('editPolicyEffectiveDate').value,
         version: document.getElementById('editPolicyVersion').value,
+        policyCodeId: policyCodeId,
         
         // Structured policy sections
         purpose: document.getElementById('editPolicyPurpose').value,
@@ -8664,14 +8679,14 @@ async function sendFollowUpPrompt() {
         }
     } catch (error) {
         console.error('Follow-up prompt error:', error);
-        document.getElementById('aiLoading').style.display = 'none';
-        document.getElementById('aiResult').style.display = 'block';
+            document.getElementById('aiLoading').style.display = 'none';
+            document.getElementById('aiResult').style.display = 'block';
         document.getElementById('aiGeneratedContent').innerHTML = `
             <div style="color: red;">
                 <p><strong>Error:</strong> Failed to process follow-up prompt</p>
-                <p>${error.message}</p>
-            </div>
-        `;
+                    <p>${error.message}</p>
+                </div>
+            `;
         showNotification('Failed to process follow-up prompt', 'error');
     }
 }
@@ -8779,7 +8794,7 @@ function populateEditRelatedDocuments(policy) {
                         <i class="fas fa-external-link-alt"></i> View Document
                     </a>
                 </div>
-            </label>
+        </label>
         `;
     }).join('');
 }

@@ -208,10 +208,17 @@ function setupEventListeners() {
         policySearch.addEventListener('input', function() {
             if (!requireLogin()) return;
             const searchTerm = this.value.toLowerCase();
-            const filteredPolicies = currentPolicies.filter(policy => 
-                policy.title.toLowerCase().includes(searchTerm) ||
-                policy.description.toLowerCase().includes(searchTerm)
-            );
+            const filteredPolicies = currentPolicies.filter(policy => {
+                const title = (policy.title || '').toLowerCase();
+                const description = (policy.description || '').toLowerCase();
+                const content = (policy.content || '').toLowerCase();
+                const type = (policy.type || '').toLowerCase();
+                
+                return title.includes(searchTerm) || 
+                       description.includes(searchTerm) || 
+                       content.includes(searchTerm) ||
+                       type.includes(searchTerm);
+            });
             displayPolicies(filteredPolicies);
         });
     }
@@ -352,6 +359,11 @@ function addLoginChecksToAllElements() {
 
 // Display Policies
 function displayPolicies(policiesToDisplay = policies) {
+    if (!policiesGrid) {
+        console.error('Policies grid element not found');
+        return;
+    }
+    
     if (!policiesToDisplay || policiesToDisplay.length === 0) {
         policiesGrid.innerHTML = '<div class="no-policies">No policies found matching your criteria.</div>';
         return;
@@ -361,19 +373,20 @@ function displayPolicies(policiesToDisplay = policies) {
         <div class="policy-item" data-type="${policy.type}">
             <div class="policy-header">
                 <div>
-                    <h3 class="policy-title">${policy.title}</h3>
+                    <h3 class="policy-title">${policy.title || 'Untitled Policy'}</h3>
                     <span class="policy-type ${policy.type}">${getTypeLabel(policy.type)}</span>
                 </div>
             </div>
             <div class="policy-organizations">
-                <strong>Applicable Organizations:</strong> ${getOrganizationNames(policy.clinics).join(', ')}
+                <strong>Applicable Organizations:</strong> ${policy.clinicNames || policy.organizations || policy.clinics || 'All Organizations'}
             </div>
             <div class="policy-description">
-                ${policy.description}
+                ${policy.description || policy.content || 'No description available'}
             </div>
             <div class="policy-meta">
                 <span>Created: ${formatDate(policy.created)}</span>
-                <span>Updated: ${formatDate(policy.updated)}</span>
+                ${policy.updated ? `<span>Updated: ${formatDate(policy.updated)}</span>` : ''}
+                ${policy.lastModified ? `<span>Last Modified: ${formatDate(policy.lastModified)}</span>` : ''}
             </div>
             <div class="policy-actions" style="margin-top: 15px; padding-top: 15px; border-top: 1px solid #e5e7eb;">
                 <button class="btn btn-primary btn-sm policy-view-btn" data-policy-id="${policy.id}" style="width: 100%;">
@@ -7030,6 +7043,10 @@ function loadPoliciesFromStorage() {
     // Update the global policies array
     policies.length = 0; // Clear existing policies
     policies.push(...companyPolicies);
+    
+    // Also update currentPolicies for the main view
+    currentPolicies.length = 0; // Clear existing currentPolicies
+    currentPolicies.push(...companyPolicies);
     
     // Display policies
     displayPolicies(policies);

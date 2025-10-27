@@ -8404,3 +8404,111 @@ function testPolicyGeneration() {
         });
 }
 
+// Send follow-up prompt with conversation history
+async function sendFollowUpPrompt() {
+    const followUpInput = document.getElementById('followUpInput');
+    const followUpPrompt = followUpInput.value.trim();
+    
+    if (!followUpPrompt) {
+        showNotification('Please enter a follow-up message', 'error');
+        return;
+    }
+    
+    // Get the chat history (previous messages)
+    const chatMessages = document.getElementById('chatMessages');
+    const previousMessages = Array.from(chatMessages.querySelectorAll('.message')).map(msg => {
+        const avatar = msg.querySelector('.message-avatar');
+        const content = msg.querySelector('.message-content p').textContent;
+        const isAI = avatar && avatar.querySelector('.fa-robot');
+        return {
+            role: isAI ? 'assistant' : 'user',
+            content: content
+        };
+    });
+    
+    // Get the current policy content
+    const currentPolicyContent = document.getElementById('aiGeneratedContent').innerHTML;
+    
+    // Prepare the follow-up data
+    const followUpData = {
+        previousConversation: previousMessages,
+        currentPolicyContent: currentPolicyContent,
+        newPrompt: followUpPrompt
+    };
+    
+    console.log('Sending follow-up prompt with conversation history:', followUpData);
+    
+    // Show loading state
+    document.getElementById('aiLoading').style.display = 'block';
+    document.getElementById('aiResult').style.display = 'none';
+    
+    try {
+        // Get webhook URL
+        const webhookUrl = localStorage.getItem('webhookUrlAI') || 'http://localhost:5678/webhook/05da961e-9df0-490e-815f-92d8bc9f9c1e';
+        
+        // Send to webhook
+        const response = await fetch(`${webhookUrl}?data=${encodeURIComponent(JSON.stringify(followUpData))}`);
+        
+        if (response.ok) {
+            const webhookResponse = await response.text();
+            console.log('Follow-up webhook response:', webhookResponse);
+            
+            // Display the updated policy
+            document.getElementById('aiLoading').style.display = 'none';
+            document.getElementById('aiResult').style.display = 'block';
+            
+            // Parse and display the response
+            let responseData = null;
+            try {
+                responseData = JSON.parse(webhookResponse);
+            } catch (e) {
+                responseData = webhookResponse;
+            }
+            
+            if (responseData && Array.isArray(responseData) && responseData.length > 0 && responseData[0].markdown) {
+                const policy = responseData[0];
+                document.getElementById('aiGeneratedContent').innerHTML = `
+                    <div class="policy-preview professional">
+                        <div class="policy-header">
+                            <h4>${policy.policy_title || 'Updated Policy'}</h4>
+                            <span class="policy-type-badge admin">${policy.policy_type || 'Policy'}</span>
+                        </div>
+                        <div class="policy-meta">
+                            ${policy.effective_date ? `<span>Effective Date: ${policy.effective_date}</span>` : ''}
+                            ${policy.version ? `<span>Version: ${policy.version}</span>` : ''}
+                        </div>
+                        <div class="policy-content">
+                            ${parseWebhookPolicyMarkdown(policy.markdown).map(section => `
+                                <div class="policy-section">
+                                    <h4>${section.title}</h4>
+                                    <p>${section.content}</p>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                `;
+            } else {
+                document.getElementById('aiGeneratedContent').innerHTML = `<pre>${webhookResponse}</pre>`;
+            }
+            
+            // Clear the follow-up input
+            followUpInput.value = '';
+            
+            showNotification('Policy updated successfully!', 'success');
+        } else {
+            throw new Error(`Webhook failed with status: ${response.status}`);
+        }
+    } catch (error) {
+        console.error('Follow-up prompt error:', error);
+        document.getElementById('aiLoading').style.display = 'none';
+        document.getElementById('aiResult').style.display = 'block';
+        document.getElementById('aiGeneratedContent').innerHTML = `
+            <div style="color: red;">
+                <p><strong>Error:</strong> Failed to process follow-up prompt</p>
+                <p>${error.message}</p>
+            </div>
+        `;
+        showNotification('Failed to process follow-up prompt', 'error');
+    }
+}
+

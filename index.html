@@ -594,6 +594,16 @@
                 <div id="aiResult" class="ai-result" style="display: none;">
                     <h4>Generated Policy Preview</h4>
                     <div id="aiGeneratedContent"></div>
+                    <div style="margin-top: 20px; padding-top: 20px; border-top: 1px solid #ddd;">
+                        <h5 style="margin-bottom: 10px;">Refine This Policy</h5>
+                        <p style="color: #666; margin-bottom: 15px;">Want to make changes? Send a follow-up prompt that includes the previous conversation context.</p>
+                        <div class="chat-input" style="display: flex; gap: 10px;">
+                            <input type="text" id="followUpInput" placeholder="Describe what you'd like to change or improve..." style="flex: 1; padding: 10px; border: 1px solid #ddd; border-radius: 4px;">
+                            <button onclick="sendFollowUpPrompt()" class="btn btn-primary">
+                                <i class="fas fa-paper-plane"></i> Send
+                            </button>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -992,6 +1002,6 @@
         </div>
     </footer>
 
-    <script src="script.js?v=83&t=20250128"></script>
+    <script src="script.js?v=84&t=20250128"></script>
 </body>
 </html>

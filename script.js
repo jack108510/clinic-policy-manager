@@ -4373,7 +4373,7 @@ function showWebhookLoading() {
     document.getElementById('aiLoading').style.display = 'block';
     const loadingText = document.getElementById('aiLoading').querySelector('p');
     if (loadingText) {
-        loadingText.textContent = 'Sending policy to webhook and waiting for response...';
+        loadingText.textContent = 'AI generating your policy...';
     }
 }
 

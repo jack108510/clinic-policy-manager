@@ -258,6 +258,14 @@ function displayCompanies() {
 
 function displayUsers() {
     console.log('displayUsers called, users count:', users.length);
+    
+    // Load fresh from localStorage
+    const currentUsers = JSON.parse(localStorage.getItem('masterUsers') || '[]');
+    console.log('🔍 Displaying users from localStorage:', currentUsers.length);
+    currentUsers.forEach((u, i) => {
+        console.log(`  User ${i}: ID=${u.id} (type: ${typeof u.id}), username=${u.username}`);
+    });
+    
     const usersList = document.getElementById('usersList');
     usersList.innerHTML = '';
     
@@ -275,7 +283,7 @@ function displayUsers() {
     }
     
     users.forEach(user => {
-        console.log('Processing user:', user.username, 'role:', user.role);
+        console.log('Processing user:', user.username, 'ID:', user.id, 'ID type:', typeof user.id);
         const row = document.createElement('tr');
         row.innerHTML = `
             <td><input type="checkbox" class="user-checkbox" value="${user.id}"></td>
@@ -298,7 +306,7 @@ function displayUsers() {
                         <i class="fas fa-${(user.role === 'Admin' || user.role === 'admin') ? 'user-minus' : 'user-plus'}"></i> 
                         ${(user.role === 'Admin' || user.role === 'admin') ? 'Remove Admin' : 'Make Admin'}
                     </button>
-                    <button onclick="deleteUser(${user.id})" class="btn btn-small btn-danger">
+                    <button onclick="console.log('Delete clicked for user:', ${JSON.stringify(user)}); deleteUser('${user.id}')" class="btn btn-small btn-danger">
                         <i class="fas fa-trash"></i> Delete
                     </button>
                 </div>
@@ -369,19 +377,28 @@ function changeUserRole(userId, newRole) {
 }
 
 function deleteUser(userId) {
-    console.log('deleteUser called with userId:', userId);
-    console.log('userId type:', typeof userId);
+    console.log('🗑️ deleteUser called with userId:', userId, 'type:', typeof userId);
     
     // Reload users from localStorage to ensure we have the latest data
     const currentUsers = JSON.parse(localStorage.getItem('masterUsers') || '[]');
     console.log('Current users from localStorage:', currentUsers.length);
     
+    // Log all user IDs for debugging
+    console.log('All user IDs:', currentUsers.map(u => ({ id: u.id, type: typeof u.id, username: u.username })));
+    
     // Try multiple lookup methods to handle different ID types
     const user = currentUsers.find(u => {
-        return u.id === userId || 
-               u.id == userId || 
-               String(u.id) === String(userId) ||
-               parseInt(u.id) === parseInt(userId);
+        const matches = [
+            u.id === userId,
+            u.id == userId,
+            String(u.id) === String(userId),
+            parseInt(u.id) === parseInt(userId),
+            u.id.toString() === userId.toString()
+        ];
+        if (matches.some(m => m)) {
+            console.log('✓ Match found with user:', u);
+        }
+        return matches.some(m => m);
     });
     
     console.log('Found user:', user);
@@ -400,10 +417,14 @@ function deleteUser(userId) {
     if (confirm(`Are you sure you want to delete user "${user.username}" (${user.email}) from ${user.company}? This action cannot be undone.`)) {
         // Find and remove user with flexible ID matching
         const userIndex = currentUsers.findIndex(u => {
-            return u.id === userId || 
-                   u.id == userId || 
-                   String(u.id) === String(userId) ||
-                   parseInt(u.id) === parseInt(userId);
+            const matches = [
+                u.id === userId,
+                u.id == userId,
+                String(u.id) === String(userId),
+                parseInt(u.id) === parseInt(userId),
+                u.id.toString() === userId.toString()
+            ];
+            return matches.some(m => m);
         });
         
         console.log('User index to delete:', userIndex);

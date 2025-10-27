@@ -137,6 +137,9 @@ const draftCountElement = document.getElementById('draftCount');
 document.addEventListener('DOMContentLoaded', function() {
     console.log('Initializing application...');
     
+    // Check if user should see welcome modal
+    checkWelcomeModal();
+    
     // Initialize data displays
     displayPolicies(currentPolicies);
     updateStats();
@@ -8372,7 +8375,7 @@ function testAPIKey() {
     .then(response => {
         if (response.ok) {
             showAPIStatus('API connection successful! ChatGPT is ready to use.', 'success');
-        } else {
+    } else {
             showAPIStatus(`API connection failed: ${response.status} ${response.statusText}`, 'error');
         }
         })
@@ -8403,7 +8406,7 @@ function showAPIStatus(message, type) {
     
     // Auto-hide success messages after 5 seconds
     if (type === 'success') {
-        setTimeout(() => {
+    setTimeout(() => {
             statusElement.style.display = 'none';
         }, 5000);
     }
@@ -8714,4 +8717,52 @@ function populateEditRelatedDocuments(policy) {
             </label>
         `;
     }).join('');
+}
+
+// Welcome Modal Functions
+function showWelcomeModal() {
+    const welcomeModal = document.getElementById('welcomeModal');
+    if (welcomeModal) {
+        welcomeModal.style.display = 'block';
+    }
+}
+
+function closeWelcomeModal() {
+    const welcomeModal = document.getElementById('welcomeModal');
+    if (welcomeModal) {
+        welcomeModal.style.display = 'none';
+    }
+}
+
+function showIndividualSignup() {
+    closeWelcomeModal();
+    setTimeout(() => {
+        showSignupModal();
+    }, 300);
+}
+
+function showCompanySignup() {
+    closeWelcomeModal();
+    setTimeout(() => {
+        showSignupModal();
+    }, 300);
+}
+
+function showWelcomeLogin() {
+    closeWelcomeModal();
+    setTimeout(() => {
+        showLoginModal();
+    }, 300);
+}
+
+// Check if user should see welcome modal
+function checkWelcomeModal() {
+    if (!currentUser) {
+        // Check if user has seen this before
+        const hasSeenWelcome = localStorage.getItem('hasSeenWelcome');
+        if (!hasSeenWelcome) {
+            showWelcomeModal();
+            localStorage.setItem('hasSeenWelcome', 'true');
+        }
+    }
 }

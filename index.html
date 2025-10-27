@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Policy Pro</title>
-    <link rel="stylesheet" href="styles.css?v=205&t=20250128">
+    <link rel="stylesheet" href="styles.css?v=206&t=20250128">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
 </head>
 <body>
@@ -79,28 +79,16 @@
                 <img src="policy-pro-logo.svg" alt="Logo" class="logo-img">
             </div>
             <div class="nav-menu">
-                <!-- Main Navigation -->
-                <div class="nav-group">
-                    <a href="#home" class="nav-link" onclick="return requireLogin()"><i class="fas fa-home"></i> Home</a>
-                    <a href="#policies" class="nav-link" onclick="return requireLogin()"><i class="fas fa-file-alt"></i> Policies</a>
-                    </div>
-                
-                <!-- User Actions -->
-                <div class="nav-divider"></div>
-                <div class="nav-group">
-                    <a href="#" onclick="openPasswordModal()" class="nav-link admin-link"><i class="fas fa-tachometer-alt"></i> Admin</a>
-                    <a href="#" onclick="showProfileModal()" class="nav-link"><i class="fas fa-user-circle"></i> Profile</a>
-                </div>
-                
-                <!-- Auth Actions (when logged out) -->
-                <div class="nav-group auth-actions">
-                    <a href="#" onclick="showLoginModal()" class="btn btn-sm btn-outline">Login</a>
-                    <a href="#" onclick="showSignupModal()" class="btn btn-sm btn-primary">Sign Up</a>
-                </div>
-                
-                <!-- Master Admin -->
-                <div class="nav-divider"></div>
-                <a href="admin-master/index.html" class="nav-link master-admin-link"><i class="fas fa-crown"></i> Master Admin</a>
+                <a href="#home" class="nav-link" onclick="return requireLogin()"><i class="fas fa-home"></i> Home</a>
+                <a href="#policies" class="nav-link" onclick="return requireLogin()"><i class="fas fa-file-alt"></i> Policies</a>
+                <span class="nav-divider"></span>
+                <a href="#" onclick="openPasswordModal()" class="nav-link admin-link"><i class="fas fa-tachometer-alt"></i> Admin</a>
+                <a href="#" onclick="showProfileModal()" class="nav-link"><i class="fas fa-user-circle"></i> Profile</a>
+                <span class="nav-divider"></span>
+                <a href="#" onclick="showLoginModal()" class="nav-link auth-btn">Login</a>
+                <a href="#" onclick="showSignupModal()" class="nav-link auth-btn signup-btn">Sign Up</a>
+                <span class="nav-divider"></span>
+                <a href="admin-master/index.html" class="nav-link master-admin-link"><i class="fas fa-crown"></i> Master</a>
             </div>
             <div class="nav-toggle">
                 <i class="fas fa-bars"></i>

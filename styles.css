@@ -383,20 +383,20 @@ body:not(.user-logged-in) .navbar {
 .nav-menu {
     display: flex;
     align-items: center;
-    gap: 20px;
+    gap: 8px;
 }
 
 .nav-group {
     display: flex;
     align-items: center;
-    gap: 15px;
+    gap: 10px;
 }
 
 .nav-divider {
     width: 1px;
-    height: 30px;
+    height: 25px;
     background: #e5e7eb;
-    margin: 0 5px;
+    margin: 0 2px;
 }
 
 .nav-link {
@@ -406,10 +406,11 @@ body:not(.user-logged-in) .navbar {
     transition: all 0.3s;
     display: flex;
     align-items: center;
-    gap: 8px;
-    padding: 8px 12px;
-    border-radius: 8px;
+    gap: 6px;
+    padding: 6px 10px;
+    border-radius: 6px;
     white-space: nowrap;
+    font-size: 0.9rem;
 }
 
 .nav-link:hover {
@@ -430,22 +431,27 @@ body:not(.user-logged-in) .navbar {
     background: #8B5CF6 !important;
 }
 
-.auth-actions {
-    gap: 10px;
+.auth-btn {
+    padding: 6px 14px !important;
+    border-radius: 6px !important;
 }
 
-.auth-actions .btn {
-    min-width: 80px;
-    padding: 8px 20px;
-    border-radius: 8px;
+.auth-btn.signup-btn {
+    background: #667eea !important;
+    color: white !important;
+}
+
+.auth-btn.signup-btn:hover {
+    background: #5568d3 !important;
+    color: white !important;
 }
 
 .master-admin-link {
     background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
     color: white !important;
-    border-radius: 20px;
-    padding: 0.5rem 1rem !important;
-    margin-left: 0.5rem;
+    border-radius: 6px;
+    padding: 6px 12px !important;
+    font-size: 0.9rem !important;
 }
 
 .master-admin-link:hover {

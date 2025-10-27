@@ -383,21 +383,61 @@ body:not(.user-logged-in) .navbar {
 .nav-menu {
     display: flex;
     align-items: center;
-    gap: 30px;
+    gap: 20px;
+}
+
+.nav-group {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
+.nav-divider {
+    width: 1px;
+    height: 30px;
+    background: #e5e7eb;
+    margin: 0 5px;
 }
 
 .nav-link {
     text-decoration: none;
     color: #374151;
     font-weight: 500;
-    transition: color 0.3s;
+    transition: all 0.3s;
     display: flex;
     align-items: center;
-    gap: 5px;
+    gap: 8px;
+    padding: 8px 12px;
+    border-radius: 8px;
+    white-space: nowrap;
 }
 
 .nav-link:hover {
     color: #2563eb;
+    background: #f3f4f6;
+}
+
+.nav-link i {
+    font-size: 0.9rem;
+}
+
+.admin-link {
+    color: #8B5CF6 !important;
+}
+
+.admin-link:hover {
+    color: white !important;
+    background: #8B5CF6 !important;
+}
+
+.auth-actions {
+    gap: 10px;
+}
+
+.auth-actions .btn {
+    min-width: 80px;
+    padding: 8px 20px;
+    border-radius: 8px;
 }
 
 .master-admin-link {

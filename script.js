@@ -8333,6 +8333,22 @@ function openPasswordModal() {
     console.log('Current user:', currentUser);
     console.log('Current company:', currentCompany);
     
+    // Check if user is logged in with their company
+    if (!currentUser || !currentCompany) {
+        console.log('User not logged in with company');
+        showSignupModal();
+        return;
+    }
+    
+    // Check if user has admin role - bypass password
+    console.log('🔍 Checking user role:', currentUser.role);
+    if (currentUser.role === 'admin' || currentUser.role === 'Admin' || (currentUser.role && currentUser.role.toLowerCase() === 'admin')) {
+        console.log('✅ User has admin role, granting access without password');
+        openAdminModal();
+        showNotification('Admin access granted!', 'success');
+        return;
+    }
+    
     const modal = document.getElementById('passwordModal');
     console.log('Password modal element:', modal);
     

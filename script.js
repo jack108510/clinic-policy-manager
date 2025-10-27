@@ -212,12 +212,12 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Check user status
     if (currentUser) {
-        console.log('User already logged in:', currentUser.username);
-        // Load policies from storage when user is already logged in
-        if (currentCompany) {
-            loadPoliciesFromStorage();
+            console.log('User already logged in:', currentUser.username);
+            // Load policies from storage when user is already logged in
+            if (currentCompany) {
+                loadPoliciesFromStorage();
+            }
         }
-    }
 });
 
 // Check if user is logged in before allowing access to features
@@ -8751,21 +8751,45 @@ function closeWelcomeModal() {
 }
 
 function showIndividualSignup() {
-    closeWelcomeModal();
+    closeSignupModal();
     setTimeout(() => {
-        showSignupModal();
+        const modal = document.getElementById('individualSignupModal');
+        if (modal) {
+            modal.classList.add('show');
+        }
     }, 300);
 }
 
 function showCompanySignup() {
-    closeWelcomeModal();
+    closeSignupModal();
     setTimeout(() => {
-        showSignupModal();
+        const modal = document.getElementById('companySignupModal');
+        if (modal) {
+            modal.classList.add('show');
+        }
     }, 300);
 }
 
+function closeCompanySignupModal() {
+    const modal = document.getElementById('companySignupModal');
+    if (modal) {
+        modal.classList.remove('show');
+        document.getElementById('companySignupForm').reset();
+        document.getElementById('company-signup-error-message').style.display = 'none';
+    }
+}
+
+function closeIndividualSignupModal() {
+    const modal = document.getElementById('individualSignupModal');
+    if (modal) {
+        modal.classList.remove('show');
+        document.getElementById('individualSignupForm').reset();
+        document.getElementById('individual-signup-error-message').style.display = 'none';
+    }
+}
+
 function showWelcomeLogin() {
-    closeWelcomeModal();
+    closeSignupModal();
     setTimeout(() => {
         showLoginModal();
     }, 300);

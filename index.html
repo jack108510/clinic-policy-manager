@@ -708,55 +708,139 @@
         </div>
     </div>
 
-    <!-- User Signup Modal -->
+    <!-- Signup Type Selection Modal -->
     <div id="signupModal" class="modal">
-        <div class="modal-content signup-modal">
+        <div class="modal-content signup-modal" style="max-width: 500px;">
             <div class="modal-header">
                 <div class="modal-icon">
                     <i class="fas fa-user-plus"></i>
                 </div>
-                <h3>Join Your Company</h3>
-                <p class="modal-subtitle">Create your account to access company policies</p>
+                <h3>Create Account</h3>
+                <p class="modal-subtitle">Choose how you'd like to sign up</p>
                 <span class="close" onclick="closeSignupModal()">&times;</span>
             </div>
             <div class="modal-body">
-                <form id="signupForm">
+                <div style="display: grid; grid-template-columns: 1fr; gap: 15px;">
+                    <button onclick="showIndividualSignup()" class="btn btn-primary" style="padding: 20px; font-size: 16px; text-align: left;">
+                        <i class="fas fa-user"></i>
+                        <div style="margin-left: 10px;">
+                            <strong>Sign Up as Individual</strong>
+                            <small style="display: block; opacity: 0.9;">Personal account for yourself</small>
+                        </div>
+                    </button>
+                    
+                    <button onclick="showCompanySignup()" class="btn btn-success" style="padding: 20px; font-size: 16px; text-align: left; background: #10b981; border-color: #10b981;">
+                        <i class="fas fa-building"></i>
+                        <div style="margin-left: 10px;">
+                            <strong>Sign Up as Company</strong>
+                            <small style="display: block; opacity: 0.9;">Business account with company access</small>
+                        </div>
+                    </button>
+                </div>
+                
+                <div class="modal-footer" style="margin-top: 20px; padding-top: 20px; border-top: 1px solid #e0e0e0;">
+                    <p>Already have an account? <a href="#" onclick="closeSignupModal(); showLoginModal();">Log In</a></p>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Company Signup Modal -->
+    <div id="companySignupModal" class="modal">
+        <div class="modal-content signup-modal">
+            <div class="modal-header">
+                <div class="modal-icon">
+                    <i class="fas fa-building"></i>
+                </div>
+                <h3>Join Your Company</h3>
+                <p class="modal-subtitle">Create a company account to access policies</p>
+                <span class="close" onclick="closeCompanySignupModal()">&times;</span>
+            </div>
+            <div class="modal-body">
+                <form id="companySignupForm">
                     <div class="form-group">
-                        <label for="signupUsername">Username</label>
+                        <label for="companySignupUsername">Username</label>
                         <div class="input-group">
                             <i class="fas fa-user"></i>
-                            <input type="text" id="signupUsername" placeholder="Enter your username" required>
+                            <input type="text" id="companySignupUsername" placeholder="Enter your username" required>
                         </div>
                     </div>
                     <div class="form-group">
-                        <label for="signupEmail">Email Address</label>
+                        <label for="companySignupEmail">Email Address</label>
                         <div class="input-group">
                             <i class="fas fa-envelope"></i>
-                            <input type="email" id="signupEmail" placeholder="Enter your email" required>
+                            <input type="email" id="companySignupEmail" placeholder="Enter your email" required>
                         </div>
                     </div>
                     <div class="form-group">
-                        <label for="signupPassword">Password</label>
+                        <label for="companySignupPassword">Password</label>
                         <div class="input-group">
                             <i class="fas fa-lock"></i>
-                            <input type="password" id="signupPassword" placeholder="Create a password" required>
+                            <input type="password" id="companySignupPassword" placeholder="Create a password" required>
                         </div>
                     </div>
                     <div class="form-group">
-                        <label for="signupAccessCode">Access Code</label>
+                        <label for="companySignupAccessCode">Access Code</label>
                         <div class="input-group">
                             <i class="fas fa-key"></i>
-                            <input type="text" id="signupAccessCode" placeholder="Enter your company access code" required>
+                            <input type="text" id="companySignupAccessCode" placeholder="Enter your company access code" required>
                         </div>
                         <small class="form-help">Access codes are created by administrators in the Master Admin dashboard. Contact your administrator for a valid code.</small>
                     </div>
-                    <div id="signup-error-message" class="error-message"></div>
+                    <div id="company-signup-error-message" class="error-message"></div>
                     <button type="submit" class="btn btn-primary btn-full">
                         <i class="fas fa-user-plus"></i>
                         Create Account
                     </button>
                     <div class="modal-footer">
-                        <p>Already have an account? <a href="#" onclick="closeSignupModal(); showLoginModal();">Login here</a></p>
+                        <p>Already have an account? <a href="#" onclick="closeCompanySignupModal(); showLoginModal();">Login here</a></p>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Individual Signup Modal -->
+    <div id="individualSignupModal" class="modal">
+        <div class="modal-content signup-modal">
+            <div class="modal-header">
+                <div class="modal-icon">
+                    <i class="fas fa-user"></i>
+                </div>
+                <h3>Create Personal Account</h3>
+                <p class="modal-subtitle">Create your personal account</p>
+                <span class="close" onclick="closeIndividualSignupModal()">&times;</span>
+            </div>
+            <div class="modal-body">
+                <form id="individualSignupForm">
+                    <div class="form-group">
+                        <label for="individualSignupUsername">Username</label>
+                        <div class="input-group">
+                            <i class="fas fa-user"></i>
+                            <input type="text" id="individualSignupUsername" placeholder="Enter your username" required>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="individualSignupEmail">Email Address</label>
+                        <div class="input-group">
+                            <i class="fas fa-envelope"></i>
+                            <input type="email" id="individualSignupEmail" placeholder="Enter your email" required>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="individualSignupPassword">Password</label>
+                        <div class="input-group">
+                            <i class="fas fa-lock"></i>
+                            <input type="password" id="individualSignupPassword" placeholder="Create a password" required>
+                        </div>
+                    </div>
+                    <div id="individual-signup-error-message" class="error-message"></div>
+                    <button type="submit" class="btn btn-primary btn-full">
+                        <i class="fas fa-user-plus"></i>
+                        Create Account
+                    </button>
+                    <div class="modal-footer">
+                        <p>Already have an account? <a href="#" onclick="closeIndividualSignupModal(); showLoginModal();">Login here</a></p>
                     </div>
                 </form>
             </div>
@@ -1101,6 +1185,6 @@
         </div>
     </footer>
 
-    <script src="script.js?v=91&t=20250128"></script>
+    <script src="script.js?v=92&t=20250128"></script>
 </body>
 </html>

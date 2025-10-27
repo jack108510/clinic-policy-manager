@@ -257,11 +257,13 @@ function setupEventListeners() {
                 const description = (policy.description || '').toLowerCase();
                 const content = (policy.content || '').toLowerCase();
                 const type = (policy.type || '').toLowerCase();
+                const policyCode = (policy.policyCode || '').toLowerCase();
                 
                 return title.includes(searchTerm) || 
                        description.includes(searchTerm) || 
                        content.includes(searchTerm) ||
-                       type.includes(searchTerm);
+                       type.includes(searchTerm) ||
+                       policyCode.includes(searchTerm);
             });
             displayPolicies(filteredPolicies);
         });
@@ -425,12 +427,18 @@ function displayPolicies(policiesToDisplay = policies) {
         const createdDate = policy.created ? formatDate(policy.created) : 'N/A';
         const updatedDate = policy.updated ? formatDate(policy.updated) : (policy.lastModified ? formatDate(policy.lastModified) : 'N/A');
         
+        // Get policy code
+        const policyCode = policy.policyCode || '';
+        
         return `
             <div class="policy-item" data-type="${policy.type}" onclick="viewPolicy('${policy.id}')">
             <div class="policy-header">
                     <h3 class="policy-title">${policy.title || 'Untitled Policy'}</h3>
                     <span class="policy-type-badge ${typeClass}">${typeLabel}</span>
             </div>
+            ${policyCode ? `<div class="policy-code" style="padding: 4px 8px; background: #667eea; color: white; border-radius: 4px; font-size: 0.85rem; font-weight: bold; margin-top: 8px; display: inline-block;">
+                <i class="fas fa-hashtag"></i> ${policyCode}
+            </div>` : ''}
             <div class="policy-organizations">
                     <i class="fas fa-building"></i> ${organizations}
             </div>

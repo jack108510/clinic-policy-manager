@@ -63,6 +63,16 @@ window.addEventListener('masterDataUpdated', function(event) {
         
         // Save updated data
         saveToLocalStorage('users', users);
+        
+        // If a user is currently logged in, refresh their data
+        if (currentUser && currentUser.username) {
+            const updatedUser = updatedData.users.find(u => u.username === currentUser.username && u.company === currentCompany);
+            if (updatedUser) {
+                console.log('Updating currentUser with new role:', updatedUser.role);
+                currentUser = updatedUser;
+                saveToLocalStorage('currentUser', currentUser);
+            }
+        }
     }
     
     // Refresh UI if needed

@@ -194,6 +194,19 @@
                     </select>
                 </div>
                 
+                <div class="form-group">
+                    <label for="manualPolicyCategory">
+                        <i class="fas fa-tags"></i> Category (for policy code generation)
+                    </label>
+                    <select id="manualPolicyCategory" onchange="updateManualPolicyCode()" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px;">
+                        <option value="">No Category (optional)</option>
+                    </select>
+                    <small style="color: #666; display: block; margin-top: 5px;">Policy code will be generated in format: Category#.Policy#.Year</small>
+                    <div id="manualPolicyCodeDisplay" style="display: none; margin-top: 10px; padding: 10px; background: #f0f8ff; border-radius: 6px;">
+                        <strong>Policy Code:</strong> <span id="manualPolicyCodeText"></span>
+                    </div>
+                </div>
+                
                 <!-- Dynamic form fields based on policy type -->
                 <div id="dynamicManualFormFields">
                     <!-- Fields will be populated based on policy type selection -->
@@ -1301,6 +1314,6 @@
         </div>
     </footer>
 
-    <script src="script.js?v=113&t=20250128"></script>
+    <script src="script.js?v=114&t=20250128"></script>
 </body>
 </html>

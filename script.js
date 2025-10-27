@@ -458,23 +458,38 @@ function createNewPolicy() {
         title: document.getElementById('policyTitle').value,
         type: document.getElementById('policyType').value,
         clinics: Array.from(document.getElementById('clinicApplicability').selectedOptions).map(option => option.value),
-        purpose: document.getElementById('policyPurpose').value,
-        procedure: document.getElementById('policyProcedure').value,
-        roles: document.getElementById('policyRoles').value,
-        compliance: document.getElementById('policyCompliance').value
+        purpose: document.getElementById('policyPurpose')?.value || '',
+        procedure: document.getElementById('policyProcedure')?.value || '',
+        roles: document.getElementById('policyRoles')?.value || '',
+        compliance: document.getElementById('policyCompliance')?.value || ''
     };
 
+    // Get selected category
+    const categoryId = document.getElementById('manualPolicyCategory')?.value || null;
+    const tempId = 'policy_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+    
+    // Generate policy code if category is selected
+    const policyCode = categoryId ? generatePolicyCode(categoryId, tempId) : null;
+
     const newPolicy = {
-        id: currentPolicies.length + 1,
+        id: tempId,
         title: formData.title,
         type: formData.type,
         clinics: formData.clinics,
         description: formData.purpose,
         company: currentCompany || 'Default Company', // Assign to current company
         created: new Date().toISOString().split('T')[0],
-        updated: new Date().toISOString().split('T')[0]
+        updated: new Date().toISOString().split('T')[0],
+        categoryId: categoryId,
+        policyCode: policyCode
     };
 
+    // Save to localStorage instead of just in-memory array
+    const companyPolicies = loadCompanyPolicies();
+    companyPolicies.push(newPolicy);
+    localStorage.setItem(`policies_${currentCompany}`, JSON.stringify(companyPolicies));
+    
+    // Update in-memory array
     currentPolicies.unshift(newPolicy);
     displayPolicies(currentPolicies);
     updateStats();
@@ -5206,6 +5221,9 @@ function openCreateModal() {
     closeAdminModal();
     // Open create policy modal
     document.getElementById('createModal').style.display = 'block';
+    
+    // Populate category dropdown
+    populateManualCategoryDropdown();
 }
 
 function closeCreateModal() {
@@ -9185,6 +9203,46 @@ function updateAIPolicyCode() {
     const categoryId = document.getElementById('aiPolicyCategory')?.value;
     const codeDisplay = document.getElementById('aiPolicyCodeDisplay');
     const codeText = document.getElementById('aiPolicyCodeText');
+    
+    if (categoryId && codeDisplay && codeText) {
+        // Generate a temporary code (we'll regenerate when saving)
+        loadCategories();
+        const category = categories.find(cat => cat.id === parseInt(categoryId) || cat.id === categoryId);
+        if (category) {
+            const policies = loadCompanyPolicies();
+            const categoryPolicies = policies.filter(p => (p.categoryId === parseInt(categoryId) || p.categoryId === categoryId) && p.policyCode);
+            const policyNumber = categoryPolicies.length + 1;
+            const currentYear = new Date().getFullYear();
+            const code = `${category.number}.${policyNumber}.${currentYear}`;
+            
+            codeText.textContent = code;
+            codeDisplay.style.display = 'block';
+        }
+    } else if (codeDisplay) {
+        codeDisplay.style.display = 'none';
+    }
+}
+
+// Populate manual category dropdown
+function populateManualCategoryDropdown() {
+    loadCategories();
+    const select = document.getElementById('manualPolicyCategory');
+    if (!select) return;
+    
+    select.innerHTML = '<option value="">No Category (optional)</option>';
+    categories.forEach(category => {
+        const option = document.createElement('option');
+        option.value = category.id;
+        option.textContent = `${category.number} - ${category.name}`;
+        select.appendChild(option);
+    });
+}
+
+// Update manual policy code display
+function updateManualPolicyCode() {
+    const categoryId = document.getElementById('manualPolicyCategory')?.value;
+    const codeDisplay = document.getElementById('manualPolicyCodeDisplay');
+    const codeText = document.getElementById('manualPolicyCodeText');
     
     if (categoryId && codeDisplay && codeText) {
         // Generate a temporary code (we'll regenerate when saving)

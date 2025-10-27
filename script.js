@@ -7077,15 +7077,32 @@ function editPolicy(policyId) {
     document.getElementById('editPolicyVersion').value = policy.version || '1.0';
     
     // Populate structured policy sections
-    document.getElementById('editPolicyPurpose').value = policy.purpose || '';
-    document.getElementById('editPolicyScope').value = policy.scope || '';
-    document.getElementById('editPolicyStatement').value = policy.policyStatement || '';
-    document.getElementById('editPolicyProcedures').value = policy.procedures || '';
-    document.getElementById('editPolicyResponsibilities').value = policy.responsibilities || '';
-    document.getElementById('editPolicyConsequences').value = policy.consequences || policy.accountability || '';
-    
-    // Store legacy content in additional content field
-    document.getElementById('editPolicyContent').value = policy.content || policy.description || '';
+    // If structured fields exist, use them
+    if (policy.purpose || policy.scope || policy.policyStatement) {
+        document.getElementById('editPolicyPurpose').value = policy.purpose || '';
+        document.getElementById('editPolicyScope').value = policy.scope || '';
+        document.getElementById('editPolicyStatement').value = policy.policyStatement || '';
+        document.getElementById('editPolicyProcedures').value = policy.procedures || '';
+        document.getElementById('editPolicyResponsibilities').value = policy.responsibilities || '';
+        document.getElementById('editPolicyConsequences').value = policy.consequences || policy.accountability || '';
+        document.getElementById('editPolicyContent').value = '';
+    } else {
+        // Legacy policies - put all content in appropriate structured fields
+        const content = policy.content || policy.description || '';
+        
+        // Try to split content by common section headers
+        const sections = parseLegacyPolicyContent(content);
+        
+        document.getElementById('editPolicyPurpose').value = sections.purpose || '';
+        document.getElementById('editPolicyScope').value = sections.scope || '';
+        document.getElementById('editPolicyStatement').value = sections.policyStatement || sections.statement || '';
+        document.getElementById('editPolicyProcedures').value = sections.procedures || '';
+        document.getElementById('editPolicyResponsibilities').value = sections.responsibilities || '';
+        document.getElementById('editPolicyConsequences').value = sections.consequences || sections.accountability || '';
+        
+        // Store any remaining content in additional content field
+        document.getElementById('editPolicyContent').value = sections.additional || '';
+    }
     
     // Populate organizations checkboxes
     populateEditOrganizations(policy);
@@ -7121,6 +7138,74 @@ function populateEditOrganizations(policy) {
             </label>
         `;
     }).join('');
+}
+
+function parseLegacyPolicyContent(content) {
+    const sections = {
+        purpose: '',
+        scope: '',
+        policyStatement: '',
+        statement: '',
+        procedures: '',
+        responsibilities: '',
+        consequences: '',
+        accountability: '',
+        additional: ''
+    };
+    
+    if (!content) return sections;
+    
+    // Split by common headers (markdown, HTML, plain text)
+    const lines = content.split('\n');
+    let currentSection = 'additional';
+    let currentContent = [];
+    
+    for (let line of lines) {
+        const trimmedLine = line.trim();
+        
+        // Check for section headers
+        if (trimmedLine.match(/^#{1,3}\s*(purpose|scope|policy.*statement|statement|procedures?|responsibilities?|consequences?|accountability)/i)) {
+            // Save previous section
+            if (currentSection !== 'additional' && currentContent.length > 0) {
+                sections[currentSection] = currentContent.join('\n').trim();
+                currentContent = [];
+            }
+            
+            // Set new section
+            const headerMatch = trimmedLine.match(/^#{1,3}\s*(purpose|scope|policy.*statement|statement|procedures?|responsibilities?|consequences?|accountability)/i);
+            if (headerMatch) {
+                const sectionName = headerMatch[1].toLowerCase();
+                if (sectionName.includes('purpose')) {
+                    currentSection = 'purpose';
+                } else if (sectionName.includes('scope')) {
+                    currentSection = 'scope';
+                } else if (sectionName.includes('statement')) {
+                    currentSection = 'statement';
+                } else if (sectionName.includes('procedures')) {
+                    currentSection = 'procedures';
+                } else if (sectionName.includes('responsibilities')) {
+                    currentSection = 'responsibilities';
+                } else if (sectionName.includes('consequences')) {
+                    currentSection = 'consequences';
+                } else if (sectionName.includes('accountability')) {
+                    currentSection = 'accountability';
+                } else {
+                    currentSection = 'additional';
+                }
+            }
+        } else {
+            currentContent.push(line);
+        }
+    }
+    
+    // Save last section
+    if (currentSection !== 'additional' && currentContent.length > 0) {
+        sections[currentSection] = currentContent.join('\n').trim();
+    } else if (currentSection === 'additional') {
+        sections[currentSection] = currentContent.join('\n').trim();
+    }
+    
+    return sections;
 }
 
 function savePolicyEdit(event) {

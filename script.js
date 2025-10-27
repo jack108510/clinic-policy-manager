@@ -5638,6 +5638,8 @@ function showSettingsTab(tabName) {
         loadWebhookUrls();
     } else if (tabName === 'documents') {
         loadDocuments();
+    } else if (tabName === 'policyCodes') {
+        loadPolicyCodes();
     }
 }
 
@@ -8677,6 +8679,7 @@ async function sendFollowUpPrompt() {
 
 // Document Management Functions
 let documents = [];
+let policyCodes = [];
 
 function loadDocuments() {
     const stored = localStorage.getItem('documents');
@@ -8873,4 +8876,99 @@ function checkWelcomeModal() {
     if (!currentUser) {
         showWelcomeModal();
     }
+}
+
+// Policy Codes Management Functions
+function loadPolicyCodes() {
+    const stored = localStorage.getItem('policyCodes');
+    policyCodes = stored ? JSON.parse(stored) : [];
+    displayPolicyCodes();
+}
+
+function savePolicyCodes() {
+    localStorage.setItem('policyCodes', JSON.stringify(policyCodes));
+}
+
+function displayPolicyCodes() {
+    const codesList = document.getElementById('policyCodesList');
+    if (!codesList) return;
+    
+    if (policyCodes.length === 0) {
+        codesList.innerHTML = '<p style="color: #999; text-align: center; padding: 20px;">No policy codes created yet. Add your first code above.</p>';
+        return;
+    }
+    
+    codesList.innerHTML = policyCodes.map((code, index) => `
+        <div class="item-card" style="background: white; border: 1px solid #e0e0e0; border-radius: 8px; padding: 15px; margin-bottom: 10px;">
+            <div style="display: flex; justify-content: space-between; align-items: start;">
+                <div style="flex: 1;">
+                    <h4 style="margin: 0 0 5px 0; color: #333; display: flex; align-items: center; gap: 10px;">
+                        <span style="background: #667eea; color: white; padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: bold;">${code.code}</span>
+                        <span>${code.name}</span>
+                        <span style="background: #f0f0f0; color: #666; padding: 2px 8px; border-radius: 12px; font-size: 12px;">${code.type}</span>
+                    </h4>
+                    ${code.description ? `<p style="margin: 0 0 10px 0; color: #666; font-size: 14px;">${code.description}</p>` : ''}
+                </div>
+                <button onclick="deletePolicyCode(${index})" class="btn btn-small btn-danger">
+                    <i class="fas fa-trash"></i>
+                </button>
+            </div>
+        </div>
+    `).join('');
+}
+
+function addPolicyCode() {
+    const code = document.getElementById('newPolicyCode')?.value.trim();
+    const name = document.getElementById('newPolicyCodeName')?.value.trim();
+    const description = document.getElementById('newPolicyCodeDescription')?.value.trim();
+    const type = document.getElementById('newPolicyCodeType')?.value;
+    
+    if (!code || !name) {
+        showNotification('Please fill in code and name', 'error');
+        return;
+    }
+    
+    const newCode = {
+        id: Date.now(),
+        code: code,
+        name: name,
+        description: description,
+        type: type || 'Other',
+        created: new Date().toISOString()
+    };
+    
+    policyCodes.push(newCode);
+    savePolicyCodes();
+    displayPolicyCodes();
+    
+    // Clear form
+    document.getElementById('newPolicyCode').value = '';
+    document.getElementById('newPolicyCodeName').value = '';
+    document.getElementById('newPolicyCodeDescription').value = '';
+    document.getElementById('newPolicyCodeType').value = '';
+    
+    showNotification('Policy code added successfully', 'success');
+}
+
+function deletePolicyCode(index) {
+    if (confirm('Are you sure you want to delete this policy code?')) {
+        policyCodes.splice(index, 1);
+        savePolicyCodes();
+        displayPolicyCodes();
+        showNotification('Policy code deleted successfully', 'success');
+    }
+}
+
+function populatePolicyCodesDropdown() {
+    loadPolicyCodes();
+    const select = document.getElementById('editPolicyCode');
+    if (!select) return;
+    
+    select.innerHTML = '<option value="">Select a policy code (optional)</option>';
+    policyCodes.forEach(code => {
+        const option = document.createElement('option');
+        option.value = code.id;
+        option.textContent = `${code.code} - ${code.name}`;
+        select.appendChild(option);
+    });
 }

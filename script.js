@@ -8659,13 +8659,18 @@ async function sendFollowUpPrompt() {
     // Limit conversation history to last 3 messages
     const limitedConversation = previousMessages.slice(-3);
     
+    // Get the last AI response
+    const lastAIResponse = limitedConversation.filter(m => m.role === 'assistant').pop()?.content || '';
+    const lastUserPrompt = limitedConversation.filter(m => m.role === 'user').pop()?.content || '';
+    
     // Prepare the follow-up data - minimal data to avoid URL length issues
     const followUpData = {
         newPrompt: followUpPrompt,
         company: currentCompany || 'Unknown',
         username: currentUser?.username || 'Unknown',
         hasPreviousConversation: limitedConversation.length > 0,
-        previousUserPrompt: limitedConversation.filter(m => m.role === 'user').pop()?.content || ''
+        previousUserPrompt: lastUserPrompt,
+        previousAIResponse: lastAIResponse.substring(0, 500) // Limit to 500 chars
     };
     
     console.log('Sending follow-up prompt with minimal data:', followUpData);

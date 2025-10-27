@@ -3363,6 +3363,21 @@ function saveWebhookPolicy() {
         return;
     }
     
+    // Get the policy title from the input field
+    const titleInput = document.getElementById('policyTitleInput');
+    if (!titleInput) {
+        showNotification('Title input field not found', 'error');
+        return;
+    }
+    
+    const policyTitle = titleInput.value.trim();
+    if (!policyTitle || policyTitle === 'Generated Policy') {
+        showNotification('Please enter a policy title before saving', 'error');
+        titleInput.focus();
+        titleInput.style.borderColor = '#ef4444';
+        return;
+    }
+    
     // Parse the webhook policy data
     let policyData = null;
     if (Array.isArray(webhookPolicy) && webhookPolicy.length > 0) {
@@ -3377,7 +3392,7 @@ function saveWebhookPolicy() {
     // Create policy object
     const newPolicy = {
         id: 'policy_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9),
-        title: policyData.policy_title || 'Generated Policy',
+        title: policyTitle, // Use the manually entered title
         type: policyData.policy_type || 'admin',
         clinics: policyData.applies_to || 'All Organizations',
         content: policyData.markdown || '',
@@ -6233,7 +6248,16 @@ async function savePolicyToStorage(policy) {
                     displayContent = `
                         <div class="policy-preview professional">
                             <div class="policy-header">
-                                <h4>${policy.policy_title || 'Generated Policy'}</h4>
+                                <div class="form-group" style="margin-bottom: 15px;">
+                                    <label for="policyTitleInput" style="display: block; margin-bottom: 5px; font-weight: 600; color: #333;">
+                                        <i class="fas fa-heading"></i> Policy Title <span style="color: red;">*</span>
+                                    </label>
+                                    <input type="text" id="policyTitleInput" value="${policy.policy_title || 'Generated Policy'}" required
+                                           style="width: 100%; padding: 12px; border: 2px solid #ddd; border-radius: 6px; font-size: 1.1rem; font-weight: 600;"
+                                           placeholder="Enter policy title..." 
+                                           oninput="this.style.borderColor='#ddd'" />
+                                    <small style="color: #666; display: block; margin-top: 5px;">This title is required to save the policy</small>
+                                </div>
                                 <span class="policy-type-badge admin">${policy.policy_type || 'Policy'}</span>
                             </div>
                             
@@ -8708,7 +8732,16 @@ async function sendFollowUpPrompt() {
                 document.getElementById('aiGeneratedContent').innerHTML = `
                     <div class="policy-preview professional">
                         <div class="policy-header">
-                            <h4>${policy.policy_title || 'Updated Policy'}</h4>
+                            <div class="form-group" style="margin-bottom: 15px;">
+                                <label for="policyTitleInput" style="display: block; margin-bottom: 5px; font-weight: 600; color: #333;">
+                                    <i class="fas fa-heading"></i> Policy Title <span style="color: red;">*</span>
+                                </label>
+                                <input type="text" id="policyTitleInput" value="${policy.policy_title || 'Updated Policy'}" required
+                                       style="width: 100%; padding: 12px; border: 2px solid #ddd; border-radius: 6px; font-size: 1.1rem; font-weight: 600;"
+                                       placeholder="Enter policy title..." 
+                                       oninput="this.style.borderColor='#ddd'" />
+                                <small style="color: #666; display: block; margin-top: 5px;">This title is required to save the policy</small>
+                            </div>
                             <span class="policy-type-badge admin">${policy.policy_type || 'Policy'}</span>
                         </div>
                         <div class="policy-meta">
@@ -8722,6 +8755,14 @@ async function sendFollowUpPrompt() {
                                     <p>${section.content}</p>
                                 </div>
                             `).join('')}
+                        </div>
+                        <div class="ai-result-actions" style="margin-top: 20px;">
+                            <button class="btn btn-success" onclick="saveWebhookPolicy()">
+                                <i class="fas fa-save"></i> Save Policy
+                            </button>
+                            <button class="btn btn-secondary" onclick="closeAIModal()">
+                                <i class="fas fa-times"></i> Close
+                            </button>
                         </div>
                     </div>
                 `;

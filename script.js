@@ -6312,77 +6312,113 @@ function openPoliciesModal() {
     // Load policies for current company
     const policies = loadCompanyPolicies();
     
-    // Create modal content with search and bulk actions
+    // Create modern modal with card-based layout
     const modalHtml = `
-        <div id="policiesModal" class="modal" style="display: block;">
-            <div class="modal-content" style="max-width: 1000px;">
-                <div class="modal-header">
-                    <h3>Manage Policies</h3>
-                    <span class="close" onclick="closePoliciesModal()">&times;</span>
-                </div>
-                <div class="modal-body">
-                    <!-- Search Bar -->
-                    <div class="policy-filters" style="margin-bottom: 20px;">
-                        <input type="text" id="policySearchInput" class="form-control" 
-                               placeholder="Search policies by title, type, or content..." 
-                               onkeyup="searchPolicies()"
-                               style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px;">
+        <div id="policiesModal" class="modal" style="display: block; z-index: 3000;">
+            <div class="modal-content" style="max-width: 1400px; padding: 0;">
+                <!-- Header -->
+                <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; color: white; border-radius: 8px 8px 0 0;">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <div>
+                            <h2 style="margin: 0; color: white; font-size: 28px;">
+                                <i class="fas fa-file-alt"></i> Manage Policies
+                            </h2>
+                            <p style="margin: 5px 0 0 0; color: rgba(255,255,255,0.9);">${policies.length} policy/policies in ${currentCompany}</p>
+                        </div>
+                        <button onclick="closePoliciesModal()" style="background: rgba(255,255,255,0.2); border: none; color: white; font-size: 28px; cursor: pointer; padding: 5px 15px; border-radius: 4px;">
+                            &times;
+                        </button>
                     </div>
-                    
-                    <!-- Bulk Actions -->
-                    <div class="bulk-actions" style="margin-bottom: 15px;">
-                        <button class="btn btn-sm btn-secondary" onclick="selectAllPolicies()">
+                </div>
+                
+                <!-- Toolbar -->
+                <div style="padding: 20px; background: #f8f9fa; border-bottom: 1px solid #dee2e6;">
+                    <div style="display: flex; gap: 15px; align-items: center; flex-wrap: wrap;">
+                        <!-- Search -->
+                        <div style="flex: 1; min-width: 200px;">
+                            <input type="text" id="policySearchInput" placeholder="Search policies..." 
+                                   onkeyup="searchPolicies()"
+                                   style="width: 100%; padding: 12px 15px; border: 1px solid #ddd; border-radius: 6px; font-size: 14px;">
+                        </div>
+                        
+                        <!-- Bulk Actions -->
+                        <button onclick="selectAllPolicies()" style="padding: 12px 20px; background: #6c757d; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 14px;">
                             <i class="fas fa-check-square"></i> Select All
                         </button>
-                        <button class="btn btn-sm btn-warning" onclick="bulkEditPolicies()" id="bulkEditBtn" disabled>
-                            <i class="fas fa-edit"></i> Edit Selected
-                        </button>
-                        <button class="btn btn-sm btn-danger" onclick="bulkDeletePolicies()" id="bulkDeleteBtn" disabled>
+                        <button onclick="bulkDeletePolicies()" id="bulkDeleteBtn" disabled 
+                                style="padding: 12px 20px; background: #dc3545; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 14px; opacity: 0.5; cursor: not-allowed;">
                             <i class="fas fa-trash"></i> Delete Selected
                         </button>
-                        <span id="selectedCount" style="margin-left: 15px; color: #666;">0 selected</span>
+                        
+                        <div id="selectedCount" style="padding: 12px 15px; color: #666; font-size: 14px; font-weight: 600;">
+                            0 selected
+                        </div>
                     </div>
-                    
-                    <div class="policies-table-container" style="max-height: 500px; overflow-y: auto;">
-                        <table class="policies-table">
-                            <thead>
-                                <tr>
-                                    <th style="width: 40px;">
-                                        <input type="checkbox" id="selectAllCheckbox" onchange="toggleSelectAll(this)">
-                                    </th>
-                                    <th>Title</th>
-                                    <th>Type</th>
-                                    <th>Effective Date</th>
-                                    <th>Version</th>
-                                    <th>Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody id="policiesTableBody">
-                                ${policies.map(policy => `
-                                    <tr data-policy-id="${policy.id}">
-                                        <td>
-                                            <input type="checkbox" class="policy-checkbox" data-policy-id="${policy.id}" onchange="updateSelectedCount()">
-                                        </td>
-                                        <td>${policy.title || 'Untitled'}</td>
-                                        <td><span class="policy-type-badge">${policy.type || 'N/A'}</span></td>
-                                        <td>${policy.effectiveDate || 'N/A'}</td>
-                                        <td>${policy.version || '1.0'}</td>
-                                        <td>
-                                            <button class="btn btn-sm btn-primary" onclick="viewPolicy('${policy.id}')">
-                                                <i class="fas fa-eye"></i> View
-                                            </button>
-                                            <button class="btn btn-sm btn-warning" onclick="editPolicy('${policy.id}')">
-                                                <i class="fas fa-edit"></i> Edit
-                                            </button>
-                                            <button class="btn btn-sm btn-danger" onclick="deletePolicy('${policy.id}')">
-                                                <i class="fas fa-trash"></i> Delete
-                                            </button>
-                                        </td>
-                                    </tr>
-                                `).join('')}
-                            </tbody>
-                        </table>
-                    </div>
+                </div>
+                
+                <!-- Policy Cards Grid -->
+                <div style="padding: 20px; max-height: 600px; overflow-y: auto;">
+                    ${policies.length === 0 ? `
+                        <div style="text-align: center; padding: 60px 20px; color: #999;">
+                            <i class="fas fa-file-alt" style="font-size: 64px; margin-bottom: 20px; opacity: 0.3;"></i>
+                            <h3 style="margin: 0; color: #666;">No Policies Found</h3>
+                            <p style="margin: 10px 0 0 0;">No policies have been created yet.</p>
+                        </div>
+                    ` : `
+                        <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(350px, 1fr)); gap: 20px;">
+                            ${policies.map(policy => `
+                                <div class="policy-card" style="background: white; border: 1px solid #e0e0e0; border-radius: 12px; padding: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); transition: transform 0.2s, box-shadow 0.2s;" onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 4px 8px rgba(0,0,0,0.15)'" onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 2px 4px rgba(0,0,0,0.1)'">
+                                    <!-- Checkbox -->
+                                    <div style="margin-bottom: 15px;">
+                                        <input type="checkbox" class="policy-checkbox" data-policy-id="${policy.id}" onchange="updateSelectedCount()"
+                                               style="width: 18px; height: 18px; cursor: pointer; margin-right: 10px;">
+                                        <span style="font-size: 12px; color: #888;">Select to manage</span>
+                                    </div>
+                                    
+                                    <!-- Policy Title -->
+                                    <h3 style="margin: 0 0 12px 0; font-size: 18px; color: #333; font-weight: 600;">
+                                        ${policy.title || 'Untitled Policy'}
+                                    </h3>
+                                    
+                                    <!-- Policy Type Badge -->
+                                    <div style="margin-bottom: 15px;">
+                                        <span style="background: #e3f2fd; color: #1976d2; padding: 6px 12px; border-radius: 20px; font-size: 12px; font-weight: 600;">
+                                            ${getTypeLabel(policy.type) || 'N/A'}
+                                        </span>
+                                    </div>
+                                    
+                                    <!-- Policy Details -->
+                                    <div style="margin-bottom: 15px; padding: 12px; background: #f8f9fa; border-radius: 8px;">
+                                        <div style="font-size: 13px; color: #666; margin-bottom: 6px;">
+                                            <i class="fas fa-calendar"></i> <strong>Effective Date:</strong> ${policy.effectiveDate || 'Not set'}
+                                        </div>
+                                        <div style="font-size: 13px; color: #666; margin-bottom: 6px;">
+                                            <i class="fas fa-tag"></i> <strong>Version:</strong> ${policy.version || '1.0'}
+                                        </div>
+                                        <div style="font-size: 13px; color: #666;">
+                                            <i class="fas fa-building"></i> <strong>Organizations:</strong> ${(policy.clinicNames || policy.organizations || policy.clinics || 'All')}
+                                        </div>
+                                    </div>
+                                    
+                                    <!-- Action Buttons -->
+                                    <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                                        <button onclick="viewPolicyFromManage('${policy.id}')" 
+                                                style="flex: 1; padding: 10px; background: #0066cc; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 600;">
+                                            <i class="fas fa-eye"></i> View
+                                        </button>
+                                        <button onclick="editPolicy('${policy.id}')" 
+                                                style="flex: 1; padding: 10px; background: #ffc107; color: #000; border: none; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 600;">
+                                            <i class="fas fa-edit"></i> Edit
+                                        </button>
+                                        <button onclick="deletePolicy('${policy.id}')" 
+                                                style="flex: 1; padding: 10px; background: #dc3545; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 600;">
+                                            <i class="fas fa-trash"></i> Delete
+                                        </button>
+                                    </div>
+                                </div>
+                            `).join('')}
+                        </div>
+                    `}
                 </div>
             </div>
         </div>
@@ -6397,13 +6433,19 @@ function openPoliciesModal() {
     document.body.insertAdjacentHTML('beforeend', modalHtml);
 }
 
+// Helper function for viewing policy from manage modal
+function viewPolicyFromManage(policyId) {
+    closePoliciesModal();
+    viewPolicy(policyId);
+}
+
 function searchPolicies() {
     const searchTerm = document.getElementById('policySearchInput').value.toLowerCase();
-    const rows = document.querySelectorAll('#policiesTableBody tr');
+    const cards = document.querySelectorAll('.policy-card');
     
-    rows.forEach(row => {
-        const text = row.textContent.toLowerCase();
-        row.style.display = text.includes(searchTerm) ? '' : 'none';
+    cards.forEach(card => {
+        const text = card.textContent.toLowerCase();
+        card.style.display = text.includes(searchTerm) ? '' : 'none';
     });
 }
 

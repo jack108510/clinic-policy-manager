@@ -636,6 +636,18 @@
                         </div>
                     </div>
                 </div>
+                
+                <div class="ai-category-selection" style="margin-top: 20px; padding: 15px; background: #f8f9fa; border-radius: 8px;">
+                    <h4 style="margin-bottom: 10px;">Category (for policy code generation):</h4>
+                    <select id="aiPolicyCategoryInput" onchange="updateAICategoryCode()" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px;">
+                        <option value="">No Category (optional)</option>
+                    </select>
+                    <small style="color: #666; display: block; margin-top: 5px;">Policy code will be generated in format: Category#.Policy#.Year</small>
+                    <div id="aiCategoryCodeDisplay" style="display: none; margin-top: 10px; padding: 10px; background: #e8f0fe; border-radius: 6px;">
+                        <strong>Policy Code:</strong> <span id="aiCategoryCodeText"></span>
+                    </div>
+                </div>
+                
                 <div class="chat-container">
                     <div class="chat-messages" id="chatMessages">
                         <div class="message ai-message">
@@ -1314,6 +1326,6 @@
         </div>
     </footer>
 
-    <script src="script.js?v=119&t=20250128"></script>
+    <script src="script.js?v=120&t=20250128"></script>
 </body>
 </html>

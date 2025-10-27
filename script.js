@@ -3436,8 +3436,10 @@ function saveWebhookPolicy() {
         return;
     }
     
-    // Get selected category
-    const categoryId = document.getElementById('aiPolicyCategory')?.value || null;
+    // Get selected category from AI input or generated policy display
+    const categoryIdInput = document.getElementById('aiPolicyCategoryInput')?.value || null;
+    const categoryIdDisplay = document.getElementById('aiPolicyCategory')?.value || null;
+    const categoryId = categoryIdInput || categoryIdDisplay || null;
     
     // Parse the webhook policy data
     let policyData = null;
@@ -5388,6 +5390,9 @@ function openAIModal() {
     
     // Populate roles and disciplinary actions from settings
     populateRolesAndDisciplinaryActions();
+    
+    // Populate AI category dropdown
+    populateAICategoryInput();
     
     resetChat();
 }
@@ -9315,6 +9320,46 @@ function updateManualPolicyCode() {
     const categoryId = document.getElementById('manualPolicyCategory')?.value;
     const codeDisplay = document.getElementById('manualPolicyCodeDisplay');
     const codeText = document.getElementById('manualPolicyCodeText');
+    
+    if (categoryId && codeDisplay && codeText) {
+        // Generate a temporary code (we'll regenerate when saving)
+        loadCategories();
+        const category = categories.find(cat => cat.id === parseInt(categoryId) || cat.id === categoryId);
+        if (category) {
+            const policies = loadCompanyPolicies();
+            const categoryPolicies = policies.filter(p => (p.categoryId === parseInt(categoryId) || p.categoryId === categoryId) && p.policyCode);
+            const policyNumber = categoryPolicies.length + 1;
+            const currentYear = new Date().getFullYear();
+            const code = `${category.number}.${policyNumber}.${currentYear}`;
+            
+            codeText.textContent = code;
+            codeDisplay.style.display = 'block';
+        }
+    } else if (codeDisplay) {
+        codeDisplay.style.display = 'none';
+    }
+}
+
+// Populate AI category input dropdown
+function populateAICategoryInput() {
+    loadCategories();
+    const select = document.getElementById('aiPolicyCategoryInput');
+    if (!select) return;
+    
+    select.innerHTML = '<option value="">No Category (optional)</option>';
+    categories.forEach(category => {
+        const option = document.createElement('option');
+        option.value = category.id;
+        option.textContent = `${category.number} - ${category.name}`;
+        select.appendChild(option);
+    });
+}
+
+// Update AI category code display
+function updateAICategoryCode() {
+    const categoryId = document.getElementById('aiPolicyCategoryInput')?.value;
+    const codeDisplay = document.getElementById('aiCategoryCodeDisplay');
+    const codeText = document.getElementById('aiCategoryCodeText');
     
     if (categoryId && codeDisplay && codeText) {
         // Generate a temporary code (we'll regenerate when saving)

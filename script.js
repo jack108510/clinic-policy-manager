@@ -210,19 +210,14 @@ document.addEventListener('DOMContentLoaded', function() {
         loadPoliciesFromStorage();
     }
     
-    // Show signup modal if user is not logged in
-    setTimeout(() => {
-        if (!currentUser) {
-            console.log('No user logged in, showing signup modal');
-            showSignupModal();
-        } else {
-            console.log('User already logged in:', currentUser.username);
-            // Load policies from storage when user is already logged in
-            if (currentCompany) {
-                loadPoliciesFromStorage();
-            }
+    // Check user status
+    if (currentUser) {
+        console.log('User already logged in:', currentUser.username);
+        // Load policies from storage when user is already logged in
+        if (currentCompany) {
+            loadPoliciesFromStorage();
         }
-    }, 500); // Reduced delay for faster loading
+    }
 });
 
 // Check if user is logged in before allowing access to features

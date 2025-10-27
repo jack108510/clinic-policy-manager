@@ -8134,21 +8134,26 @@ function closeAdminModal() {
 function updateAdminStats() {
     console.log('Updating admin stats...');
     
-    // Update policy counts
-    const totalPolicies = policies.length;
-    const draftCount = policies.filter(p => p.status === 'draft').length;
-    const userCount = users.length;
-    
-    // Update DOM elements
-    const totalPoliciesEl = document.getElementById('adminTotalPolicies');
-    const draftCountEl = document.getElementById('adminDraftCount');
-    const userCountEl = document.getElementById('adminUserCount');
-    
-    if (totalPoliciesEl) totalPoliciesEl.textContent = totalPolicies;
-    if (draftCountEl) draftCountEl.textContent = draftCount;
-    if (userCountEl) userCountEl.textContent = userCount;
-    
-    console.log('Admin stats updated:', { totalPolicies, draftCount, userCount });
+    try {
+        // Update policy counts
+        const totalPolicies = policies.length;
+        const draftCount = policies.filter(p => p.status === 'draft').length;
+        const userCount = users.length;
+        
+        // Update DOM elements
+        const totalPoliciesEl = document.getElementById('adminTotalPolicies');
+        const draftCountEl = document.getElementById('adminDraftCount');
+        const userCountEl = document.getElementById('adminUserCount');
+        
+        if (totalPoliciesEl) totalPoliciesEl.textContent = totalPolicies;
+        if (draftCountEl) draftCountEl.textContent = draftCount;
+        if (userCountEl) userCountEl.textContent = userCount;
+        
+        console.log('Admin stats updated:', { totalPolicies, draftCount, userCount });
+    } catch (error) {
+        console.error('Error updating admin stats:', error);
+        // Don't block modal opening if stats update fails
+    }
 }
 
 // API Key Management Functions

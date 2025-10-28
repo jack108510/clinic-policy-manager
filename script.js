@@ -7965,9 +7965,20 @@ function showSignupModal() {
 }
 
 function closeSignupModal() {
-    document.getElementById('signupModal').classList.remove('show');
-    document.getElementById('signupForm').reset();
-    document.getElementById('signup-error-message').style.display = 'none';
+    const modal = document.getElementById('signupModal');
+    if (modal) {
+        modal.classList.remove('show');
+    }
+    
+    const signupForm = document.getElementById('signupForm');
+    if (signupForm) {
+        signupForm.reset();
+    }
+    
+    const errorMsg = document.getElementById('signup-error-message');
+    if (errorMsg) {
+        errorMsg.style.display = 'none';
+    }
 }
 
 function showLoginModal() {

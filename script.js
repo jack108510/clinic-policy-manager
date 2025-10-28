@@ -8669,8 +8669,16 @@ function openPasswordModal() {
         isLowerCaseMatch: currentUser?.role?.toLowerCase() === 'admin'
     });
     
+    // CRITICAL: If role is 'user', ALWAYS require password regardless of any other check
+    const isUserRole = currentUser?.role === 'user' || currentUser?.role === 'User';
+    console.log('Is user role?', isUserRole);
+    
+    if (isUserRole) {
+        console.log('🔐 User has user role - requiring password, bypassing admin check');
+        // Skip the admin bypass and go straight to password modal
+    }
     // For debugging - if this is true, the user will bypass password
-    if (isAdmin) {
+    else if (isAdmin) {
         console.log('✅ User has admin role, granting immediate access without password');
         showNotification('Admin access granted!', 'success');
         openAdminModal(); // Open admin dashboard directly

@@ -5312,6 +5312,10 @@ function displayAdminDrafts() {
 
 // Modal Functions
 function openCreateModal() {
+    // Set flag to track if opened from admin dashboard
+    const wasAdminModalOpen = document.getElementById('adminModal')?.style.display === 'block';
+    window.openedFromAdminDashboard = wasAdminModalOpen;
+    
     // Close admin dashboard first
     closeAdminModal();
     // Open create policy modal
@@ -5325,6 +5329,15 @@ function closeCreateModal() {
     document.getElementById('createModal').style.display = 'none';
     document.getElementById('policyForm').reset();
     document.getElementById('dynamicManualFormFields').innerHTML = '';
+    
+    // If opened from admin dashboard, show it again
+    if (window.openedFromAdminDashboard) {
+        setTimeout(() => {
+            document.getElementById('adminModal').style.display = 'block';
+            document.getElementById('adminModal').classList.add('show');
+            window.openedFromAdminDashboard = false;
+        }, 300);
+    }
 }
 
 // ChatGPT-Style Policy Creation System
@@ -5426,6 +5439,10 @@ function populateRolesAndDisciplinaryActions() {
 }
 
 function openAIModal() {
+    // Set flag to track if opened from admin dashboard
+    const wasAdminModalOpen = document.getElementById('adminModal')?.style.display === 'block';
+    window.openedFromAdminDashboard = wasAdminModalOpen;
+    
     // Close admin dashboard first
     closeAdminModal();
     // Open AI modal
@@ -5451,6 +5468,15 @@ function openAIModal() {
 function closeAIModal() {
     document.getElementById('aiModal').style.display = 'none';
     resetChat();
+    
+    // If opened from admin dashboard, show it again
+    if (window.openedFromAdminDashboard) {
+        setTimeout(() => {
+            document.getElementById('adminModal').style.display = 'block';
+            document.getElementById('adminModal').classList.add('show');
+            window.openedFromAdminDashboard = false;
+        }, 300);
+    }
 }
 
 function showPolicyOptions() {
@@ -6704,6 +6730,12 @@ function closePoliciesModal() {
     if (modal) {
         modal.remove();
     }
+    
+    // Return to admin dashboard
+    setTimeout(() => {
+        document.getElementById('adminModal').style.display = 'block';
+        document.getElementById('adminModal').classList.add('show');
+    }, 300);
 }
 
 function openUsersModal() {
@@ -6849,6 +6881,12 @@ function closeUsersModal() {
     if (modal) {
         modal.remove();
     }
+    
+    // Return to admin dashboard
+    setTimeout(() => {
+        document.getElementById('adminModal').style.display = 'block';
+        document.getElementById('adminModal').classList.add('show');
+    }, 300);
 }
 
 function searchUsers() {
@@ -7521,6 +7559,12 @@ function savePolicyEdit(event) {
 function closePolicyEditModal() {
     document.getElementById('policyEditModal').style.display = 'none';
     document.getElementById('policyEditForm').reset();
+    
+    // Return to admin dashboard
+    setTimeout(() => {
+        document.getElementById('adminModal').style.display = 'block';
+        document.getElementById('adminModal').classList.add('show');
+    }, 300);
 }
 
 function deletePolicy(policyId) {

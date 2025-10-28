@@ -8649,6 +8649,7 @@ function openPasswordModal() {
     console.log('Current company:', currentCompany);
     console.log('User role:', currentUser?.role);
     console.log('Role type:', typeof currentUser?.role);
+    console.log('Full user object:', JSON.stringify(currentUser, null, 2));
     
     // Check if user has admin privileges - check multiple possible role values
     // Only bypass password if role is explicitly 'admin', otherwise require password
@@ -8657,7 +8658,16 @@ function openPasswordModal() {
          currentUser.role === 'Admin' || 
          currentUser.role.toLowerCase() === 'admin');
     
-    console.log('Is admin?', isAdmin);
+    console.log('Is admin check result:', isAdmin);
+    console.log('Admin bypass check details:', {
+        hasUser: !!currentUser,
+        hasRole: !!currentUser?.role,
+        roleValue: currentUser?.role,
+        roleLowercase: currentUser?.role?.toLowerCase(),
+        isExactAdmin: currentUser?.role === 'admin',
+        isCapitalAdmin: currentUser?.role === 'Admin',
+        isLowerCaseMatch: currentUser?.role?.toLowerCase() === 'admin'
+    });
     
     // For debugging - if this is true, the user will bypass password
     if (isAdmin) {

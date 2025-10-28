@@ -5853,6 +5853,7 @@ function openSettingsModal() {
     document.getElementById('settingsModal').classList.add('show');
     displayRoles();
     displayDisciplinaryActions();
+    displayOrganizations(); // Load organizations when settings opens
 }
 
 function closeSettingsModal() {
@@ -5878,6 +5879,8 @@ function showSettingsTab(tabName) {
         loadDocuments();
     } else if (tabName === 'categories') {
         loadCategories();
+    } else if (tabName === 'organizations') {
+        displayOrganizations();
     }
 }
 

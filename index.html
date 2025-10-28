@@ -10,21 +10,9 @@
 <body>
     <!-- Landing Page (shown to non-logged-in users) -->
     <div id="landingPage" class="landing-page">
-        <div class="landing-hero" style="position: relative; overflow: hidden;">
-            <!-- Animated Pattern Background -->
-            <div class="hero-pattern" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; opacity: 0.1; z-index: 0;">
-                <svg width="100%" height="100%" viewBox="0 0 1000 1000" xmlns="http://www.w3.org/2000/svg">
-                    <defs>
-                        <pattern id="dots" x="0" y="0" width="40" height="40" patternUnits="userSpaceOnUse">
-                            <circle cx="20" cy="20" r="2" fill="#667eea"/>
-                        </pattern>
-                    </defs>
-                    <rect width="100%" height="100%" fill="url(#dots)"/>
-                </svg>
-            </div>
-            
-            <!-- Gradient Overlay -->
-            <div style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: linear-gradient(135deg, rgba(102, 126, 234, 0.1) 0%, rgba(118, 75, 162, 0.2) 100%); z-index: 1;"></div>
+        <div class="landing-hero" style="position: relative; overflow: hidden; background: url('https://images.unsplash.com/photo-1556761175-4b46a572b786?w=1920&auto=format') center/cover no-repeat;">
+            <!-- Gradient Overlay for Better Text Readability -->
+            <div style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: linear-gradient(135deg, rgba(102, 126, 234, 0.7) 0%, rgba(118, 75, 162, 0.8) 100%); z-index: 1;"></div>
             
             <div class="landing-header" style="position: relative; z-index: 2;">
                 <div class="landing-logo">
@@ -42,7 +30,7 @@
             
             <div class="landing-content" style="position: relative; z-index: 2;">
                 <h1 class="landing-title">Policy Pro</h1>
-                <p class="landing-subtitle">Secure, organized, and compliant policy management for healthcare facilities</p>
+                <p class="landing-subtitle">Secure, organized, and compliant policy management for your organization</p>
                 <div class="landing-buttons">
                     <button onclick="showLoginModal()" class="btn btn-primary btn-large">Get Started</button>
                     <button onclick="showSignupModal()" class="btn btn-secondary btn-large">Create Account</button>
@@ -80,76 +68,7 @@
                             <i class="fas fa-check-circle"></i>
                         </div>
                         <h3>Stay Compliant</h3>
-                        <p>Ensure your policies meet regulatory standards and best practices.</p>
-                    </div>
-                </div>
-            </div>
-        </section>
-        
-        <!-- Statistics Section -->
-        <section class="landing-stats" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 60px 0;">
-            <div class="container">
-                <h2 style="text-align: center; margin-bottom: 40px; color: white;">Trusted by Leading Healthcare Facilities</h2>
-                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 30px; text-align: center;">
-                    <div class="stat-card">
-                        <div style="font-size: 3rem; font-weight: bold; margin-bottom: 10px;">500+</div>
-                        <div style="font-size: 1.1rem; opacity: 0.9;">Active Policies</div>
-                    </div>
-                    <div class="stat-card">
-                        <div style="font-size: 3rem; font-weight: bold; margin-bottom: 10px;">50+</div>
-                        <div style="font-size: 1.1rem; opacity: 0.9;">Healthcare Organizations</div>
-                    </div>
-                    <div class="stat-card">
-                        <div style="font-size: 3rem; font-weight: bold; margin-bottom: 10px;">2,000+</div>
-                        <div style="font-size: 1.1rem; opacity: 0.9;">Healthcare Professionals</div>
-                    </div>
-                    <div class="stat-card">
-                        <div style="font-size: 3rem; font-weight: bold; margin-bottom: 10px;">99.9%</div>
-                        <div style="font-size: 1.1rem; opacity: 0.9;">Uptime Guarantee</div>
-                    </div>
-                </div>
-            </div>
-        </section>
-        
-        <!-- Testimonials Section -->
-        <section class="landing-testimonials" style="padding: 80px 0; background: #f8f9fa;">
-            <div class="container">
-                <h2 style="text-align: center; margin-bottom: 50px; color: #333;">What Our Users Say</h2>
-                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 30px;">
-                    <div class="testimonial-card" style="background: white; padding: 30px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1);">
-                        <div style="display: flex; align-items: center; margin-bottom: 20px;">
-                            <div style="width: 60px; height: 60px; border-radius: 50%; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); display: flex; align-items: center; justify-content: center; color: white; font-size: 24px; font-weight: bold;">DR</div>
-                            <div style="margin-left: 15px;">
-                                <div style="font-weight: bold; color: #333;">Dr. Sarah Mitchell</div>
-                                <div style="color: #666; font-size: 0.9rem;">Chief Medical Officer</div>
-                            </div>
-                        </div>
-                        <p style="color: #555; line-height: 1.6; font-style: italic;">"Policy Pro has revolutionized how we manage our clinic policies. The AI-powered generation saves us hours every week, and the organization system is top-notch."</p>
-                        <div style="color: #667eea; margin-top: 15px;">★★★★★</div>
-                    </div>
-                    
-                    <div class="testimonial-card" style="background: white; padding: 30px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1);">
-                        <div style="display: flex; align-items: center; margin-bottom: 20px;">
-                            <div style="width: 60px; height: 60px; border-radius: 50%; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); display: flex; align-items: center; justify-content: center; color: white; font-size: 24px; font-weight: bold;">JM</div>
-                            <div style="margin-left: 15px;">
-                                <div style="font-weight: bold; color: #333;">James Anderson</div>
-                                <div style="color: #666; font-size: 0.9rem;">Operations Manager</div>
-                            </div>
-                        </div>
-                        <p style="color: #555; line-height: 1.6; font-style: italic;">"The compliance tracking features have made our audits so much easier. We can now access any policy instantly and track when it was last updated."</p>
-                        <div style="color: #667eea; margin-top: 15px;">★★★★★</div>
-                    </div>
-                    
-                    <div class="testimonial-card" style="background: white; padding: 30px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1);">
-                        <div style="display: flex; align-items: center; margin-bottom: 20px;">
-                            <div style="width: 60px; height: 60px; border-radius: 50%; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); display: flex; align-items: center; justify-content: center; color: white; font-size: 24px; font-weight: bold;">LS</div>
-                            <div style="margin-left: 15px;">
-                                <div style="font-weight: bold; color: #333;">Lisa Chen</div>
-                                <div style="color: #666; font-size: 0.9rem;">HR Director</div>
-                            </div>
-                        </div>
-                        <p style="color: #555; line-height: 1.6; font-style: italic;">"The team collaboration features are incredible. We can assign policies to specific staff members and track who has reviewed them. Game changer for our organization."</p>
-                        <div style="color: #667eea; margin-top: 15px;">★★★★★</div>
+                        <p>Ensure your policies meet industry standards and best practices.</p>
                     </div>
                 </div>
             </div>
@@ -199,7 +118,7 @@
         <section class="landing-cta" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 80px 0; text-align: center; color: white;">
             <div class="container">
                 <h2 style="font-size: 2.5rem; margin-bottom: 20px;">Ready to Transform Your Policy Management?</h2>
-                <p style="font-size: 1.3rem; margin-bottom: 40px; opacity: 0.95;">Join hundreds of healthcare facilities using Policy Pro today</p>
+                <p style="font-size: 1.3rem; margin-bottom: 40px; opacity: 0.95;">Join organizations using Policy Pro today</p>
                 <div style="display: flex; gap: 20px; justify-content: center; flex-wrap: wrap;">
                     <button onclick="showSignupModal()" class="btn btn-large" style="background: white; color: #667eea; font-weight: 600; padding: 15px 40px; font-size: 1.2rem; box-shadow: 0 4px 20px rgba(0,0,0,0.2);">Start Free Trial</button>
                     <button onclick="showLoginModal()" class="btn btn-large" style="background: rgba(255,255,255,0.2); color: white; font-weight: 600; padding: 15px 40px; font-size: 1.2rem; border: 2px solid white;">Log In</button>

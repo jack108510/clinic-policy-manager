@@ -38,10 +38,10 @@ body:not(.user-logged-in) .navbar {
     position: relative;
     overflow: hidden;
     color: white;
-    min-height: 60vh;
+    min-height: 70vh;
     display: flex;
     flex-direction: column;
-    padding: 40px 0;
+    padding: 60px 0;
 }
 
 .landing-hero::before {
@@ -506,7 +506,7 @@ body:not(.user-logged-in) .navbar {
 .hero {
     background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
     color: white;
-    padding: 120px 0 80px;
+    padding: 180px 0 120px;
     text-align: center;
 }
 
@@ -1565,7 +1565,7 @@ body:not(.user-logged-in) .navbar {
     }
     
     .hero {
-        padding: 100px 0 60px;
+        padding: 150px 0 80px;
     }
     
     .hero-content h1 {

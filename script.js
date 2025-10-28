@@ -495,7 +495,7 @@ function filterPolicies(filter) {
 }
 
 // Create New Policy
-function createNewPolicy() {
+async function createNewPolicy() {
     // Get selected organizations from the dropdown
     const clinicSelect = document.getElementById('clinicApplicability');
     let selectedClinics = [];
@@ -564,6 +564,15 @@ function createNewPolicy() {
     
     // Reset form
     policyForm.reset();
+    
+    // Send webhook notification
+    try {
+        await sendPolicyPublishWebhook(newPolicy);
+        console.log('✅ Policy publish webhook sent successfully');
+    } catch (error) {
+        console.error('⚠️ Failed to send policy publish webhook:', error);
+        // Don't block policy creation if webhook fails
+    }
     
     // Show success message
     showNotification('Policy created successfully!', 'success');
@@ -4503,6 +4512,60 @@ function getCompanyUserEmails() {
         email: user.email || '',
         role: user.role || 'User'
     }));
+}
+
+// Webhook function to send policy data when published
+async function sendPolicyPublishWebhook(policyData) {
+    const webhookUrl = 'http://localhost:5678/webhook/d523361e-1e04-4c16-a86e-bbb1d7729fcb';
+    
+    console.log('📤 Sending policy publish webhook to:', webhookUrl);
+    
+    const webhookPayload = {
+        event: 'policy_published',
+        timestamp: new Date().toISOString(),
+        policy: {
+            id: policyData.id,
+            title: policyData.title,
+            type: policyData.type,
+            policyCode: policyData.policyCode,
+            organizations: policyData.clinicNames,
+            description: policyData.description,
+            company: policyData.company || currentCompany,
+            created: policyData.created,
+            updated: policyData.updated,
+            categoryId: policyData.categoryId
+        },
+        user: {
+            username: currentUser?.username || 'Unknown',
+            company: currentCompany || 'Unknown'
+        }
+    };
+    
+    try {
+        console.log('📤 Sending webhook with data:', webhookPayload);
+        
+        const response = await fetch(webhookUrl, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(webhookPayload)
+        });
+        
+        if (response.ok) {
+            const responseData = await response.text();
+            console.log('✅ Policy publish webhook sent successfully');
+            console.log('Webhook response:', responseData);
+            return responseData;
+        } else {
+            console.warn('⚠️ Policy publish webhook failed:', response.status);
+            throw new Error(`Webhook failed with status: ${response.status}`);
+        }
+    } catch (error) {
+        console.error('❌ Policy publish webhook error:', error);
+        // Don't throw - we don't want to block policy creation if webhook fails
+        return null;
+    }
 }
 
 async function sendPolicyReportWebhook(policyData) {

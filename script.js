@@ -3544,23 +3544,45 @@ function storeDraft() {
     const policy = window.currentGeneratedPolicy;
     if (!policy) return;
     
-    const draft = {
-        id: Date.now(),
-        title: policy.title,
-        type: policy.type,
-        clinics: policy.clinics,
-        content: policy,
-        company: currentCompany || 'Default Company', // Assign to current company
-        created: new Date().toISOString().split('T')[0],
-        status: 'draft'
-    };
+    // Check if we're editing an existing draft
+    if (window.editingDraftId) {
+        // Update existing draft
+        const existingDraftIndex = draftPolicies.findIndex(d => d.id === window.editingDraftId);
+        if (existingDraftIndex !== -1) {
+            draftPolicies[existingDraftIndex] = {
+                ...draftPolicies[existingDraftIndex],
+                title: policy.title,
+                type: policy.type,
+                clinics: policy.clinics,
+                content: policy,
+                updated: new Date().toISOString().split('T')[0]
+            };
+            showNotification('Draft updated successfully!', 'success');
+        }
+        window.editingDraftId = null; // Clear editing flag
+    } else {
+        // Create new draft
+        const draft = {
+            id: Date.now(),
+            title: policy.title,
+            type: policy.type,
+            clinics: policy.clinics,
+            content: policy,
+            company: currentCompany || 'Default Company', // Assign to current company
+            created: new Date().toISOString().split('T')[0],
+            status: 'draft'
+        };
+        
+        draftPolicies.unshift(draft);
+        showNotification('Draft saved successfully!', 'success');
+    }
     
-    draftPolicies.unshift(draft);
+    // Save to localStorage to persist across sessions
+    saveToLocalStorage('draftPolicies', draftPolicies);
+    
     displayDrafts();
     updateStats();
     closeAIModal();
-    
-    showNotification('Draft saved successfully!', 'success');
 }
 
 function displayDrafts() {

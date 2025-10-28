@@ -496,22 +496,39 @@ function filterPolicies(filter) {
 
 // Create New Policy
 function createNewPolicy() {
+    // Get selected organizations from the dropdown
+    const clinicSelect = document.getElementById('clinicApplicability');
+    let selectedClinics = [];
+    let clinicNames = 'All Organizations';
+    
+    if (clinicSelect) {
+        const selectedOptions = Array.from(clinicSelect.selectedOptions);
+        selectedClinics = selectedOptions.map(option => option.value);
+        clinicNames = selectedOptions.map(option => option.textContent).join(', ');
+        
+        // If no organizations selected, default to all
+        if (selectedClinics.length === 0 || selectedClinics.includes('')) {
+            selectedClinics = ['all-organizations'];
+            clinicNames = 'All Organizations';
+        }
+    } else {
+        // Fallback: Get organizations from settings for the current company
+        const companyOrgs = organizations[currentCompany] || [];
+        if (companyOrgs.length > 0) {
+            selectedClinics = companyOrgs;
+            clinicNames = companyOrgs.join(', ');
+        }
+    }
+    
     const formData = {
         title: document.getElementById('policyTitle').value,
         type: document.getElementById('policyType').value,
-        clinics: ['All Organizations'], // Apply to all organizations by default
+        clinics: selectedClinics,
         purpose: document.getElementById('policyPurpose')?.value || '',
         procedure: document.getElementById('policyProcedure')?.value || '',
         roles: document.getElementById('policyRoles')?.value || '',
         compliance: document.getElementById('policyCompliance')?.value || ''
     };
-    
-    // Get organizations from settings for the current company
-    const companyOrgs = organizations[currentCompany] || [];
-    if (companyOrgs.length > 0) {
-        // Apply to all organizations in the company
-        formData.clinics = companyOrgs;
-    }
 
     // Get selected category
     const categoryId = document.getElementById('manualPolicyCategory')?.value || null;
@@ -525,7 +542,7 @@ function createNewPolicy() {
         title: formData.title,
         type: formData.type,
         clinics: formData.clinics,
-        clinicNames: companyOrgs.length > 0 ? companyOrgs.join(', ') : 'All Organizations',
+        clinicNames: clinicNames,
         description: formData.purpose,
         company: currentCompany || 'Default Company', // Assign to current company
         created: new Date().toISOString().split('T')[0],

@@ -593,6 +593,13 @@ function createNewPolicy() {
     
     // Show success message
     showNotification('Policy created successfully!', 'success');
+    
+    // Clear the current draft after successful creation
+    if (currentDraftId) {
+        draftPolicies = draftPolicies.filter(d => d.id !== currentDraftId);
+        saveToLocalStorage('draftPolicies', draftPolicies);
+        currentDraftId = null;
+    }
 }
 
 // Modal Functions
@@ -9742,14 +9749,3 @@ function restoreLastDraft() {
     }
 }
 
-// Clear draft when policy is successfully created
-const originalCreateNewPolicy = window.createNewPolicy;
-window.createNewPolicy = function() {
-    originalCreateNewPolicy.apply(this, arguments);
-    // Clear the current draft after successful creation
-    if (currentDraftId) {
-        draftPolicies = draftPolicies.filter(d => d.id !== currentDraftId);
-        saveToLocalStorage('draftPolicies', draftPolicies);
-        currentDraftId = null;
-    }
-};

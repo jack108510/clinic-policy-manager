@@ -301,6 +301,24 @@ function setupEventListeners() {
             createNewPolicy();
         });
     }
+    
+    // Listen for policy type changes to update policy code
+    const policyTypeSelect = document.getElementById('policyType');
+    if (policyTypeSelect) {
+        policyTypeSelect.addEventListener('change', function() {
+            console.log('🔄 Policy type changed, updating code...');
+            updateManualPolicyCode();
+        });
+    }
+    
+    // Listen for category changes to update policy code
+    const categorySelect = document.getElementById('manualPolicyCategory');
+    if (categorySelect) {
+        categorySelect.addEventListener('change', function() {
+            console.log('🔄 Category changed, updating code...');
+            updateManualPolicyCode();
+        });
+    }
 
     // AI Form submission
     aiForm.addEventListener('submit', function(e) {
@@ -481,12 +499,19 @@ function createNewPolicy() {
     const formData = {
         title: document.getElementById('policyTitle').value,
         type: document.getElementById('policyType').value,
-        clinics: ['all-organizations'], // Apply to all organizations by default
+        clinics: ['All Organizations'], // Apply to all organizations by default
         purpose: document.getElementById('policyPurpose')?.value || '',
         procedure: document.getElementById('policyProcedure')?.value || '',
         roles: document.getElementById('policyRoles')?.value || '',
         compliance: document.getElementById('policyCompliance')?.value || ''
     };
+    
+    // Get organizations from settings for the current company
+    const companyOrgs = organizations[currentCompany] || [];
+    if (companyOrgs.length > 0) {
+        // Apply to all organizations in the company
+        formData.clinics = companyOrgs;
+    }
 
     // Get selected category
     const categoryId = document.getElementById('manualPolicyCategory')?.value || null;
@@ -500,6 +525,7 @@ function createNewPolicy() {
         title: formData.title,
         type: formData.type,
         clinics: formData.clinics,
+        clinicNames: companyOrgs.length > 0 ? companyOrgs.join(', ') : 'All Organizations',
         description: formData.purpose,
         company: currentCompany || 'Default Company', // Assign to current company
         created: new Date().toISOString().split('T')[0],

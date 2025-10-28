@@ -679,11 +679,21 @@ function displayOrganizations() {
         return;
     }
     
+    // Reload organizations from localStorage to get latest
+    const orgData = localStorage.getItem('organizations');
+    if (orgData) {
+        const loadedOrgs = JSON.parse(orgData);
+        organizations = loadedOrgs;
+    }
+    
     // Get organizations for current company
     const companyOrgs = organizations[currentCompany] || [];
     
+    console.log('Displaying organizations for company:', currentCompany);
+    console.log('Organizations found:', companyOrgs);
+    
     if (companyOrgs.length === 0) {
-        organizationsList.innerHTML = '<p class="no-items">No organizations added yet.</p>';
+        organizationsList.innerHTML = '<p class="no-items">No organizations added yet. Add organizations above.</p>';
         return;
     }
     

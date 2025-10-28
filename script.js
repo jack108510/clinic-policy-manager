@@ -4520,6 +4520,36 @@ async function sendPolicyPublishWebhook(policyData) {
     
     console.log('📤 Sending policy publish webhook to:', webhookUrl);
     
+    // Get all users in the company
+    const allUsers = JSON.parse(localStorage.getItem('masterUsers') || '[]');
+    const companyUsers = allUsers.filter(user => user.company === currentCompany);
+    
+    // Get the organizations this policy applies to
+    const policyOrgs = policyData.clinicNames || 'All Organizations';
+    const applicableOrgs = policyOrgs === 'All Organizations' ? ['All Organizations'] : policyOrgs.split(', ').map(org => org.trim());
+    
+    // Filter users based on policy's organizations
+    const applicableUsers = companyUsers.filter(user => {
+        if (applicableOrgs.includes('All Organizations')) return true;
+        
+        // Check if user has any of the applicable organizations
+        if (user.organizations && Array.isArray(user.organizations)) {
+            return user.organizations.some(org => applicableOrgs.includes(org));
+        }
+        
+        // If user doesn't have specific organizations, include them
+        return true;
+    });
+    
+    // Prepare user data with names and emails
+    const usersData = applicableUsers.map(user => ({
+        id: user.id,
+        username: user.username,
+        email: user.email || '',
+        role: user.role || 'User',
+        organizations: user.organizations || []
+    }));
+    
     const webhookPayload = {
         event: 'policy_published',
         timestamp: new Date().toISOString(),
@@ -4535,8 +4565,13 @@ async function sendPolicyPublishWebhook(policyData) {
             updated: policyData.updated,
             categoryId: policyData.categoryId
         },
-        user: {
+        applicableUsers: {
+            count: usersData.length,
+            users: usersData
+        },
+        createdBy: {
             username: currentUser?.username || 'Unknown',
+            email: currentUser?.email || '',
             company: currentCompany || 'Unknown'
         }
     };

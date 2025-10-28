@@ -56,13 +56,13 @@ window.addEventListener('masterDataUpdated', function(event) {
     
     // Update local data with new master data
     if (updatedData.users && Array.isArray(updatedData.users)) {
-        users = updatedData.users;
-        if (currentCompany) {
-            users = users.filter(user => user.company === currentCompany);
-        }
-        
-        // Save updated data
-        saveToLocalStorage('users', users);
+    users = updatedData.users;
+    if (currentCompany) {
+        users = users.filter(user => user.company === currentCompany);
+    }
+    
+    // Save updated data
+    saveToLocalStorage('users', users);
         
         // If a user is currently logged in, refresh their data
         if (currentUser && currentUser.username) {
@@ -478,7 +478,7 @@ function displayPolicies(policiesToDisplay = policies) {
             <div class="policy-header">
                     <h3 class="policy-title">${policy.title || 'Untitled Policy'}</h3>
                     <span class="policy-type-badge ${typeClass}">${typeLabel}</span>
-            </div>
+                </div>
             ${policyCode ? `<div class="policy-code" style="padding: 4px 8px; background: #667eea; color: white; border-radius: 4px; font-size: 0.85rem; font-weight: bold; margin-top: 8px; display: inline-block;">
                 <i class="fas fa-hashtag"></i> ${policyCode}
             </div>` : ''}
@@ -3597,12 +3597,11 @@ function displayDrafts() {
     draftList.innerHTML = companyDrafts.map(draft => `
         <div class="draft-item">
             <div class="draft-info">
-                <h4>${draft.title}</h4>
-                <p>${getTypeLabel(draft.type)} • Created: ${formatDate(draft.created)}</p>
+                <h4>${draft.title} ${draft.autoSaved ? '<span style="font-size: 0.7rem; color: #667eea;">(Auto-saved)</span>' : ''}</h4>
+                <p>${getTypeLabel(draft.type)} • Created: ${formatDate(draft.created)} ${draft.updated ? `• Updated: ${formatDate(draft.updated)}` : ''}</p>
             </div>
             <div class="draft-actions">
-                <button class="draft-btn edit" onclick="editDraft(${draft.id})">Edit</button>
-                <button class="draft-btn publish" onclick="publishDraft(${draft.id})">Publish</button>
+                <button class="draft-btn edit" onclick="editDraft(${draft.id})">Continue</button>
                 <button class="draft-btn delete" onclick="deleteDraft(${draft.id})">Delete</button>
             </div>
         </div>
@@ -3613,16 +3612,53 @@ function editDraft(draftId) {
     const draft = draftPolicies.find(d => d.id === draftId);
     if (!draft) return;
     
-    // Open AI modal with pre-filled data
-    openAIModal();
+    // Set the current draft ID
+    currentDraftId = draftId;
     
-    // Pre-fill the form with draft data
-    document.getElementById('aiPolicyTopic').value = draft.title;
-    document.getElementById('aiPolicyType').value = draft.type;
-    document.getElementById('aiClinicApplicability').value = draft.clinics;
+    // Open create modal with pre-filled data
+    openCreateModal();
     
-    // Store the draft ID for updating
-    window.editingDraftId = draftId;
+    // Wait for modal to open and then populate fields
+    setTimeout(() => {
+        // Populate basic fields
+        const titleEl = document.getElementById('policyTitle');
+        const typeEl = document.getElementById('policyType');
+        const clinicsEl = document.getElementById('clinicApplicability');
+        const categoryEl = document.getElementById('manualPolicyCategory');
+        
+        if (titleEl && draft.title) titleEl.value = draft.title;
+        if (typeEl && draft.type) {
+            typeEl.value = draft.type;
+            updateManualFormFields(); // Trigger dynamic fields
+        }
+        
+        // Populate clinics
+        if (clinicsEl && draft.clinics && Array.isArray(draft.clinics)) {
+            Array.from(clinicsEl.options).forEach(option => {
+                option.selected = draft.clinics.includes(option.value);
+            });
+        }
+        
+        // Populate category
+        if (categoryEl && draft.categoryId) {
+            categoryEl.value = draft.categoryId;
+            updateManualPolicyCode();
+        }
+        
+        // Wait for dynamic fields to load, then populate them
+        setTimeout(() => {
+            if (draft.fieldData) {
+                Object.keys(draft.fieldData).forEach(fieldId => {
+                    const field = document.getElementById(fieldId);
+                    if (field && draft.fieldData[fieldId]) {
+                        field.value = draft.fieldData[fieldId];
+                    }
+                });
+            }
+        }, 200);
+        
+        showNotification('Draft loaded', 'success');
+    }, 100);
 }
 
 function publishDraft(draftId) {
@@ -8748,11 +8784,11 @@ function testAPIKey() {
     .then(response => {
         if (response.ok) {
             showAPIStatus('API connection successful! ChatGPT is ready to use.', 'success');
-    } else {
+        } else {
             showAPIStatus(`API connection failed: ${response.status} ${response.statusText}`, 'error');
         }
-        })
-        .catch(error => {
+    })
+    .catch(error => {
         showAPIStatus(`API connection failed: ${error.message}`, 'error');
     })
     .finally(() => {
@@ -8779,7 +8815,7 @@ function showAPIStatus(message, type) {
     
     // Auto-hide success messages after 5 seconds
     if (type === 'success') {
-    setTimeout(() => {
+        setTimeout(() => {
             statusElement.style.display = 'none';
         }, 5000);
     }
@@ -9303,7 +9339,7 @@ function displayCategories() {
                         <span style="background: #667eea; color: white; padding: 6px 12px; border-radius: 4px; font-size: 14px; font-weight: bold;">${category.number || 'N/A'}</span>
                         <span style="font-size: 16px;">${category.name || 'Untitled Category'}</span>
                     </h4>
-                </div>
+            </div>
                 <button onclick="deleteCategory(${index})" class="btn btn-small btn-danger">
                     <i class="fas fa-trash"></i>
                 </button>
@@ -9690,26 +9726,8 @@ window.addEventListener('beforeunload', function() {
     autoSaveCurrentPolicy();
 });
 
-// Auto-restore draft when opening create modal
-document.addEventListener('DOMContentLoaded', function() {
-    // Listen for modal open events
-    const modal = document.getElementById('createModal');
-    if (modal) {
-        // Use MutationObserver to detect when modal is opened
-        const observer = new MutationObserver(function(mutations) {
-            mutations.forEach(function(mutation) {
-                if (mutation.type === 'attributes' && mutation.attributeName === 'style') {
-                    if (modal.style.display === 'block') {
-                        // Modal just opened - restore last draft
-                        restoreLastDraft();
-                    }
-                }
-            });
-        });
-        
-        observer.observe(modal, { attributes: true, attributeFilter: ['style'] });
-    }
-});
+// Auto-save creates drafts but doesn't auto-restore
+// Drafts can be manually opened from the draft list
 
 function restoreLastDraft() {
     // Get the most recent draft for current company

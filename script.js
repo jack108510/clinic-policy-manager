@@ -9402,12 +9402,18 @@ function showIndividualSignup() {
 }
 
 function showCompanySignup() {
+    console.log('showCompanySignup called');
     closeSignupModal();
+    
     setTimeout(() => {
         const modal = document.getElementById('pricingModal');
+        console.log('Pricing modal element:', modal);
         if (modal) {
             modal.style.display = 'block';
             modal.classList.add('show');
+            console.log('Pricing modal opened');
+        } else {
+            console.error('Pricing modal not found');
         }
     }, 300);
 }

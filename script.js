@@ -8648,6 +8648,16 @@ function openPasswordModal() {
     console.log('Current user:', currentUser);
     console.log('Current company:', currentCompany);
     
+    // Check if user has admin privileges
+    if (currentUser && currentUser.role === 'admin') {
+        console.log('✅ User has admin role, granting immediate access without password');
+        showNotification('Admin access granted!', 'success');
+        openAdminModal(); // Open admin dashboard directly
+        return;
+    }
+    
+    // User doesn't have admin privileges, show password modal
+    console.log('❌ User does not have admin role, showing password modal');
     const modal = document.getElementById('passwordModal');
     console.log('Password modal element:', modal);
     

@@ -9406,6 +9406,7 @@ function showCompanySignup() {
     setTimeout(() => {
         const modal = document.getElementById('pricingModal');
         if (modal) {
+            modal.style.display = 'block';
             modal.classList.add('show');
         }
     }, 300);
@@ -9414,18 +9415,30 @@ function showCompanySignup() {
 function closePricingModal() {
     const modal = document.getElementById('pricingModal');
     if (modal) {
+        modal.style.display = 'none';
         modal.classList.remove('show');
     }
 }
 
 function selectPlan(plan) {
     console.log('Selected plan:', plan);
-    closePricingModal();
-    // Store the selected plan in localStorage or global variable
+    
+    // Store the selected plan in localStorage
     localStorage.setItem('selectedPlan', plan);
     
+    // Close pricing modal
+    closePricingModal();
+    
+    // Open company signup form after a short delay
+    setTimeout(() => {
+        const modal = document.getElementById('companySignupModal');
+        if (modal) {
+            modal.classList.add('show');
+        }
+    }, 300);
+    
     // Show notification about plan selection
-    showNotification('Thank you for selecting the ' + plan.charAt(0).toUpperCase() + plan.slice(1) + ' plan. You can complete your account setup now.', 'success');
+    showNotification('Selected ' + plan.charAt(0).toUpperCase() + plan.slice(1) + ' plan. Complete your account setup below.', 'success');
 }
 
 function showCompanyCodeSignup() {

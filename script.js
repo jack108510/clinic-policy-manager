@@ -4040,6 +4040,9 @@ function updateManualFormFields() {
     dateInputs.forEach(input => {
         input.value = today;
     });
+    
+    // Update policy code when policy type changes
+    updateManualPolicyCode();
 }
 
 // Survey step navigation functions
@@ -9432,8 +9435,8 @@ function updateManualPolicyCode() {
     const codeDisplay = document.getElementById('manualPolicyCodeDisplay');
     const codeText = document.getElementById('manualPolicyCodeText');
     
-    // Get selected policy type from manual form
-    const policyType = document.getElementById('manualPolicyType')?.value || 'admin';
+    // Get selected policy type from manual form (the ID is 'policyType', not 'manualPolicyType')
+    const policyType = document.getElementById('policyType')?.value || 'admin';
     
     if (categoryId && codeDisplay && codeText) {
         // Generate a temporary code (we'll regenerate when saving)

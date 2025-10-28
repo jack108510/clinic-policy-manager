@@ -329,6 +329,9 @@ function setupEventListeners() {
         e.preventDefault();
         createNewPolicy();
     });
+    
+    // Auto-save draft when user is working on a policy
+    policyForm.addEventListener('input', debounceAutoSave);
 
     // AI Form submission
     aiForm.addEventListener('submit', function(e) {
@@ -9556,3 +9559,153 @@ function readFileAsBase64(file) {
         reader.readAsDataURL(file);
     });
 }
+
+// Auto-save draft functionality
+let autoSaveTimeout;
+let isEditingDraft = false;
+let currentDraftId = null;
+
+function debounceAutoSave() {
+    clearTimeout(autoSaveTimeout);
+    autoSaveTimeout = setTimeout(() => {
+        autoSaveCurrentPolicy();
+    }, 2000); // Save 2 seconds after user stops typing
+}
+
+function autoSaveCurrentPolicy() {
+    // Only auto-save if create modal is open
+    const createModal = document.getElementById('createModal');
+    if (!createModal || createModal.style.display === 'none') {
+        return;
+    }
+    
+    // Get form values
+    const title = document.getElementById('policyTitle')?.value;
+    const type = document.getElementById('policyType')?.value;
+    const clinics = Array.from(document.getElementById('clinicApplicability')?.selectedOptions || []).map(option => option.value);
+    
+    // Check if there's any meaningful content
+    if (!title && !type) {
+        return; // Don't save empty forms
+    }
+    
+    // Collect all dynamic field data
+    const dynamicFields = document.getElementById('dynamicManualFormFields');
+    const fieldData = {};
+    if (dynamicFields) {
+        const inputs = dynamicFields.querySelectorAll('input, textarea, select');
+        inputs.forEach(input => {
+            if (input.id && input.value) {
+                fieldData[input.id] = input.value;
+            }
+        });
+    }
+    
+    // Get category
+    const categoryId = document.getElementById('manualPolicyCategory')?.value || null;
+    const categoryNumber = categoryId ? generatePolicyCode(categoryId, 'temp') : null;
+    
+    // Create draft object
+    const draft = {
+        id: currentDraftId || Date.now(),
+        title: title || 'Untitled Policy',
+        type: type || 'admin',
+        clinics: clinics,
+        categoryId: categoryId,
+        fieldData: fieldData,
+        company: currentCompany || 'Default Company',
+        created: new Date().toISOString(),
+        updated: new Date().toISOString(),
+        status: 'draft',
+        autoSaved: true
+    };
+    
+    // Save or update draft
+    const existingDraftIndex = draftPolicies.findIndex(d => d.id === draft.id);
+    if (existingDraftIndex >= 0) {
+        draftPolicies[existingDraftIndex] = draft;
+    } else {
+        draftPolicies.unshift(draft);
+    }
+    
+    saveToLocalStorage('draftPolicies', draftPolicies);
+    currentDraftId = draft.id;
+    
+    console.log('Auto-saved draft:', draft.title);
+}
+
+// Save draft before page unload
+window.addEventListener('beforeunload', function() {
+    autoSaveCurrentPolicy();
+});
+
+// Auto-restore draft when opening create modal
+document.addEventListener('DOMContentLoaded', function() {
+    // Listen for modal open events
+    const modal = document.getElementById('createModal');
+    if (modal) {
+        // Use MutationObserver to detect when modal is opened
+        const observer = new MutationObserver(function(mutations) {
+            mutations.forEach(function(mutation) {
+                if (mutation.type === 'attributes' && mutation.attributeName === 'style') {
+                    if (modal.style.display === 'block') {
+                        // Modal just opened - restore last draft
+                        restoreLastDraft();
+                    }
+                }
+            });
+        });
+        
+        observer.observe(modal, { attributes: true, attributeFilter: ['style'] });
+    }
+});
+
+function restoreLastDraft() {
+    // Get the most recent draft for current company
+    const recentDraft = draftPolicies
+        .filter(d => d.company === currentCompany && d.autoSaved)
+        .sort((a, b) => new Date(b.updated) - new Date(a.updated))[0];
+    
+    if (recentDraft) {
+        currentDraftId = recentDraft.id;
+        
+        // Fill in the form with draft data
+        const titleEl = document.getElementById('policyTitle');
+        const typeEl = document.getElementById('policyType');
+        const categoryEl = document.getElementById('manualPolicyCategory');
+        
+        if (titleEl && recentDraft.title) titleEl.value = recentDraft.title;
+        if (typeEl && recentDraft.type) {
+            typeEl.value = recentDraft.type;
+            updateManualFormFields(); // Trigger dynamic fields
+        }
+        if (categoryEl && recentDraft.categoryId) categoryEl.value = recentDraft.categoryId;
+        
+        // Wait a moment for dynamic fields to load, then populate them
+        setTimeout(() => {
+            if (recentDraft.fieldData) {
+                Object.keys(recentDraft.fieldData).forEach(fieldId => {
+                    const field = document.getElementById(fieldId);
+                    if (field && recentDraft.fieldData[fieldId]) {
+                        field.value = recentDraft.fieldData[fieldId];
+                    }
+                });
+            }
+        }, 100);
+        
+        // Show notification
+        showNotification('Draft restored from last session', 'success');
+    }
+}
+
+// Clear draft when policy is successfully created
+const originalCreateNewPolicy = window.createNewPolicy;
+window.createNewPolicy = function() {
+    originalCreateNewPolicy.apply(this, arguments);
+    // Clear the current draft after successful creation
+    if (currentDraftId) {
+        draftPolicies = draftPolicies.filter(d => d.id !== currentDraftId);
+        saveToLocalStorage('draftPolicies', draftPolicies);
+        currentDraftId = null;
+    }
+};

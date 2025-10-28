@@ -8497,7 +8497,7 @@ function updateUserInterface() {
             </div>
             <a href="#" class="nav-link user-profile-link" id="profileLink">Welcome, ${currentUser.username} (${currentCompany})</a>
             <a href="#" onclick="logoutUser()" class="nav-link">Logout</a>
-            ${currentUser.role === 'admin' ? '<a href="#" onclick="openPasswordModal()" class="nav-link">Admin Dashboard</a>' : ''}
+            <a href="#" onclick="openPasswordModal()" class="nav-link">Admin Dashboard</a>
         `;
         
         // Add event listener for profile link

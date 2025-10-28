@@ -3276,7 +3276,16 @@ function displayAIPolicy(policy) {
         </div>
     </div>`;
     
-    aiGeneratedContent.innerHTML = clinicInfo + formattedContent;
+    aiGeneratedContent.innerHTML = clinicInfo + formattedContent + `
+        <div class="ai-result-actions" style="margin-top: 20px; padding-top: 20px; border-top: 1px solid #ddd; display: flex; gap: 10px; justify-content: flex-end;">
+            <button class="btn btn-secondary" onclick="storeDraft()">
+                <i class="fas fa-save"></i> Save as Draft
+            </button>
+            <button class="btn btn-primary" onclick="saveAIPolicy()">
+                <i class="fas fa-check"></i> Publish Policy
+            </button>
+        </div>
+    `;
     
     // Store the generated policy for saving
     window.currentGeneratedPolicy = policy;

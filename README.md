@@ -42,3 +42,4 @@ Visit the live site at: https://jack108510.github.io/clinic-policy-manager/
 - Responsive design with CSS Grid and Flexbox
 - Font Awesome icons
 - Clean, modern UI/UX
+

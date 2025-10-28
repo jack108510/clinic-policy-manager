@@ -2936,6 +2936,18 @@ input:checked + .toggle-slider:before {
     color: #92400e;
 }
 
+.policy-code-badge {
+    display: inline-block;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 600;
+    font-family: 'Courier New', monospace;
+    background: #f0f8ff;
+    color: #667eea;
+    border: 1px solid #c7d2fe;
+}
+
 .policy-status {
     display: inline-block;
     padding: 4px 8px;

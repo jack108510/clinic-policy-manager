@@ -184,15 +184,6 @@
                         <option value="memo">Communication Memos</option>
                     </select>
                 </div>
-                <div class="form-group">
-                    <label for="clinicApplicability">Organization Applicability</label>
-                    <select id="clinicApplicability" multiple required>
-                        <option value="tudor-glen">Tudor Glen</option>
-                        <option value="river-valley">River Valley</option>
-                        <option value="rosslyn">Rosslyn</option>
-                        <option value="upc">UPC</option>
-                    </select>
-                </div>
                 
                 <div class="form-group">
                     <label for="manualPolicyCategory">
@@ -201,7 +192,7 @@
                     <select id="manualPolicyCategory" onchange="updateManualPolicyCode()" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px;">
                         <option value="">No Category (optional)</option>
                     </select>
-                    <small style="color: #666; display: block; margin-top: 5px;">Policy code will be generated in format: Category#.Policy#.Year</small>
+                    <small style="color: #666; display: block; margin-top: 5px;">Policy code will be generated in format: Type.Category#.Policy#.Year (e.g., ADMIN.1.2.2025)</small>
                     <div id="manualPolicyCodeDisplay" style="display: none; margin-top: 10px; padding: 10px; background: #f0f8ff; border-radius: 6px;">
                         <strong>Policy Code:</strong> <span id="manualPolicyCodeText"></span>
                     </div>
@@ -293,7 +284,7 @@
                         <div class="form-group" id="policyCodeDisplay" style="margin-top: 15px; display: none;">
                             <label>Generated Policy Code</label>
                             <input type="text" id="editPolicyCodeDisplay" readonly style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px; background: #f8f9fa; font-weight: bold; color: #667eea;">
-                            <small style="color: #666; display: block; margin-top: 5px;">Code format: categoryNumber.policyNumberInCategory.year</small>
+                            <small style="color: #666; display: block; margin-top: 5px;">Code format: Type.Category#.Policy#.Year (e.g., ADMIN.1.2.2025)</small>
                         </div>
                     </div>
                     
@@ -470,23 +461,6 @@
                         <h3>Related Documents</h3>
                         <p style="margin-bottom: 20px; color: #666;">Store and manage documents that can be linked to policies</p>
                         
-                        <!-- File Upload Area -->
-                        <div id="fileUploadArea" style="border: 2px dashed #667eea; border-radius: 8px; padding: 40px; text-align: center; background: #f8f9fa; margin-bottom: 20px; cursor: pointer; transition: all 0.3s ease;"
-                             ondrop="handleFileDrop(event)" ondragover="allowDrop(event)" ondragleave="handleDragLeave(event)" 
-                             onclick="document.getElementById('fileInput').click()">
-                            <input type="file" id="fileInput" style="display: none;" multiple onchange="handleFileSelect(event)">
-                            <i class="fas fa-cloud-upload-alt" style="font-size: 48px; color: #667eea; margin-bottom: 15px;"></i>
-                            <h4 style="margin: 10px 0; color: #333;">Drag and Drop Files Here</h4>
-                            <p style="color: #666; margin: 5px 0;">or click to browse</p>
-                            <small style="color: #999; display: block; margin-top: 10px;">PDF, DOCX, DOC, TXT, and other document formats supported</small>
-                            <div id="uploadProgress" style="display: none; margin-top: 20px;">
-                                <div style="background: #e5e7eb; border-radius: 4px; height: 6px; overflow: hidden;">
-                                    <div id="uploadProgressBar" style="background: #667eea; height: 100%; width: 0%; transition: width 0.3s;"></div>
-            </div>
-                                <p id="uploadStatus" style="margin-top: 10px; color: #666;">Uploading...</p>
-                            </div>
-                        </div>
-                        
                         <div class="add-item-form">
                             <input type="text" id="newDocumentName" placeholder="Document name (e.g., HIPAA Compliance Guide)" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px; margin-bottom: 10px;">
                             <input type="url" id="newDocumentUrl" placeholder="Document URL or file path" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px; margin-bottom: 10px;">
@@ -653,18 +627,6 @@
                         </div>
                     </div>
                 </div>
-                
-                <div class="ai-category-selection" style="margin-top: 20px; padding: 15px; background: #f8f9fa; border-radius: 8px;">
-                    <h4 style="margin-bottom: 10px;">Category (for policy code generation):</h4>
-                    <select id="aiPolicyCategoryInput" onchange="updateAICategoryCode()" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px;">
-                        <option value="">No Category (optional)</option>
-                    </select>
-                    <small style="color: #666; display: block; margin-top: 5px;">Policy code will be generated in format: Category#.Policy#.Year</small>
-                    <div id="aiCategoryCodeDisplay" style="display: none; margin-top: 10px; padding: 10px; background: #e8f0fe; border-radius: 6px;">
-                        <strong>Policy Code:</strong> <span id="aiCategoryCodeText"></span>
-                    </div>
-                </div>
-                
                 <div class="chat-container">
                     <div class="chat-messages" id="chatMessages">
                         <div class="message ai-message">
@@ -720,11 +682,8 @@
                         </div>
                         <div class="form-group">
                             <label for="aiClinicApplicability">Which organizations does this apply to?</label>
-                            <div class="checkbox-group">
-                                <label><input type="checkbox" name="clinics" value="tudor-glen"> Tudor Glen</label>
-                                <label><input type="checkbox" name="clinics" value="river-valley"> River Valley</label>
-                                <label><input type="checkbox" name="clinics" value="rosslyn"> Rosslyn</label>
-                                <label><input type="checkbox" name="clinics" value="upc"> UPC</label>
+                            <div class="checkbox-group" id="aiClinicApplicabilityCheckboxes">
+                                <p style="color: #999;">Loading organizations...</p>
                             </div>
                         </div>
                         <button type="button" class="btn btn-primary" onclick="nextStep(2)">Next</button>
@@ -1343,6 +1302,6 @@
         </div>
     </footer>
 
-    <script src="script.js?v=127&t=20250128"></script>
+    <script src="script.js?v=114&t=20250128"></script>
 </body>
 </html>

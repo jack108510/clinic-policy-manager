@@ -442,7 +442,7 @@
                 <!-- Policy Search and Filters -->
                 <div class="policy-filters">
                     <div class="filter-group">
-                        <input type="text" id="policySearch" placeholder="Search policies..." onkeyup="filterPolicies()">
+                        <input type="text" id="policySearch" placeholder="Search policies by title, content, or policy code..." onkeyup="filterPolicies()">
                         <select id="policyTypeFilter" onchange="filterPolicies()">
                             <option value="">All Types</option>
                             <option value="admin">Admin Policy</option>
@@ -468,6 +468,7 @@
                                 <th>
                                     <input type="checkbox" id="selectAllPolicies" onchange="toggleAllPolicySelection()">
                                 </th>
+                                <th>Policy Code</th>
                                 <th>Title</th>
                                 <th>Type</th>
                                 <th>Organizations</th>

@@ -56,23 +56,13 @@ window.addEventListener('masterDataUpdated', function(event) {
     
     // Update local data with new master data
     if (updatedData.users && Array.isArray(updatedData.users)) {
-    users = updatedData.users;
-    if (currentCompany) {
-        users = users.filter(user => user.company === currentCompany);
-    }
-    
-    // Save updated data
-    saveToLocalStorage('users', users);
-        
-        // If a user is currently logged in, refresh their data
-        if (currentUser && currentUser.username) {
-            const updatedUser = updatedData.users.find(u => u.username === currentUser.username && u.company === currentCompany);
-            if (updatedUser) {
-                console.log('Updating currentUser with new role:', updatedUser.role);
-                currentUser = updatedUser;
-                saveToLocalStorage('currentUser', currentUser);
-            }
+        users = updatedData.users;
+        if (currentCompany) {
+            users = users.filter(user => user.company === currentCompany);
         }
+        
+        // Save updated data
+        saveToLocalStorage('users', users);
     }
     
     // Refresh UI if needed
@@ -231,6 +221,27 @@ document.addEventListener('DOMContentLoaded', function() {
                 loadPoliciesFromStorage();
             }
         }
+        
+    // Watch for create modal opening and populate organizations
+    const createModal = document.getElementById('createModal');
+    if (createModal) {
+        const observer = new MutationObserver(function(mutations) {
+            mutations.forEach(function(mutation) {
+                if (mutation.type === 'attributes' && mutation.attributeName === 'style') {
+                    const display = window.getComputedStyle(createModal).display;
+                    if (display === 'block') {
+                        console.log('🔍 Create modal opened, populating organizations...');
+                        populateOrganizationsDropdown();
+                    }
+                }
+            });
+        });
+        
+        observer.observe(createModal, {
+            attributes: true,
+            attributeFilter: ['style']
+        });
+    }
 });
 
 // Check if user is logged in before allowing access to features
@@ -247,64 +258,22 @@ function requireLogin() {
 
 // Event Listeners
 function setupEventListeners() {
-    // Smart search functionality
+    // Search functionality
     if (policySearch) {
         policySearch.addEventListener('input', function() {
             if (!requireLogin()) return;
-            const searchTerm = this.value.trim().toLowerCase();
-            
-            if (!searchTerm) {
-                displayPolicies(currentPolicies);
-                return;
-            }
-            
-            // Smart search with fuzzy matching
-            const filteredPolicies = currentPolicies.map(policy => {
-                // Collect all searchable text
+            const searchTerm = this.value.toLowerCase();
+            const filteredPolicies = currentPolicies.filter(policy => {
                 const title = (policy.title || '').toLowerCase();
                 const description = (policy.description || '').toLowerCase();
                 const content = (policy.content || '').toLowerCase();
                 const type = (policy.type || '').toLowerCase();
-                const policyCode = (policy.policyCode || '').toLowerCase();
-                const organizations = (policy.clinicNames || policy.organizations || policy.clinics || '').toLowerCase();
                 
-                // Calculate a relevance score
-                let score = 0;
-                const exactMatch = title === searchTerm;
-                const titleStarts = title.startsWith(searchTerm);
-                const titleIncludes = title.includes(searchTerm);
-                const descIncludes = description.includes(searchTerm);
-                const contentIncludes = content.includes(searchTerm);
-                const codeIncludes = policyCode.includes(searchTerm);
-                const orgIncludes = organizations.includes(searchTerm);
-                
-                // Scoring system
-                if (exactMatch) score += 100; // Exact match gets highest score
-                if (titleStarts) score += 50; // Starts with search term
-                if (titleIncludes) score += 25; // Contains in title
-                if (descIncludes) score += 15; // Contains in description
-                if (type.includes(searchTerm)) score += 20; // Type match
-                if (codeIncludes) score += 30; // Policy code match
-                if (orgIncludes) score += 10; // Organization match
-                if (contentIncludes) score += 5; // Content match (lowest priority)
-                
-                // Check if words in search term appear
-                const searchWords = searchTerm.split(' ').filter(w => w.length > 0);
-                let wordMatches = 0;
-                searchWords.forEach(word => {
-                    if (title.includes(word)) wordMatches++;
-                    if (description.includes(word)) wordMatches++;
-                    if (codeIncludes) wordMatches += 2; // Code matches are important
-                });
-                
-                // Bonus for multiple word matches
-                if (wordMatches > 1) score += wordMatches * 5;
-                
-                return { policy, score };
-            }).filter(result => result.score > 0)
-              .sort((a, b) => b.score - a.score) // Sort by relevance
-              .map(result => result.policy); // Extract just the policies
-            
+                return title.includes(searchTerm) || 
+                       description.includes(searchTerm) || 
+                       content.includes(searchTerm) ||
+                       type.includes(searchTerm);
+            });
             displayPolicies(filteredPolicies);
         });
     }
@@ -325,13 +294,13 @@ function setupEventListeners() {
     });
 
     // Form submission
-    policyForm.addEventListener('submit', function(e) {
-        e.preventDefault();
-        createNewPolicy();
-    });
-    
-    // Auto-save draft when user is working on a policy
-    policyForm.addEventListener('input', debounceAutoSave);
+    const policyForm = document.getElementById('policyForm');
+    if (policyForm) {
+        policyForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            createNewPolicy();
+        });
+    }
 
     // AI Form submission
     aiForm.addEventListener('submit', function(e) {
@@ -470,18 +439,12 @@ function displayPolicies(policiesToDisplay = policies) {
         const createdDate = policy.created ? formatDate(policy.created) : 'N/A';
         const updatedDate = policy.updated ? formatDate(policy.updated) : (policy.lastModified ? formatDate(policy.lastModified) : 'N/A');
         
-        // Get policy code
-        const policyCode = policy.policyCode || '';
-        
         return `
             <div class="policy-item" data-type="${policy.type}" onclick="viewPolicy('${policy.id}')">
             <div class="policy-header">
                     <h3 class="policy-title">${policy.title || 'Untitled Policy'}</h3>
                     <span class="policy-type-badge ${typeClass}">${typeLabel}</span>
-                </div>
-            ${policyCode ? `<div class="policy-code" style="padding: 4px 8px; background: #667eea; color: white; border-radius: 4px; font-size: 0.85rem; font-weight: bold; margin-top: 8px; display: inline-block;">
-                <i class="fas fa-hashtag"></i> ${policyCode}
-            </div>` : ''}
+            </div>
             <div class="policy-organizations">
                     <i class="fas fa-building"></i> ${organizations}
             </div>
@@ -515,62 +478,30 @@ function filterPolicies(filter) {
 
 // Create New Policy
 function createNewPolicy() {
-    console.log('createNewPolicy called');
-    
-    // Get basic form data
-    const titleEl = document.getElementById('policyTitle');
-    const typeEl = document.getElementById('policyType');
-    const clinicsEl = document.getElementById('clinicApplicability');
-    
-    if (!titleEl || !typeEl || !clinicsEl) {
-        console.error('Required form elements not found');
-        showNotification('Please fill in all required fields', 'error');
-        return;
-    }
-    
-    // Collect all form data from dynamic fields
-    const dynamicFields = document.getElementById('dynamicManualFormFields');
-    const formData = {};
-    
-    if (dynamicFields) {
-        const inputs = dynamicFields.querySelectorAll('input, textarea, select');
-        inputs.forEach(input => {
-            if (input.id && input.value) {
-                formData[input.id] = input.value;
-            }
-        });
-    }
-    
-    const title = titleEl.value.trim();
-    const type = typeEl.value;
-    const clinics = Array.from(clinicsEl.selectedOptions).map(option => option.value);
-    
-    if (!title || !type || clinics.length === 0) {
-        showNotification('Please fill in all required fields', 'error');
-        return;
-    }
+    const formData = {
+        title: document.getElementById('policyTitle').value,
+        type: document.getElementById('policyType').value,
+        clinics: ['all-organizations'], // Apply to all organizations by default
+        purpose: document.getElementById('policyPurpose')?.value || '',
+        procedure: document.getElementById('policyProcedure')?.value || '',
+        roles: document.getElementById('policyRoles')?.value || '',
+        compliance: document.getElementById('policyCompliance')?.value || ''
+    };
 
     // Get selected category
     const categoryId = document.getElementById('manualPolicyCategory')?.value || null;
     const tempId = 'policy_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
     
     // Generate policy code if category is selected
-    const policyCode = categoryId ? generatePolicyCode(categoryId, tempId) : null;
-
-    // Build policy content from form data
-    let description = '';
-    if (formData.purpose) description += `Purpose: ${formData.purpose}\n`;
-    if (formData.scope) description += `Scope: ${formData.scope}\n`;
-    if (formData.procedure) description += `Procedure: ${formData.procedure}\n`;
-    if (formData.roles) description += `Roles: ${formData.roles}\n`;
+    const policyCode = categoryId ? generatePolicyCode(categoryId, tempId, formData.type) : null;
 
     const newPolicy = {
         id: tempId,
-        title: title,
-        type: type,
-        clinics: clinics,
-        description: description.trim() || title,
-        company: currentCompany || 'Default Company',
+        title: formData.title,
+        type: formData.type,
+        clinics: formData.clinics,
+        description: formData.purpose,
+        company: currentCompany || 'Default Company', // Assign to current company
         created: new Date().toISOString().split('T')[0],
         updated: new Date().toISOString().split('T')[0],
         categoryId: categoryId,
@@ -593,13 +524,6 @@ function createNewPolicy() {
     
     // Show success message
     showNotification('Policy created successfully!', 'success');
-    
-    // Clear the current draft after successful creation
-    if (currentDraftId) {
-        draftPolicies = draftPolicies.filter(d => d.id !== currentDraftId);
-        saveToLocalStorage('draftPolicies', draftPolicies);
-        currentDraftId = null;
-    }
 }
 
 // Modal Functions
@@ -3494,10 +3418,8 @@ function saveWebhookPolicy() {
         return;
     }
     
-    // Get selected category from AI input or generated policy display
-    const categoryIdInput = document.getElementById('aiPolicyCategoryInput')?.value || null;
-    const categoryIdDisplay = document.getElementById('aiPolicyCategory')?.value || null;
-    const categoryId = categoryIdInput || categoryIdDisplay || null;
+    // Get selected category
+    const categoryId = document.getElementById('aiPolicyCategory')?.value || null;
     
     // Parse the webhook policy data
     let policyData = null;
@@ -3513,13 +3435,15 @@ function saveWebhookPolicy() {
     // Create policy object with temporary ID
     const tempId = 'policy_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
     
+    const policyType = policyData.policy_type || 'admin';
+    
     // Generate policy code if category is selected
-    const policyCode = categoryId ? generatePolicyCode(categoryId, tempId) : null;
+    const policyCode = categoryId ? generatePolicyCode(categoryId, tempId, policyType) : null;
     
     const newPolicy = {
         id: tempId,
         title: policyTitle, // Use the manually entered title
-        type: policyData.policy_type || 'admin',
+        type: policyType,
         clinics: policyData.applies_to || 'All Organizations',
         content: policyData.markdown || '',
         effectiveDate: policyData.effective_date || new Date().toISOString().split('T')[0],
@@ -3597,11 +3521,12 @@ function displayDrafts() {
     draftList.innerHTML = companyDrafts.map(draft => `
         <div class="draft-item">
             <div class="draft-info">
-                <h4>${draft.title} ${draft.autoSaved ? '<span style="font-size: 0.7rem; color: #667eea;">(Auto-saved)</span>' : ''}</h4>
-                <p>${getTypeLabel(draft.type)} • Created: ${formatDate(draft.created)} ${draft.updated ? `• Updated: ${formatDate(draft.updated)}` : ''}</p>
+                <h4>${draft.title}</h4>
+                <p>${getTypeLabel(draft.type)} • Created: ${formatDate(draft.created)}</p>
             </div>
             <div class="draft-actions">
-                <button class="draft-btn edit" onclick="editDraft(${draft.id})">Continue</button>
+                <button class="draft-btn edit" onclick="editDraft(${draft.id})">Edit</button>
+                <button class="draft-btn publish" onclick="publishDraft(${draft.id})">Publish</button>
                 <button class="draft-btn delete" onclick="deleteDraft(${draft.id})">Delete</button>
             </div>
         </div>
@@ -3612,53 +3537,16 @@ function editDraft(draftId) {
     const draft = draftPolicies.find(d => d.id === draftId);
     if (!draft) return;
     
-    // Set the current draft ID
-    currentDraftId = draftId;
+    // Open AI modal with pre-filled data
+    openAIModal();
     
-    // Open create modal with pre-filled data
-    openCreateModal();
+    // Pre-fill the form with draft data
+    document.getElementById('aiPolicyTopic').value = draft.title;
+    document.getElementById('aiPolicyType').value = draft.type;
+    document.getElementById('aiClinicApplicability').value = draft.clinics;
     
-    // Wait for modal to open and then populate fields
-    setTimeout(() => {
-        // Populate basic fields
-        const titleEl = document.getElementById('policyTitle');
-        const typeEl = document.getElementById('policyType');
-        const clinicsEl = document.getElementById('clinicApplicability');
-        const categoryEl = document.getElementById('manualPolicyCategory');
-        
-        if (titleEl && draft.title) titleEl.value = draft.title;
-        if (typeEl && draft.type) {
-            typeEl.value = draft.type;
-            updateManualFormFields(); // Trigger dynamic fields
-        }
-        
-        // Populate clinics
-        if (clinicsEl && draft.clinics && Array.isArray(draft.clinics)) {
-            Array.from(clinicsEl.options).forEach(option => {
-                option.selected = draft.clinics.includes(option.value);
-            });
-        }
-        
-        // Populate category
-        if (categoryEl && draft.categoryId) {
-            categoryEl.value = draft.categoryId;
-            updateManualPolicyCode();
-        }
-        
-        // Wait for dynamic fields to load, then populate them
-        setTimeout(() => {
-            if (draft.fieldData) {
-                Object.keys(draft.fieldData).forEach(fieldId => {
-                    const field = document.getElementById(fieldId);
-                    if (field && draft.fieldData[fieldId]) {
-                        field.value = draft.fieldData[fieldId];
-                    }
-                });
-            }
-        }, 200);
-        
-        showNotification('Draft loaded', 'success');
-    }, 100);
+    // Store the draft ID for updating
+    window.editingDraftId = draftId;
 }
 
 function publishDraft(draftId) {
@@ -5354,33 +5242,127 @@ function displayAdminDrafts() {
 }
 
 // Modal Functions
-function openCreateModal() {
-    // Set flag to track if opened from admin dashboard
-    const wasAdminModalOpen = document.getElementById('adminModal')?.style.display === 'block';
-    window.openedFromAdminDashboard = wasAdminModalOpen;
+function populateOrganizationsDropdown() {
+    console.log('🏢 populateOrganizationsDropdown called');
+    const clinicSelect = document.getElementById('clinicApplicability');
+    if (!clinicSelect) {
+        console.error('❌ clinicApplicability select element not found!');
+        return;
+    }
     
+    // Clear existing options
+    clinicSelect.innerHTML = '';
+    
+    console.log('🏢 Current company:', currentCompany);
+    
+    // Load ALL organizations from all sources
+    let companyOrgs = [];
+    
+    // Try localStorage organizations first
+    const orgData = localStorage.getItem('organizations');
+    if (orgData) {
+        const loadedOrgs = JSON.parse(orgData);
+        console.log('📋 All organizations in localStorage:', loadedOrgs);
+        if (currentCompany && loadedOrgs[currentCompany]) {
+            companyOrgs = loadedOrgs[currentCompany];
+        } else {
+            // Get all organizations from all companies
+            companyOrgs = Object.values(loadedOrgs).flat();
+            companyOrgs = [...new Set(companyOrgs)]; // Remove duplicates
+        }
+        console.log('✅ Loaded organizations:', companyOrgs);
+    }
+    
+    // If still empty, try masterCompanies
+    if (companyOrgs.length === 0) {
+        const masterCompanies = JSON.parse(localStorage.getItem('masterCompanies') || '[]');
+        if (masterCompanies.length > 0) {
+            companyOrgs = masterCompanies.map(company => company.name);
+            console.log('✅ Using master companies:', companyOrgs);
+        }
+    }
+    
+    // If STILL empty, show a message
+    if (companyOrgs.length === 0) {
+        clinicSelect.innerHTML = '<option value="">No organizations available. Add organizations in Admin Dashboard.</option>';
+        console.warn('⚠️ No organizations found for any source!');
+        return;
+    }
+    
+    // Add organizations to dropdown
+    companyOrgs.forEach(org => {
+        const option = document.createElement('option');
+        option.value = org.toLowerCase().replace(/\s+/g, '-');
+        option.textContent = org;
+        clinicSelect.appendChild(option);
+    });
+    
+    console.log('✅ Added', companyOrgs.length, 'organizations to dropdown');
+}
+
+function populateAIOrganizations() {
+    // Get the AI organizations checkbox group
+    const clinicGroup = document.getElementById('aiClinicApplicabilityCheckboxes');
+    if (!clinicGroup) return;
+    
+    // Clear existing checkboxes
+    clinicGroup.innerHTML = '';
+    
+    // Load organizations from localStorage for the current company
+    const orgData = localStorage.getItem('organizations');
+    let companyOrgs = [];
+    
+    if (orgData) {
+        const loadedOrgs = JSON.parse(orgData);
+        companyOrgs = loadedOrgs[currentCompany] || [];
+    } else if (organizations[currentCompany]) {
+        companyOrgs = organizations[currentCompany];
+    }
+    
+    // If no company-specific orgs, try master companies
+    if (companyOrgs.length === 0) {
+        const masterCompanies = JSON.parse(localStorage.getItem('masterCompanies') || '[]');
+        if (masterCompanies.length > 0) {
+            companyOrgs = masterCompanies.map(company => company.name);
+        }
+    }
+    
+    // Fall back to default organizations if still empty
+    if (companyOrgs.length === 0) {
+        companyOrgs = ['Tudor Glen', 'River Valley', 'Rosslyn', 'UPC'];
+    }
+    
+    if (companyOrgs.length === 0) {
+        clinicGroup.innerHTML = '<p style="color: #999;">No organizations available. Add organizations in the Admin Dashboard.</p>';
+        return;
+    }
+    
+    // Add organizations from the companies
+    companyOrgs.forEach(org => {
+        const label = document.createElement('label');
+        label.innerHTML = `<input type="checkbox" name="clinics" value="${org.toLowerCase().replace(/\s+/g, '-')}"> ${org}`;
+        clinicGroup.appendChild(label);
+    });
+}
+
+function openCreateModal() {
+    console.log('📝 openCreateModal called');
     // Close admin dashboard first
     closeAdminModal();
     // Open create policy modal
     document.getElementById('createModal').style.display = 'block';
     
-    // Populate category dropdown
-    populateManualCategoryDropdown();
+    // Small delay to ensure DOM is ready
+    setTimeout(() => {
+        // Populate category dropdown
+        populateManualCategoryDropdown();
+    }, 50);
 }
 
 function closeCreateModal() {
     document.getElementById('createModal').style.display = 'none';
     document.getElementById('policyForm').reset();
     document.getElementById('dynamicManualFormFields').innerHTML = '';
-    
-    // If opened from admin dashboard, show it again
-    if (window.openedFromAdminDashboard) {
-        setTimeout(() => {
-            document.getElementById('adminModal').style.display = 'block';
-            document.getElementById('adminModal').classList.add('show');
-            window.openedFromAdminDashboard = false;
-        }, 300);
-    }
 }
 
 // ChatGPT-Style Policy Creation System
@@ -5395,11 +5377,11 @@ function populateRolesAndDisciplinaryActions() {
     const defaultRoles = ['Clinic Manager', 'Medical Director', 'Staff'];
     const defaultDisciplinaryActions = ['Verbal Warning', 'Written Warning', 'Suspension', 'Termination'];
     
-    // Load organizations from localStorage
-    // First, reload the organizations object from localStorage in case it was updated
-    const orgData = localStorage.getItem('organizations');
+    // Load organizations for the current company
     let allOrgs = [];
     
+    // First try to load from localStorage organizations for the current company
+    const orgData = localStorage.getItem('organizations');
     console.log('Current company:', currentCompany);
     console.log('Organizations from localStorage:', orgData);
     
@@ -5411,9 +5393,27 @@ function populateRolesAndDisciplinaryActions() {
         // Get organizations for current company
         allOrgs = loadedOrgs[currentCompany] || [];
         console.log('Organizations for company:', allOrgs);
-    } else {
-        // Use the in-memory organizations object
-        allOrgs = organizations[currentCompany] || [];
+    }
+    
+    // If no company-specific orgs, use the in-memory organizations object
+    if (allOrgs.length === 0 && organizations[currentCompany]) {
+        allOrgs = organizations[currentCompany];
+        console.log('Loaded from in-memory organizations:', allOrgs);
+    }
+    
+    // If still empty, try master companies
+    if (allOrgs.length === 0) {
+        const masterCompanies = JSON.parse(localStorage.getItem('masterCompanies') || '[]');
+        if (masterCompanies && masterCompanies.length > 0) {
+            allOrgs = masterCompanies.map(company => company.name);
+            console.log('Loaded organizations from master companies:', allOrgs);
+        }
+    }
+    
+    // Fall back to default if still empty
+    if (allOrgs.length === 0) {
+        allOrgs = ['Tudor Glen', 'River Valley', 'Rosslyn', 'UPC'];
+        console.log('Using default organizations:', allOrgs);
     }
     
     console.log('Final allOrgs:', allOrgs);
@@ -5482,10 +5482,6 @@ function populateRolesAndDisciplinaryActions() {
 }
 
 function openAIModal() {
-    // Set flag to track if opened from admin dashboard
-    const wasAdminModalOpen = document.getElementById('adminModal')?.style.display === 'block';
-    window.openedFromAdminDashboard = wasAdminModalOpen;
-    
     // Close admin dashboard first
     closeAdminModal();
     // Open AI modal
@@ -5499,11 +5495,11 @@ function openAIModal() {
     document.querySelector('.chat-container').style.display = 'block';
     document.getElementById('aiSurveyForm').style.display = 'none';
     
-    // Populate roles and disciplinary actions from settings
+    // Populate roles and disciplinary actions from settings (includes organizations)
     populateRolesAndDisciplinaryActions();
     
-    // Populate AI category dropdown
-    populateAICategoryInput();
+    // Populate AI survey organizations
+    populateAIOrganizations();
     
     resetChat();
 }
@@ -5511,15 +5507,6 @@ function openAIModal() {
 function closeAIModal() {
     document.getElementById('aiModal').style.display = 'none';
     resetChat();
-    
-    // If opened from admin dashboard, show it again
-    if (window.openedFromAdminDashboard) {
-        setTimeout(() => {
-            document.getElementById('adminModal').style.display = 'block';
-            document.getElementById('adminModal').classList.add('show');
-            window.openedFromAdminDashboard = false;
-        }, 300);
-    }
 }
 
 function showPolicyOptions() {
@@ -6485,7 +6472,7 @@ async function savePolicyToStorage(policy) {
                                 <select id="aiPolicyCategory" onchange="updateAIPolicyCode()" style="width: 100%; padding: 12px; border: 2px solid #ddd; border-radius: 6px; font-size: 1rem;">
                                     <option value="">No Category (optional)</option>
                                 </select>
-                                <small style="color: #666; display: block; margin-top: 5px;">Policy code will be generated in format: Category#.Policy#.Year</small>
+                                <small style="color: #666; display: block; margin-top: 5px;">Policy code will be generated in format: Type.Category#.Policy#.Year (e.g., ADMIN.1.2.2025)</small>
                                 <div id="aiPolicyCodeDisplay" style="display: none; margin-top: 10px; padding: 10px; background: #f0f8ff; border-radius: 6px;">
                                     <strong>Policy Code:</strong> <span id="aiPolicyCodeText"></span>
                                 </div>
@@ -6773,12 +6760,6 @@ function closePoliciesModal() {
     if (modal) {
         modal.remove();
     }
-    
-    // Return to admin dashboard
-    setTimeout(() => {
-        document.getElementById('adminModal').style.display = 'block';
-        document.getElementById('adminModal').classList.add('show');
-    }, 300);
 }
 
 function openUsersModal() {
@@ -6924,12 +6905,6 @@ function closeUsersModal() {
     if (modal) {
         modal.remove();
     }
-    
-    // Return to admin dashboard
-    setTimeout(() => {
-        document.getElementById('adminModal').style.display = 'block';
-        document.getElementById('adminModal').classList.add('show');
-    }, 300);
 }
 
 function searchUsers() {
@@ -7328,11 +7303,12 @@ function closePolicyViewModal() {
 function updatePolicyCode() {
     const categoryId = document.getElementById('editPolicyCode')?.value;
     const policyId = document.getElementById('editPolicyId')?.value;
+    const policyType = document.getElementById('editPolicyType')?.value;
     const codeDisplay = document.getElementById('policyCodeDisplay');
     const codeInput = document.getElementById('editPolicyCodeDisplay');
     
     if (categoryId && codeDisplay && codeInput) {
-        const code = generatePolicyCode(categoryId, policyId);
+        const code = generatePolicyCode(categoryId, policyId, policyType);
         if (code) {
             codeInput.value = code;
             codeDisplay.style.display = 'block';
@@ -7547,15 +7523,18 @@ function savePolicyEdit(event) {
     // Get selected category
     const categoryId = document.getElementById('editPolicyCode')?.value || null;
     
+    // Get policy type
+    const policyType = document.getElementById('editPolicyType').value;
+    
     // Generate policy code if category is selected
-    const policyCode = categoryId ? generatePolicyCode(categoryId, policyId) : null;
+    const policyCode = categoryId ? generatePolicyCode(categoryId, policyId, policyType) : null;
     
     // Update policy with structured fields
     policies[policyIndex] = {
         ...policies[policyIndex],
         // Basic fields
         title: document.getElementById('editPolicyTitle').value,
-        type: document.getElementById('editPolicyType').value,
+        type: policyType,
         clinicNames: selectedOrgs.join(', '),
         effectiveDate: document.getElementById('editPolicyEffectiveDate').value,
         version: document.getElementById('editPolicyVersion').value,
@@ -7602,12 +7581,6 @@ function savePolicyEdit(event) {
 function closePolicyEditModal() {
     document.getElementById('policyEditModal').style.display = 'none';
     document.getElementById('policyEditForm').reset();
-    
-    // Return to admin dashboard
-    setTimeout(() => {
-        document.getElementById('adminModal').style.display = 'block';
-        document.getElementById('adminModal').classList.add('show');
-    }, 300);
 }
 
 function deletePolicy(policyId) {
@@ -8518,36 +8491,6 @@ function openPasswordModal() {
     console.log('Current user:', currentUser);
     console.log('Current company:', currentCompany);
     
-    // Check if user is logged in with their company
-    if (!currentUser || !currentCompany) {
-        console.log('User not logged in with company');
-        showSignupModal();
-        return;
-    }
-    
-    // Check if user has admin role - bypass password
-    console.log('🔍 Checking user role:', currentUser.role);
-    console.log('🔍 Full currentUser object:', currentUser);
-    
-    // Check role in multiple possible formats
-    const userRole = currentUser.role || currentUser.userRole || currentUser.user_role || '';
-    const isAdmin = userRole === 'admin' || 
-                   userRole === 'Admin' || 
-                   userRole === 'Administrator' ||
-                   (userRole && userRole.toLowerCase() === 'admin');
-    
-    console.log('🔍 Role check results:', { userRole, isAdmin });
-    
-    // Only bypass password for actual admins, not for 'user' role
-    if (isAdmin && userRole.toLowerCase() !== 'user') {
-        console.log('✅ User has admin role, granting access without password');
-        openAdminModal();
-        showNotification('Admin access granted!', 'success');
-        return;
-    } else {
-        console.log('❌ User is not an admin or has user role, showing password prompt');
-    }
-    
     const modal = document.getElementById('passwordModal');
     console.log('Password modal element:', modal);
     
@@ -8784,11 +8727,11 @@ function testAPIKey() {
     .then(response => {
         if (response.ok) {
             showAPIStatus('API connection successful! ChatGPT is ready to use.', 'success');
-        } else {
+    } else {
             showAPIStatus(`API connection failed: ${response.status} ${response.statusText}`, 'error');
         }
-    })
-    .catch(error => {
+        })
+        .catch(error => {
         showAPIStatus(`API connection failed: ${error.message}`, 'error');
     })
     .finally(() => {
@@ -8815,7 +8758,7 @@ function showAPIStatus(message, type) {
     
     // Auto-hide success messages after 5 seconds
     if (type === 'success') {
-        setTimeout(() => {
+    setTimeout(() => {
             statusElement.style.display = 'none';
         }, 5000);
     }
@@ -9283,18 +9226,33 @@ function loadCategories() {
     displayCategories();
 }
 
-// Generate policy code in format: categoryNumber.policyNumberInCategory.year
-function generatePolicyCode(categoryId, policyId) {
+// Generate policy code in format: TYPE.categoryNumber.policyNumberInCategory.year
+function generatePolicyCode(categoryId, policyId, policyType) {
     if (!categoryId) return null;
+    
+    // Map policy type to code
+    const typeCodes = {
+        'admin': 'ADMIN',
+        'sog': 'SOG',
+        'memo': 'MEMO',
+        'protocol': 'PROTO',
+        'proto': 'PROTO'
+    };
+    
+    const typeCode = typeCodes[policyType?.toLowerCase()] || 'ADMIN';
     
     loadCategories(); // Ensure categories are loaded
     const category = categories.find(cat => cat.id === parseInt(categoryId) || cat.id === categoryId);
     if (!category) return null;
     
-    // Get all policies in this category
+    // Get all policies in this category with the same type
     const policies = loadCompanyPolicies();
     const categoryIdNum = parseInt(categoryId);
-    const policiesInCategory = policies.filter(p => (p.categoryId === categoryIdNum || p.categoryId === categoryId) && p.policyCode);
+    const policiesInCategory = policies.filter(p => 
+        (p.categoryId === categoryIdNum || p.categoryId === categoryId) && 
+        p.policyCode && 
+        p.type === policyType
+    );
     
     // Find the policy's position in the category (or get next number if new)
     let policyNumber;
@@ -9315,7 +9273,7 @@ function generatePolicyCode(categoryId, policyId) {
     }
     
     const currentYear = new Date().getFullYear();
-    return `${category.number}.${policyNumber}.${currentYear}`;
+    return `${typeCode}.${category.number}.${policyNumber}.${currentYear}`;
 }
 
 function saveCategories() {
@@ -9339,7 +9297,7 @@ function displayCategories() {
                         <span style="background: #667eea; color: white; padding: 6px 12px; border-radius: 4px; font-size: 14px; font-weight: bold;">${category.number || 'N/A'}</span>
                         <span style="font-size: 16px;">${category.name || 'Untitled Category'}</span>
                     </h4>
-            </div>
+                </div>
                 <button onclick="deleteCategory(${index})" class="btn btn-small btn-danger">
                     <i class="fas fa-trash"></i>
                 </button>
@@ -9419,16 +9377,31 @@ function updateAIPolicyCode() {
     const codeDisplay = document.getElementById('aiPolicyCodeDisplay');
     const codeText = document.getElementById('aiPolicyCodeText');
     
+    // Get selected policy type from AI modal
+    const policyTypeEl = document.querySelector('#aiModal input[name="policyType"]:checked');
+    const policyType = policyTypeEl?.value || 'admin';
+    
     if (categoryId && codeDisplay && codeText) {
         // Generate a temporary code (we'll regenerate when saving)
         loadCategories();
         const category = categories.find(cat => cat.id === parseInt(categoryId) || cat.id === categoryId);
         if (category) {
             const policies = loadCompanyPolicies();
-            const categoryPolicies = policies.filter(p => (p.categoryId === parseInt(categoryId) || p.categoryId === categoryId) && p.policyCode);
+            const categoryPolicies = policies.filter(p => (p.categoryId === parseInt(categoryId) || p.categoryId === categoryId) && p.policyCode && p.type === policyType);
             const policyNumber = categoryPolicies.length + 1;
             const currentYear = new Date().getFullYear();
-            const code = `${category.number}.${policyNumber}.${currentYear}`;
+            
+            // Map policy type to code
+            const typeCodes = {
+                'admin': 'ADMIN',
+                'sog': 'SOG',
+                'memo': 'MEMO',
+                'protocol': 'PROTO',
+                'proto': 'PROTO'
+            };
+            const typeCode = typeCodes[policyType?.toLowerCase()] || 'ADMIN';
+            
+            const code = `${typeCode}.${category.number}.${policyNumber}.${currentYear}`;
             
             codeText.textContent = code;
             codeDisplay.style.display = 'block';
@@ -9459,16 +9432,30 @@ function updateManualPolicyCode() {
     const codeDisplay = document.getElementById('manualPolicyCodeDisplay');
     const codeText = document.getElementById('manualPolicyCodeText');
     
+    // Get selected policy type from manual form
+    const policyType = document.getElementById('manualPolicyType')?.value || 'admin';
+    
     if (categoryId && codeDisplay && codeText) {
         // Generate a temporary code (we'll regenerate when saving)
         loadCategories();
         const category = categories.find(cat => cat.id === parseInt(categoryId) || cat.id === categoryId);
         if (category) {
             const policies = loadCompanyPolicies();
-            const categoryPolicies = policies.filter(p => (p.categoryId === parseInt(categoryId) || p.categoryId === categoryId) && p.policyCode);
+            const categoryPolicies = policies.filter(p => (p.categoryId === parseInt(categoryId) || p.categoryId === categoryId) && p.policyCode && p.type === policyType);
             const policyNumber = categoryPolicies.length + 1;
             const currentYear = new Date().getFullYear();
-            const code = `${category.number}.${policyNumber}.${currentYear}`;
+            
+            // Map policy type to code
+            const typeCodes = {
+                'admin': 'ADMIN',
+                'sog': 'SOG',
+                'memo': 'MEMO',
+                'protocol': 'PROTO',
+                'proto': 'PROTO'
+            };
+            const typeCode = typeCodes[policyType?.toLowerCase()] || 'ADMIN';
+            
+            const code = `${typeCode}.${category.number}.${policyNumber}.${currentYear}`;
             
             codeText.textContent = code;
             codeDisplay.style.display = 'block';
@@ -9477,293 +9464,3 @@ function updateManualPolicyCode() {
         codeDisplay.style.display = 'none';
     }
 }
-
-// Populate AI category input dropdown
-function populateAICategoryInput() {
-    loadCategories();
-    const select = document.getElementById('aiPolicyCategoryInput');
-    if (!select) return;
-    
-    select.innerHTML = '<option value="">No Category (optional)</option>';
-    categories.forEach(category => {
-        const option = document.createElement('option');
-        option.value = category.id;
-        option.textContent = `${category.number} - ${category.name}`;
-        select.appendChild(option);
-    });
-}
-
-// Update AI category code display
-function updateAICategoryCode() {
-    const categoryId = document.getElementById('aiPolicyCategoryInput')?.value;
-    const codeDisplay = document.getElementById('aiCategoryCodeDisplay');
-    const codeText = document.getElementById('aiCategoryCodeText');
-    
-    if (categoryId && codeDisplay && codeText) {
-        // Generate a temporary code (we'll regenerate when saving)
-        loadCategories();
-        const category = categories.find(cat => cat.id === parseInt(categoryId) || cat.id === categoryId);
-        if (category) {
-            const policies = loadCompanyPolicies();
-            const categoryPolicies = policies.filter(p => (p.categoryId === parseInt(categoryId) || p.categoryId === categoryId) && p.policyCode);
-            const policyNumber = categoryPolicies.length + 1;
-            const currentYear = new Date().getFullYear();
-            const code = `${category.number}.${policyNumber}.${currentYear}`;
-            
-            codeText.textContent = code;
-            codeDisplay.style.display = 'block';
-        }
-    } else if (codeDisplay) {
-        codeDisplay.style.display = 'none';
-    }
-}
-
-// File upload functions
-function allowDrop(event) {
-    event.preventDefault();
-    event.stopPropagation();
-    const uploadArea = document.getElementById('fileUploadArea');
-    uploadArea.style.background = '#e8f0fe';
-    uploadArea.style.borderColor = '#667eea';
-}
-
-function handleDragLeave(event) {
-    event.preventDefault();
-    event.stopPropagation();
-    const uploadArea = document.getElementById('fileUploadArea');
-    uploadArea.style.background = '#f8f9fa';
-    uploadArea.style.borderColor = '#667eea';
-}
-
-function handleFileDrop(event) {
-    event.preventDefault();
-    event.stopPropagation();
-    
-    const uploadArea = document.getElementById('fileUploadArea');
-    uploadArea.style.background = '#f8f9fa';
-    uploadArea.style.borderColor = '#667eea';
-    
-    const files = event.dataTransfer.files;
-    if (files.length > 0) {
-        handleFiles(files);
-    }
-}
-
-function handleFileSelect(event) {
-    const files = event.target.files;
-    if (files.length > 0) {
-        handleFiles(files);
-    }
-}
-
-async function handleFiles(files) {
-    const uploadArea = document.getElementById('fileUploadArea');
-    const uploadProgress = document.getElementById('uploadProgress');
-    const uploadProgressBar = document.getElementById('uploadProgressBar');
-    const uploadStatus = document.getElementById('uploadStatus');
-    
-    uploadProgress.style.display = 'block';
-    
-    for (let i = 0; i < files.length; i++) {
-        const file = files[i];
-        uploadStatus.textContent = `Uploading ${file.name}... (${i + 1}/${files.length})`;
-        
-        // Simulate progress
-        let progress = 0;
-        const progressInterval = setInterval(() => {
-            progress += 5;
-            uploadProgressBar.style.width = `${progress}%`;
-            if (progress >= 100) {
-                clearInterval(progressInterval);
-            }
-        }, 50);
-        
-        try {
-            // Convert file to base64
-            const fileData = await readFileAsBase64(file);
-            
-            // Get webhook URL
-            const webhookUrl = localStorage.getItem('webhookUrlAI') || 'http://localhost:5678/webhook/b501e849-7a23-49d6-9502-66fb14b5a77e';
-            
-            // Send file to webhook
-            const formData = new FormData();
-            formData.append('file', file);
-            formData.append('filename', file.name);
-            formData.append('fileType', file.type);
-            formData.append('fileSize', file.size);
-            formData.append('company', currentCompany);
-            formData.append('data', fileData);
-            
-            const response = await fetch(webhookUrl, {
-                method: 'POST',
-                body: formData
-            });
-            
-            if (response.ok) {
-                const responseData = await response.json();
-                console.log('File uploaded successfully:', responseData);
-                
-                // Add document to the list
-                const newDocument = {
-                    id: Date.now() + i,
-                    name: file.name,
-                    url: responseData.url || '#',
-                    description: `Uploaded: ${new Date().toLocaleDateString()}`,
-                    type: file.type,
-                    size: file.size,
-                    date: new Date().toISOString()
-                };
-                
-                documents.push(newDocument);
-                saveDocuments();
-            } else {
-                throw new Error(`Upload failed with status: ${response.status}`);
-            }
-        } catch (error) {
-            console.error('Error uploading file:', error);
-            showNotification(`Error uploading ${file.name}: ${error.message}`, 'error');
-        }
-    }
-    
-    // Reset progress
-    uploadProgress.style.display = 'none';
-    uploadProgressBar.style.width = '0%';
-    uploadStatus.textContent = 'Uploading...';
-    
-    // Display documents
-    displayDocuments();
-    showNotification('Files uploaded successfully!', 'success');
-    
-    // Clear file input
-    document.getElementById('fileInput').value = '';
-}
-
-function readFileAsBase64(file) {
-    return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => resolve(reader.result);
-        reader.onerror = reject;
-        reader.readAsDataURL(file);
-    });
-}
-
-// Auto-save draft functionality
-let autoSaveTimeout;
-let isEditingDraft = false;
-let currentDraftId = null;
-
-function debounceAutoSave() {
-    clearTimeout(autoSaveTimeout);
-    autoSaveTimeout = setTimeout(() => {
-        autoSaveCurrentPolicy();
-    }, 2000); // Save 2 seconds after user stops typing
-}
-
-function autoSaveCurrentPolicy() {
-    // Only auto-save if create modal is open
-    const createModal = document.getElementById('createModal');
-    if (!createModal || createModal.style.display === 'none') {
-        return;
-    }
-    
-    // Get form values
-    const title = document.getElementById('policyTitle')?.value;
-    const type = document.getElementById('policyType')?.value;
-    const clinics = Array.from(document.getElementById('clinicApplicability')?.selectedOptions || []).map(option => option.value);
-    
-    // Check if there's any meaningful content
-    if (!title && !type) {
-        return; // Don't save empty forms
-    }
-    
-    // Collect all dynamic field data
-    const dynamicFields = document.getElementById('dynamicManualFormFields');
-    const fieldData = {};
-    if (dynamicFields) {
-        const inputs = dynamicFields.querySelectorAll('input, textarea, select');
-        inputs.forEach(input => {
-            if (input.id && input.value) {
-                fieldData[input.id] = input.value;
-            }
-        });
-    }
-    
-    // Get category
-    const categoryId = document.getElementById('manualPolicyCategory')?.value || null;
-    const categoryNumber = categoryId ? generatePolicyCode(categoryId, 'temp') : null;
-    
-    // Create draft object
-    const draft = {
-        id: currentDraftId || Date.now(),
-        title: title || 'Untitled Policy',
-        type: type || 'admin',
-        clinics: clinics,
-        categoryId: categoryId,
-        fieldData: fieldData,
-        company: currentCompany || 'Default Company',
-        created: new Date().toISOString(),
-        updated: new Date().toISOString(),
-        status: 'draft',
-        autoSaved: true
-    };
-    
-    // Save or update draft
-    const existingDraftIndex = draftPolicies.findIndex(d => d.id === draft.id);
-    if (existingDraftIndex >= 0) {
-        draftPolicies[existingDraftIndex] = draft;
-    } else {
-        draftPolicies.unshift(draft);
-    }
-    
-    saveToLocalStorage('draftPolicies', draftPolicies);
-    currentDraftId = draft.id;
-    
-    console.log('Auto-saved draft:', draft.title);
-}
-
-// Save draft before page unload
-window.addEventListener('beforeunload', function() {
-    autoSaveCurrentPolicy();
-});
-
-// Auto-save creates drafts but doesn't auto-restore
-// Drafts can be manually opened from the draft list
-
-function restoreLastDraft() {
-    // Get the most recent draft for current company
-    const recentDraft = draftPolicies
-        .filter(d => d.company === currentCompany && d.autoSaved)
-        .sort((a, b) => new Date(b.updated) - new Date(a.updated))[0];
-    
-    if (recentDraft) {
-        currentDraftId = recentDraft.id;
-        
-        // Fill in the form with draft data
-        const titleEl = document.getElementById('policyTitle');
-        const typeEl = document.getElementById('policyType');
-        const categoryEl = document.getElementById('manualPolicyCategory');
-        
-        if (titleEl && recentDraft.title) titleEl.value = recentDraft.title;
-        if (typeEl && recentDraft.type) {
-            typeEl.value = recentDraft.type;
-            updateManualFormFields(); // Trigger dynamic fields
-        }
-        if (categoryEl && recentDraft.categoryId) categoryEl.value = recentDraft.categoryId;
-        
-        // Wait a moment for dynamic fields to load, then populate them
-        setTimeout(() => {
-            if (recentDraft.fieldData) {
-                Object.keys(recentDraft.fieldData).forEach(fieldId => {
-                    const field = document.getElementById(fieldId);
-                    if (field && recentDraft.fieldData[fieldId]) {
-                        field.value = recentDraft.fieldData[fieldId];
-                    }
-                });
-            }
-        }, 100);
-        
-        // Show notification
-        showNotification('Draft restored from last session', 'success');
-    }
-}
-

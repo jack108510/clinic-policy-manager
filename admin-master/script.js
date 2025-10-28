@@ -979,10 +979,15 @@ function updateCharts() {
 
 // Reports and Export
 function exportAllData() {
+    // Load policies from storage
+    const savedPolicies = localStorage.getItem('masterPolicies');
+    const policies = savedPolicies ? JSON.parse(savedPolicies) : [];
+    
     const data = {
         companies: companies,
         users: users,
         accessCodes: accessCodes,
+        policies: policies,
         analytics: analytics,
         exportDate: new Date().toISOString()
     };
@@ -2386,10 +2391,15 @@ function clearAllUsers() {
 }
 
 function exportAllData() {
+    // Load policies from storage
+    const savedPolicies = localStorage.getItem('masterPolicies');
+    const policies = savedPolicies ? JSON.parse(savedPolicies) : [];
+    
     const allData = {
         companies: companies,
         users: users,
         accessCodes: accessCodes,
+        policies: policies,
         analytics: analytics,
         timestamp: new Date().toISOString()
     };
@@ -2898,6 +2908,9 @@ function displayPolicies() {
                 <input type="checkbox" class="policy-checkbox" value="${policy.id}">
             </td>
             <td>
+                <span class="policy-code-badge">${policy.policyCode || 'N/A'}</span>
+            </td>
+            <td>
                 <strong>${policy.title}</strong>
             </td>
             <td>
@@ -2955,7 +2968,8 @@ function filterPolicies() {
     
     const filteredPolicies = policies.filter(policy => {
         const matchesSearch = policy.title.toLowerCase().includes(searchTerm) || 
-                             policy.content.toLowerCase().includes(searchTerm);
+                             policy.content.toLowerCase().includes(searchTerm) ||
+                             (policy.policyCode && policy.policyCode.toLowerCase().includes(searchTerm));
         const matchesType = !typeFilter || policy.type === typeFilter;
         const matchesOrg = !orgFilter || policy.clinicNames?.includes(orgFilter);
         
@@ -2978,6 +2992,9 @@ function filterPolicies() {
         <tr>
             <td>
                 <input type="checkbox" class="policy-checkbox" value="${policy.id}">
+            </td>
+            <td>
+                <span class="policy-code-badge">${policy.policyCode || 'N/A'}</span>
             </td>
             <td>
                 <strong>${policy.title}</strong>
@@ -3054,6 +3071,7 @@ function viewPolicy(policyId) {
             <div class="modal-body">
                 <div class="policy-view">
                     <div class="policy-meta">
+                        <p><strong>Policy Code:</strong> ${policy.policyCode || 'N/A'}</p>
                         <p><strong>Type:</strong> ${getPolicyTypeLabel(policy.type)}</p>
                         <p><strong>Organizations:</strong> ${policy.clinicNames || 'All Organizations'}</p>
                         <p><strong>Created:</strong> ${formatDate(policy.created)}</p>

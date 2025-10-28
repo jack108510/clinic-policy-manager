@@ -7180,6 +7180,13 @@ function bulkEditUsers() {
         selectedUsers.forEach(user => {
             if (newRole) {
                 user.role = newRole;
+                
+                // CRITICAL: If we're editing the currently logged in user, update currentUser
+                if (currentUser && (currentUser.id === user.id || currentUser.username === user.username)) {
+                    console.log('Updating currentUser role from', currentUser.role, 'to', newRole);
+                    currentUser.role = newRole;
+                    saveToLocalStorage('currentUser', currentUser);
+                }
             }
             
             if (orgsToAdd.length > 0) {
@@ -7192,6 +7199,12 @@ function bulkEditUsers() {
                         user.organizations.push(org);
                     }
                 });
+                
+                // CRITICAL: If we're editing the currently logged in user, update organizations
+                if (currentUser && (currentUser.id === user.id || currentUser.username === user.username)) {
+                    currentUser.organizations = user.organizations;
+                    saveToLocalStorage('currentUser', currentUser);
+                }
             }
         });
         
@@ -7333,6 +7346,14 @@ function editUser(userId) {
         // Update user
         user.role = newRole;
         user.organizations = selectedOrgs;
+        
+        // CRITICAL: If we're editing the currently logged in user, update currentUser
+        if (currentUser && (currentUser.id === user.id || currentUser.username === user.username)) {
+            console.log('Updating currentUser role from', currentUser.role, 'to', newRole);
+            currentUser.role = newRole;
+            currentUser.organizations = selectedOrgs;
+            saveToLocalStorage('currentUser', currentUser);
+        }
         
         // Save to localStorage
         localStorage.setItem('masterUsers', JSON.stringify(allUsers));

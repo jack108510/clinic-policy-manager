@@ -470,6 +470,23 @@
                         <h3>Related Documents</h3>
                         <p style="margin-bottom: 20px; color: #666;">Store and manage documents that can be linked to policies</p>
                         
+                        <!-- File Upload Area -->
+                        <div id="fileUploadArea" style="border: 2px dashed #667eea; border-radius: 8px; padding: 40px; text-align: center; background: #f8f9fa; margin-bottom: 20px; cursor: pointer; transition: all 0.3s ease;"
+                             ondrop="handleFileDrop(event)" ondragover="allowDrop(event)" ondragleave="handleDragLeave(event)" 
+                             onclick="document.getElementById('fileInput').click()">
+                            <input type="file" id="fileInput" style="display: none;" multiple onchange="handleFileSelect(event)">
+                            <i class="fas fa-cloud-upload-alt" style="font-size: 48px; color: #667eea; margin-bottom: 15px;"></i>
+                            <h4 style="margin: 10px 0; color: #333;">Drag and Drop Files Here</h4>
+                            <p style="color: #666; margin: 5px 0;">or click to browse</p>
+                            <small style="color: #999; display: block; margin-top: 10px;">PDF, DOCX, DOC, TXT, and other document formats supported</small>
+                            <div id="uploadProgress" style="display: none; margin-top: 20px;">
+                                <div style="background: #e5e7eb; border-radius: 4px; height: 6px; overflow: hidden;">
+                                    <div id="uploadProgressBar" style="background: #667eea; height: 100%; width: 0%; transition: width 0.3s;"></div>
+            </div>
+                                <p id="uploadStatus" style="margin-top: 10px; color: #666;">Uploading...</p>
+                            </div>
+                        </div>
+                        
                         <div class="add-item-form">
                             <input type="text" id="newDocumentName" placeholder="Document name (e.g., HIPAA Compliance Guide)" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px; margin-bottom: 10px;">
                             <input type="url" id="newDocumentUrl" placeholder="Document URL or file path" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px; margin-bottom: 10px;">
@@ -1326,6 +1343,6 @@
         </div>
     </footer>
 
-    <script src="script.js?v=122&t=20250128"></script>
+    <script src="script.js?v=123&t=20250128"></script>
 </body>
 </html>

@@ -9427,3 +9427,132 @@ function updateAICategoryCode() {
         codeDisplay.style.display = 'none';
     }
 }
+
+// File upload functions
+function allowDrop(event) {
+    event.preventDefault();
+    event.stopPropagation();
+    const uploadArea = document.getElementById('fileUploadArea');
+    uploadArea.style.background = '#e8f0fe';
+    uploadArea.style.borderColor = '#667eea';
+}
+
+function handleDragLeave(event) {
+    event.preventDefault();
+    event.stopPropagation();
+    const uploadArea = document.getElementById('fileUploadArea');
+    uploadArea.style.background = '#f8f9fa';
+    uploadArea.style.borderColor = '#667eea';
+}
+
+function handleFileDrop(event) {
+    event.preventDefault();
+    event.stopPropagation();
+    
+    const uploadArea = document.getElementById('fileUploadArea');
+    uploadArea.style.background = '#f8f9fa';
+    uploadArea.style.borderColor = '#667eea';
+    
+    const files = event.dataTransfer.files;
+    if (files.length > 0) {
+        handleFiles(files);
+    }
+}
+
+function handleFileSelect(event) {
+    const files = event.target.files;
+    if (files.length > 0) {
+        handleFiles(files);
+    }
+}
+
+async function handleFiles(files) {
+    const uploadArea = document.getElementById('fileUploadArea');
+    const uploadProgress = document.getElementById('uploadProgress');
+    const uploadProgressBar = document.getElementById('uploadProgressBar');
+    const uploadStatus = document.getElementById('uploadStatus');
+    
+    uploadProgress.style.display = 'block';
+    
+    for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        uploadStatus.textContent = `Uploading ${file.name}... (${i + 1}/${files.length})`;
+        
+        // Simulate progress
+        let progress = 0;
+        const progressInterval = setInterval(() => {
+            progress += 5;
+            uploadProgressBar.style.width = `${progress}%`;
+            if (progress >= 100) {
+                clearInterval(progressInterval);
+            }
+        }, 50);
+        
+        try {
+            // Convert file to base64
+            const fileData = await readFileAsBase64(file);
+            
+            // Get webhook URL
+            const webhookUrl = localStorage.getItem('webhookUrlAI') || 'http://localhost:5678/webhook/b501e849-7a23-49d6-9502-66fb14b5a77e';
+            
+            // Send file to webhook
+            const formData = new FormData();
+            formData.append('file', file);
+            formData.append('filename', file.name);
+            formData.append('fileType', file.type);
+            formData.append('fileSize', file.size);
+            formData.append('company', currentCompany);
+            formData.append('data', fileData);
+            
+            const response = await fetch(webhookUrl, {
+                method: 'POST',
+                body: formData
+            });
+            
+            if (response.ok) {
+                const responseData = await response.json();
+                console.log('File uploaded successfully:', responseData);
+                
+                // Add document to the list
+                const newDocument = {
+                    id: Date.now() + i,
+                    name: file.name,
+                    url: responseData.url || '#',
+                    description: `Uploaded: ${new Date().toLocaleDateString()}`,
+                    type: file.type,
+                    size: file.size,
+                    date: new Date().toISOString()
+                };
+                
+                documents.push(newDocument);
+                saveDocuments();
+            } else {
+                throw new Error(`Upload failed with status: ${response.status}`);
+            }
+        } catch (error) {
+            console.error('Error uploading file:', error);
+            showNotification(`Error uploading ${file.name}: ${error.message}`, 'error');
+        }
+    }
+    
+    // Reset progress
+    uploadProgress.style.display = 'none';
+    uploadProgressBar.style.width = '0%';
+    uploadStatus.textContent = 'Uploading...';
+    
+    // Display documents
+    displayDocuments();
+    showNotification('Files uploaded successfully!', 'success');
+    
+    // Clear file input
+    document.getElementById('fileInput').value = '';
+}
+
+function readFileAsBase64(file) {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+    });
+}

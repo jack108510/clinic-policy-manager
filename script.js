@@ -8651,14 +8651,15 @@ function openPasswordModal() {
     console.log('Role type:', typeof currentUser?.role);
     
     // Check if user has admin privileges - check multiple possible role values
-    const isAdmin = currentUser && (
-        currentUser.role === 'admin' || 
-        currentUser.role === 'Admin' || 
-        (currentUser.role && currentUser.role.toLowerCase() === 'admin')
-    );
+    // Only bypass password if role is explicitly 'admin', otherwise require password
+    const isAdmin = currentUser && currentUser.role && 
+        (currentUser.role === 'admin' || 
+         currentUser.role === 'Admin' || 
+         currentUser.role.toLowerCase() === 'admin');
     
     console.log('Is admin?', isAdmin);
     
+    // For debugging - if this is true, the user will bypass password
     if (isAdmin) {
         console.log('✅ User has admin role, granting immediate access without password');
         showNotification('Admin access granted!', 'success');
@@ -8668,6 +8669,10 @@ function openPasswordModal() {
     
     // User doesn't have admin privileges, show password modal
     console.log('❌ User does not have admin role, showing password modal');
+    console.log('User role value:', currentUser?.role);
+    console.log('User role === "admin"?', currentUser?.role === 'admin');
+    console.log('User role === "user"?', currentUser?.role === 'user');
+    
     const modal = document.getElementById('passwordModal');
     console.log('Password modal element:', modal);
     
@@ -8697,10 +8702,10 @@ function openPasswordModal() {
                 passwordField.focus();
             }
         
-        console.log('Password modal opened successfully');
+        console.log('✅ Password modal opened successfully for non-admin user');
     } else {
-        console.error('Password modal not found!');
-        alert('Password modal not found!');
+        console.error('❌ Password modal not found!');
+        alert('Password modal not found! Please refresh the page and try again.');
     }
 }
 

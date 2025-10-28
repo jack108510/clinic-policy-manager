@@ -8647,9 +8647,19 @@ function openPasswordModal() {
     console.log('openPasswordModal function called!');
     console.log('Current user:', currentUser);
     console.log('Current company:', currentCompany);
+    console.log('User role:', currentUser?.role);
+    console.log('Role type:', typeof currentUser?.role);
     
-    // Check if user has admin privileges
-    if (currentUser && currentUser.role === 'admin') {
+    // Check if user has admin privileges - check multiple possible role values
+    const isAdmin = currentUser && (
+        currentUser.role === 'admin' || 
+        currentUser.role === 'Admin' || 
+        (currentUser.role && currentUser.role.toLowerCase() === 'admin')
+    );
+    
+    console.log('Is admin?', isAdmin);
+    
+    if (isAdmin) {
         console.log('✅ User has admin role, granting immediate access without password');
         showNotification('Admin access granted!', 'success');
         openAdminModal(); // Open admin dashboard directly

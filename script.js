@@ -1143,10 +1143,14 @@ function displayUploadResults(uploadResults) {
         uploadedFiles.style.display = 'none';
     }
     analysisResults.style.display = 'block';
+    
+    // Clear previous results but preserve structure
     analysisContent.innerHTML = '';
     
     console.log('Analysis results section made visible');
+    console.log(`Processing ${uploadResults.length} upload results, each will get its own card`);
     
+    // Process each upload result separately - each gets its own card
     uploadResults.forEach((result, index) => {
         console.log(`Processing result ${index}:`, result);
         const file = result.file;
@@ -1270,9 +1274,19 @@ function displayUploadResults(uploadResults) {
         const resultCard = document.createElement('div');
         resultCard.className = 'upload-policy-result';
         resultCard.id = `uploadPolicyCard-${index}`;
-        resultCard.style.cssText = 'margin-bottom: 30px; padding: 25px; background: white; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);';
+        resultCard.style.cssText = 'margin-bottom: 40px; padding: 25px; background: white; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); border: 2px solid #e5e7eb; position: relative;';
+        
+        // Add a visual separator/header for each uploaded file
+        const fileNumber = index + 1;
+        const totalFiles = uploadResults.length;
         
         resultCard.innerHTML = `
+            <div style="position: absolute; top: -12px; left: 20px; background: #667eea; color: white; padding: 4px 12px; border-radius: 20px; font-size: 0.75rem; font-weight: 700; z-index: 10;">
+                Document ${fileNumber} of ${totalFiles}
+            </div>
+            <div style="margin-top: 10px; margin-bottom: 15px; padding: 10px; background: #f0f0f0; border-radius: 6px; font-size: 0.85rem; color: #666;">
+                <i class="fas fa-file-alt"></i> <strong>Source File:</strong> ${file.name}
+            </div>
             <div class="policy-preview professional" style="max-width: 100%;">
                 <div class="policy-header" style="margin-bottom: 20px; padding-bottom: 15px; border-bottom: 2px solid #e5e7eb;">
                     <div class="form-group" style="margin-bottom: 15px;">
@@ -1396,13 +1410,19 @@ function displayUploadResults(uploadResults) {
         // Populate with all uploaded policies
         uploadResults.forEach((result, idx) => {
             const fileName = result.file?.name || `Policy ${idx + 1}`;
+            const cleanFileName = fileName.replace(/\.[^/.]+$/, '');
             const option = document.createElement('option');
             option.value = idx;
-            option.textContent = `${idx + 1}. ${fileName.replace(/\.[^/.]+$/, '')}`;
+            option.textContent = `${idx + 1}. ${cleanFileName}`;
             globalAIPolicyIndex.appendChild(option);
         });
         
         console.log(`✅ Global AI edit section populated with ${uploadResults.length} policies`);
+    } else if (uploadResults.length === 1) {
+        // Hide global section if only one file - use individual card's AI section instead
+        if (globalAIEditSection) {
+            globalAIEditSection.style.display = 'none';
+        }
     }
     
     console.log('displayUploadResults completed. Total cards:', uploadResults.length);

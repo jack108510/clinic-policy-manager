@@ -8607,37 +8607,43 @@ let tourSteps = [
     },
     {
         title: '3️⃣ Create New Policy',
-        description: '🐧 Click "Create New Policy" above to add policies manually with all the details you need.',
+        description: '🐧 Click "Create New Policy" above to add policies manually. Or try "AI Policy Generator" for AI-powered creation!',
         icon: '🐧',
         action: null
     },
     {
-        title: '4️⃣ AI Policy Assistant',
-        description: '🐧 Or try the "AI Policy Generator" for AI-powered policy creation - just describe what you need!',
+        title: '4️⃣ Try AI Policy Generator',
+        description: '🐧 Click "AI Policy Generator" to create policies with AI. Just describe what you need and watch the magic happen!',
         icon: '🐧',
         action: null
     },
     {
-        title: '5️⃣ Manage Users',
-        description: '🐧 The "Manage Users" feature lets you add team members, assign roles, and manage permissions.',
+        title: '5️⃣ Upload Policy Documents',
+        description: '🐧 Click "Upload Policy Documents" to import existing policies from files. The system will process them automatically!',
         icon: '🐧',
-        action: 'show-manage-users'
+        action: null
     },
     {
-        title: '6️⃣ Settings & Configuration',
-        description: '🐧 Configure organizations, categories, roles, and webhooks in the Settings tab.',
+        title: '6️⃣ Manage Users',
+        description: '🐧 Click "Manage Users" to add team members, assign roles, and control permissions for your organization.',
         icon: '🐧',
-        action: 'show-settings'
+        action: null
     },
     {
-        title: '7️⃣ Profile & Account',
-        description: '🐧 Access your profile settings, account information, and preferences.',
+        title: '7️⃣ Configure Settings',
+        description: '🐧 Click "Settings" to set up organizations, categories, roles, and webhooks. Customize your policy management!',
         icon: '🐧',
-        action: 'show-profile'
+        action: null
+    },
+    {
+        title: 'Profile & Preferences',
+        description: '🐧 Click your profile icon in the top navigation to view your account info, preferences, and settings.',
+        icon: '🐧',
+        action: null
     },
     {
         title: 'You\'re All Set! 🚀',
-        description: '🐧 You now know all the key features. Start creating and managing your policies!',
+        description: '🐧 You now know all the key features! Start creating policies, managing users, and exploring. Happy policy management!',
         icon: '🐧',
         action: null
     }
@@ -8777,28 +8783,12 @@ function executeTourAction(action) {
             break;
             
         case 'show-create-policy':
-            // Don't end tour, just let them explore
-            console.log('User can now create policies');
-            break;
-            
         case 'show-ai-assistant':
-            // Don't end tour, just let them explore
-            console.log('User can now use AI assistant');
-            break;
-            
         case 'show-manage-users':
-            // Don't end tour, just let them explore
-            console.log('User can now manage users');
-            break;
-            
         case 'show-settings':
-            // Don't end tour, just let them explore
-            console.log('User can now access settings');
-            break;
-            
         case 'show-profile':
             // Don't end tour, just let them explore
-            console.log('User can now access profile');
+            console.log('User can explore the feature');
             break;
     }
 }

@@ -8683,9 +8683,10 @@ function nextTourStep() {
     showTourStep(currentTourStep);
     
     // Execute action AFTER showing the step (so user sees the message while action happens)
-    // Only execute action if it's the admin dashboard step
-    if (step.action && currentTourStep === 1) {
-        // Execute action for the admin dashboard step (step 2, index 1)
+    // Only execute action if it's the admin dashboard step (index 2)
+    if (step.action && currentTourStep === 2) {
+        // Execute action for the admin dashboard step (step 3, index 2)
+        console.log('Executing admin dashboard action');
         setTimeout(() => {
             executeTourAction(step.action);
         }, 300);

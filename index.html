@@ -137,24 +137,32 @@
         </section>
     </div>
 
-    <!-- Feature Tour Overlay (completely outside landing page) -->
-    <div id="tourOverlay" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 9998; pointer-events: all;"></div>
+    <!-- Feature Tour Overlay (lighter, non-blocking) -->
+    <div id="tourOverlay" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.3); z-index: 9998; pointer-events: none;"></div>
     
-    <!-- Feature Tour Modal (bottom-right corner, penguin style) -->
-    <div id="tourModal" style="display: none; position: fixed; bottom: 30px; right: 30px; background: white; padding: 30px; border-radius: 20px; box-shadow: 0 10px 40px rgba(0,0,0,0.3); z-index: 9999; max-width: 400px; text-align: left; border: 4px solid #667eea;">
+    <!-- Feature Tour Modal (bottom-right corner, penguin style, helper guide) -->
+    <div id="tourModal" style="display: none; position: fixed; bottom: 30px; right: 30px; background: white; padding: 25px; border-radius: 16px; box-shadow: 0 8px 32px rgba(0,0,0,0.15); z-index: 9999; max-width: 380px; text-align: left; border: 3px solid #667eea;">
         <div id="tourContent">
-            <div style="display: flex; align-items: center; margin-bottom: 15px;">
-                <div id="tourIcon" style="font-size: 48px; margin-right: 15px; color: #667eea;">
+            <div style="display: flex; align-items: flex-start; margin-bottom: 15px;">
+                <div id="tourIcon" style="font-size: 40px; margin-right: 12px; flex-shrink: 0;">
                     🐧
                 </div>
-                <h2 id="tourTitle" style="margin: 0; color: #333; font-size: 1.4rem;">Welcome to Policy Pro!</h2>
+                <div style="flex: 1;">
+                    <h2 id="tourTitle" style="margin: 0 0 8px 0; color: #333; font-size: 1.2rem; line-height: 1.3;">Welcome to Policy Pro!</h2>
+                    <p id="tourDescription" style="color: #666; line-height: 1.5; margin: 0; font-size: 0.95rem;">Let's explore the key features together. Click "Next" to continue or interact with the page!</p>
+                </div>
             </div>
-            <p id="tourDescription" style="color: #666; line-height: 1.6; margin-bottom: 20px;">Let's explore the key features together. Click "Next" to continue.</p>
-            <div style="display: flex; gap: 10px; justify-content: flex-end;">
-                <button id="tourSkip" onclick="skipTour()" style="padding: 10px 20px; border: 2px solid #ddd; background: white; color: #666; border-radius: 8px; cursor: pointer; font-weight: 500;">Skip</button>
-                <button id="tourNext" onclick="nextTourStep()" style="padding: 10px 20px; border: none; background: #667eea; color: white; border-radius: 8px; cursor: pointer; font-weight: 600;">Next →</button>
+            <div style="display: flex; gap: 8px; justify-content: flex-end; margin-top: 15px; padding-top: 15px; border-top: 1px solid #eee;">
+                <button id="tourSkip" onclick="skipTour()" style="padding: 8px 16px; border: 1px solid #ddd; background: white; color: #666; border-radius: 6px; cursor: pointer; font-weight: 500; font-size: 0.9rem;">Skip</button>
+                <button id="tourNext" onclick="nextTourStep()" style="padding: 8px 16px; border: none; background: #667eea; color: white; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 0.9rem;">Next →</button>
             </div>
         </div>
+        <style>
+            @keyframes pulse {
+                0%, 100% { transform: translateY(0); }
+                50% { transform: translateY(-5px); }
+            }
+        </style>
     </div>
 
     <!-- Navigation -->

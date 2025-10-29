@@ -8721,10 +8721,18 @@ function showTourStep(stepIndex) {
     if (titleEl) titleEl.textContent = step.title;
     if (descEl) descEl.textContent = step.description;
     
-    // Show modal and overlay
+    // Show modal and overlay (light overlay, non-blocking)
     console.log('Showing tour modal and overlay');
     modal.style.display = 'block';
-    overlay.style.display = 'block';
+    if (overlay) overlay.style.display = 'block';
+    
+    // Add a subtle pulse animation
+    if (modal) {
+        modal.style.animation = 'none';
+        setTimeout(() => {
+            modal.style.animation = 'pulse 0.5s ease-in-out';
+        }, 10);
+    }
     
     // Update button text based on step
     const nextBtn = document.getElementById('tourNext');
@@ -8921,15 +8929,14 @@ function startDemo() {
     
     // Always start the feature tour for demo mode
     console.log('✅ Demo started successfully');
-    console.log('🚀 Starting tour in 2 seconds...');
+    console.log('🚀 Starting tour in 1 second...');
     
     // Scroll to top
     window.scrollTo(0, 0);
     
-    // Start tour with delay
+    // Start tour with shorter delay
     setTimeout(() => {
         console.log('⏰ Tour timer fired');
-        console.log('Checking tour elements...');
         
         const modal = document.getElementById('tourModal');
         const overlay = document.getElementById('tourOverlay');
@@ -8942,7 +8949,7 @@ function startDemo() {
         } else {
             console.error('❌ startTour function not found!');
         }
-    }, 2000);
+    }, 1000);
 }
 
 // Duplicate requireLogin function removed - using the one defined earlier

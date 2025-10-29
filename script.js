@@ -9462,13 +9462,20 @@ function selectPlan(plan) {
     
     // Open company signup form after a short delay
     setTimeout(() => {
+        console.log('Attempting to open company signup modal...');
         const modal = document.getElementById('companySignupModal');
+        console.log('Company signup modal element:', modal);
+        
         if (modal) {
+            console.log('Opening company signup modal...');
             modal.style.display = 'block';
             modal.classList.add('show');
             
             // Setup form listeners
             setupCompanySignupFormListeners();
+            console.log('Company signup modal opened successfully');
+        } else {
+            console.error('Company signup modal not found!');
         }
     }, 300);
     

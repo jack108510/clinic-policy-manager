@@ -1190,6 +1190,7 @@ function displayUploadResults(uploadResults) {
         }
         
         if (!markdown) {
+            console.error('No markdown found in data:', data);
             // Fallback: show raw data
             analysisContent.innerHTML += `
                 <div class="analysis-item" style="margin-bottom: 30px; padding: 20px; background: white; border-radius: 12px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
@@ -1201,6 +1202,9 @@ function displayUploadResults(uploadResults) {
             `;
             return;
         }
+        
+        console.log('Markdown found:', markdown.substring(0, 100) + '...');
+        console.log('Policy data:', policyData);
         
         // Parse markdown into sections
         const sections = parseWebhookPolicyMarkdown(markdown);
@@ -1268,10 +1272,12 @@ function displayUploadResults(uploadResults) {
         `;
         
         analysisContent.appendChild(resultCard);
+        console.log(`Result card ${index} appended to analysisContent`);
         
         // Populate category dropdown after HTML is rendered
         setTimeout(() => {
             populateUploadCategoryDropdown(index);
+            console.log(`Category dropdown ${index} populated`);
         }, 100);
     });
     

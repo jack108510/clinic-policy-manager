@@ -8762,7 +8762,16 @@ function showTourStep(stepIndex) {
     const titleEl = document.getElementById('tourTitle');
     const descEl = document.getElementById('tourDescription');
     
-    if (iconEl) iconEl.textContent = step.icon; // Use emoji instead of Font Awesome
+    if (iconEl) {
+        // Keep the 3D animated structure but update the emoji
+        const innerDiv = iconEl.querySelector('div');
+        if (innerDiv) {
+            innerDiv.textContent = step.icon;
+        } else {
+            // If structure doesn't exist, create it
+            iconEl.innerHTML = `<div style="transform: perspective(500px) rotateY(-10deg) rotateX(-5deg) translateZ(20px); transition: transform 0.3s; animation: penguinWaddle 2s infinite ease-in-out;">${step.icon}</div>`;
+        }
+    }
     if (titleEl) titleEl.textContent = step.title;
     if (descEl) descEl.textContent = step.description;
     

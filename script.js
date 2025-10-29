@@ -914,41 +914,32 @@ async function sendFileToWebhook(file, statusElement) {
     const webhookUrl = 'http://localhost:5678/webhook/b501e849-7a23-49d6-9502-66fb14b5a77e';
     
     try {
-        // Convert file to base64
-        const base64File = await fileToBase64(file);
+        // Create FormData for binary file upload (multipart/form-data)
+        const formData = new FormData();
+        formData.append('file', file); // Binary file data
+        formData.append('filename', file.name);
+        formData.append('size', file.size.toString());
+        formData.append('type', file.type);
+        formData.append('company', currentCompany || 'Unknown');
+        formData.append('username', currentUser?.username || 'Unknown');
+        formData.append('timestamp', new Date().toISOString());
         
-        // Build query parameters like the policy webhook
-        const webhookData = {
-            filename: file.name,
-            size: file.size,
-            type: file.type,
-            company: currentCompany || 'Unknown',
-            username: currentUser?.username || 'Unknown',
-            timestamp: new Date().toISOString(),
-            file: base64File
-        };
+        console.log('Sending file to webhook as FormData:', file.name, 'Size:', file.size, 'Type:', file.type, 'URL:', webhookUrl);
         
-        console.log('Sending file to webhook:', file.name, 'URL:', webhookUrl);
-        
-        // Use GET request with query parameters like the working webhook
-        const queryParams = new URLSearchParams(webhookData);
-        const response = await fetch(`${webhookUrl}?${queryParams}`, {
-            method: 'GET',
-            headers: {
-                'Content-Type': 'application/json'
-            }
+        // POST request with FormData (multipart/form-data)
+        // Browser automatically sets Content-Type with boundary - don't set it manually!
+        const response = await fetch(webhookUrl, {
+            method: 'POST',
+            body: formData
         });
         
         console.log('Waiting for webhook response...');
-        
-        // Wait for the response
         console.log('Response status:', response.status, 'OK:', response.ok);
         
         if (response.ok) {
             const responseData = await response.text();
             console.log('File uploaded successfully:', responseData);
             
-            // Only update UI after successful response
             if (statusElement) {
                 statusElement.textContent = 'Uploaded ✓';
                 statusElement.className = 'status-badge success';

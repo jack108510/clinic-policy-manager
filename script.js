@@ -7051,6 +7051,11 @@ function openSettingsModal() {
 
 function closeSettingsModal() {
     document.getElementById('settingsModal').classList.remove('show');
+    
+    // Automatically reopen admin dashboard when closing settings
+    setTimeout(() => {
+        openAdminModal();
+    }, 250);
 }
 
 function showSettingsTab(tabName) {

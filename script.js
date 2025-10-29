@@ -8657,6 +8657,29 @@ function testTour() {
 window.startTour = startTour;
 window.testTour = testTour;
 
+// Penguin Mascot Interaction
+document.addEventListener('DOMContentLoaded', function() {
+    const penguin = document.getElementById('penguinMascot');
+    if (penguin) {
+        penguin.addEventListener('click', function() {
+            // Start tour when penguin is clicked
+            console.log('🐧 Penguin clicked!');
+            if (typeof startTour === 'function') {
+                startTour();
+            }
+        });
+        
+        // Animate penguin on hover
+        penguin.addEventListener('mouseenter', function() {
+            this.style.transform = 'scale(1.2)';
+        });
+        
+        penguin.addEventListener('mouseleave', function() {
+            this.style.transform = 'scale(1)';
+        });
+    }
+});
+
 function nextTourStep() {
     currentTourStep++;
     

@@ -5584,9 +5584,8 @@ function populateAIOrganizations() {
 
 function openCreateModal() {
     console.log('📝 openCreateModal called');
-    // Close admin dashboard first
-    closeAdminModal();
-    // Open create policy modal
+    // Keep admin dashboard open, just open create modal on top
+    // Open create policy modal (z-index 3500, above admin modal at 2000)
     document.getElementById('createModal').style.display = 'block';
     
     // Small delay to ensure DOM is ready

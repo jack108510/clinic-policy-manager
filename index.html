@@ -1156,6 +1156,22 @@
                                 <input type="password" id="adminPasswordConfirm" placeholder="Confirm your password" required minlength="6">
                             </div>
                         </div>
+                        
+                        <div class="form-group">
+                            <label for="companyAdminPassword">Company Admin Password <span style="color: red;">*</span> 
+                                <span style="position: relative; cursor: help;">
+                                    <i class="fas fa-question-circle" style="color: #667eea; margin-left: 5px;"></i>
+                                    <span style="position: absolute; bottom: 100%; left: 0; background: #333; color: white; padding: 8px 12px; border-radius: 4px; font-size: 12px; white-space: nowrap; opacity: 0; pointer-events: none; transition: opacity 0.3s; margin-bottom: 5px;" onmouseenter="this.style.opacity='1'" onmouseleave="this.style.opacity='0'">
+                                        This password protects the admin dashboard. Share it with authorized admins only.
+                                    </span>
+                                </span>
+                            </label>
+                            <div class="input-group">
+                                <i class="fas fa-shield-alt"></i>
+                                <input type="password" id="companyAdminPassword" placeholder="Create admin dashboard password" required minlength="6">
+                            </div>
+                            <small style="color: #666; display: block; margin-top: 5px;">Used to access the admin dashboard</small>
+                        </div>
                     </div>
                     
                     <!-- Selected Plan Info -->

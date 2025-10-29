@@ -9522,6 +9522,7 @@ function handleCompanySignup() {
     const adminUsername = document.getElementById('adminUsername').value;
     const adminPassword = document.getElementById('adminPassword').value;
     const adminPasswordConfirm = document.getElementById('adminPasswordConfirm').value;
+    const companyAdminPassword = document.getElementById('companyAdminPassword').value;
     
     // Validate passwords match
     if (adminPassword !== adminPasswordConfirm) {
@@ -9536,28 +9537,90 @@ function handleCompanySignup() {
     // Get selected plan
     const selectedPlan = localStorage.getItem('selectedPlan') || 'free-trial';
     
-    // For now, just show success message
-    showNotification('Company registration submitted successfully! You will be contacted soon.', 'success');
+    console.log('Creating company:', companyName);
     
-    console.log('Company Signup:', {
-        companyName,
-        industry: companyIndustry,
-        phone: companyPhone,
-        admin: {
-            fullName: adminFullName,
-            email: adminEmail,
-            username: adminUsername
-        },
-        plan: selectedPlan
-    });
+    // Load existing data
+    const masterCompanies = JSON.parse(localStorage.getItem('masterCompanies') || '[]');
+    const masterUsers = JSON.parse(localStorage.getItem('masterUsers') || '[]');
+    const accessCodes = JSON.parse(localStorage.getItem('masterAccessCodes') || '[]');
     
-    // TODO: Implement actual company registration logic
-    // This could integrate with a backend service to create the company account
+    // Create company
+    const newCompany = {
+        id: Date.now().toString(),
+        name: companyName,
+        industry: companyIndustry || '',
+        phone: companyPhone || '',
+        plan: selectedPlan,
+        adminPassword: companyAdminPassword,
+        created: new Date().toISOString().split('T')[0]
+    };
     
-    // Close the modal after a delay
-    setTimeout(() => {
-        closeCompanySignupModal();
-    }, 2000);
+    masterCompanies.push(newCompany);
+    localStorage.setItem('masterCompanies', JSON.stringify(masterCompanies));
+    
+    // Create access code for the company
+    const newAccessCode = {
+        id: Date.now().toString() + '_code',
+        code: companyName.substring(0, 3).toUpperCase() + Date.now().toString().slice(-6),
+        description: companyName,
+        companyId: newCompany.id,
+        created: new Date().toISOString().split('T')[0]
+    };
+    
+    accessCodes.push(newAccessCode);
+    localStorage.setItem('masterAccessCodes', JSON.stringify(accessCodes));
+    
+    // Create admin user
+    const newUser = {
+        id: Date.now().toString() + '_user',
+        username: adminUsername,
+        email: adminEmail,
+        password: adminPassword,
+        fullName: adminFullName,
+        company: companyName,
+        role: 'admin',
+        created: new Date().toISOString().split('T')[0],
+        accessCode: newAccessCode.code
+    };
+    
+    masterUsers.push(newUser);
+    localStorage.setItem('masterUsers', JSON.stringify(masterUsers));
+    
+    // Add company to organizations
+    const organizations = JSON.parse(localStorage.getItem('organizations') || '{}');
+    if (!organizations[companyName]) {
+        organizations[companyName] = [companyName];
+        localStorage.setItem('organizations', JSON.stringify(organizations));
+    }
+    
+    console.log('Company created:', newCompany);
+    console.log('User created:', newUser);
+    console.log('Access code created:', newAccessCode);
+    
+    // Show success message
+    showNotification('Company created successfully! Logging you in...', 'success');
+    
+    // Close modal and login
+    closeCompanySignupModal();
+    
+    // Set as current user and company
+    currentUser = newUser;
+    currentCompany = companyName;
+    
+    // Save to localStorage
+    saveToLocalStorage('currentUser', currentUser);
+    saveToLocalStorage('currentCompany', currentCompany);
+    
+    // Add user-logged-in class to body
+    document.body.classList.add('user-logged-in');
+    
+    // Update UI
+    updateUserInterface();
+    
+    // Load policies
+    loadPoliciesFromStorage();
+    
+    showNotification(`Welcome ${adminFullName}! Your company "${companyName}" has been set up.`, 'success');
 }
 
 function showCompanyCodeSignup() {

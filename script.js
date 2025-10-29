@@ -911,11 +911,13 @@ async function processFiles(files) {
                 const file = files[fileCard.index];
                 updateN8nLoadingProgress(completedCount, files.length, file.name);
                 const result = await sendFileToWebhook(file, fileCard.statusElement);
+                console.log('Received result from webhook:', result);
                 // Always add result, even if empty (we'll handle empty responses in display)
                 uploadResults.push({
                     file: file,
                     data: result
                 });
+                console.log('Added to uploadResults. Total results:', uploadResults.length);
                 completedCount++;
                 updateN8nLoadingProgress(completedCount, files.length, file.name);
             }
@@ -928,11 +930,15 @@ async function processFiles(files) {
         }
         
         // Show results after all files are uploaded (always show, even if response was empty)
+        console.log('Upload complete. hasError:', hasError, 'uploadResults.length:', uploadResults.length);
         if (!hasError && uploadResults.length > 0) {
             console.log('Displaying upload results:', uploadResults);
             displayUploadResults(uploadResults);
         } else if (!hasError) {
+            console.log('No upload results, showing processing status');
             showProcessingStatus();
+        } else {
+            console.log('Upload had errors');
         }
     }
 }
@@ -1098,11 +1104,21 @@ function hideN8nLoadingOverlay() {
 }
 
 function displayUploadResults(uploadResults) {
+    console.log('displayUploadResults called with:', uploadResults);
     const uploadedFiles = document.getElementById('uploadedFiles');
     const analysisResults = document.getElementById('analysisResults');
     const analysisContent = document.getElementById('analysisContent');
     
-    if (!analysisResults || !analysisContent) return;
+    console.log('Elements found:', {
+        uploadedFiles: !!uploadedFiles,
+        analysisResults: !!analysisResults,
+        analysisContent: !!analysisContent
+    });
+    
+    if (!analysisResults || !analysisContent) {
+        console.error('Missing required elements for displayUploadResults');
+        return;
+    }
     
     // Hide uploaded files list and show analysis results
     if (uploadedFiles) {

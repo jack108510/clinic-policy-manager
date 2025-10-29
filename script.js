@@ -52,23 +52,75 @@ if (masterData) {
 // Listen for master data updates from admin dashboard
 window.addEventListener('masterDataUpdated', function(event) {
     const updatedData = event.detail;
-    console.log('Master data updated:', updatedData);
+    console.log('📡 Master data updated event received:', updatedData);
     
     // Update local data with new master data
     if (updatedData.users && Array.isArray(updatedData.users)) {
+        console.log('🔄 Updating users:', updatedData.users.length);
         users = updatedData.users;
+        
+        // Filter to current company if logged in
         if (currentCompany) {
-            users = users.filter(user => user.company === currentCompany);
+            const companyUsers = users.filter(user => user.company === currentCompany);
+            console.log('👥 Company users:', companyUsers.length);
         }
         
-        // Save updated data
+        // Save updated data to both user lists
         saveToLocalStorage('users', users);
+        localStorage.setItem('masterUsers', JSON.stringify(updatedData.users));
+    }
+    
+    // Update companies
+    if (updatedData.companies && Array.isArray(updatedData.companies)) {
+        console.log('🏢 Updating companies:', updatedData.companies.length);
+        const companies = updatedData.companies;
+        localStorage.setItem('masterCompanies', JSON.stringify(companies));
+    }
+    
+    // Update access codes
+    if (updatedData.accessCodes && Array.isArray(updatedData.accessCodes)) {
+        console.log('🔑 Updating access codes:', updatedData.accessCodes.length);
+        localStorage.setItem('masterAccessCodes', JSON.stringify(updatedData.accessCodes));
+    }
+    
+    // Update organizations
+    if (updatedData.organizations) {
+        console.log('🏛️ Updating organizations');
+        localStorage.setItem('organizations', JSON.stringify(updatedData.organizations));
+        // Reload organizations if in settings
+        if (typeof displayOrganizations === 'function') {
+            displayOrganizations();
+        }
+    }
+    
+    // Update categories
+    if (updatedData.categories) {
+        console.log('📁 Updating categories:', updatedData.categories.length);
+        localStorage.setItem('categories', JSON.stringify(updatedData.categories));
+        // Reload categories if in settings
+        if (typeof loadCategories === 'function') {
+            loadCategories();
+        }
+    }
+    
+    // Update roles
+    if (updatedData.roles) {
+        console.log('👤 Updating roles:', updatedData.roles.length);
+        localStorage.setItem('roles', JSON.stringify(updatedData.roles));
+    }
+    
+    // Update disciplinary actions
+    if (updatedData.disciplinaryActions) {
+        console.log('⚖️ Updating disciplinary actions:', updatedData.disciplinaryActions.length);
+        localStorage.setItem('disciplinaryActions', JSON.stringify(updatedData.disciplinaryActions));
     }
     
     // Refresh UI if needed
     if (typeof updateUserInterface === 'function') {
         updateUserInterface();
     }
+    
+    console.log('✅ Master data sync complete');
 });
 
 // ChatGPT API Key Management
@@ -241,7 +293,7 @@ document.addEventListener('DOMContentLoaded', function() {
             attributes: true,
             attributeFilter: ['style']
         });
-    }
+        }
 });
 
 // Check if user is logged in before allowing access to features
@@ -296,10 +348,10 @@ function setupEventListeners() {
     // Form submission
     const policyForm = document.getElementById('policyForm');
     if (policyForm) {
-        policyForm.addEventListener('submit', function(e) {
-            e.preventDefault();
-            createNewPolicy();
-        });
+    policyForm.addEventListener('submit', function(e) {
+        e.preventDefault();
+        createNewPolicy();
+    });
     }
     
     // Listen for policy type changes to update policy code
@@ -3571,18 +3623,18 @@ function storeDraft() {
         window.editingDraftId = null; // Clear editing flag
     } else {
         // Create new draft
-        const draft = {
-            id: Date.now(),
-            title: policy.title,
-            type: policy.type,
-            clinics: policy.clinics,
-            content: policy,
-            company: currentCompany || 'Default Company', // Assign to current company
-            created: new Date().toISOString().split('T')[0],
-            status: 'draft'
-        };
-        
-        draftPolicies.unshift(draft);
+    const draft = {
+        id: Date.now(),
+        title: policy.title,
+        type: policy.type,
+        clinics: policy.clinics,
+        content: policy,
+        company: currentCompany || 'Default Company', // Assign to current company
+        created: new Date().toISOString().split('T')[0],
+        status: 'draft'
+    };
+    
+    draftPolicies.unshift(draft);
         showNotification('Draft saved successfully!', 'success');
     }
     
@@ -5539,8 +5591,8 @@ function openCreateModal() {
     
     // Small delay to ensure DOM is ready
     setTimeout(() => {
-        // Populate category dropdown
-        populateManualCategoryDropdown();
+    // Populate category dropdown
+    populateManualCategoryDropdown();
     }, 50);
 }
 
@@ -9611,6 +9663,20 @@ function handleCompanySignup() {
     console.log('Company created:', newCompany);
     console.log('User created:', newUser);
     console.log('Access code created:', newAccessCode);
+    
+    // 🔄 SYNC TO MASTER ADMIN - Dispatch event to notify master admin dashboard
+    window.dispatchEvent(new CustomEvent('masterDataUpdated', {
+        detail: {
+            companies: masterCompanies,
+            users: masterUsers,
+            accessCodes: accessCodes,
+            organizations: organizations,
+            timestamp: new Date().toISOString(),
+            source: 'main-site-signup'
+        }
+    }));
+    
+    console.log('✅ Dispatched masterDataUpdated event to sync with admin dashboard');
     
     // Show success message
     showNotification('Company created successfully! Logging you in...', 'success');

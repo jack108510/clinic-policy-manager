@@ -548,6 +548,7 @@ function suspendCompany(companyId) {
             localStorage.setItem('masterCompanies', JSON.stringify(companies));
             displayCompanies();
             updateStats();
+            syncToMainSite(); // Sync changes to main site
             showAlert('Company status updated successfully!', 'success');
         }
     }
@@ -779,6 +780,13 @@ function launchCompany(event) {
     
     // Sync data to main site
     syncToMainSite();
+    
+    // Also add company to organizations
+    const organizations = JSON.parse(localStorage.getItem('organizations') || '{}');
+    if (!organizations[newCompany.name]) {
+        organizations[newCompany.name] = [];
+        localStorage.setItem('organizations', JSON.stringify(organizations));
+    }
     
     showAlert(`Company "${newCompany.name}" launched successfully!`, 'success');
 }
@@ -1073,8 +1081,10 @@ function downloadCSV(csv, filename) {
     URL.revokeObjectURL(url);
 }
 
-// Data Synchronization
+// Data Synchronization - Comprehensive bidirectional sync
 function syncToMainSite() {
+    console.log('🔄 Syncing master admin data to main site...');
+    
     // Push master admin data to the main site's localStorage
     const mainSiteData = {
         companies: companies,
@@ -1090,20 +1100,51 @@ function syncToMainSite() {
     localStorage.setItem('masterAnalytics', JSON.stringify(analytics));
     
     // Also store in the main site's localStorage keys directly
-    // This ensures the main site can access the data even if it's not listening for events
     localStorage.setItem('mainSiteCompanies', JSON.stringify(companies));
     localStorage.setItem('mainSiteUsers', JSON.stringify(users));
     localStorage.setItem('mainSiteAccessCodes', JSON.stringify(accessCodes));
     
+    // Sync organizations, categories, roles, and all company-specific data
+    const organizations = JSON.parse(localStorage.getItem('organizations') || '{}');
+    const categories = JSON.parse(localStorage.getItem('categories') || '[]');
+    const roles = JSON.parse(localStorage.getItem('roles') || '[]');
+    const disciplinaryActions = JSON.parse(localStorage.getItem('disciplinaryActions') || '[]');
+    
+    // Sync each company's policies
+    companies.forEach(company => {
+        const companyKey = `policies_${company.name}`;
+        const companyPolicies = localStorage.getItem(companyKey);
+        if (companyPolicies) {
+            // Ensure policies are synced
+            localStorage.setItem(companyKey, companyPolicies);
+        }
+    });
+    
+    // Store all global settings
+    localStorage.setItem('organizations', JSON.stringify(organizations));
+    localStorage.setItem('categories', JSON.stringify(categories));
+    localStorage.setItem('roles', JSON.stringify(roles));
+    localStorage.setItem('disciplinaryActions', JSON.stringify(disciplinaryActions));
+    
     // Dispatch custom event to notify main site of data update
     window.dispatchEvent(new CustomEvent('masterDataUpdated', {
-        detail: mainSiteData
+        detail: {
+            ...mainSiteData,
+            organizations: organizations,
+            categories: categories,
+            roles: roles,
+            disciplinaryActions: disciplinaryActions,
+            timestamp: new Date().toISOString()
+        }
     }));
     
-    console.log('Data synchronized to main site:', {
+    console.log('✅ Data synchronized to main site:', {
         companies: companies.length,
         users: users.length,
-        accessCodes: accessCodes.length
+        accessCodes: accessCodes.length,
+        organizations: Object.keys(organizations).length,
+        categories: categories.length,
+        roles: roles.length
     });
 }
 
@@ -1111,8 +1152,44 @@ function syncToMainSite() {
 function forceSyncToMainSite() {
     console.log('Forcing sync to main site...');
     syncToMainSite();
-    alert('Data synchronized to main site successfully!');
+    showAlert('Data synchronized to main site successfully!', 'success');
 }
+
+// Enhanced sync function to listen for changes from main site
+function listenForMainSiteUpdates() {
+    // Polling interval to check for updates
+    setInterval(() => {
+        // Check if companies have been updated
+        const currentCompanies = JSON.parse(localStorage.getItem('masterCompanies') || '[]');
+        if (JSON.stringify(currentCompanies) !== JSON.stringify(companies)) {
+            console.log('🔄 Companies updated in localStorage, refreshing...');
+            companies = currentCompanies;
+            displayCompanies();
+            updateStats();
+        }
+        
+        // Check if users have been updated
+        const currentUsers = JSON.parse(localStorage.getItem('masterUsers') || '[]');
+        if (JSON.stringify(currentUsers) !== JSON.stringify(users)) {
+            console.log('🔄 Users updated in localStorage, refreshing...');
+            users = currentUsers;
+            displayUsers();
+            updateStats();
+        }
+        
+        // Check if access codes have been updated
+        const currentAccessCodes = JSON.parse(localStorage.getItem('masterAccessCodes') || '[]');
+        if (JSON.stringify(currentAccessCodes) !== JSON.stringify(accessCodes)) {
+            console.log('🔄 Access codes updated in localStorage, refreshing...');
+            accessCodes = currentAccessCodes;
+            displayAccessCodes();
+            updateStats();
+        }
+    }, 1000); // Check every second
+}
+
+// Call this in initialization
+listenForMainSiteUpdates();
 
 // Utility Functions
 function formatDate(dateString) {
@@ -1206,6 +1283,7 @@ function saveData() {
     localStorage.setItem('masterCompanies', JSON.stringify(companies));
     localStorage.setItem('masterUsers', JSON.stringify(users));
     localStorage.setItem('masterAccessCodes', JSON.stringify(accessCodes));
+    syncToMainSite(); // Sync whenever data is saved
     localStorage.setItem('masterAnalytics', JSON.stringify(analytics));
     
     // Save API keys if they exist

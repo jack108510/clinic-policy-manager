@@ -10390,10 +10390,14 @@ function updateAdminStats() {
         const userCountEl = document.getElementById('adminUserCount');
         
         if (totalPoliciesEl) totalPoliciesEl.textContent = totalPolicies;
-        if (draftCountEl) draftCountEl.textContent = draftCount;
+        if (draftCountEl) draftCountEl.textContent = draftPolicies.length; // Use draftPolicies array, not policies with status
         if (userCountEl) userCountEl.textContent = userCount;
         
-        console.log('Admin stats updated:', { totalPolicies, draftCount, userCount });
+        // Also update admin draft list
+        displayAdminDrafts();
+        displayDrafts(); // Display drafts on main page too
+        
+        console.log('Admin stats updated:', { totalPolicies, draftCount: draftPolicies.length, userCount });
     } catch (error) {
         console.error('Error updating admin stats:', error);
         // Don't block modal opening if stats update fails

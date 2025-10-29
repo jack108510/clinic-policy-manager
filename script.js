@@ -8645,6 +8645,18 @@ function startTour() {
     showTourStep(0);
 }
 
+// Manual trigger for testing
+function testTour() {
+    console.log('🧪 Test tour triggered manually');
+    localStorage.removeItem('tourCompleted'); // Clear completion status
+    currentTourStep = 0;
+    showTourStep(0);
+}
+
+// Make startTour globally accessible
+window.startTour = startTour;
+window.testTour = testTour;
+
 function nextTourStep() {
     currentTourStep++;
     
@@ -8907,19 +8919,12 @@ function startDemo() {
     // Show success notification
     showNotification('🎮 Demo mode activated! Explore Policy Pro with sample data.', 'success');
     
-    // Start the feature tour if not completed before
-    const tourCompleted = localStorage.getItem('tourCompleted');
-    console.log('Tour completed status:', tourCompleted);
-    
-    if (!tourCompleted) {
-        console.log('Starting tour in 1 second...');
-        setTimeout(() => {
-            console.log('Tour timer fired, calling startTour()');
-            startTour();
-        }, 1000);
-    } else {
-        console.log('Tour already completed, skipping');
-    }
+    // Always start the feature tour for demo mode
+    console.log('Starting tour in 2 seconds...');
+    setTimeout(() => {
+        console.log('Tour timer fired, calling startTour()');
+        startTour();
+    }, 2000);
     
     // Scroll to top
     window.scrollTo(0, 0);

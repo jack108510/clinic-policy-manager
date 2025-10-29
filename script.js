@@ -8680,7 +8680,10 @@ function endTour() {
 }
 
 function showTourStep(stepIndex) {
+    console.log('Showing tour step:', stepIndex, 'of', tourSteps.length);
+    
     if (stepIndex >= tourSteps.length) {
+        console.log('Tour complete, ending');
         endTour();
         return;
     }
@@ -8689,14 +8692,25 @@ function showTourStep(stepIndex) {
     const modal = document.getElementById('tourModal');
     const overlay = document.getElementById('tourOverlay');
     
-    if (!modal || !overlay) return;
+    console.log('Tour modal:', modal);
+    console.log('Tour overlay:', overlay);
+    
+    if (!modal || !overlay) {
+        console.error('Tour modal or overlay not found!');
+        return;
+    }
     
     // Update modal content
-    document.getElementById('tourIcon').innerHTML = `<i class="fas ${step.icon}"></i>`;
-    document.getElementById('tourTitle').textContent = step.title;
-    document.getElementById('tourDescription').textContent = step.description;
+    const iconEl = document.getElementById('tourIcon');
+    const titleEl = document.getElementById('tourTitle');
+    const descEl = document.getElementById('tourDescription');
+    
+    if (iconEl) iconEl.innerHTML = `<i class="fas ${step.icon}"></i>`;
+    if (titleEl) titleEl.textContent = step.title;
+    if (descEl) descEl.textContent = step.description;
     
     // Show modal and overlay
+    console.log('Showing tour modal and overlay');
     modal.style.display = 'block';
     overlay.style.display = 'block';
     
@@ -8711,6 +8725,8 @@ function showTourStep(stepIndex) {
             nextBtn.innerHTML = 'Next <i class="fas fa-arrow-right"></i>';
         }
     }
+    
+    console.log('Tour step displayed successfully');
 }
 
 function executeTourAction(action) {
@@ -8893,10 +8909,16 @@ function startDemo() {
     
     // Start the feature tour if not completed before
     const tourCompleted = localStorage.getItem('tourCompleted');
+    console.log('Tour completed status:', tourCompleted);
+    
     if (!tourCompleted) {
+        console.log('Starting tour in 1 second...');
         setTimeout(() => {
+            console.log('Tour timer fired, calling startTour()');
             startTour();
         }, 1000);
+    } else {
+        console.log('Tour already completed, skipping');
     }
     
     // Scroll to top

@@ -133,6 +133,24 @@
                 </div>
             </div>
         </section>
+        
+        <!-- Feature Tour Overlay (outside landing page) -->
+        <div id="tourOverlay" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 9998; pointer-events: all;"></div>
+        
+        <!-- Feature Tour Modal (outside landing page) -->
+        <div id="tourModal" style="display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; padding: 40px; border-radius: 16px; box-shadow: 0 10px 40px rgba(0,0,0,0.3); z-index: 9999; max-width: 500px; text-align: center;">
+            <div id="tourContent">
+                <div id="tourIcon" style="font-size: 64px; margin-bottom: 20px; color: #667eea;">
+                    <i class="fas fa-lightbulb"></i>
+                </div>
+                <h2 id="tourTitle" style="margin: 0 0 15px 0; color: #333;">Welcome to Policy Pro!</h2>
+                <p id="tourDescription" style="color: #666; line-height: 1.6; margin-bottom: 30px;">Let's explore the key features together. Click "Next" to continue.</p>
+                <div style="display: flex; gap: 10px; justify-content: center;">
+                    <button id="tourSkip" onclick="skipTour()" style="padding: 12px 24px; border: 2px solid #ddd; background: white; color: #666; border-radius: 8px; cursor: pointer; font-weight: 500;">Skip Tour</button>
+                    <button id="tourNext" onclick="nextTourStep()" style="padding: 12px 24px; border: none; background: #667eea; color: white; border-radius: 8px; cursor: pointer; font-weight: 600;">Next <i class="fas fa-arrow-right"></i></button>
+                </div>
+            </div>
+        </div>
     </div>
 
     <!-- Navigation -->
@@ -1531,24 +1549,6 @@
                         <button type="submit" class="btn btn-primary">Change Password</button>
                     </div>
                 </form>
-            </div>
-        </div>
-    </div>
-
-    <!-- Feature Tour Overlay -->
-    <div id="tourOverlay" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 9998; pointer-events: all;"></div>
-    
-    <!-- Feature Tour Modal -->
-    <div id="tourModal" style="display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; padding: 40px; border-radius: 16px; box-shadow: 0 10px 40px rgba(0,0,0,0.3); z-index: 9999; max-width: 500px; text-align: center;">
-        <div id="tourContent">
-            <div id="tourIcon" style="font-size: 64px; margin-bottom: 20px; color: #667eea;">
-                <i class="fas fa-lightbulb"></i>
-            </div>
-            <h2 id="tourTitle" style="margin: 0 0 15px 0; color: #333;">Welcome to Policy Pro!</h2>
-            <p id="tourDescription" style="color: #666; line-height: 1.6; margin-bottom: 30px;">Let's explore the key features together. Click "Next" to continue.</p>
-            <div style="display: flex; gap: 10px; justify-content: center;">
-                <button id="tourSkip" onclick="skipTour()" style="padding: 12px 24px; border: 2px solid #ddd; background: white; color: #666; border-radius: 8px; cursor: pointer; font-weight: 500;">Skip Tour</button>
-                <button id="tourNext" onclick="nextTourStep()" style="padding: 12px 24px; border: none; background: #667eea; color: white; border-radius: 8px; cursor: pointer; font-weight: 600;">Next <i class="fas fa-arrow-right"></i></button>
             </div>
         </div>
     </div>

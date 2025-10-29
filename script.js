@@ -8600,16 +8600,22 @@ let tourSteps = [
         action: 'show-admin-dashboard'
     },
     {
-        title: '3️⃣ Create New Policy',
-        description: '🐧 Use the "Create New Policy" button in the admin dashboard to add policies manually.',
+        title: 'Explore the Admin Dashboard',
+        description: '🐧 The admin dashboard is now open! Try creating a policy, managing users, or accessing settings. Click Next to continue your tour.',
         icon: '🐧',
-        action: 'show-create-policy'
+        action: null
+    },
+    {
+        title: '3️⃣ Create New Policy',
+        description: '🐧 Click "Create New Policy" above to add policies manually with all the details you need.',
+        icon: '🐧',
+        action: null
     },
     {
         title: '4️⃣ AI Policy Assistant',
-        description: '🐧 Try the "AI Policy Generator" for AI-powered policy creation. Just describe what you need!',
+        description: '🐧 Or try the "AI Policy Generator" for AI-powered policy creation - just describe what you need!',
         icon: '🐧',
-        action: 'show-ai-assistant'
+        action: null
     },
     {
         title: '5️⃣ Manage Users',
@@ -8771,38 +8777,28 @@ function executeTourAction(action) {
             break;
             
         case 'show-create-policy':
-            setTimeout(() => {
-                endTour();
-                setTimeout(() => openPasswordModal(), 500);
-            }, 1500);
+            // Don't end tour, just let them explore
+            console.log('User can now create policies');
             break;
             
         case 'show-ai-assistant':
-            setTimeout(() => {
-                endTour();
-                setTimeout(() => openAIModal(), 500);
-            }, 1500);
+            // Don't end tour, just let them explore
+            console.log('User can now use AI assistant');
             break;
             
         case 'show-manage-users':
-            setTimeout(() => {
-                endTour();
-                setTimeout(() => openPasswordModal(), 500);
-            }, 1500);
+            // Don't end tour, just let them explore
+            console.log('User can now manage users');
             break;
             
         case 'show-settings':
-            setTimeout(() => {
-                endTour();
-                setTimeout(() => openSettingsModal(), 500);
-            }, 1500);
+            // Don't end tour, just let them explore
+            console.log('User can now access settings');
             break;
             
         case 'show-profile':
-            setTimeout(() => {
-                endTour();
-                setTimeout(() => showProfileModal(), 500);
-            }, 1500);
+            // Don't end tour, just let them explore
+            console.log('User can now access profile');
             break;
     }
 }

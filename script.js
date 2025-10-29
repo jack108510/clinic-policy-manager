@@ -1237,19 +1237,29 @@ function displayUploadResults(uploadResults) {
                     <pre style="background: #f5f5f5; padding: 15px; border-radius: 6px; overflow-x: auto;">${JSON.stringify(data, null, 2)}</pre>
                 </div>
             `;
+            console.log('Showing raw data fallback');
             return;
         }
         
-        console.log('Markdown found:', markdown.substring(0, 100) + '...');
+        console.log('Markdown found, length:', markdown.length);
+        console.log('Markdown preview:', markdown.substring(0, 200) + '...');
         console.log('Policy data:', policyData);
         
         // Parse markdown into sections
+        console.log('Parsing markdown into sections...');
         const sections = parseWebhookPolicyMarkdown(markdown);
+        console.log('Parsed sections:', Object.keys(sections));
+        console.log('Sections object:', sections);
         
         // Create structured display similar to AI generator
         const policyType = policyData.policy_type || 'admin';
         const typeClass = policyType === 'admin' ? 'admin' : policyType === 'sog' ? 'sog' : 'memo';
         const typeLabel = policyType === 'admin' ? 'Admin Policy' : policyType === 'sog' ? 'SOG' : 'Communication Memo';
+        
+        console.log('Generating editable sections HTML...');
+        const editableSectionsHtml = generateEditablePolicySections(sections);
+        console.log('Editable sections HTML length:', editableSectionsHtml.length);
+        console.log('Editable sections HTML preview:', editableSectionsHtml.substring(0, 200) + '...');
         
         const resultCard = document.createElement('div');
         resultCard.className = 'upload-policy-result';
@@ -1281,7 +1291,7 @@ function displayUploadResults(uploadResults) {
                 </div>
                 
                 <div class="policy-content-display" style="max-height: 600px; overflow-y: auto; margin-bottom: 20px;">
-                    ${generateEditablePolicySections(sections)}
+                    ${editableSectionsHtml}
                 </div>
                 
                 <div class="form-group" style="margin-top: 20px; margin-bottom: 20px;">

@@ -1154,20 +1154,55 @@ function displayUploadResults(uploadResults) {
         let policyData = null;
         let markdown = null;
         
+        console.log('Parsing data. Type:', typeof data, 'IsArray:', Array.isArray(data));
+        
         // Handle different response formats from n8n
-        if (Array.isArray(data) && data.length > 0 && data[0].markdown) {
-            // Same format as AI generator webhook response
-            policyData = data[0];
-            markdown = policyData.markdown;
+        if (Array.isArray(data) && data.length > 0) {
+            // Check for AI generator format (data[0].markdown)
+            if (data[0].markdown) {
+                policyData = data[0];
+                markdown = policyData.markdown;
+                console.log('Found markdown in data[0].markdown');
+            }
+            // Check for n8n message format (data[0].message.content)
+            else if (data[0].message && data[0].message.content) {
+                markdown = data[0].message.content;
+                policyData = {
+                    policy_title: data[0].message.title || file.name.replace(/\.[^/.]+$/, '').replace(/[()]/g, '').trim(),
+                    policy_type: data[0].message.type || 'admin',
+                    company: data[0].message.company || currentCompany || 'Unknown',
+                    effective_date: data[0].message.effective_date || data[0].message.effectiveDate || new Date().toISOString().split('T')[0],
+                    applies_to: data[0].message.applies_to || data[0].message.appliesTo || data[0].message.organizations || 'All Organizations',
+                    author: data[0].message.author || currentUser?.fullName || currentUser?.username || 'Unknown',
+                    version: data[0].message.version || '1.0'
+                };
+                console.log('Found content in data[0].message.content');
+            }
+            // Array but no recognized structure - try first element
+            else {
+                console.log('Array format not recognized, trying first element');
+                const firstItem = data[0];
+                markdown = firstItem.markdown || firstItem.content || firstItem.text || JSON.stringify(firstItem, null, 2);
+                policyData = {
+                    policy_title: firstItem.title || firstItem.policy_title || file.name.replace(/\.[^/.]+$/, '').replace(/[()]/g, '').trim(),
+                    policy_type: firstItem.type || firstItem.policy_type || 'admin',
+                    company: firstItem.company || currentCompany || 'Unknown',
+                    effective_date: firstItem.effective_date || firstItem.effectiveDate || new Date().toISOString().split('T')[0],
+                    applies_to: firstItem.applies_to || firstItem.appliesTo || firstItem.organizations || 'All Organizations',
+                    author: firstItem.author || currentUser?.fullName || currentUser?.username || 'Unknown',
+                    version: firstItem.version || '1.0'
+                };
+            }
         } else if (data.markdown) {
             // Single object with markdown
             policyData = data;
             markdown = data.markdown;
+            console.log('Found markdown in data.markdown');
         } else if (typeof data === 'string') {
             // Plain markdown string
             markdown = data;
             policyData = {
-                policy_title: file.name.replace(/\.[^/.]+$/, ''),
+                policy_title: file.name.replace(/\.[^/.]+$/, '').replace(/[()]/g, '').trim(),
                 policy_type: 'admin',
                 company: currentCompany || 'Unknown',
                 effective_date: new Date().toISOString().split('T')[0],
@@ -1175,11 +1210,12 @@ function displayUploadResults(uploadResults) {
                 author: currentUser?.fullName || currentUser?.username || 'Unknown',
                 version: '1.0'
             };
+            console.log('Data is string, treating as markdown');
         } else if (typeof data === 'object') {
             // Try to extract markdown from various possible structures
-            markdown = data.markdown || data.content || data.text || JSON.stringify(data, null, 2);
+            markdown = data.markdown || data.content || data.text || data.message?.content || JSON.stringify(data, null, 2);
             policyData = {
-                policy_title: data.title || data.policy_title || file.name.replace(/\.[^/.]+$/, ''),
+                policy_title: data.title || data.policy_title || file.name.replace(/\.[^/.]+$/, '').replace(/[()]/g, '').trim(),
                 policy_type: data.type || data.policy_type || 'admin',
                 company: data.company || currentCompany || 'Unknown',
                 effective_date: data.effective_date || data.effectiveDate || new Date().toISOString().split('T')[0],
@@ -1187,6 +1223,7 @@ function displayUploadResults(uploadResults) {
                 author: data.author || currentUser?.fullName || currentUser?.username || 'Unknown',
                 version: data.version || '1.0'
             };
+            console.log('Extracted from object structure');
         }
         
         if (!markdown) {

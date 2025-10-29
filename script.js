@@ -8928,10 +8928,16 @@ function startDemo() {
     
     // Start tour with delay
     setTimeout(() => {
-        console.log('⏰ Tour timer fired, calling startTour()');
-        console.log('startTour function exists?', typeof startTour);
+        console.log('⏰ Tour timer fired');
+        console.log('Checking tour elements...');
+        
+        const modal = document.getElementById('tourModal');
+        const overlay = document.getElementById('tourOverlay');
+        console.log('Tour modal found:', !!modal);
+        console.log('Tour overlay found:', !!overlay);
         
         if (typeof startTour === 'function') {
+            console.log('Calling startTour()...');
             startTour();
         } else {
             console.error('❌ startTour function not found!');

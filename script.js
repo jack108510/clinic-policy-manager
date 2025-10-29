@@ -9443,6 +9443,20 @@ function selectPlan(plan) {
     // Store the selected plan in localStorage
     localStorage.setItem('selectedPlan', plan);
     
+    // Map plan to display name
+    const planNames = {
+        'free-trial': 'Free Trial (2 Weeks)',
+        'basic': 'Basic ($29/month)',
+        'pro': 'Pro ($99/month)',
+        'enterprise': 'Enterprise (Custom)'
+    };
+    
+    // Update the plan display in the signup modal
+    const planDisplay = document.getElementById('selectedPlanDisplay');
+    if (planDisplay) {
+        planDisplay.textContent = planNames[plan] || plan;
+    }
+    
     // Close pricing modal
     closePricingModal();
     
@@ -9450,12 +9464,93 @@ function selectPlan(plan) {
     setTimeout(() => {
         const modal = document.getElementById('companySignupModal');
         if (modal) {
+            modal.style.display = 'block';
             modal.classList.add('show');
+            
+            // Setup form listeners
+            setupCompanySignupFormListeners();
         }
     }, 300);
     
     // Show notification about plan selection
-    showNotification('Selected ' + plan.charAt(0).toUpperCase() + plan.slice(1) + ' plan. Complete your account setup below.', 'success');
+    showNotification('Selected ' + planNames[plan] + ' plan. Complete your account setup below.', 'success');
+}
+
+function closeCompanySignupModal() {
+    const modal = document.getElementById('companySignupModal');
+    if (modal) {
+        modal.style.display = 'none';
+        modal.classList.remove('show');
+    }
+    
+    const form = document.getElementById('companySignupForm');
+    if (form) {
+        form.reset();
+    }
+    
+    const errorMsg = document.getElementById('company-signup-error-message');
+    if (errorMsg) {
+        errorMsg.style.display = 'none';
+    }
+}
+
+// Setup company signup form event listeners
+function setupCompanySignupFormListeners() {
+    const companySignupForm = document.getElementById('companySignupForm');
+    if (companySignupForm) {
+        companySignupForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            handleCompanySignup();
+        });
+    }
+}
+
+// Handle company signup form submission
+function handleCompanySignup() {
+    const companyName = document.getElementById('companyName').value;
+    const companyIndustry = document.getElementById('companyIndustry').value;
+    const companyPhone = document.getElementById('companyPhone').value;
+    const adminFullName = document.getElementById('adminFullName').value;
+    const adminEmail = document.getElementById('adminEmail').value;
+    const adminUsername = document.getElementById('adminUsername').value;
+    const adminPassword = document.getElementById('adminPassword').value;
+    const adminPasswordConfirm = document.getElementById('adminPasswordConfirm').value;
+    
+    // Validate passwords match
+    if (adminPassword !== adminPasswordConfirm) {
+        const errorMsg = document.getElementById('company-signup-error-message');
+        if (errorMsg) {
+            errorMsg.textContent = 'Passwords do not match';
+            errorMsg.style.display = 'block';
+        }
+        return;
+    }
+    
+    // Get selected plan
+    const selectedPlan = localStorage.getItem('selectedPlan') || 'free-trial';
+    
+    // For now, just show success message
+    showNotification('Company registration submitted successfully! You will be contacted soon.', 'success');
+    
+    console.log('Company Signup:', {
+        companyName,
+        industry: companyIndustry,
+        phone: companyPhone,
+        admin: {
+            fullName: adminFullName,
+            email: adminEmail,
+            username: adminUsername
+        },
+        plan: selectedPlan
+    });
+    
+    // TODO: Implement actual company registration logic
+    // This could integrate with a backend service to create the company account
+    
+    // Close the modal after a delay
+    setTimeout(() => {
+        closeCompanySignupModal();
+    }, 2000);
 }
 
 function showCompanyCodeSignup() {

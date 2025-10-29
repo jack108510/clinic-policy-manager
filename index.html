@@ -1066,6 +1066,120 @@
             </div>
         </div>
     </div>
+    
+    <!-- Company Signup Modal -->
+    <div id="companySignupModal" class="modal" style="display: none;">
+        <div class="modal-content signup-modal" style="max-width: 600px;">
+            <div class="modal-header">
+                <div class="modal-icon">
+                    <i class="fas fa-building"></i>
+                </div>
+                <h3>Register Your Company</h3>
+                <p class="modal-subtitle" id="companySignupSubtitle">Complete your registration</p>
+                <span class="close" onclick="closeCompanySignupModal()">&times;</span>
+            </div>
+            <div class="modal-body">
+                <form id="companySignupForm">
+                    <!-- Company Information -->
+                    <div style="background: #f8f9fa; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
+                        <h4 style="margin: 0 0 15px 0; color: #333; display: flex; align-items: center; gap: 8px;">
+                            <i class="fas fa-building"></i> Company Information
+                        </h4>
+                        
+                        <div class="form-group">
+                            <label for="companyName">Company Name <span style="color: red;">*</span></label>
+                            <div class="input-group">
+                                <i class="fas fa-building"></i>
+                                <input type="text" id="companyName" placeholder="Enter your company name" required>
+                            </div>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="companyIndustry">Industry (Optional)</label>
+                            <div class="input-group">
+                                <i class="fas fa-industry"></i>
+                                <input type="text" id="companyIndustry" placeholder="e.g., Healthcare, Finance, Technology">
+                            </div>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="companyPhone">Company Phone (Optional)</label>
+                            <div class="input-group">
+                                <i class="fas fa-phone"></i>
+                                <input type="tel" id="companyPhone" placeholder="Enter company phone number">
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Administrator Information -->
+                    <div style="background: #f8f9fa; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
+                        <h4 style="margin: 0 0 15px 0; color: #333; display: flex; align-items: center; gap: 8px;">
+                            <i class="fas fa-user-shield"></i> Administrator Account
+                        </h4>
+                        
+                        <div class="form-group">
+                            <label for="adminFullName">Full Name <span style="color: red;">*</span></label>
+                            <div class="input-group">
+                                <i class="fas fa-user"></i>
+                                <input type="text" id="adminFullName" placeholder="Enter your full name" required>
+                            </div>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="adminEmail">Email Address <span style="color: red;">*</span></label>
+                            <div class="input-group">
+                                <i class="fas fa-envelope"></i>
+                                <input type="email" id="adminEmail" placeholder="Enter your email" required>
+                            </div>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="adminUsername">Username <span style="color: red;">*</span></label>
+                            <div class="input-group">
+                                <i class="fas fa-user-circle"></i>
+                                <input type="text" id="adminUsername" placeholder="Choose a username" required>
+                            </div>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="adminPassword">Password <span style="color: red;">*</span></label>
+                            <div class="input-group">
+                                <i class="fas fa-lock"></i>
+                                <input type="password" id="adminPassword" placeholder="Create a password" required minlength="6">
+                            </div>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="adminPasswordConfirm">Confirm Password <span style="color: red;">*</span></label>
+                            <div class="input-group">
+                                <i class="fas fa-lock"></i>
+                                <input type="password" id="adminPasswordConfirm" placeholder="Confirm your password" required minlength="6">
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Selected Plan Info -->
+                    <div style="background: linear-gradient(135deg, #f0f4ff, #e9ecff); padding: 15px; border-radius: 8px; margin-bottom: 20px; border-left: 4px solid #667eea;">
+                        <h4 style="margin: 0 0 10px 0; color: #667eea; display: flex; align-items: center; gap: 8px;">
+                            <i class="fas fa-credit-card"></i> Selected Plan: <span id="selectedPlanDisplay">Free Trial</span>
+                        </h4>
+                        <p style="margin: 0; color: #666; font-size: 0.9rem;">This can be changed later in your account settings</p>
+                    </div>
+                    
+                    <div id="company-signup-error-message" class="error-message"></div>
+                    
+                    <button type="submit" class="btn btn-primary btn-full">
+                        <i class="fas fa-check-circle"></i>
+                        Create Company Account
+                    </button>
+                    
+                    <div class="modal-footer" style="margin-top: 20px; padding-top: 20px; border-top: 1px solid #e0e0e0; text-align: center;">
+                        <p style="margin: 0;">Already have an account? <a href="#" onclick="closeCompanySignupModal(); showLoginModal();">Log In</a></p>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
 
     <!-- Policy Upload Modal -->
     <div id="uploadModal" class="modal" style="z-index: 3000;">

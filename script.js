@@ -988,9 +988,10 @@ async function sendFileToWebhook(file, statusElement) {
             } else {
                 // Empty response - create a basic structure so we can still show results
                 console.log('Empty response from webhook, creating default structure');
+                const cleanFileName = file.name.replace(/\.[^/.]+$/, '').replace(/[()]/g, '').trim();
                 responseData = {
-                    markdown: `## Purpose\nDocument uploaded successfully.\n\n## Content\nFile: ${file.name} has been processed.\n\nPlease review the extracted content.`,
-                    policy_title: file.name.replace(/\.[^/.]+$/, '').replace(/[()]/g, ''),
+                    markdown: `## Purpose\n\nThis document (${file.name}) has been uploaded and processed.\n\n## Content\n\nThe file has been successfully received and is ready for review. Please add the policy content below.\n\n## Scope\n\nAll applicable organizations.\n\n## Policy Statement\n\nTo be completed.\n\n## Procedure\n\nTo be completed.`,
+                    policy_title: cleanFileName || 'Untitled Policy',
                     policy_type: 'admin',
                     company: currentCompany || 'Unknown',
                     effective_date: new Date().toISOString().split('T')[0],
@@ -998,6 +999,7 @@ async function sendFileToWebhook(file, statusElement) {
                     author: currentUser?.fullName || currentUser?.username || 'Unknown',
                     version: '1.0'
                 };
+                console.log('Created default responseData:', responseData);
             }
             
             if (statusElement) {
@@ -1006,6 +1008,7 @@ async function sendFileToWebhook(file, statusElement) {
             }
             
             // Return the response data so it can be processed
+            console.log('Returning responseData:', responseData);
             return responseData;
         } else {
             const errorText = await response.text();
@@ -1139,8 +1142,13 @@ function displayUploadResults(uploadResults) {
     console.log('Analysis results section made visible');
     
     uploadResults.forEach((result, index) => {
+        console.log(`Processing result ${index}:`, result);
         const file = result.file;
         const data = result.data;
+        
+        console.log('File:', file.name);
+        console.log('Data type:', typeof data);
+        console.log('Data content:', data);
         
         // Parse the response - check if it's the same format as AI generator
         let policyData = null;

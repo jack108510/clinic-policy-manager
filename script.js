@@ -8661,6 +8661,12 @@ window.testTour = testTour;
 document.addEventListener('DOMContentLoaded', function() {
     const penguin = document.getElementById('penguinMascot');
     if (penguin) {
+        // Only show penguin during demo
+        const isDemo = currentCompany === 'Demo Company';
+        if (!isDemo) {
+            penguin.style.display = 'none';
+        }
+        
         penguin.addEventListener('click', function() {
             // Start tour when penguin is clicked
             console.log('🐧 Penguin clicked!');
@@ -8668,17 +8674,24 @@ document.addEventListener('DOMContentLoaded', function() {
                 startTour();
             }
         });
-        
-        // Animate penguin on hover
-        penguin.addEventListener('mouseenter', function() {
-            this.style.transform = 'scale(1.2)';
-        });
-        
-        penguin.addEventListener('mouseleave', function() {
-            this.style.transform = 'scale(1)';
-        });
     }
 });
+
+// Also hide penguin when user logs out or changes company
+function updatePenguinVisibility() {
+    const penguin = document.getElementById('penguinMascot');
+    if (penguin) {
+        const isDemo = currentCompany === 'Demo Company';
+        penguin.style.display = isDemo ? 'block' : 'none';
+    }
+}
+
+// Override logoutUser to hide penguin
+const originalLogoutUser = logoutUser;
+function logoutUser() {
+    originalLogoutUser();
+    updatePenguinVisibility();
+}
 
 function nextTourStep() {
     currentTourStep++;
@@ -8945,6 +8958,13 @@ function startDemo() {
     const landingPage = document.getElementById('landingPage');
     if (landingPage) {
         landingPage.style.display = 'none';
+    }
+    
+    // Show penguin mascot (only during demo)
+    const penguin = document.getElementById('penguinMascot');
+    if (penguin) {
+        penguin.style.display = 'block';
+        console.log('🐧 Penguin mascot shown!');
     }
     
     // Show success notification

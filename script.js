@@ -7058,6 +7058,66 @@ function closeSettingsModal() {
     }, 250);
 }
 
+// Profile Modal Functions
+function showProfileModal() {
+    console.log('Opening profile modal...');
+    const modal = document.getElementById('profileModal');
+    
+    if (modal && currentUser) {
+        modal.style.display = 'block';
+        modal.classList.add('show');
+        
+        // Populate profile data
+        updateProfileInfo();
+        
+        console.log('Profile modal opened');
+    } else if (!currentUser) {
+        showNotification('Please log in to view your profile', 'info');
+    }
+}
+
+function closeProfileModal() {
+    console.log('Closing profile modal...');
+    const modal = document.getElementById('profileModal');
+    
+    if (modal) {
+        modal.style.display = 'none';
+        modal.classList.remove('show');
+        console.log('Profile modal closed');
+    }
+}
+
+function updateProfileInfo() {
+    if (!currentUser) return;
+    
+    // Update profile header
+    document.getElementById('profileUserName').textContent = currentUser.username || 'Guest User';
+    document.getElementById('profileUserCompany').textContent = currentUser.company || 'Not assigned';
+    document.getElementById('profileUserStatus').textContent = currentUser.active ? 'Active' : 'Inactive';
+    document.getElementById('profileUserStatus').className = `profile-status ${currentUser.active ? 'active' : 'inactive'}`;
+    
+    // Update account info tab
+    document.getElementById('profileUsername').textContent = currentUser.username || 'guest';
+    document.getElementById('profileEmail').textContent = currentUser.email || 'guest@example.com';
+    document.getElementById('profileCompany').textContent = currentUser.company || 'Not assigned';
+    document.getElementById('profileRole').textContent = currentUser.role || 'Guest';
+}
+
+function showProfileTab(tabName) {
+    // Hide all tabs
+    document.querySelectorAll('.profile-tab').forEach(tab => tab.classList.remove('active'));
+    document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+    
+    // Show selected tab
+    const selectedTab = document.getElementById(`${tabName}Tab`);
+    if (selectedTab) {
+        selectedTab.classList.add('active');
+    }
+    
+    // Update button
+    event.target.classList.add('active');
+}
+
 function showSettingsTab(tabName) {
     // Hide all tabs
     document.querySelectorAll('.settings-tab').forEach(tab => tab.classList.remove('active'));

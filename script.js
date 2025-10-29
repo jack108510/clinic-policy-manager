@@ -824,6 +824,14 @@ function openUploadModal() {
 function closeUploadModal() {
     document.getElementById('uploadModal').style.display = 'none';
     clearUploadArea();
+    
+    // Keep admin dashboard open if it was open
+    const adminModal = document.getElementById('adminModal');
+    if (adminModal && adminModal.style.display !== 'none') {
+        console.log('Admin dashboard is open, keeping it visible');
+        // Already open, do nothing
+        return;
+    }
 }
 
 function handleFileUpload(event) {
@@ -5599,6 +5607,14 @@ function closeCreateModal() {
     document.getElementById('createModal').style.display = 'none';
     document.getElementById('policyForm').reset();
     document.getElementById('dynamicManualFormFields').innerHTML = '';
+    
+    // Keep admin dashboard open if it was open
+    const adminModal = document.getElementById('adminModal');
+    if (adminModal && adminModal.style.display !== 'none') {
+        console.log('Admin dashboard is open, keeping it visible');
+        // Already open, do nothing
+        return;
+    }
 }
 
 // ChatGPT-Style Policy Creation System
@@ -5743,6 +5759,14 @@ function openAIModal() {
 function closeAIModal() {
     document.getElementById('aiModal').style.display = 'none';
     resetChat();
+    
+    // Keep admin dashboard open if it was open
+    const adminModal = document.getElementById('adminModal');
+    if (adminModal && adminModal.style.display !== 'none') {
+        console.log('Admin dashboard is open, keeping it visible');
+        // Already open, do nothing
+        return;
+    }
 }
 
 function showPolicyOptions() {

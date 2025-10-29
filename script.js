@@ -9501,6 +9501,21 @@ function closeCompanySignupModal() {
     }
 }
 
+// Tooltip functions
+function showTooltip(element) {
+    const tooltip = element.nextElementSibling;
+    if (tooltip) {
+        tooltip.style.opacity = '1';
+    }
+}
+
+function hideTooltip(element) {
+    const tooltip = element.nextElementSibling;
+    if (tooltip) {
+        tooltip.style.opacity = '0';
+    }
+}
+
 // Setup company signup form event listeners
 function setupCompanySignupFormListeners() {
     const companySignupForm = document.getElementById('companySignupForm');

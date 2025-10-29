@@ -578,30 +578,57 @@ async function createNewPolicy() {
         }
     }
     
-    const formData = {
-        title: document.getElementById('policyTitle').value,
-        type: document.getElementById('policyType').value,
-        clinics: selectedClinics,
-        purpose: document.getElementById('policyPurpose')?.value || '',
-        procedure: document.getElementById('policyProcedure')?.value || '',
-        roles: document.getElementById('policyRoles')?.value || '',
-        compliance: document.getElementById('policyCompliance')?.value || ''
-    };
-
+    // Get form values with defaults if empty
+    const titleInput = document.getElementById('policyTitle');
+    const typeInput = document.getElementById('policyType');
+    
+    const title = (titleInput?.value || '').trim() || 'Untitled Policy';
+    const type = (typeInput?.value || '').trim() || 'admin';
+    
+    // Dynamically collect all fields from the dynamic form fields container
+    const dynamicFieldsContainer = document.getElementById('dynamicManualFormFields');
+    let allFormData = {};
+    
+    if (dynamicFieldsContainer) {
+        // Get all inputs, textareas, and selects from dynamic fields
+        const allInputs = dynamicFieldsContainer.querySelectorAll('input, textarea, select');
+        allInputs.forEach(field => {
+            const fieldId = field.id;
+            const fieldName = fieldId || field.name || '';
+            if (fieldName) {
+                if (field.type === 'date') {
+                    allFormData[fieldName] = field.value || '';
+                } else if (field.tagName === 'TEXTAREA') {
+                    allFormData[fieldName] = field.value || '';
+                } else if (field.tagName === 'SELECT') {
+                    allFormData[fieldName] = field.value || '';
+                } else {
+                    allFormData[fieldName] = field.value || '';
+                }
+            }
+        });
+    }
+    
+    // Build description from dynamic fields (prefer purpose or first content field)
+    const description = allFormData.purpose || allFormData.objective || allFormData.subject || 
+                       allFormData.message || Object.values(allFormData).find(v => v && v.trim()) || '';
+    
     // Get selected category
     const categoryId = document.getElementById('manualPolicyCategory')?.value || null;
     const tempId = 'policy_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
     
     // Generate policy code if category is selected
-    const policyCode = categoryId ? generatePolicyCode(categoryId, tempId, formData.type) : null;
+    const policyCode = categoryId ? generatePolicyCode(categoryId, tempId, type) : null;
 
+    // Create policy object with all collected data
     const newPolicy = {
         id: tempId,
-        title: formData.title,
-        type: formData.type,
-        clinics: formData.clinics,
+        title: title,
+        type: type || 'admin',
+        clinics: selectedClinics,
         clinicNames: clinicNames,
-        description: formData.purpose,
+        description: description,
+        content: JSON.stringify(allFormData), // Store all form data as JSON for later use
         company: currentCompany || 'Default Company', // Assign to current company
         created: new Date().toISOString().split('T')[0],
         updated: new Date().toISOString().split('T')[0],
@@ -4971,55 +4998,55 @@ function updateManualFormFields() {
         fieldsHTML = `
             <div class="form-group">
                 <label for="effectiveDate">Effective Date</label>
-                <input type="date" id="effectiveDate" required>
+                <input type="date" id="effectiveDate">
             </div>
             <div class="form-group">
                 <label for="lastReviewed">Last Reviewed</label>
-                <input type="date" id="lastReviewed" required>
+                <input type="date" id="lastReviewed">
             </div>
             <div class="form-group">
                 <label for="approvedBy">Approved By</label>
-                <input type="text" id="approvedBy" placeholder="CSI Clinical Director" required>
+                <input type="text" id="approvedBy" placeholder="CSI Clinical Director">
             </div>
             <div class="form-group">
                 <label for="version">Version #</label>
-                <input type="text" id="version" placeholder="1.0" required>
+                <input type="text" id="version" placeholder="1.0">
             </div>
             <div class="form-group">
                 <label for="purpose">Purpose</label>
-                <textarea id="purpose" rows="3" required></textarea>
+                <textarea id="purpose" rows="3"></textarea>
             </div>
             <div class="form-group">
                 <label for="scope">Scope</label>
-                <textarea id="scope" rows="3" required></textarea>
+                <textarea id="scope" rows="3"></textarea>
             </div>
             <div class="form-group">
                 <label for="policyStatement">Policy Statement</label>
-                <textarea id="policyStatement" rows="3" required></textarea>
+                <textarea id="policyStatement" rows="3"></textarea>
             </div>
             <div class="form-group">
                 <label for="definitions">Definitions</label>
-                <textarea id="definitions" rows="3" required></textarea>
+                <textarea id="definitions" rows="3"></textarea>
             </div>
             <div class="form-group">
                 <label for="procedure">Procedure / Implementation</label>
-                <textarea id="procedure" rows="5" required></textarea>
+                <textarea id="procedure" rows="5"></textarea>
             </div>
             <div class="form-group">
                 <label for="roles">Responsibilities</label>
-                <textarea id="roles" rows="4" required></textarea>
+                <textarea id="roles" rows="4"></textarea>
             </div>
             <div class="form-group">
                 <label for="compliance">Consequences / Accountability</label>
-                <textarea id="compliance" rows="3" required></textarea>
+                <textarea id="compliance" rows="3"></textarea>
             </div>
             <div class="form-group">
                 <label for="relatedDocuments">Related Documents</label>
-                <textarea id="relatedDocuments" rows="2" required></textarea>
+                <textarea id="relatedDocuments" rows="2"></textarea>
             </div>
             <div class="form-group">
                 <label for="reviewApproval">Review & Approval</label>
-                <textarea id="reviewApproval" rows="2" required></textarea>
+                <textarea id="reviewApproval" rows="2"></textarea>
             </div>
         `;
     } else if (policyType === 'sog') {
@@ -5027,51 +5054,51 @@ function updateManualFormFields() {
         fieldsHTML = `
             <div class="form-group">
                 <label for="effectiveDate">Effective Date</label>
-                <input type="date" id="effectiveDate" required>
+                <input type="date" id="effectiveDate">
             </div>
             <div class="form-group">
                 <label for="author">Author</label>
-                <input type="text" id="author" placeholder="CSI Clinical Staff" required>
+                <input type="text" id="author" placeholder="CSI Clinical Staff">
             </div>
             <div class="form-group">
                 <label for="approvedBy">Approved By</label>
-                <input type="text" id="approvedBy" placeholder="CSI Medical Director" required>
+                <input type="text" id="approvedBy" placeholder="CSI Medical Director">
             </div>
             <div class="form-group">
                 <label for="version">Version #</label>
-                <input type="text" id="version" placeholder="1.0" required>
+                <input type="text" id="version" placeholder="1.0">
             </div>
             <div class="form-group">
                 <label for="objective">Objective</label>
-                <textarea id="objective" rows="3" required></textarea>
+                <textarea id="objective" rows="3"></textarea>
             </div>
             <div class="form-group">
                 <label for="principles">Guiding Principles</label>
-                <textarea id="principles" rows="3" required></textarea>
+                <textarea id="principles" rows="3"></textarea>
             </div>
             <div class="form-group">
                 <label for="procedure">Recommended Approach / Procedure</label>
-                <textarea id="procedure" rows="5" required></textarea>
+                <textarea id="procedure" rows="5"></textarea>
             </div>
             <div class="form-group">
                 <label for="definitions">Definitions</label>
-                <textarea id="definitions" rows="3" required></textarea>
+                <textarea id="definitions" rows="3"></textarea>
             </div>
             <div class="form-group">
                 <label for="examples">Examples / Scenarios</label>
-                <textarea id="examples" rows="4" required></textarea>
+                <textarea id="examples" rows="4"></textarea>
             </div>
             <div class="form-group">
                 <label for="roles">Responsibilities</label>
-                <textarea id="roles" rows="4" required></textarea>
+                <textarea id="roles" rows="4"></textarea>
             </div>
             <div class="form-group">
                 <label for="escalation">Escalation / Support</label>
-                <textarea id="escalation" rows="3" required></textarea>
+                <textarea id="escalation" rows="3"></textarea>
             </div>
             <div class="form-group">
                 <label for="review">Review & Revision</label>
-                <textarea id="review" rows="2" required></textarea>
+                <textarea id="review" rows="2"></textarea>
             </div>
         `;
     } else if (policyType === 'memo') {
@@ -5079,23 +5106,23 @@ function updateManualFormFields() {
         fieldsHTML = `
             <div class="form-group">
                 <label for="date">Date</label>
-                <input type="date" id="date" required>
+                <input type="date" id="date">
             </div>
             <div class="form-group">
                 <label for="from">From</label>
-                <input type="text" id="from" placeholder="CSI Management" required>
+                <input type="text" id="from" placeholder="CSI Management">
             </div>
             <div class="form-group">
                 <label for="to">To</label>
-                <input type="text" id="to" placeholder="All Staff" required>
+                <input type="text" id="to" placeholder="All Staff">
             </div>
             <div class="form-group">
                 <label for="subject">Subject</label>
-                <input type="text" id="subject" required>
+                <input type="text" id="subject">
             </div>
             <div class="form-group">
                 <label for="message">Message</label>
-                <textarea id="message" rows="6" required></textarea>
+                <textarea id="message" rows="6"></textarea>
             </div>
             <div class="form-group">
                 <label for="effectivePeriod">Effective Period (if applicable)</label>
@@ -5103,11 +5130,11 @@ function updateManualFormFields() {
             </div>
             <div class="form-group">
                 <label for="nextSteps">Next Steps / Action Required</label>
-                <textarea id="nextSteps" rows="3" required></textarea>
+                <textarea id="nextSteps" rows="3"></textarea>
             </div>
             <div class="form-group">
                 <label for="contact">Contact for Questions</label>
-                <textarea id="contact" rows="2" required></textarea>
+                <textarea id="contact" rows="2"></textarea>
             </div>
         `;
     }

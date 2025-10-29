@@ -1033,7 +1033,7 @@ function showN8nLoadingOverlay(totalFiles) {
         overlay.style.display = 'flex';
         
         if (loadingTitle) {
-            loadingTitle.textContent = totalFiles === 1 ? 'Processing with n8n...' : `Processing ${totalFiles} files with n8n...`;
+            loadingTitle.textContent = totalFiles === 1 ? 'Processing Document...' : `Processing ${totalFiles} Files...`;
         }
         
         if (loadingMessage) {

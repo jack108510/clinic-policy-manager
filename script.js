@@ -1318,8 +1318,14 @@ function displayUploadResults(uploadResults) {
             </div>
         `;
         
-        analysisContent.appendChild(resultCard);
-        console.log(`Result card ${index} appended to analysisContent`);
+        try {
+            analysisContent.appendChild(resultCard);
+            console.log(`Result card ${index} appended to analysisContent`);
+            console.log(`analysisContent now has ${analysisContent.children.length} children`);
+            console.log(`analysisContent.innerHTML length: ${analysisContent.innerHTML.length}`);
+        } catch (error) {
+            console.error(`Error appending result card ${index}:`, error);
+        }
         
         // Populate category dropdown after HTML is rendered
         setTimeout(() => {
@@ -1330,6 +1336,20 @@ function displayUploadResults(uploadResults) {
     
     // Store the upload results for saving
     window.currentUploadResults = uploadResults;
+    
+    console.log('displayUploadResults completed. Total cards:', uploadResults.length);
+    console.log('analysisContent final state:', {
+        display: analysisResults.style.display,
+        innerHTMLLength: analysisContent.innerHTML.length,
+        childrenCount: analysisContent.children.length
+    });
+    
+    // Force a scroll to the results if modal is visible
+    if (uploadModal && uploadModal.style.display !== 'none') {
+        setTimeout(() => {
+            analysisResults.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }, 300);
+    }
 }
 
 function populateUploadCategoryDropdown(index) {

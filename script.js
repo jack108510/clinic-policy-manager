@@ -8595,9 +8595,9 @@ let tourSteps = [
     },
     {
         title: '2️⃣ Admin Dashboard',
-        description: '🐧 Click "Admin" in the navigation to access the admin dashboard where you can manage everything.',
+        description: '🐧 Welcome to your admin dashboard! Here you can manage all policies, users, and settings.',
         icon: '🐧',
-        action: 'highlight-admin-link'
+        action: 'open-admin-dashboard'
     },
     {
         title: '3️⃣ Create New Policy',
@@ -8760,8 +8760,12 @@ function executeTourAction(action) {
             }, 500);
             break;
             
-        case 'highlight-admin-link':
-            // Do nothing, user will click it themselves
+        case 'open-admin-dashboard':
+            // Open admin dashboard directly
+            setTimeout(() => {
+                console.log('Opening admin dashboard...');
+                openPasswordModal();
+            }, 300);
             break;
             
         case 'show-create-policy':

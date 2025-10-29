@@ -1105,11 +1105,20 @@ function hideN8nLoadingOverlay() {
 
 function displayUploadResults(uploadResults) {
     console.log('displayUploadResults called with:', uploadResults);
+    
+    // Ensure upload modal stays open
+    const uploadModal = document.getElementById('uploadModal');
+    if (uploadModal) {
+        uploadModal.style.display = 'block';
+        console.log('Ensuring upload modal is visible');
+    }
+    
     const uploadedFiles = document.getElementById('uploadedFiles');
     const analysisResults = document.getElementById('analysisResults');
     const analysisContent = document.getElementById('analysisContent');
     
     console.log('Elements found:', {
+        uploadModal: !!uploadModal,
         uploadedFiles: !!uploadedFiles,
         analysisResults: !!analysisResults,
         analysisContent: !!analysisContent
@@ -1126,6 +1135,8 @@ function displayUploadResults(uploadResults) {
     }
     analysisResults.style.display = 'block';
     analysisContent.innerHTML = '';
+    
+    console.log('Analysis results section made visible');
     
     uploadResults.forEach((result, index) => {
         const file = result.file;

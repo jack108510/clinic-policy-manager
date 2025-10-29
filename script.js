@@ -8579,6 +8579,191 @@ function loginUser(event) {
     }
 }
 
+// Feature Tour System
+let tourSteps = [
+    {
+        title: 'Welcome to Policy Pro! 🎉',
+        description: 'This interactive tour will show you all the key features. Let\'s get started!',
+        icon: 'fa-lightbulb',
+        action: null
+    },
+    {
+        title: '1️⃣ View Policies',
+        description: 'Scroll down to see your policy library. You can view, search, and filter all your policies here.',
+        icon: 'fa-file-alt',
+        action: 'scroll-to-policies'
+    },
+    {
+        title: '2️⃣ Admin Dashboard',
+        description: 'Click "Admin" in the navigation to access the admin dashboard where you can manage everything.',
+        icon: 'fa-tachometer-alt',
+        action: 'highlight-admin-link'
+    },
+    {
+        title: '3️⃣ Create New Policy',
+        description: 'Use the "Create New Policy" button in the admin dashboard to add policies manually.',
+        icon: 'fa-plus-circle',
+        action: 'show-create-policy'
+    },
+    {
+        title: '4️⃣ AI Policy Assistant',
+        description: 'Try the "AI Policy Generator" for AI-powered policy creation. Just describe what you need!',
+        icon: 'fa-robot',
+        action: 'show-ai-assistant'
+    },
+    {
+        title: '5️⃣ Manage Users',
+        description: 'The "Manage Users" feature lets you add team members, assign roles, and manage permissions.',
+        icon: 'fa-users-cog',
+        action: 'show-manage-users'
+    },
+    {
+        title: '6️⃣ Settings & Configuration',
+        description: 'Configure organizations, categories, roles, and webhooks in the Settings tab.',
+        icon: 'fa-cog',
+        action: 'show-settings'
+    },
+    {
+        title: '7️⃣ Profile & Account',
+        description: 'Access your profile settings, account information, and preferences.',
+        icon: 'fa-user-circle',
+        action: 'show-profile'
+    },
+    {
+        title: 'You\'re All Set! 🚀',
+        description: 'You now know all the key features. Start creating and managing your policies!',
+        icon: 'fa-check-circle',
+        action: null
+    }
+];
+
+let currentTourStep = 0;
+
+function startTour() {
+    console.log('🚀 Starting feature tour...');
+    currentTourStep = 0;
+    showTourStep(0);
+}
+
+function nextTourStep() {
+    currentTourStep++;
+    
+    if (currentTourStep >= tourSteps.length) {
+        endTour();
+        return;
+    }
+    
+    const step = tourSteps[currentTourStep];
+    
+    // Execute action if specified
+    if (step.action) {
+        executeTourAction(step.action);
+    }
+    
+    showTourStep(currentTourStep);
+}
+
+function skipTour() {
+    console.log('⏭️ Tour skipped');
+    endTour();
+}
+
+function endTour() {
+    const modal = document.getElementById('tourModal');
+    const overlay = document.getElementById('tourOverlay');
+    
+    if (modal) modal.style.display = 'none';
+    if (overlay) overlay.style.display = 'none';
+    
+    // Mark tour as completed
+    localStorage.setItem('tourCompleted', 'true');
+}
+
+function showTourStep(stepIndex) {
+    if (stepIndex >= tourSteps.length) {
+        endTour();
+        return;
+    }
+    
+    const step = tourSteps[stepIndex];
+    const modal = document.getElementById('tourModal');
+    const overlay = document.getElementById('tourOverlay');
+    
+    if (!modal || !overlay) return;
+    
+    // Update modal content
+    document.getElementById('tourIcon').innerHTML = `<i class="fas ${step.icon}"></i>`;
+    document.getElementById('tourTitle').textContent = step.title;
+    document.getElementById('tourDescription').textContent = step.description;
+    
+    // Show modal and overlay
+    modal.style.display = 'block';
+    overlay.style.display = 'block';
+    
+    // Update button text based on step
+    const nextBtn = document.getElementById('tourNext');
+    if (nextBtn) {
+        if (stepIndex === tourSteps.length - 1) {
+            nextBtn.textContent = 'Finish';
+            nextBtn.innerHTML = 'Finish <i class="fas fa-check"></i>';
+        } else {
+            nextBtn.textContent = 'Next';
+            nextBtn.innerHTML = 'Next <i class="fas fa-arrow-right"></i>';
+        }
+    }
+}
+
+function executeTourAction(action) {
+    console.log('🎯 Executing tour action:', action);
+    
+    switch(action) {
+        case 'scroll-to-policies':
+            setTimeout(() => {
+                document.getElementById('policies').scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }, 500);
+            break;
+            
+        case 'highlight-admin-link':
+            // Do nothing, user will click it themselves
+            break;
+            
+        case 'show-create-policy':
+            setTimeout(() => {
+                endTour();
+                setTimeout(() => openPasswordModal(), 500);
+            }, 1500);
+            break;
+            
+        case 'show-ai-assistant':
+            setTimeout(() => {
+                endTour();
+                setTimeout(() => openAIModal(), 500);
+            }, 1500);
+            break;
+            
+        case 'show-manage-users':
+            setTimeout(() => {
+                endTour();
+                setTimeout(() => openPasswordModal(), 500);
+            }, 1500);
+            break;
+            
+        case 'show-settings':
+            setTimeout(() => {
+                endTour();
+                setTimeout(() => openSettingsModal(), 500);
+            }, 1500);
+            break;
+            
+        case 'show-profile':
+            setTimeout(() => {
+                endTour();
+                setTimeout(() => showProfileModal(), 500);
+            }, 1500);
+            break;
+    }
+}
+
 // Demo Account Function
 function startDemo() {
     console.log('🎮 Starting demo...');
@@ -8705,6 +8890,14 @@ function startDemo() {
     
     // Show success notification
     showNotification('🎮 Demo mode activated! Explore Policy Pro with sample data.', 'success');
+    
+    // Start the feature tour if not completed before
+    const tourCompleted = localStorage.getItem('tourCompleted');
+    if (!tourCompleted) {
+        setTimeout(() => {
+            startTour();
+        }, 1000);
+    }
     
     // Scroll to top
     window.scrollTo(0, 0);

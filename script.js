@@ -8920,16 +8920,23 @@ function startDemo() {
     showNotification('🎮 Demo mode activated! Explore Policy Pro with sample data.', 'success');
     
     // Always start the feature tour for demo mode
-    console.log('Starting tour in 2 seconds...');
-    setTimeout(() => {
-        console.log('Tour timer fired, calling startTour()');
-        startTour();
-    }, 2000);
+    console.log('✅ Demo started successfully');
+    console.log('🚀 Starting tour in 2 seconds...');
     
     // Scroll to top
     window.scrollTo(0, 0);
     
-    console.log('✅ Demo started successfully');
+    // Start tour with delay
+    setTimeout(() => {
+        console.log('⏰ Tour timer fired, calling startTour()');
+        console.log('startTour function exists?', typeof startTour);
+        
+        if (typeof startTour === 'function') {
+            startTour();
+        } else {
+            console.error('❌ startTour function not found!');
+        }
+    }, 2000);
 }
 
 // Duplicate requireLogin function removed - using the one defined earlier

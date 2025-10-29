@@ -8600,44 +8600,44 @@ let tourSteps = [
         action: 'show-admin-dashboard'
     },
     {
-        title: 'Explore the Admin Dashboard',
-        description: '🐧 The admin dashboard is now open! Try creating a policy, managing users, or accessing settings. Click Next to continue your tour.',
+        title: '🎉 Admin Dashboard Open!',
+        description: '🐧 The admin dashboard is now open! Here are the key features you can explore. Click Next to see what each does.',
         icon: '🐧',
         action: null
     },
     {
-        title: '3️⃣ Create New Policy',
-        description: '🐧 Click "Create New Policy" above to add policies manually. Or try "AI Policy Generator" for AI-powered creation!',
+        title: 'Create Policies',
+        description: '🐧 Click "Create New Policy" to add policies manually, or use "AI Policy Generator" for AI-powered creation!',
         icon: '🐧',
         action: null
     },
     {
-        title: '4️⃣ Try AI Policy Generator',
-        description: '🐧 Click "AI Policy Generator" to create policies with AI. Just describe what you need and watch the magic happen!',
+        title: 'AI Policy Generator',
+        description: '🐧 Try the "AI Policy Generator" - describe what you need and AI will create a professional policy for you!',
         icon: '🐧',
         action: null
     },
     {
-        title: '5️⃣ Upload Policy Documents',
-        description: '🐧 Click "Upload Policy Documents" to import existing policies from files. The system will process them automatically!',
+        title: 'Upload Documents',
+        description: '🐧 Use "Upload Policy Documents" to import existing policies from files. The system processes them automatically!',
         icon: '🐧',
         action: null
     },
     {
-        title: '6️⃣ Manage Users',
-        description: '🐧 Click "Manage Users" to add team members, assign roles, and control permissions for your organization.',
+        title: 'Manage Your Team',
+        description: '🐧 Click "Manage Users" to add team members, assign roles, and control who can access what.',
         icon: '🐧',
         action: null
     },
     {
-        title: '7️⃣ Configure Settings',
-        description: '🐧 Click "Settings" to set up organizations, categories, roles, and webhooks. Customize your policy management!',
+        title: 'Customize Settings',
+        description: '🐧 Click "Settings" to set up organizations, categories, disciplinary actions, and webhooks.',
         icon: '🐧',
         action: null
     },
     {
-        title: 'Profile & Preferences',
-        description: '🐧 Click your profile icon in the top navigation to view your account info, preferences, and settings.',
+        title: 'Your Profile',
+        description: '🐧 Click your profile icon in the top navigation to view your account info and preferences.',
         icon: '🐧',
         action: null
     },
@@ -8684,11 +8684,14 @@ function nextTourStep() {
     showTourStep(currentTourStep);
     
     // Execute action AFTER showing the step (so user sees the message while action happens)
-    if (step.action) {
+    // But don't execute actions after admin dashboard opens - just show instructions
+    if (step.action && currentTourStep === 1) {
+        // Only execute action for the admin dashboard step (step 2, index 1)
         setTimeout(() => {
             executeTourAction(step.action);
         }, 100);
     }
+    // For all other steps after admin dashboard, just show the instructions
 }
 
 function skipTour() {

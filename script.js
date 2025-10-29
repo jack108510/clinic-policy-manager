@@ -8683,14 +8683,14 @@ function nextTourStep() {
     showTourStep(currentTourStep);
     
     // Execute action AFTER showing the step (so user sees the message while action happens)
-    // But don't execute actions after admin dashboard opens - just show instructions
+    // Only execute action if it's the admin dashboard step
     if (step.action && currentTourStep === 1) {
-        // Only execute action for the admin dashboard step (step 2, index 1)
+        // Execute action for the admin dashboard step (step 2, index 1)
         setTimeout(() => {
             executeTourAction(step.action);
-        }, 100);
+        }, 300);
     }
-    // For all other steps after admin dashboard, just show the instructions
+    // For all other steps, just show the instructions
 }
 
 function skipTour() {

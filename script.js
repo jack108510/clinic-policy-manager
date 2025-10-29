@@ -8579,6 +8579,139 @@ function loginUser(event) {
     }
 }
 
+// Demo Account Function
+function startDemo() {
+    console.log('🎮 Starting demo...');
+    
+    const demoCompany = 'Demo Company';
+    const demoUser = {
+        id: 'demo-user-1',
+        username: 'demo',
+        password: 'demo123',
+        email: 'demo@policypro.com',
+        fullName: 'Demo User',
+        company: demoCompany,
+        role: 'admin',
+        created: new Date().toISOString().split('T')[0]
+    };
+    
+    // Initialize demo company if it doesn't exist
+    const masterCompanies = JSON.parse(localStorage.getItem('masterCompanies') || '[]');
+    let demoCompanyData = masterCompanies.find(c => c.name === demoCompany);
+    
+    if (!demoCompanyData) {
+        // Create demo company
+        demoCompanyData = {
+            id: 'demo-company-1',
+            name: demoCompany,
+            industry: 'Technology',
+            plan: 'pro',
+            adminPassword: 'demo123',
+            created: new Date().toISOString().split('T')[0],
+            users: 1,
+            policies: 3,
+            status: 'active'
+        };
+        masterCompanies.push(demoCompanyData);
+        localStorage.setItem('masterCompanies', JSON.stringify(masterCompanies));
+    }
+    
+    // Initialize demo user
+    const masterUsers = JSON.parse(localStorage.getItem('masterUsers') || '[]');
+    const existingDemoUser = masterUsers.find(u => u.username === 'demo' && u.company === demoCompany);
+    
+    if (!existingDemoUser) {
+        masterUsers.push(demoUser);
+        localStorage.setItem('masterUsers', JSON.stringify(masterUsers));
+    }
+    
+    // Create sample policies for demo
+    const demoPolicies = [
+        {
+            id: 'demo-policy-1',
+            title: 'Data Security Policy',
+            type: 'admin',
+            clinics: ['All Organizations'],
+            clinicNames: 'All Organizations',
+            description: 'This policy establishes guidelines for data security and protection of sensitive information.',
+            content: 'Purpose: To ensure the secure handling of data.\n\nProcedures: All data must be encrypted.\n\nCompliance: Required monthly reviews.',
+            company: demoCompany,
+            created: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+            lastModified: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+            status: 'active',
+            categoryId: null,
+            policyCode: 'ADMIN.1.1.2025'
+        },
+        {
+            id: 'demo-policy-2',
+            title: 'Employee Code of Conduct',
+            type: 'admin',
+            clinics: ['All Organizations'],
+            clinicNames: 'All Organizations',
+            description: 'Guidelines for professional behavior and ethical conduct.',
+            content: 'Purpose: Maintain professional standards.\n\nGuidelines: Respect, integrity, accountability.',
+            company: demoCompany,
+            created: new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+            lastModified: new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+            status: 'active',
+            categoryId: null,
+            policyCode: 'ADMIN.1.2.2025'
+        },
+        {
+            id: 'demo-policy-3',
+            title: 'Remote Work Guidelines',
+            type: 'sog',
+            clinics: ['All Organizations'],
+            clinicNames: 'All Organizations',
+            description: 'Standard operating guidelines for remote work arrangements.',
+            content: 'Purpose: Establish remote work protocols.\n\nProcedures: Check-in times, communication requirements, productivity expectations.',
+            company: demoCompany,
+            created: new Date(Date.now() - 21 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+            lastModified: new Date(Date.now() - 21 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+            status: 'active',
+            categoryId: null,
+            policyCode: 'SOG.1.1.2025'
+        }
+    ];
+    
+    // Save demo policies
+    localStorage.setItem(`policies_${demoCompany}`, JSON.stringify(demoPolicies));
+    
+    // Set up organizations for demo company
+    const organizations = JSON.parse(localStorage.getItem('organizations') || '{}');
+    if (!organizations[demoCompany]) {
+        organizations[demoCompany] = [demoCompany];
+        localStorage.setItem('organizations', JSON.stringify(organizations));
+    }
+    
+    // Log in as demo user
+    currentUser = demoUser;
+    currentCompany = demoCompany;
+    saveToLocalStorage('currentUser', currentUser);
+    saveToLocalStorage('currentCompany', currentCompany);
+    
+    // Update UI
+    document.body.classList.add('user-logged-in');
+    updateUserInterface();
+    
+    // Load demo policies
+    loadPoliciesFromStorage();
+    
+    // Hide landing page
+    const landingPage = document.getElementById('landingPage');
+    if (landingPage) {
+        landingPage.style.display = 'none';
+    }
+    
+    // Show success notification
+    showNotification('🎮 Demo mode activated! Explore Policy Pro with sample data.', 'success');
+    
+    // Scroll to top
+    window.scrollTo(0, 0);
+    
+    console.log('✅ Demo started successfully');
+}
+
 // Duplicate requireLogin function removed - using the one defined earlier
 
 function logoutUser() {

@@ -868,6 +868,9 @@ async function processFiles(files) {
     
     console.log('Processing', files.length, 'files');
     
+    // Show loading overlay
+    showN8nLoadingOverlay(files.length);
+    
     // Show uploaded files
     const uploadedFiles = document.getElementById('uploadedFiles');
     const fileList = document.getElementById('fileList');
@@ -899,13 +902,29 @@ async function processFiles(files) {
         });
         
         // Send each file to webhook
-        for (const fileCard of fileCards) {
-            const file = files[fileCard.index];
-            await sendFileToWebhook(file, fileCard.statusElement);
+        let completedCount = 0;
+        let hasError = false;
+        
+        try {
+            for (const fileCard of fileCards) {
+                const file = files[fileCard.index];
+                updateN8nLoadingProgress(completedCount, files.length, file.name);
+                await sendFileToWebhook(file, fileCard.statusElement);
+                completedCount++;
+                updateN8nLoadingProgress(completedCount, files.length, file.name);
+            }
+        } catch (error) {
+            console.error('Error during file upload process:', error);
+            hasError = true;
+        } finally {
+            // Hide loading overlay after all files are uploaded (success or error)
+            hideN8nLoadingOverlay();
         }
         
-        // Show processing status after all files are uploaded
-        showProcessingStatus();
+        // Show processing status after all files are uploaded (only if no errors)
+        if (!hasError) {
+            showProcessingStatus();
+        }
     }
 }
 
@@ -979,6 +998,65 @@ function fileToBase64(file) {
         };
         reader.onerror = error => reject(error);
     });
+}
+
+// n8n Loading Overlay Functions
+function showN8nLoadingOverlay(totalFiles) {
+    const overlay = document.getElementById('n8nLoadingOverlay');
+    const loadingTitle = document.getElementById('loadingTitle');
+    const loadingMessage = document.getElementById('loadingMessage');
+    const loadingProgressBar = document.getElementById('loadingProgressBar');
+    const loadingFileName = document.getElementById('loadingFileName');
+    
+    if (overlay) {
+        overlay.style.display = 'flex';
+        
+        if (loadingTitle) {
+            loadingTitle.textContent = totalFiles === 1 ? 'Processing with n8n...' : `Processing ${totalFiles} files with n8n...`;
+        }
+        
+        if (loadingMessage) {
+            loadingMessage.textContent = 'Uploading files and extracting data. Please wait...';
+        }
+        
+        if (loadingProgressBar) {
+            loadingProgressBar.style.width = '0%';
+        }
+        
+        if (loadingFileName) {
+            loadingFileName.textContent = '';
+        }
+    }
+}
+
+function updateN8nLoadingProgress(completed, total, fileName) {
+    const loadingProgressBar = document.getElementById('loadingProgressBar');
+    const loadingFileName = document.getElementById('loadingFileName');
+    const loadingMessage = document.getElementById('loadingMessage');
+    
+    if (loadingProgressBar) {
+        const percentage = total > 0 ? (completed / total) * 100 : 0;
+        loadingProgressBar.style.width = percentage + '%';
+    }
+    
+    if (loadingFileName && fileName) {
+        loadingFileName.textContent = `Processing: ${fileName}`;
+    }
+    
+    if (loadingMessage) {
+        if (completed < total) {
+            loadingMessage.textContent = `Uploading file ${completed + 1} of ${total}...`;
+        } else {
+            loadingMessage.textContent = 'Finalizing upload...';
+        }
+    }
+}
+
+function hideN8nLoadingOverlay() {
+    const overlay = document.getElementById('n8nLoadingOverlay');
+    if (overlay) {
+        overlay.style.display = 'none';
+    }
 }
 
 function showProcessingStatus() {

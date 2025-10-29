@@ -904,12 +904,19 @@ async function processFiles(files) {
         // Send each file to webhook
         let completedCount = 0;
         let hasError = false;
+        const uploadResults = []; // Store results from n8n
         
         try {
             for (const fileCard of fileCards) {
                 const file = files[fileCard.index];
                 updateN8nLoadingProgress(completedCount, files.length, file.name);
-                await sendFileToWebhook(file, fileCard.statusElement);
+                const result = await sendFileToWebhook(file, fileCard.statusElement);
+                if (result) {
+                    uploadResults.push({
+                        file: file,
+                        data: result
+                    });
+                }
                 completedCount++;
                 updateN8nLoadingProgress(completedCount, files.length, file.name);
             }
@@ -922,7 +929,9 @@ async function processFiles(files) {
         }
         
         // Show processing status after all files are uploaded (only if no errors)
-        if (!hasError) {
+        if (!hasError && uploadResults.length > 0) {
+            displayUploadResults(uploadResults);
+        } else if (!hasError) {
             showProcessingStatus();
         }
     }
@@ -956,13 +965,25 @@ async function sendFileToWebhook(file, statusElement) {
         console.log('Response status:', response.status, 'OK:', response.ok);
         
         if (response.ok) {
-            const responseData = await response.text();
-            console.log('File uploaded successfully:', responseData);
+            const responseText = await response.text();
+            console.log('File uploaded successfully:', responseText);
+            
+            let responseData = null;
+            try {
+                // Try to parse as JSON (n8n should return structured data)
+                responseData = JSON.parse(responseText);
+            } catch (e) {
+                // If not JSON, treat as plain text
+                responseData = responseText;
+            }
             
             if (statusElement) {
                 statusElement.textContent = 'Uploaded ✓';
                 statusElement.className = 'status-badge success';
             }
+            
+            // Return the response data so it can be processed
+            return responseData;
         } else {
             const errorText = await response.text();
             console.error('Upload failed with status:', response.status, 'Response:', errorText);
@@ -1057,6 +1078,317 @@ function hideN8nLoadingOverlay() {
     if (overlay) {
         overlay.style.display = 'none';
     }
+}
+
+function displayUploadResults(uploadResults) {
+    const uploadedFiles = document.getElementById('uploadedFiles');
+    const analysisResults = document.getElementById('analysisResults');
+    const analysisContent = document.getElementById('analysisContent');
+    
+    if (!analysisResults || !analysisContent) return;
+    
+    // Hide uploaded files list and show analysis results
+    if (uploadedFiles) {
+        uploadedFiles.style.display = 'none';
+    }
+    analysisResults.style.display = 'block';
+    analysisContent.innerHTML = '';
+    
+    uploadResults.forEach((result, index) => {
+        const file = result.file;
+        const data = result.data;
+        
+        // Parse the response - check if it's the same format as AI generator
+        let policyData = null;
+        let markdown = null;
+        
+        // Handle different response formats from n8n
+        if (Array.isArray(data) && data.length > 0 && data[0].markdown) {
+            // Same format as AI generator webhook response
+            policyData = data[0];
+            markdown = policyData.markdown;
+        } else if (data.markdown) {
+            // Single object with markdown
+            policyData = data;
+            markdown = data.markdown;
+        } else if (typeof data === 'string') {
+            // Plain markdown string
+            markdown = data;
+            policyData = {
+                policy_title: file.name.replace(/\.[^/.]+$/, ''),
+                policy_type: 'admin',
+                company: currentCompany || 'Unknown',
+                effective_date: new Date().toISOString().split('T')[0],
+                applies_to: 'All Organizations',
+                author: currentUser?.fullName || currentUser?.username || 'Unknown',
+                version: '1.0'
+            };
+        } else if (typeof data === 'object') {
+            // Try to extract markdown from various possible structures
+            markdown = data.markdown || data.content || data.text || JSON.stringify(data, null, 2);
+            policyData = {
+                policy_title: data.title || data.policy_title || file.name.replace(/\.[^/.]+$/, ''),
+                policy_type: data.type || data.policy_type || 'admin',
+                company: data.company || currentCompany || 'Unknown',
+                effective_date: data.effective_date || data.effectiveDate || new Date().toISOString().split('T')[0],
+                applies_to: data.applies_to || data.appliesTo || data.organizations || 'All Organizations',
+                author: data.author || currentUser?.fullName || currentUser?.username || 'Unknown',
+                version: data.version || '1.0'
+            };
+        }
+        
+        if (!markdown) {
+            // Fallback: show raw data
+            analysisContent.innerHTML += `
+                <div class="analysis-item" style="margin-bottom: 30px; padding: 20px; background: white; border-radius: 12px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                    <h4 style="margin: 0 0 15px 0; color: #333;">
+                        <i class="fas fa-file-alt"></i> ${file.name}
+                    </h4>
+                    <pre style="background: #f5f5f5; padding: 15px; border-radius: 6px; overflow-x: auto;">${JSON.stringify(data, null, 2)}</pre>
+                </div>
+            `;
+            return;
+        }
+        
+        // Parse markdown into sections
+        const sections = parseWebhookPolicyMarkdown(markdown);
+        
+        // Create structured display similar to AI generator
+        const policyType = policyData.policy_type || 'admin';
+        const typeClass = policyType === 'admin' ? 'admin' : policyType === 'sog' ? 'sog' : 'memo';
+        const typeLabel = policyType === 'admin' ? 'Admin Policy' : policyType === 'sog' ? 'SOG' : 'Communication Memo';
+        
+        const resultCard = document.createElement('div');
+        resultCard.className = 'upload-policy-result';
+        resultCard.style.cssText = 'margin-bottom: 30px; padding: 25px; background: white; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);';
+        
+        resultCard.innerHTML = `
+            <div class="policy-preview professional" style="max-width: 100%;">
+                <div class="policy-header" style="margin-bottom: 20px; padding-bottom: 15px; border-bottom: 2px solid #e5e7eb;">
+                    <div class="form-group" style="margin-bottom: 15px;">
+                        <label for="uploadPolicyTitle-${index}" style="display: block; margin-bottom: 5px; font-weight: 600; color: #333;">
+                            <i class="fas fa-heading"></i> Policy Title <span style="color: red;">*</span>
+                        </label>
+                        <input type="text" id="uploadPolicyTitle-${index}" value="${policyData.policy_title || file.name.replace(/\.[^/.]+$/, '')}" required
+                               style="width: 100%; padding: 12px; border: 2px solid #ddd; border-radius: 6px; font-size: 1.1rem; font-weight: 600;"
+                               placeholder="Enter policy title..." />
+                        <small style="color: #666; display: block; margin-top: 5px;">This title is required to save the policy</small>
+                    </div>
+                    <span class="policy-type-badge ${typeClass}" style="display: inline-block; padding: 6px 12px; background: ${typeClass === 'admin' ? '#e3f2fd' : typeClass === 'sog' ? '#fff3e0' : '#f3e5f5'}; color: ${typeClass === 'admin' ? '#1976d2' : typeClass === 'sog' ? '#f57c00' : '#7b1fa2'}; border-radius: 20px; font-size: 12px; font-weight: 600;">
+                        ${typeLabel}
+                    </span>
+                </div>
+                
+                <div class="policy-meta" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 20px; padding: 15px; background: #f8f9fa; border-radius: 8px;">
+                    <div class="meta-item" style="font-size: 14px;"><strong>Company:</strong> ${policyData.company || currentCompany || 'Unknown'}</div>
+                    <div class="meta-item" style="font-size: 14px;"><strong>Effective Date:</strong> ${policyData.effective_date || new Date().toISOString().split('T')[0]}</div>
+                    <div class="meta-item" style="font-size: 14px;"><strong>Applies To:</strong> ${policyData.applies_to || 'All Organizations'}</div>
+                    <div class="meta-item" style="font-size: 14px;"><strong>Author:</strong> ${policyData.author || currentUser?.fullName || 'Unknown'}</div>
+                    <div class="meta-item" style="font-size: 14px;"><strong>Version:</strong> ${policyData.version || '1.0'}</div>
+                </div>
+                
+                <div class="policy-content-display" style="max-height: 600px; overflow-y: auto; margin-bottom: 20px;">
+                    ${generateEditablePolicySections(sections)}
+                </div>
+                
+                <div class="form-group" style="margin-top: 20px; margin-bottom: 20px;">
+                    <label for="uploadPolicyCategory-${index}" style="display: block; margin-bottom: 5px; font-weight: 600; color: #333;">
+                        <i class="fas fa-tags"></i> Select Category (for policy code generation)
+                    </label>
+                    <select id="uploadPolicyCategory-${index}" onchange="updateUploadPolicyCode(${index})" style="width: 100%; padding: 12px; border: 2px solid #ddd; border-radius: 6px; font-size: 1rem;">
+                        <option value="">No Category (optional)</option>
+                    </select>
+                    <small style="color: #666; display: block; margin-top: 5px;">Policy code will be generated in format: Type.Category#.Policy#.Year (e.g., ADMIN.1.2.2025)</small>
+                    <div id="uploadPolicyCodeDisplay-${index}" style="display: none; margin-top: 10px; padding: 10px; background: #f0f8ff; border-radius: 6px;">
+                        <strong>Policy Code:</strong> <span id="uploadPolicyCodeText-${index}"></span>
+                    </div>
+                </div>
+                
+                <div class="upload-result-actions" style="margin-top: 20px; padding-top: 20px; border-top: 1px solid #ddd; display: flex; gap: 10px; justify-content: flex-end;">
+                    <button class="btn btn-success" onclick="saveUploadedPolicy(${index}, '${policyType}')">
+                        <i class="fas fa-save"></i> Save Policy
+                    </button>
+                    <button class="btn btn-secondary" onclick="closeUploadModal()">
+                        <i class="fas fa-times"></i> Close
+                    </button>
+                </div>
+            </div>
+        `;
+        
+        analysisContent.appendChild(resultCard);
+        
+        // Populate category dropdown after HTML is rendered
+        setTimeout(() => {
+            populateUploadCategoryDropdown(index);
+        }, 100);
+    });
+    
+    // Store the upload results for saving
+    window.currentUploadResults = uploadResults;
+}
+
+function populateUploadCategoryDropdown(index) {
+    loadCategories();
+    const select = document.getElementById(`uploadPolicyCategory-${index}`);
+    if (!select) return;
+    
+    select.innerHTML = '<option value="">No Category (optional)</option>';
+    categories.forEach(category => {
+        const option = document.createElement('option');
+        option.value = category.id;
+        option.textContent = `${category.number} - ${category.name}`;
+        select.appendChild(option);
+    });
+}
+
+function updateUploadPolicyCode(index) {
+    const categoryId = document.getElementById(`uploadPolicyCategory-${index}`)?.value;
+    const codeDisplay = document.getElementById(`uploadPolicyCodeDisplay-${index}`);
+    const codeText = document.getElementById(`uploadPolicyCodeText-${index}`);
+    
+    // Get policy type from the stored upload result
+    const uploadResults = window.currentUploadResults;
+    if (!uploadResults || !uploadResults[index]) return;
+    
+    const result = uploadResults[index];
+    const policyType = result.data?.policy_type || result.data?.type || 'admin';
+    
+    if (categoryId && codeDisplay && codeText) {
+        loadCategories();
+        const category = categories.find(cat => cat.id === parseInt(categoryId) || cat.id === categoryId);
+        if (category) {
+            const policies = loadCompanyPolicies();
+            const categoryPolicies = policies.filter(p => (p.categoryId === parseInt(categoryId) || p.categoryId === categoryId) && p.policyCode && p.type === policyType);
+            const policyNumber = categoryPolicies.length + 1;
+            const currentYear = new Date().getFullYear();
+            
+            const typeCodes = {
+                'admin': 'ADMIN',
+                'sog': 'SOG',
+                'memo': 'MEMO',
+                'protocol': 'PROTO',
+                'proto': 'PROTO'
+            };
+            const typeCode = typeCodes[policyType?.toLowerCase()] || 'ADMIN';
+            
+            const code = `${typeCode}.${category.number}.${policyNumber}.${currentYear}`;
+            
+            codeText.textContent = code;
+            codeDisplay.style.display = 'block';
+        }
+    } else if (codeDisplay) {
+        codeDisplay.style.display = 'none';
+    }
+}
+
+function saveUploadedPolicy(index, policyType) {
+    const uploadResults = window.currentUploadResults;
+    
+    if (!uploadResults || !uploadResults[index]) {
+        showNotification('No policy data to save', 'error');
+        return;
+    }
+    
+    // Get the policy title from the input field
+    const titleInput = document.getElementById(`uploadPolicyTitle-${index}`);
+    if (!titleInput) {
+        showNotification('Title input field not found', 'error');
+        return;
+    }
+    
+    const policyTitle = titleInput.value.trim();
+    if (!policyTitle) {
+        showNotification('Please enter a policy title before saving', 'error');
+        titleInput.focus();
+        titleInput.style.borderColor = '#ef4444';
+        return;
+    }
+    
+    // Get selected category
+    const categoryId = document.getElementById(`uploadPolicyCategory-${index}`)?.value || null;
+    
+    // Get the result data
+    const result = uploadResults[index];
+    const data = result.data;
+    
+    // Parse the policy data
+    let policyData = null;
+    let markdown = null;
+    
+    if (Array.isArray(data) && data.length > 0 && data[0].markdown) {
+        policyData = data[0];
+        markdown = policyData.markdown;
+    } else if (data.markdown) {
+        policyData = data;
+        markdown = data.markdown;
+    } else if (typeof data === 'string') {
+        markdown = data;
+        policyData = {
+            policy_type: policyType,
+            company: currentCompany || 'Unknown',
+            effective_date: new Date().toISOString().split('T')[0],
+            applies_to: 'All Organizations',
+            author: currentUser?.fullName || currentUser?.username || 'Unknown',
+            version: '1.0'
+        };
+    } else if (typeof data === 'object') {
+        markdown = data.markdown || data.content || data.text || '';
+        policyData = {
+            policy_title: data.title || data.policy_title || policyTitle,
+            policy_type: data.type || data.policy_type || policyType,
+            company: data.company || currentCompany || 'Unknown',
+            effective_date: data.effective_date || data.effectiveDate || new Date().toISOString().split('T')[0],
+            applies_to: data.applies_to || data.appliesTo || data.organizations || 'All Organizations',
+            author: data.author || currentUser?.fullName || currentUser?.username || 'Unknown',
+            version: data.version || '1.0'
+        };
+    }
+    
+    // Create policy object
+    const tempId = 'policy_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+    
+    // Generate policy code if category is selected
+    const policyCode = categoryId ? generatePolicyCode(categoryId, tempId, policyType) : null;
+    
+    const newPolicy = {
+        id: tempId,
+        title: policyTitle,
+        type: policyType,
+        clinics: policyData.applies_to || 'All Organizations',
+        clinicNames: policyData.applies_to || 'All Organizations',
+        content: markdown || '',
+        description: policyTitle,
+        effectiveDate: policyData.effective_date || new Date().toISOString().split('T')[0],
+        version: policyData.version || '1.0',
+        approvedBy: policyData.approved_by || policyData.author || 'Administrator',
+        company: currentCompany,
+        created: new Date().toISOString().split('T')[0],
+        lastModified: new Date().toISOString().split('T')[0],
+        generatedBy: 'File Upload',
+        categoryId: categoryId,
+        policyCode: policyCode
+    };
+    
+    // Save the policy
+    if (!currentCompany) {
+        showNotification('Please log in first', 'error');
+        return;
+    }
+    
+    const companyPolicies = loadCompanyPolicies();
+    companyPolicies.push(newPolicy);
+    localStorage.setItem(`policies_${currentCompany}`, JSON.stringify(companyPolicies));
+    
+    showNotification('Policy saved successfully!', 'success');
+    
+    // Refresh policies display if available
+    if (typeof loadPoliciesFromStorage === 'function') {
+        loadPoliciesFromStorage();
+        displayPolicies(companyPolicies);
+    }
+    
+    // Close upload modal
+    closeUploadModal();
 }
 
 function showProcessingStatus() {

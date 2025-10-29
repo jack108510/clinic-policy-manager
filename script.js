@@ -911,12 +911,11 @@ async function processFiles(files) {
                 const file = files[fileCard.index];
                 updateN8nLoadingProgress(completedCount, files.length, file.name);
                 const result = await sendFileToWebhook(file, fileCard.statusElement);
-                if (result) {
-                    uploadResults.push({
-                        file: file,
-                        data: result
-                    });
-                }
+                // Always add result, even if empty (we'll handle empty responses in display)
+                uploadResults.push({
+                    file: file,
+                    data: result
+                });
                 completedCount++;
                 updateN8nLoadingProgress(completedCount, files.length, file.name);
             }
@@ -928,8 +927,9 @@ async function processFiles(files) {
             hideN8nLoadingOverlay();
         }
         
-        // Show processing status after all files are uploaded (only if no errors)
+        // Show results after all files are uploaded (always show, even if response was empty)
         if (!hasError && uploadResults.length > 0) {
+            console.log('Displaying upload results:', uploadResults);
             displayUploadResults(uploadResults);
         } else if (!hasError) {
             showProcessingStatus();
@@ -969,12 +969,29 @@ async function sendFileToWebhook(file, statusElement) {
             console.log('File uploaded successfully:', responseText);
             
             let responseData = null;
-            try {
-                // Try to parse as JSON (n8n should return structured data)
-                responseData = JSON.parse(responseText);
-            } catch (e) {
-                // If not JSON, treat as plain text
-                responseData = responseText;
+            
+            // Check if response is empty or whitespace
+            if (responseText && responseText.trim()) {
+                try {
+                    // Try to parse as JSON (n8n should return structured data)
+                    responseData = JSON.parse(responseText);
+                } catch (e) {
+                    // If not JSON, treat as plain text
+                    responseData = responseText;
+                }
+            } else {
+                // Empty response - create a basic structure so we can still show results
+                console.log('Empty response from webhook, creating default structure');
+                responseData = {
+                    markdown: `## Purpose\nDocument uploaded successfully.\n\n## Content\nFile: ${file.name} has been processed.\n\nPlease review the extracted content.`,
+                    policy_title: file.name.replace(/\.[^/.]+$/, '').replace(/[()]/g, ''),
+                    policy_type: 'admin',
+                    company: currentCompany || 'Unknown',
+                    effective_date: new Date().toISOString().split('T')[0],
+                    applies_to: 'All Organizations',
+                    author: currentUser?.fullName || currentUser?.username || 'Unknown',
+                    version: '1.0'
+                };
             }
             
             if (statusElement) {

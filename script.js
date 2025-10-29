@@ -8686,12 +8686,11 @@ function nextTourStep() {
     console.log(`Tour step ${currentTourStep}: title="${step.title}", action="${step.action}"`);
     
     // Execute action AFTER showing the step (so user sees the message while action happens)
-    // Only execute action if it's the admin dashboard step (index 2)
     if (step.action) {
-        console.log(`Step ${currentTourStep} has action, executing...`);
+        console.log(`Step ${currentTourStep} has action "${step.action}", executing...`);
         setTimeout(() => {
             executeTourAction(step.action);
-        }, 300);
+        }, 500);
     } else {
         console.log(`Step ${currentTourStep} has no action`);
     }

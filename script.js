@@ -8583,56 +8583,56 @@ function loginUser(event) {
 let tourSteps = [
     {
         title: 'Welcome to Policy Pro! 🎉',
-        description: 'This interactive tour will show you all the key features. Let\'s get started!',
-        icon: 'fa-lightbulb',
+        description: '🐧 This interactive tour will show you all the key features. Let\'s get started!',
+        icon: '🐧',
         action: null
     },
     {
         title: '1️⃣ View Policies',
-        description: 'Scroll down to see your policy library. You can view, search, and filter all your policies here.',
-        icon: 'fa-file-alt',
+        description: '🐧 Scroll down to see your policy library. You can view, search, and filter all your policies here.',
+        icon: '🐧',
         action: 'scroll-to-policies'
     },
     {
         title: '2️⃣ Admin Dashboard',
-        description: 'Click "Admin" in the navigation to access the admin dashboard where you can manage everything.',
-        icon: 'fa-tachometer-alt',
+        description: '🐧 Click "Admin" in the navigation to access the admin dashboard where you can manage everything.',
+        icon: '🐧',
         action: 'highlight-admin-link'
     },
     {
         title: '3️⃣ Create New Policy',
-        description: 'Use the "Create New Policy" button in the admin dashboard to add policies manually.',
-        icon: 'fa-plus-circle',
+        description: '🐧 Use the "Create New Policy" button in the admin dashboard to add policies manually.',
+        icon: '🐧',
         action: 'show-create-policy'
     },
     {
         title: '4️⃣ AI Policy Assistant',
-        description: 'Try the "AI Policy Generator" for AI-powered policy creation. Just describe what you need!',
-        icon: 'fa-robot',
+        description: '🐧 Try the "AI Policy Generator" for AI-powered policy creation. Just describe what you need!',
+        icon: '🐧',
         action: 'show-ai-assistant'
     },
     {
         title: '5️⃣ Manage Users',
-        description: 'The "Manage Users" feature lets you add team members, assign roles, and manage permissions.',
-        icon: 'fa-users-cog',
+        description: '🐧 The "Manage Users" feature lets you add team members, assign roles, and manage permissions.',
+        icon: '🐧',
         action: 'show-manage-users'
     },
     {
         title: '6️⃣ Settings & Configuration',
-        description: 'Configure organizations, categories, roles, and webhooks in the Settings tab.',
-        icon: 'fa-cog',
+        description: '🐧 Configure organizations, categories, roles, and webhooks in the Settings tab.',
+        icon: '🐧',
         action: 'show-settings'
     },
     {
         title: '7️⃣ Profile & Account',
-        description: 'Access your profile settings, account information, and preferences.',
-        icon: 'fa-user-circle',
+        description: '🐧 Access your profile settings, account information, and preferences.',
+        icon: '🐧',
         action: 'show-profile'
     },
     {
         title: 'You\'re All Set! 🚀',
-        description: 'You now know all the key features. Start creating and managing your policies!',
-        icon: 'fa-check-circle',
+        description: '🐧 You now know all the key features. Start creating and managing your policies!',
+        icon: '🐧',
         action: null
     }
 ];
@@ -8717,7 +8717,7 @@ function showTourStep(stepIndex) {
     const titleEl = document.getElementById('tourTitle');
     const descEl = document.getElementById('tourDescription');
     
-    if (iconEl) iconEl.innerHTML = `<i class="fas ${step.icon}"></i>`;
+    if (iconEl) iconEl.textContent = step.icon; // Use emoji instead of Font Awesome
     if (titleEl) titleEl.textContent = step.title;
     if (descEl) descEl.textContent = step.description;
     

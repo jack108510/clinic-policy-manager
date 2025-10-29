@@ -879,6 +879,23 @@
             </div>
             <div class="modal-body" style="padding: 40px;">
                 <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; margin-bottom: 30px;">
+                    <!-- Free Trial Plan -->
+                    <div class="pricing-card" onclick="selectPlan('free-trial')" style="border: 2px solid #e0e0e0; border-radius: 12px; padding: 30px; text-align: center; cursor: pointer; transition: all 0.3s;">
+                        <div style="background: linear-gradient(135deg, #10b981, #059669); color: white; padding: 5px 15px; border-radius: 20px; font-size: 0.8rem; font-weight: 600; display: inline-block; margin-bottom: 10px;">2 Week Trial</div>
+                        <h4 style="margin: 0 0 10px 0; color: #333;">Free Trial</h4>
+                        <div style="font-size: 2.5rem; font-weight: bold; color: #10b981; margin: 20px 0;">
+                            FREE
+                        </div>
+                        <ul style="list-style: none; padding: 0; margin: 20px 0; text-align: left;">
+                            <li style="margin: 10px 0;"><i class="fas fa-check" style="color: #10b981; margin-right: 8px;"></i> 10 users</li>
+                            <li style="margin: 10px 0;"><i class="fas fa-check" style="color: #10b981; margin-right: 8px;"></i> 1 organization</li>
+                            <li style="margin: 10px 0;"><i class="fas fa-check" style="color: #10b981; margin-right: 8px;"></i> 3 policies max</li>
+                            <li style="margin: 10px 0;"><i class="fas fa-check" style="color: #10b981; margin-right: 8px;"></i> AI assistant</li>
+                            <li style="margin: 10px 0;"><i class="fas fa-check" style="color: #10b981; margin-right: 8px;"></i> Email support</li>
+                        </ul>
+                        <button class="btn btn-success" style="width: 100%; background: #10b981;">Start Free Trial</button>
+                    </div>
+                    
                     <!-- Basic Plan -->
                     <div class="pricing-card" onclick="selectPlan('basic')" style="border: 2px solid #e0e0e0; border-radius: 12px; padding: 30px; text-align: center; cursor: pointer; transition: all 0.3s;">
                         <h4 style="margin: 0 0 10px 0; color: #333;">Basic</h4>
@@ -886,9 +903,10 @@
                             $29<span style="font-size: 1rem; color: #666;">/month</span>
                         </div>
                         <ul style="list-style: none; padding: 0; margin: 20px 0; text-align: left;">
-                            <li style="margin: 10px 0;"><i class="fas fa-check" style="color: #10b981; margin-right: 8px;"></i> Up to 10 users</li>
-                            <li style="margin: 10px 0;"><i class="fas fa-check" style="color: #10b981; margin-right: 8px;"></i> Unlimited policies</li>
-                            <li style="margin: 10px 0;"><i class="fas fa-check" style="color: #10b981; margin-right: 8px;"></i> Basic AI assistant</li>
+                            <li style="margin: 10px 0;"><i class="fas fa-check" style="color: #10b981; margin-right: 8px;"></i> 15 users</li>
+                            <li style="margin: 10px 0;"><i class="fas fa-check" style="color: #10b981; margin-right: 8px;"></i> 1 organization (single location)</li>
+                            <li style="margin: 10px 0;"><i class="fas fa-check" style="color: #10b981; margin-right: 8px;"></i> 3 policies max</li>
+                            <li style="margin: 10px 0;"><i class="fas fa-check" style="color: #10b981; margin-right: 8px;"></i> AI assistant</li>
                             <li style="margin: 10px 0;"><i class="fas fa-check" style="color: #10b981; margin-right: 8px;"></i> Email support</li>
                         </ul>
                         <button class="btn btn-outline" style="width: 100%;">Select Plan</button>
@@ -902,34 +920,38 @@
                             $99<span style="font-size: 1rem; color: #666;">/month</span>
                         </div>
                         <ul style="list-style: none; padding: 0; margin: 20px 0; text-align: left;">
-                            <li style="margin: 10px 0;"><i class="fas fa-check" style="color: #10b981; margin-right: 8px;"></i> Up to 50 users</li>
+                            <li style="margin: 10px 0;"><i class="fas fa-check" style="color: #10b981; margin-right: 8px;"></i> 50 users</li>
+                            <li style="margin: 10px 0;"><i class="fas fa-check" style="color: #10b981; margin-right: 8px;"></i> Multi-location</li>
                             <li style="margin: 10px 0;"><i class="fas fa-check" style="color: #10b981; margin-right: 8px;"></i> Unlimited policies</li>
-                            <li style="margin: 10px 0;"><i class="fas fa-check" style="color: #10b981; margin-right: 8px;"></i> Advanced AI assistant</li>
+                            <li style="margin: 10px 0;"><i class="fas fa-check" style="color: #10b981; margin-right: 8px;"></i> AI assistant</li>
                             <li style="margin: 10px 0;"><i class="fas fa-check" style="color: #10b981; margin-right: 8px;"></i> Priority support</li>
-                            <li style="margin: 10px 0;"><i class="fas fa-check" style="color: #10b981; margin-right: 8px;"></i> Custom integrations</li>
                         </ul>
                         <button class="btn btn-primary" style="width: 100%;">Select Plan</button>
                     </div>
-                    
-                    <!-- Enterprise Plan -->
-                    <div class="pricing-card" onclick="selectPlan('enterprise')" style="border: 2px solid #e0e0e0; border-radius: 12px; padding: 30px; text-align: center; cursor: pointer; transition: all 0.3s;">
+                </div>
+                
+                <!-- Enterprise Plan -->
+                <div style="display: grid; grid-template-columns: 1fr; max-width: 600px; margin: 0 auto 30px auto;">
+                    <div class="pricing-card" onclick="selectPlan('enterprise')" style="border: 2px solid #e0e0e0; border-radius: 12px; padding: 30px; text-align: center; cursor: pointer; transition: all 0.3s; background: linear-gradient(135deg, #f8f9fa, #e9ecef);">
                         <h4 style="margin: 0 0 10px 0; color: #333;">Enterprise</h4>
                         <div style="font-size: 2.5rem; font-weight: bold; color: #667eea; margin: 20px 0;">
-                            $299<span style="font-size: 1rem; color: #666;">/month</span>
+                            Custom
                         </div>
+                        <p style="color: #666; margin-bottom: 20px;">Contact us for custom pricing and features</p>
                         <ul style="list-style: none; padding: 0; margin: 20px 0; text-align: left;">
                             <li style="margin: 10px 0;"><i class="fas fa-check" style="color: #10b981; margin-right: 8px;"></i> Unlimited users</li>
+                            <li style="margin: 10px 0;"><i class="fas fa-check" style="color: #10b981; margin-right: 8px;"></i> Unlimited organizations</li>
                             <li style="margin: 10px 0;"><i class="fas fa-check" style="color: #10b981; margin-right: 8px;"></i> Unlimited policies</li>
-                            <li style="margin: 10px 0;"><i class="fas fa-check" style="color: #10b981; margin-right: 8px;"></i> Premium AI assistant</li>
+                            <li style="margin: 10px 0;"><i class="fas fa-check" style="color: #10b981; margin-right: 8px;"></i> AI assistant</li>
                             <li style="margin: 10px 0;"><i class="fas fa-check" style="color: #10b981; margin-right: 8px;"></i> Dedicated support</li>
                             <li style="margin: 10px 0;"><i class="fas fa-check" style="color: #10b981; margin-right: 8px;"></i> Custom features</li>
-                            <li style="margin: 10px 0;"><i class="fas fa-check" style="color: #10b981; margin-right: 8px;"></i> White-label options</li>
                         </ul>
-                        <button class="btn btn-outline" style="width: 100%;">Select Plan</button>
+                        <button class="btn btn-outline" style="width: 100%;">Contact Sales</button>
                     </div>
                 </div>
+                
                 <div style="text-align: center; color: #666; font-size: 0.9rem; margin-bottom: 30px;">
-                    <p>All plans include a 14-day free trial. No credit card required.</p>
+                    <p><strong>No credit card required</strong> for the free trial. Cancel anytime.</p>
                 </div>
                 
                 <div style="text-align: center; padding: 20px; background: #f8f9fa; border-radius: 12px; border: 2px dashed #d1d5db;">

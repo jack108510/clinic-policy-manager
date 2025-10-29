@@ -8668,12 +8668,15 @@ function nextTourStep() {
     
     const step = tourSteps[currentTourStep];
     
-    // Execute action if specified
-    if (step.action) {
-        executeTourAction(step.action);
-    }
-    
+    // Show the step first
     showTourStep(currentTourStep);
+    
+    // Execute action AFTER showing the step (so user sees the message while action happens)
+    if (step.action) {
+        setTimeout(() => {
+            executeTourAction(step.action);
+        }, 100);
+    }
 }
 
 function skipTour() {
@@ -8762,10 +8765,8 @@ function executeTourAction(action) {
             
         case 'open-admin-dashboard':
             // Open admin dashboard directly
-            setTimeout(() => {
-                console.log('Opening admin dashboard...');
-                openPasswordModal();
-            }, 300);
+            console.log('Opening admin dashboard...');
+            openPasswordModal();
             break;
             
         case 'show-create-policy':

@@ -57,16 +57,16 @@ window.addEventListener('masterDataUpdated', function(event) {
     // Update local data with new master data
     if (updatedData.users && Array.isArray(updatedData.users)) {
         console.log('🔄 Updating users:', updatedData.users.length);
-        users = updatedData.users;
+    users = updatedData.users;
         
         // Filter to current company if logged in
-        if (currentCompany) {
+    if (currentCompany) {
             const companyUsers = users.filter(user => user.company === currentCompany);
             console.log('👥 Company users:', companyUsers.length);
-        }
-        
+    }
+    
         // Save updated data to both user lists
-        saveToLocalStorage('users', users);
+    saveToLocalStorage('users', users);
         localStorage.setItem('masterUsers', JSON.stringify(updatedData.users));
     }
     
@@ -320,11 +320,13 @@ function setupEventListeners() {
                 const description = (policy.description || '').toLowerCase();
                 const content = (policy.content || '').toLowerCase();
                 const type = (policy.type || '').toLowerCase();
+                const policyCode = (policy.policyCode || '').toLowerCase();
                 
                 return title.includes(searchTerm) || 
                        description.includes(searchTerm) || 
                        content.includes(searchTerm) ||
-                       type.includes(searchTerm);
+                       type.includes(searchTerm) ||
+                       policyCode.includes(searchTerm);
             });
             displayPolicies(filteredPolicies);
         });
@@ -509,11 +511,15 @@ function displayPolicies(policiesToDisplay = policies) {
         const createdDate = policy.created ? formatDate(policy.created) : 'N/A';
         const updatedDate = policy.updated ? formatDate(policy.updated) : (policy.lastModified ? formatDate(policy.lastModified) : 'N/A');
         
+        // Get policy code
+        const policyCode = policy.policyCode || '';
+        
         return `
-            <div class="policy-item" data-type="${policy.type}" onclick="viewPolicy('${policy.id}')">
+            <div class="policy-item" data-type="${policy.type}" data-policy-code="${policyCode.toLowerCase()}" onclick="viewPolicy('${policy.id}')">
             <div class="policy-header">
                     <h3 class="policy-title">${policy.title || 'Untitled Policy'}</h3>
                     <span class="policy-type-badge ${typeClass}">${typeLabel}</span>
+                    ${policyCode ? `<span class="policy-code-badge" style="display: inline-block; padding: 4px 10px; background: #667eea; color: white; border-radius: 12px; font-size: 0.75rem; font-weight: 600; margin-left: 8px;">${policyCode}</span>` : ''}
             </div>
             <div class="policy-organizations">
                     <i class="fas fa-building"></i> ${organizations}
@@ -1263,6 +1269,7 @@ function displayUploadResults(uploadResults) {
         
         const resultCard = document.createElement('div');
         resultCard.className = 'upload-policy-result';
+        resultCard.id = `uploadPolicyCard-${index}`;
         resultCard.style.cssText = 'margin-bottom: 30px; padding: 25px; background: white; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);';
         
         resultCard.innerHTML = `
@@ -1307,7 +1314,7 @@ function displayUploadResults(uploadResults) {
                     </div>
                 </div>
                 
-                <div class="upload-result-actions" style="margin-top: 20px; padding-top: 20px; border-top: 1px solid #ddd; display: flex; gap: 10px; justify-content: flex-end;">
+                <div class="upload-result-actions" style="margin-top: 20px; padding-top: 20px; border-top: 2px solid #e5e7eb; display: flex; gap: 10px; justify-content: flex-end;">
                     <button class="btn btn-success" onclick="saveUploadedPolicy(${index}, '${policyType}')">
                         <i class="fas fa-save"></i> Save Policy
                     </button>
@@ -1316,6 +1323,30 @@ function displayUploadResults(uploadResults) {
                     </button>
                 </div>
             </div>
+            
+            <!-- AI Edit Section - appears after policy is fully processed -->
+            <div class="ai-edit-section" id="aiEditSection-${index}" style="margin-top: 30px; padding: 20px; background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%); border-radius: 8px; border: 2px solid #667eea; box-shadow: 0 2px 8px rgba(102, 126, 234, 0.1);">
+                <label style="display: block; margin-bottom: 12px; font-weight: 700; color: #333; font-size: 1.1rem;">
+                    <i class="fas fa-robot" style="color: #667eea;"></i> Ask AI to Edit This Policy
+                </label>
+                <p style="margin: 0 0 12px 0; color: #666; font-size: 0.9rem;">
+                    Request changes to the policy content, structure, or language. The AI will update the policy sections accordingly.
+                </p>
+                <div style="display: flex; gap: 10px; align-items: center;">
+                    <input type="text" id="aiEditInput-${index}" placeholder="E.g., Make it more detailed, add compliance section, simplify language, expand the procedures section..." 
+                           style="flex: 1; padding: 12px 15px; border: 2px solid #ddd; border-radius: 6px; font-size: 0.95rem; transition: border-color 0.3s;"
+                           onkeypress="if(event.key === 'Enter') sendAIEditRequest(${index})"
+                           onfocus="this.style.borderColor='#667eea'"
+                           onblur="this.style.borderColor='#ddd'">
+                    <button class="btn btn-primary" onclick="sendAIEditRequest(${index})" 
+                            style="white-space: nowrap; padding: 12px 20px; background: #667eea; border: none; border-radius: 6px; color: white; font-weight: 600; cursor: pointer; transition: background 0.3s;"
+                            onmouseover="this.style.background='#5568d3'"
+                            onmouseout="this.style.background='#667eea'">
+                        <i class="fas fa-paper-plane"></i> Send to AI
+                    </button>
+                </div>
+                <div id="aiEditStatus-${index}" style="margin-top: 12px; display: none; padding: 10px; border-radius: 6px;"></div>
+            </div>
         `;
         
         try {
@@ -1323,6 +1354,14 @@ function displayUploadResults(uploadResults) {
             console.log(`Result card ${index} appended to analysisContent`);
             console.log(`analysisContent now has ${analysisContent.children.length} children`);
             console.log(`analysisContent.innerHTML length: ${analysisContent.innerHTML.length}`);
+            
+            // Verify AI edit section was included
+            const aiEditSection = document.getElementById(`aiEditSection-${index}`);
+            if (aiEditSection) {
+                console.log(`✅ AI edit section found for index ${index}`);
+            } else {
+                console.warn(`⚠️ AI edit section NOT found for index ${index}`);
+            }
         } catch (error) {
             console.error(`Error appending result card ${index}:`, error);
         }
@@ -1331,11 +1370,40 @@ function displayUploadResults(uploadResults) {
         setTimeout(() => {
             populateUploadCategoryDropdown(index);
             console.log(`Category dropdown ${index} populated`);
+            
+            // Double-check AI edit section is visible after rendering
+            const aiEditSection = document.getElementById(`aiEditSection-${index}`);
+            if (aiEditSection) {
+                console.log(`✅ AI edit section verified visible for index ${index}`);
+                aiEditSection.style.display = 'block'; // Force display
+            }
         }, 100);
     });
     
     // Store the upload results for saving
     window.currentUploadResults = uploadResults;
+    
+    // Show and populate the global AI edit section
+    const globalAIEditSection = document.getElementById('globalAIEditSection');
+    const globalAIPolicyIndex = document.getElementById('globalAIPolicyIndex');
+    
+    if (globalAIEditSection && globalAIPolicyIndex && uploadResults.length > 0) {
+        globalAIEditSection.style.display = 'block';
+        
+        // Clear existing options (except the first one)
+        globalAIPolicyIndex.innerHTML = '<option value="">Select Policy...</option>';
+        
+        // Populate with all uploaded policies
+        uploadResults.forEach((result, idx) => {
+            const fileName = result.file?.name || `Policy ${idx + 1}`;
+            const option = document.createElement('option');
+            option.value = idx;
+            option.textContent = `${idx + 1}. ${fileName.replace(/\.[^/.]+$/, '')}`;
+            globalAIPolicyIndex.appendChild(option);
+        });
+        
+        console.log(`✅ Global AI edit section populated with ${uploadResults.length} policies`);
+    }
     
     console.log('displayUploadResults completed. Total cards:', uploadResults.length);
     console.log('analysisContent final state:', {
@@ -1554,6 +1622,294 @@ function showProcessingStatus() {
     }, 2000);
 }
 
+async function sendAIEditRequest(index) {
+    // Check if using global input (from bottom section) or individual input
+    const globalInput = document.getElementById('globalAIEditInput');
+    const globalIndexSelect = document.getElementById('globalAIPolicyIndex');
+    const individualInput = document.getElementById(`aiEditInput-${index}`);
+    
+    let editInput, editPrompt, statusDiv;
+    
+    // If using global section, use that index and input
+    if (globalIndexSelect && globalIndexSelect.value !== '' && parseInt(globalIndexSelect.value) === index) {
+        editInput = globalInput;
+        editPrompt = globalInput?.value.trim();
+        statusDiv = document.getElementById('globalAIEditStatus');
+    } else if (individualInput && individualInput.value.trim()) {
+        // Use individual input from the policy card
+        editInput = individualInput;
+        editPrompt = individualInput.value.trim();
+        statusDiv = document.getElementById(`aiEditStatus-${index}`);
+    } else if (globalInput && globalInput.value.trim() && globalIndexSelect && globalIndexSelect.value !== '') {
+        // Use global input but override index with selected one
+        const selectedIndex = parseInt(globalIndexSelect.value);
+        if (selectedIndex !== index) {
+            // Call with the correct index
+            return sendAIEditRequest(selectedIndex);
+        }
+        editInput = globalInput;
+        editPrompt = globalInput.value.trim();
+        statusDiv = document.getElementById('globalAIEditStatus');
+    } else {
+        showNotification('Please enter an edit request', 'error');
+        return;
+    }
+    
+    if (!editPrompt) {
+        showNotification('Please enter an edit request', 'error');
+        return;
+    }
+    
+    if (!statusDiv) {
+        // Fallback to global status if individual not found
+        statusDiv = document.getElementById('globalAIEditStatus') || document.getElementById(`aiEditStatus-${index}`);
+        if (!statusDiv) {
+            console.error(`Status div not found for index ${index}`);
+            return;
+        }
+    }
+    
+    // Get the uploaded policy data
+    const uploadResults = window.currentUploadResults;
+    if (!uploadResults || !uploadResults[index]) {
+        showNotification('Policy data not found', 'error');
+        return;
+    }
+    
+    const result = uploadResults[index];
+    const data = result.data;
+    
+    // Extract current policy content from the card
+    const resultCard = document.getElementById(`uploadPolicyCard-${index}`);
+    let currentPolicyText = '';
+    
+    // First try to get the full markdown from stored data
+    if (data.markdown) {
+        currentPolicyText = data.markdown;
+    } else if (resultCard) {
+        // Fallback: Extract text from all policy sections in the card
+        const sections = resultCard.querySelectorAll('.policy-section');
+        if (sections.length > 0) {
+            currentPolicyText = Array.from(sections).map(section => {
+                const title = section.querySelector('h5')?.textContent || '';
+                const content = section.querySelector('.policy-content')?.textContent || section.querySelector('.editable-content')?.textContent || '';
+                return `${title}\n${content}`;
+            }).join('\n\n');
+        }
+        
+        // Also try to get title and metadata
+        const titleInput = document.getElementById(`uploadPolicyTitle-${index}`);
+        if (titleInput && titleInput.value) {
+            currentPolicyText = `Title: ${titleInput.value}\n\n${currentPolicyText}`;
+        }
+    }
+    
+    // Limit to reasonable size for webhook (but try to preserve more content)
+    if (currentPolicyText.length > 3000) {
+        currentPolicyText = currentPolicyText.substring(0, 3000) + '...';
+    }
+    
+    // Show loading state
+    statusDiv.style.display = 'block';
+    statusDiv.innerHTML = '<div style="color: #667eea;"><i class="fas fa-spinner fa-spin"></i> AI is processing your edit request...</div>';
+    if (editInput) editInput.disabled = true;
+    
+    try {
+        // Get webhook URL (same as AI generator)
+        const webhookUrl = localStorage.getItem('webhookUrlAI') || 'http://localhost:5678/webhook/05da961e-9df0-490e-815f-92d8bc9f9c1e';
+        
+        // Prepare the edit request data - send more content for better context
+        const editData = {
+            conversationHistory: JSON.stringify([{ role: 'user', content: editPrompt }]),
+            currentPolicyText: currentPolicyText.substring(0, 2000), // Increased from 500 to 2000 for better context
+            newPrompt: editPrompt,
+            company: currentCompany || 'Unknown',
+            username: currentUser?.username || 'Unknown',
+            tool: 'upload-edit'
+        };
+        
+        // Use GET method with URL parameters (same as follow-up prompt)
+        const params = new URLSearchParams(editData);
+        const response = await fetch(`${webhookUrl}?${params.toString()}`);
+        
+        if (response.ok) {
+            const webhookResponse = await response.text();
+            console.log('AI edit webhook response:', webhookResponse);
+            
+            // Parse the response
+            let responseData = null;
+            try {
+                responseData = JSON.parse(webhookResponse);
+            } catch (e) {
+                responseData = webhookResponse;
+            }
+            
+            // If we got a policy response, update the card
+            if (responseData && Array.isArray(responseData) && responseData.length > 0 && responseData[0].markdown) {
+                const updatedPolicy = responseData[0];
+                
+                // Update the stored result data
+                uploadResults[index].data = updatedPolicy;
+                
+                // Parse and regenerate the card with updated content
+                const sections = parseWebhookPolicyMarkdown(updatedPolicy.markdown);
+                const editableSectionsHtml = generateEditablePolicySections(sections);
+                
+                // Update the policy content in the card
+                const policyContentDisplay = resultCard?.querySelector('.policy-content-display');
+                if (policyContentDisplay) {
+                    policyContentDisplay.innerHTML = editableSectionsHtml;
+                }
+                
+                // Also update the title if it changed
+                const titleInput = document.getElementById(`uploadPolicyTitle-${index}`);
+                if (titleInput && updatedPolicy.policy_title) {
+                    titleInput.value = updatedPolicy.policy_title;
+                }
+                
+                // Use different status messages for global vs individual
+                const isGlobal = statusDiv.id === 'globalAIEditStatus';
+                if (isGlobal) {
+                    statusDiv.innerHTML = '<div style="color: #10b981; padding: 12px; background: #d1fae5; border-radius: 6px;"><i class="fas fa-check-circle"></i> <strong>Policy updated successfully!</strong> Scroll up to see the changes.</div>';
+                    statusDiv.style.display = 'block';
+                } else {
+                    statusDiv.innerHTML = '<div style="color: #10b981; padding: 12px; background: #d1fae5; border-radius: 6px;"><i class="fas fa-check-circle"></i> <strong>Policy updated successfully!</strong> The policy sections have been refreshed with your requested changes.</div>';
+                    statusDiv.style.display = 'block';
+                }
+                showNotification('Policy updated successfully!', 'success');
+                
+                // Scroll to the updated content
+                setTimeout(() => {
+                    if (policyContentDisplay) {
+                        policyContentDisplay.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                    }
+                }, 300);
+                
+                // Clear the input
+                if (editInput) {
+                    editInput.value = '';
+                    editInput.disabled = false;
+                }
+            } else {
+                statusDiv.innerHTML = '<div style="color: #ef4444;"><i class="fas fa-exclamation-circle"></i> Unexpected response format from AI</div>';
+                if (editInput) editInput.disabled = false;
+            }
+        } else {
+            throw new Error(`Webhook failed with status: ${response.status}`);
+        }
+    } catch (error) {
+        console.error('AI edit request error:', error);
+        statusDiv.innerHTML = `<div style="color: #ef4444;"><i class="fas fa-exclamation-circle"></i> Error: ${error.message}</div>`;
+        if (editInput) editInput.disabled = false;
+        showNotification('Failed to process edit request', 'error');
+    }
+}
+
+async function sendAIUserEditRequest(userId) {
+    const editInput = document.getElementById(`aiEditUserInput-${userId}`);
+    const editPrompt = editInput?.value.trim();
+    const statusDiv = document.getElementById(`aiEditUserStatus-${userId}`);
+    
+    if (!editPrompt) {
+        showNotification('Please enter an edit request', 'error');
+        return;
+    }
+    
+    if (!statusDiv) {
+        console.error(`Status div not found for user ${userId}`);
+        return;
+    }
+    
+    // Get the user data
+    const allUsers = JSON.parse(localStorage.getItem('masterUsers') || '[]');
+    const user = allUsers.find(u => String(u.id) === String(userId));
+    
+    if (!user) {
+        showNotification('User not found', 'error');
+        return;
+    }
+    
+    // Prepare current user data as text
+    const currentUserText = `User: ${user.username}\nEmail: ${user.email}\nCompany: ${user.company}\nRole: ${user.role}\nOrganizations: ${(user.organizations || []).join(', ')}`;
+    
+    // Show loading state
+    statusDiv.style.display = 'block';
+    statusDiv.innerHTML = '<div style="color: #667eea;"><i class="fas fa-spinner fa-spin"></i> AI is processing your edit request...</div>';
+    if (editInput) editInput.disabled = true;
+    
+    try {
+        // Get webhook URL (same as AI generator)
+        const webhookUrl = localStorage.getItem('webhookUrlAI') || 'http://localhost:5678/webhook/05da961e-9df0-490e-815f-92d8bc9f9c1e';
+        
+        // Prepare the edit request data
+        const editData = {
+            conversationHistory: JSON.stringify([{ role: 'user', content: `Edit this user information: ${currentUserText}. Request: ${editPrompt}` }]),
+            currentPolicyText: currentUserText.substring(0, 500),
+            newPrompt: editPrompt,
+            company: currentCompany || 'Unknown',
+            username: currentUser?.username || 'Unknown',
+            tool: 'user-edit'
+        };
+        
+        // Use GET method with URL parameters (same as follow-up prompt)
+        const params = new URLSearchParams(editData);
+        const response = await fetch(`${webhookUrl}?${params.toString()}`);
+        
+        if (response.ok) {
+            const webhookResponse = await response.text();
+            console.log('AI user edit webhook response:', webhookResponse);
+            
+            // Parse the response
+            let responseData = null;
+            try {
+                responseData = JSON.parse(webhookResponse);
+            } catch (e) {
+                responseData = webhookResponse;
+            }
+            
+            // Display the AI response
+            if (responseData) {
+                let displayText = '';
+                if (typeof responseData === 'string') {
+                    displayText = responseData;
+                } else if (Array.isArray(responseData) && responseData.length > 0) {
+                    const firstItem = responseData[0];
+                    if (firstItem.message && firstItem.message.content) {
+                        displayText = firstItem.message.content;
+                    } else if (firstItem.content) {
+                        displayText = firstItem.content;
+                    } else {
+                        displayText = JSON.stringify(responseData, null, 2);
+                    }
+                } else if (responseData.content) {
+                    displayText = responseData.content;
+                } else {
+                    displayText = JSON.stringify(responseData, null, 2);
+                }
+                
+                statusDiv.innerHTML = `<div style="color: #10b981;"><i class="fas fa-check-circle"></i> AI Response:</div><div style="margin-top: 8px; padding: 10px; background: #f0f9ff; border-radius: 6px; font-size: 11px; color: #333; max-height: 200px; overflow-y: auto;">${displayText.substring(0, 1000)}${displayText.length > 1000 ? '...' : ''}</div>`;
+                showNotification('AI edit processed successfully!', 'success');
+                
+                // Clear the input
+                if (editInput) {
+                    editInput.value = '';
+                    editInput.disabled = false;
+                }
+            } else {
+                statusDiv.innerHTML = '<div style="color: #ef4444;"><i class="fas fa-exclamation-circle"></i> Unexpected response format from AI</div>';
+                if (editInput) editInput.disabled = false;
+            }
+        } else {
+            throw new Error(`Webhook failed with status: ${response.status}`);
+        }
+    } catch (error) {
+        console.error('AI user edit request error:', error);
+        statusDiv.innerHTML = `<div style="color: #ef4444;"><i class="fas fa-exclamation-circle"></i> Error: ${error.message}</div>`;
+        if (editInput) editInput.disabled = false;
+        showNotification('Failed to process edit request', 'error');
+    }
+}
+
 function clearUploadArea() {
     const fileInput = document.getElementById('fileInput');
     if (fileInput) {
@@ -1578,6 +1934,28 @@ function clearUploadArea() {
     const analysisResults = document.getElementById('analysisResults');
     if (analysisResults) {
         analysisResults.style.display = 'none';
+    }
+    
+    // Hide and clear the global AI edit section
+    const globalAIEditSection = document.getElementById('globalAIEditSection');
+    if (globalAIEditSection) {
+        globalAIEditSection.style.display = 'none';
+    }
+    
+    const globalAIPolicyIndex = document.getElementById('globalAIPolicyIndex');
+    if (globalAIPolicyIndex) {
+        globalAIPolicyIndex.innerHTML = '<option value="">Select Policy...</option>';
+    }
+    
+    const globalAIEditInput = document.getElementById('globalAIEditInput');
+    if (globalAIEditInput) {
+        globalAIEditInput.value = '';
+    }
+    
+    const globalAIEditStatus = document.getElementById('globalAIEditStatus');
+    if (globalAIEditStatus) {
+        globalAIEditStatus.style.display = 'none';
+        globalAIEditStatus.innerHTML = '';
     }
 }
 
@@ -3864,6 +4242,9 @@ function displayAIPolicy(policy) {
     
     aiGeneratedContent.innerHTML = clinicInfo + formattedContent + `
         <div class="ai-result-actions" style="margin-top: 20px; padding-top: 20px; border-top: 1px solid #ddd; display: flex; gap: 10px; justify-content: flex-end;">
+            <button class="btn btn-info" onclick="showRefinePolicyModal()" style="background: #667eea; border-color: #667eea; color: white;">
+                <i class="fas fa-magic"></i> Refine with AI
+            </button>
             <button class="btn btn-secondary" onclick="storeDraft()">
                 <i class="fas fa-save"></i> Save as Draft
             </button>
@@ -6260,8 +6641,16 @@ function populateRolesAndDisciplinaryActions() {
 }
 
 function openAIModal() {
+    // Track if admin dashboard was open before opening AI modal
+    const adminModal = document.getElementById('adminModal');
+    const wasAdminOpen = adminModal && adminModal.style.display !== 'none';
+    
+    // Store this state so we know to reopen it later
+    window.wasAdminModalOpen = wasAdminOpen;
+    
     // Close admin dashboard first
     closeAdminModal();
+    
     // Open AI modal
     document.getElementById('aiModal').style.display = 'block';
     document.getElementById('aiResult').style.display = 'none';
@@ -6283,16 +6672,16 @@ function openAIModal() {
 }
 
 function closeAIModal() {
-    document.getElementById('aiModal').style.display = 'none';
+    const aiModal = document.getElementById('aiModal');
+    if (aiModal) {
+        aiModal.style.display = 'none';
+    }
     resetChat();
     
-    // Keep admin dashboard open if it was open
-    const adminModal = document.getElementById('adminModal');
-    if (adminModal && adminModal.style.display !== 'none') {
-        console.log('Admin dashboard is open, keeping it visible');
-        // Already open, do nothing
-        return;
-    }
+    // Automatically reopen admin dashboard when closing AI modal
+    setTimeout(() => {
+        openAdminModal();
+    }, 250);
 }
 
 function showPolicyOptions() {
@@ -7268,6 +7657,9 @@ async function savePolicyToStorage(policy) {
                             </div>
                             
                             <div class="ai-result-actions" style="margin-top: 20px;">
+                                <button class="btn btn-info" onclick="showRefinePolicyModal()" style="background: #667eea; border-color: #667eea; color: white;">
+                                    <i class="fas fa-magic"></i> Refine with AI
+                                </button>
                                 <button class="btn btn-success" onclick="saveWebhookPolicy()">
                                     <i class="fas fa-save"></i> Save Policy
                                 </button>
@@ -7658,8 +8050,25 @@ function openUsersModal() {
                                                 <div><i class="fas fa-calendar"></i> ${user.created ? new Date(user.created).toLocaleDateString() : 'N/A'}</div>
                                             </div>
                                             
+                                            <!-- AI Edit Section -->
+                                            <div class="ai-edit-section-user" style="margin-top: 15px; padding: 15px; background: #f8f9fa; border-radius: 8px; border: 1px solid #e5e7eb;">
+                                                <label style="display: block; margin-bottom: 8px; font-weight: 600; color: #333; font-size: 12px;">
+                                                    <i class="fas fa-robot"></i> Ask AI to Edit User Info
+                                                </label>
+                                                <div style="display: flex; gap: 8px;">
+                                                    <input type="text" id="aiEditUserInput-${user.id}" placeholder="E.g., Update role description, add notes..." 
+                                                           style="flex: 1; padding: 8px 10px; border: 1px solid #ddd; border-radius: 6px; font-size: 12px;"
+                                                           onkeypress="if(event.key === 'Enter') sendAIUserEditRequest('${user.id}')">
+                                                    <button class="btn btn-primary" onclick="sendAIUserEditRequest('${user.id}')" 
+                                                            style="padding: 8px 12px; white-space: nowrap; font-size: 12px;">
+                                                        <i class="fas fa-paper-plane"></i> Send
+                                                    </button>
+                                                </div>
+                                                <div id="aiEditUserStatus-${user.id}" style="margin-top: 8px; display: none; font-size: 11px;"></div>
+                                            </div>
+                                            
                                             <!-- Actions -->
-                                            <div style="display: flex; gap: 8px;">
+                                            <div style="display: flex; gap: 8px; margin-top: 12px;">
                                                 <button onclick="editUser('${user.id}')" 
                                                         style="flex: 1; padding: 8px 12px; background: #ffc107; color: #000; border: none; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 600; transition: background 0.2s;">
                                                     <i class="fas fa-edit"></i> Edit
@@ -9678,6 +10087,21 @@ function displayUsers() {
                 <p><strong>Company:</strong> ${user.company}</p>
                 <p><strong>Created:</strong> ${user.created}</p>
             </div>
+            <div class="ai-edit-section-user" style="margin-top: 15px; padding: 15px; background: #f8f9fa; border-radius: 8px; border: 1px solid #e5e7eb;">
+                <label style="display: block; margin-bottom: 8px; font-weight: 600; color: #333; font-size: 12px;">
+                    <i class="fas fa-robot"></i> Ask AI to Edit User Info
+                </label>
+                <div style="display: flex; gap: 8px;">
+                    <input type="text" id="aiEditUserInput-${user.id}" placeholder="E.g., Update role description, add notes..." 
+                           style="flex: 1; padding: 8px 10px; border: 1px solid #ddd; border-radius: 6px; font-size: 12px;"
+                           onkeypress="if(event.key === 'Enter') sendAIUserEditRequest('${user.id}')">
+                    <button class="btn btn-primary" onclick="sendAIUserEditRequest('${user.id}')" 
+                            style="padding: 8px 12px; white-space: nowrap; font-size: 12px;">
+                        <i class="fas fa-paper-plane"></i> Send
+                    </button>
+                </div>
+                <div id="aiEditUserStatus-${user.id}" style="margin-top: 8px; display: none; font-size: 11px;"></div>
+            </div>
             <div class="user-actions">
                 <button onclick="deleteUser(${user.id})" class="btn btn-sm btn-danger">
                     <i class="fas fa-trash"></i> Delete
@@ -9972,11 +10396,11 @@ function testAPIKey() {
     .then(response => {
         if (response.ok) {
             showAPIStatus('API connection successful! ChatGPT is ready to use.', 'success');
-    } else {
+        } else {
             showAPIStatus(`API connection failed: ${response.status} ${response.statusText}`, 'error');
         }
-        })
-        .catch(error => {
+    })
+    .catch(error => {
         showAPIStatus(`API connection failed: ${error.message}`, 'error');
     })
     .finally(() => {
@@ -10003,7 +10427,7 @@ function showAPIStatus(message, type) {
     
     // Auto-hide success messages after 5 seconds
     if (type === 'success') {
-    setTimeout(() => {
+        setTimeout(() => {
             statusElement.style.display = 'none';
         }, 5000);
     }
@@ -10401,11 +10825,11 @@ function showCompanySignup() {
     setTimeout(() => {
         const modal = document.getElementById('pricingModal');
         console.log('Pricing modal element:', modal);
-        if (modal) {
-            modal.style.display = 'block';
-            modal.classList.add('show');
+    if (modal) {
+        modal.style.display = 'block';
+        modal.classList.add('show');
             console.log('Pricing modal opened');
-        } else {
+    } else {
             console.error('Pricing modal not found');
         }
     }, 300);

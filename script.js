@@ -8162,23 +8162,6 @@ function openUsersModal() {
                                                 <div><i class="fas fa-calendar"></i> ${user.created ? new Date(user.created).toLocaleDateString() : 'N/A'}</div>
                                             </div>
                                             
-                                            <!-- AI Edit Section -->
-                                            <div class="ai-edit-section-user" style="margin-top: 15px; padding: 15px; background: #f8f9fa; border-radius: 8px; border: 1px solid #e5e7eb;">
-                                                <label style="display: block; margin-bottom: 8px; font-weight: 600; color: #333; font-size: 12px;">
-                                                    <i class="fas fa-robot"></i> Ask AI to Edit User Info
-                                                </label>
-                                                <div style="display: flex; gap: 8px;">
-                                                    <input type="text" id="aiEditUserInput-${user.id}" placeholder="E.g., Update role description, add notes..." 
-                                                           style="flex: 1; padding: 8px 10px; border: 1px solid #ddd; border-radius: 6px; font-size: 12px;"
-                                                           onkeypress="if(event.key === 'Enter') sendAIUserEditRequest('${user.id}')">
-                                                    <button class="btn btn-primary" onclick="sendAIUserEditRequest('${user.id}')" 
-                                                            style="padding: 8px 12px; white-space: nowrap; font-size: 12px;">
-                                                        <i class="fas fa-paper-plane"></i> Send
-                                                    </button>
-                                                </div>
-                                                <div id="aiEditUserStatus-${user.id}" style="margin-top: 8px; display: none; font-size: 11px;"></div>
-                                            </div>
-                                            
                                             <!-- Actions -->
                                             <div style="display: flex; gap: 8px; margin-top: 12px;">
                                                 <button onclick="editUser('${user.id}')" 
@@ -10198,21 +10181,6 @@ function displayUsers() {
                 <p><strong>Email:</strong> ${user.email}</p>
                 <p><strong>Company:</strong> ${user.company}</p>
                 <p><strong>Created:</strong> ${user.created}</p>
-            </div>
-            <div class="ai-edit-section-user" style="margin-top: 15px; padding: 15px; background: #f8f9fa; border-radius: 8px; border: 1px solid #e5e7eb;">
-                <label style="display: block; margin-bottom: 8px; font-weight: 600; color: #333; font-size: 12px;">
-                    <i class="fas fa-robot"></i> Ask AI to Edit User Info
-                </label>
-                <div style="display: flex; gap: 8px;">
-                    <input type="text" id="aiEditUserInput-${user.id}" placeholder="E.g., Update role description, add notes..." 
-                           style="flex: 1; padding: 8px 10px; border: 1px solid #ddd; border-radius: 6px; font-size: 12px;"
-                           onkeypress="if(event.key === 'Enter') sendAIUserEditRequest('${user.id}')">
-                    <button class="btn btn-primary" onclick="sendAIUserEditRequest('${user.id}')" 
-                            style="padding: 8px 12px; white-space: nowrap; font-size: 12px;">
-                        <i class="fas fa-paper-plane"></i> Send
-                    </button>
-                </div>
-                <div id="aiEditUserStatus-${user.id}" style="margin-top: 8px; display: none; font-size: 11px;"></div>
             </div>
             <div class="user-actions">
                 <button onclick="deleteUser(${user.id})" class="btn btn-sm btn-danger">

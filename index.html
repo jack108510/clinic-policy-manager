@@ -629,23 +629,13 @@
                 <!-- Categories Tab -->
                 <div id="categoriesTab" class="settings-tab">
                     <div class="settings-section">
-                        <h2 style="color: #1f2937; margin-bottom: 10px; font-size: 1.8rem;">Policy Categories</h2>
-                        <p style="margin-bottom: 30px; color: #666; font-size: 1rem;">Create and manage categories to organize your policies. Each category will automatically generate policy codes when assigned.</p>
-                        
-                        <div class="add-item-form" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 25px; border-radius: 12px; margin-bottom: 30px; box-shadow: 0 4px 20px rgba(102, 126, 234, 0.2);">
-                            <h3 style="margin: 0 0 20px 0; color: white; font-size: 1.3rem;">Create New Category</h3>
-                            <div style="display: grid; grid-template-columns: 1fr 150px; gap: 15px; align-items: end;">
-                                <div>
-                                    <label style="display: block; color: white; margin-bottom: 8px; font-weight: 500;">Category Name</label>
-                                    <input type="text" id="newCategoryName" placeholder="e.g., Safety Policies" style="width: 100%; padding: 12px; border: 2px solid rgba(255,255,255,0.3); border-radius: 8px; background: rgba(255,255,255,0.95); font-weight: 500;">
-                                </div>
-                                <div>
-                                    <label style="display: block; color: white; margin-bottom: 8px; font-weight: 500;">Number</label>
-                                    <input type="number" id="newCategoryNumber" placeholder="e.g., 5" style="width: 100%; padding: 12px; border: 2px solid rgba(255,255,255,0.3); border-radius: 8px; background: rgba(255,255,255,0.95); font-weight: 500;">
-                                </div>
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px;">
+                            <div>
+                                <h3 style="margin: 0; color: #1f2937;">Policy Categories</h3>
+                                <p style="margin: 5px 0 0 0; color: #666; font-size: 0.95rem;">Organize policies with categories for automatic code generation</p>
                             </div>
-                            <button onclick="addCategory()" class="btn btn-primary" style="margin-top: 20px; background: white; color: #667eea; border: none; padding: 12px 30px; font-weight: 600; box-shadow: 0 4px 15px rgba(0,0,0,0.2);">
-                                <i class="fas fa-plus"></i> Add Category
+                            <button onclick="openAddCategoryModal()" class="btn btn-primary" style="display: flex; align-items: center; gap: 8px; padding: 12px 24px; font-size: 15px; font-weight: 600;">
+                                <i class="fas fa-plus-circle"></i> Add New Category
                             </button>
                         </div>
                         
@@ -1739,6 +1729,43 @@
                         </button>
                         <button type="submit" class="btn btn-primary">
                             <i class="fas fa-check"></i> Add Document
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add Category Modal -->
+    <div id="addCategoryModal" class="modal" style="z-index: 4000;">
+        <div class="modal-content" style="max-width: 600px;">
+            <div class="modal-header">
+                <h3><i class="fas fa-folder-plus"></i> Add New Category</h3>
+                <span class="close" onclick="closeAddCategoryModal()">&times;</span>
+            </div>
+            <div class="modal-body">
+                <form id="addCategoryForm" onsubmit="event.preventDefault(); addCategory();">
+                    <div class="form-group">
+                        <label for="modalCategoryName">
+                            <i class="fas fa-tag"></i> Category Name <span style="color: red;">*</span>
+                        </label>
+                        <input type="text" id="modalCategoryName" placeholder="e.g., Safety Policies, HR Guidelines, Clinical Procedures" required
+                               style="width: 100%; padding: 12px; border: 2px solid #ddd; border-radius: 6px; font-size: 15px;">
+                    </div>
+                    <div class="form-group">
+                        <label for="modalCategoryNumber">
+                            <i class="fas fa-hashtag"></i> Category Number <span style="color: red;">*</span>
+                        </label>
+                        <input type="number" id="modalCategoryNumber" placeholder="e.g., 1, 2, 3" required min="1"
+                               style="width: 100%; padding: 12px; border: 2px solid #ddd; border-radius: 6px; font-size: 15px;">
+                        <small style="color: #666; display: block; margin-top: 5px;">Used for policy code generation (e.g., Type.Category#.Policy#.Year)</small>
+                    </div>
+                    <div class="modal-footer" style="display: flex; gap: 10px; justify-content: flex-end; margin-top: 25px;">
+                        <button type="button" class="btn btn-secondary" onclick="closeAddCategoryModal()">
+                            <i class="fas fa-times"></i> Cancel
+                        </button>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-check"></i> Add Category
                         </button>
                     </div>
                 </form>

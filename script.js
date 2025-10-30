@@ -7072,6 +7072,34 @@ function closeAddDocumentModal() {
     }
 }
 
+function openAddCategoryModal() {
+    const modal = document.getElementById('addCategoryModal');
+    if (modal) {
+        modal.style.display = 'block';
+        modal.classList.add('show');
+        const form = document.getElementById('addCategoryForm');
+        if (form) form.reset();
+        
+        // Focus on first input
+        setTimeout(() => {
+            const firstInput = document.getElementById('modalCategoryName');
+            if (firstInput) {
+                firstInput.focus();
+            }
+        }, 100);
+    }
+}
+
+function closeAddCategoryModal() {
+    const modal = document.getElementById('addCategoryModal');
+    if (modal) {
+        modal.style.display = 'none';
+        modal.classList.remove('show');
+        const form = document.getElementById('addCategoryForm');
+        if (form) form.reset();
+    }
+}
+
 function showSettingsTab(tabName) {
     // Hide all tabs
     document.querySelectorAll('.settings-tab').forEach(tab => tab.classList.remove('active'));

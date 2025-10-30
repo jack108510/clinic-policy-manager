@@ -5635,7 +5635,7 @@ async function sendPolicyGenerationWebhook(policyData) {
     let webhookUrl;
     if (isAIGenerated) {
         // AI Policy Assistant webhook
-        webhookUrl = localStorage.getItem('webhookUrlAI') || 'http://localhost:5678/webhook/05da961e-9df0-490e-815f-92d8bc9f9c1e';
+        webhookUrl = localStorage.getItem('webhookUrlAI') || 'http://localhost:5678/webhook/6aa55f96-04a0-4d04-b99f-1b4da027dce6';
     } else {
         // Manual policy or other webhook
         webhookUrl = localStorage.getItem('webhookUrlManual') || localStorage.getItem('webhookUrlAI') || 'http://localhost:5678/webhook/6aa55f96-04a0-4d04-b99f-1b4da027dce6';

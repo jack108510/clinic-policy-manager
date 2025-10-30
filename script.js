@@ -11431,7 +11431,7 @@ async function sendPolicyAdvisorRequest() {
             return;
         }
         
-        // Format policies for sending
+        // Format policies
         let policiesText = '';
         allPolicies.forEach(policy => {
             policiesText += `${policy.title || 'Untitled'} (${policy.type || 'N/A'})\n`;
@@ -11447,31 +11447,25 @@ async function sendPolicyAdvisorRequest() {
             policiesText += '\n---\n\n';
         });
         
-        // Truncate to avoid URL length issues
-        const truncatedPolicies = policiesText.substring(0, 2000);
+        const promptText = `Question: ${question}\n\nPolicies:\n${policiesText}\n\nProvide guidance based on these policies.`;
         
-        // Build prompt
-        const promptText = `Question: ${question}\n\nPolicies:\n${truncatedPolicies}\n\nProvide guidance based on these policies.`;
-        
-        // Use same webhook as other AI features
         const webhookUrl = localStorage.getItem('webhookUrlAI') || 'http://localhost:5678/webhook/05da961e-9df0-490e-815f-92d8bc9f9c1e';
         
-        // Build request (same pattern as working webhooks)
-        const params = new URLSearchParams({
-            conversationHistory: JSON.stringify([{ role: 'user', content: promptText }]),
-            currentPolicyText: truncatedPolicies,
-            newPrompt: question,
-            company: currentCompany || 'Unknown',
-            username: currentUser?.username || 'Unknown',
-            tool: 'policy-advisor'
-        });
+        // Use POST with FormData like sendFileToWebhook
+        const formData = new FormData();
+        formData.append('question', question);
+        formData.append('policies', policiesText);
+        formData.append('company', currentCompany || 'Unknown');
+        formData.append('username', currentUser?.username || 'Unknown');
+        formData.append('timestamp', new Date().toISOString());
         
-        // Send request
-        const response = await fetch(`${webhookUrl}?${params.toString()}`);
+        const response = await fetch(webhookUrl, {
+            method: 'POST',
+            body: formData
+        });
         
         if (response.ok) {
             const result = await response.text();
-            
             document.getElementById('advisorLoading').style.display = 'none';
             document.getElementById('advisorResponse').style.display = 'block';
             document.getElementById('advisorResultText').textContent = result;

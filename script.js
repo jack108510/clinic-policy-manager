@@ -10091,14 +10091,36 @@ function updateUserInterface() {
     const navMenu = document.querySelector('.nav-menu');
     
     if (currentUser) {
-        // User is logged in - DO NOT overwrite navMenu.innerHTML to preserve notification bell
-        // Just update the notification badge
+        // User is logged in - hide login/signup buttons
+        const authButtons = document.querySelectorAll('.auth-button');
+        const authDivider = document.querySelector('.auth-buttons-divider');
+        
+        authButtons.forEach(btn => {
+            btn.style.display = 'none';
+        });
+        
+        if (authDivider) {
+            authDivider.style.display = 'none';
+        }
+        
+        // Update the notification badge
         updateNotificationBadge();
         
         // Filter policies by company
         filterPoliciesByCompany();
     } else {
-        // User is not logged in - DO NOT overwrite navMenu.innerHTML to preserve notification bell
+        // User is not logged in - show login/signup buttons
+        const authButtons = document.querySelectorAll('.auth-button');
+        const authDivider = document.querySelector('.auth-buttons-divider');
+        
+        authButtons.forEach(btn => {
+            btn.style.display = 'flex';
+        });
+        
+        if (authDivider) {
+            authDivider.style.display = 'inline-block';
+        }
+        
         updateNotificationBadge();
     }
 }
@@ -10944,7 +10966,7 @@ function showCompanySignup() {
         modal.style.display = 'block';
         modal.classList.add('show');
             console.log('Pricing modal opened');
-    } else {
+            } else {
             console.error('Pricing modal not found');
         }
     }, 300);
@@ -10986,16 +11008,16 @@ function selectPlan(plan) {
         console.log('Attempting to open company signup modal...');
         const modal = document.getElementById('companySignupModal');
         console.log('Company signup modal element:', modal);
-        
-        if (modal) {
+    
+    if (modal) {
             console.log('Opening company signup modal...');
-            modal.style.display = 'block';
-            modal.classList.add('show');
+        modal.style.display = 'block';
+        modal.classList.add('show');
             
             // Setup form listeners
             setupCompanySignupFormListeners();
             console.log('Company signup modal opened successfully');
-        } else {
+    } else {
             console.error('Company signup modal not found!');
         }
     }, 300);

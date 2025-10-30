@@ -662,6 +662,9 @@ async function createNewPolicy() {
     
     // Show success message
     showNotification('Policy created successfully!', 'success');
+    
+    // Add notification to notification center
+    addNotification(`New policy "${formData.title}" has been created`, 'success');
 }
 
 // Modal Functions
@@ -4240,6 +4243,10 @@ function saveAIPolicy() {
     closeAIModal();
     
     showNotification('AI-generated policy saved successfully!', 'success');
+    
+    // Add notification to notification center
+    const aiPolicyTitle = window.currentGeneratedPolicy?.title || 'AI-Generated Policy';
+    addNotification(`New AI-generated policy "${aiPolicyTitle}" has been published`, 'success');
 }
 
 function formatMarkdownForDisplay(markdown) {
@@ -4571,6 +4578,9 @@ function publishDraft(draftId) {
     updateStats();
     
     showNotification('Draft published successfully!', 'success');
+    
+    // Add notification to notification center
+    addNotification(`Draft "${newPolicy.title}" has been published as a policy`, 'success');
 }
 
 function deleteDraft(draftId) {

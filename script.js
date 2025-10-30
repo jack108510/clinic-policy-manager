@@ -10072,54 +10072,15 @@ function updateUserInterface() {
     const navMenu = document.querySelector('.nav-menu');
     
     if (currentUser) {
-        // User is logged in
-        navMenu.innerHTML = `
-            <a href="#home" class="nav-link">Home</a>
-            <a href="#policies" class="nav-link">All Policies</a>
-            <div class="dropdown">
-                <a href="#" class="nav-link dropdown-toggle">Policy Types <i class="fas fa-chevron-down"></i></a>
-                <div class="dropdown-content">
-                    <a href="#admin">Admin Policies</a>
-                    <a href="#sog">Standard Operating Guidelines</a>
-                    <a href="#memos">Communication Memos</a>
-                </div>
-            </div>
-            <a href="#" class="nav-link user-profile-link" id="profileLink">Welcome, ${currentUser.username} (${currentCompany})</a>
-            <a href="#" onclick="logoutUser()" class="nav-link">Logout</a>
-            <a href="#" onclick="openPasswordModal()" class="nav-link">Admin Dashboard</a>
-        `;
-        
-        // Add event listener for profile link
-        setTimeout(() => {
-            const profileLink = document.getElementById('profileLink');
-            if (profileLink) {
-                profileLink.addEventListener('click', function(e) {
-                    e.preventDefault();
-                    console.log('Profile link clicked');
-                    showProfileModal();
-                });
-            }
-        }, 100);
+        // User is logged in - DO NOT overwrite navMenu.innerHTML to preserve notification bell
+        // Just update the notification badge
+        updateNotificationBadge();
         
         // Filter policies by company
         filterPoliciesByCompany();
     } else {
-        // User is not logged in
-        navMenu.innerHTML = `
-            <a href="#home" class="nav-link">Home</a>
-            <a href="#policies" class="nav-link">All Policies</a>
-            <div class="dropdown">
-                <a href="#" class="nav-link dropdown-toggle">Policy Types <i class="fas fa-chevron-down"></i></a>
-                <div class="dropdown-content">
-                    <a href="#admin">Admin Policies</a>
-                    <a href="#sog">Standard Operating Guidelines</a>
-                    <a href="#memos">Communication Memos</a>
-                </div>
-            </div>
-            <a href="#" onclick="showLoginModal()" class="nav-link">Login</a>
-            <a href="#" onclick="showSignupModal()" class="nav-link">Sign Up</a>
-            <a href="#" onclick="openPasswordModal()" class="nav-link">Admin Dashboard</a>
-        `;
+        // User is not logged in - DO NOT overwrite navMenu.innerHTML to preserve notification bell
+        updateNotificationBadge();
     }
 }
 

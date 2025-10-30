@@ -11628,12 +11628,16 @@ async function sendAdvisorRequest() {
         }
         
         if (response.ok) {
+            console.log('Policy Advisor - Response OK, reading text...');
             const aiResponse = await response.text();
+            console.log('Policy Advisor - Response text received, length:', aiResponse.length);
+            console.log('Policy Advisor - Response preview:', aiResponse.substring(0, 200));
             
             // Display results
             document.getElementById('advisorLoading').style.display = 'none';
             document.getElementById('advisorResult').style.display = 'block';
             document.getElementById('advisorResponse').textContent = aiResponse;
+            console.log('Policy Advisor - Response displayed to user');
             
             // Display referenced policies
             const policiesList = document.getElementById('advisorPoliciesList');

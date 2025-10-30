@@ -11556,49 +11556,65 @@ async function sendAdvisorRequest() {
     
     try {
         // Get ALL policies
-        const relevantPolicies = loadCompanyPolicies();
+        const allPolicies = loadCompanyPolicies();
         
-        if (relevantPolicies.length === 0) {
+        if (allPolicies.length === 0) {
             document.getElementById('advisorLoading').style.display = 'none';
             showNotification('No policies found. Please ensure you have policies created.', 'warning');
             document.getElementById('advisorSubmitBtn').disabled = false;
             return;
         }
         
-        // Format policies
-        const policiesText = formatPoliciesForAI(relevantPolicies);
-        const truncatedPolicies = policiesText.substring(0, 500);
+        // Format policies text (same as sendFollowUpPrompt approach)
+        let policiesText = '';
+        allPolicies.forEach(policy => {
+            policiesText += `Policy: ${policy.title || 'Untitled'}\n`;
+            policiesText += `Type: ${policy.type || 'N/A'}\n`;
+            if (policy.description) policiesText += `Description: ${policy.description}\n`;
+            if (policy.content) {
+                try {
+                    const contentData = JSON.parse(policy.content);
+                    policiesText += `Content: ${JSON.stringify(contentData)}\n`;
+                } catch {
+                    policiesText += `Content: ${policy.content}\n`;
+                }
+            }
+            policiesText += '\n---\n\n';
+        });
         
-        // Prepare prompt
-        const aiPrompt = `Policy Advisor: Situation: "${situation.substring(0, 300)}"\n\nRelevant Policies:\n${truncatedPolicies}\n\nProvide clear, actionable steps based on these policies.`;
+        // Truncate to avoid URL length issues
+        const truncatedPolicies = policiesText.substring(0, 1000);
+        
+        // Build the prompt (user's question + all policies)
+        const userPrompt = situation;
 
-        // Get webhook URL
+        // Get webhook URL (same as sendFollowUpPrompt)
         const webhookUrl = localStorage.getItem('webhookUrlAI') || 'http://localhost:5678/webhook/05da961e-9df0-490e-815f-92d8bc9f9c1e';
         
-        // Build request
+        // Use GET method with URL parameters (EXACT same pattern as sendFollowUpPrompt)
         const params = new URLSearchParams({
-            conversationHistory: JSON.stringify([{ role: 'user', content: aiPrompt }]),
+            conversationHistory: JSON.stringify([{ role: 'user', content: `Based on these policies, answer this question: ${userPrompt}\n\nPolicies:\n${truncatedPolicies}` }]),
             currentPolicyText: truncatedPolicies,
-            newPrompt: aiPrompt,
+            newPrompt: userPrompt,
             company: currentCompany || 'Unknown',
             username: currentUser?.username || 'Unknown',
             tool: 'policy-advisor'
         });
         
-        // Send request
+        // Send request (EXACT same as sendFollowUpPrompt)
         const response = await fetch(`${webhookUrl}?${params.toString()}`);
         
         if (response.ok) {
-            const aiResponse = await response.text();
+            const webhookResponse = await response.text();
             
             // Display results
             document.getElementById('advisorLoading').style.display = 'none';
             document.getElementById('advisorResult').style.display = 'block';
-            document.getElementById('advisorResponse').textContent = aiResponse;
+            document.getElementById('advisorResponse').textContent = webhookResponse;
             
             // Display referenced policies
             const policiesList = document.getElementById('advisorPoliciesList');
-            policiesList.innerHTML = relevantPolicies.map(policy => `
+            policiesList.innerHTML = allPolicies.map(policy => `
                 <div style="background: white; border: 1px solid #e0e0e0; border-radius: 6px; padding: 12px; min-width: 200px;">
                     <div style="font-weight: 600; color: #333; margin-bottom: 5px;">
                         <i class="fas fa-file-alt" style="color: #667eea; margin-right: 8px;"></i>
@@ -11619,7 +11635,6 @@ async function sendAdvisorRequest() {
         document.getElementById('advisorLoading').style.display = 'none';
         document.getElementById('advisorResult').style.display = 'block';
         
-        // Show user-friendly error message (same style as other webhook errors)
         let errorMessage = 'Unable to generate recommendations. ';
         if (error.message.includes('Failed to fetch') || error.message.includes('CORS')) {
             errorMessage += 'Unable to reach webhook server. Please ensure the webhook server is running and accessible.';
@@ -11629,7 +11644,7 @@ async function sendAdvisorRequest() {
         
         document.getElementById('advisorResponse').textContent = errorMessage;
         document.getElementById('advisorSubmitBtn').disabled = false;
-        showNotification('Failed to get policy recommendations. Check console for details.', 'error');
+        showNotification('Failed to get policy recommendations', 'error');
     }
 }
 

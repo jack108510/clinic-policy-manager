@@ -11503,15 +11503,20 @@ ${policyContent ? `Content:\n${policyContent.substring(0, 1500)}` : 'No content 
 }
 
 async function sendAdvisorRequest() {
+    console.log('Policy Advisor - sendAdvisorRequest() called');
+    
     const situationInput = document.getElementById('advisorSituation');
     const situation = situationInput.value.trim();
+    console.log('Policy Advisor - Situation input:', situation ? situation.substring(0, 50) + '...' : 'EMPTY');
     
     if (!situation) {
+        console.log('Policy Advisor - No situation provided, showing error');
         showNotification('Please describe your situation or question', 'error');
         return;
     }
     
     // Show loading state
+    console.log('Policy Advisor - Showing loading state');
     document.getElementById('advisorLoading').style.display = 'block';
     document.getElementById('advisorResult').style.display = 'none';
     document.getElementById('advisorSubmitBtn').disabled = true;

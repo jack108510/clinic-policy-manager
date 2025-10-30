@@ -394,16 +394,25 @@ function setupEventListeners() {
         console.error('Signup form element not found');
     }
 
-    // Also add direct button click event as backup
-    const signupButton = document.querySelector('#signupForm button[type="submit"]');
-    console.log('Signup button element:', signupButton);
-    if (signupButton) {
-        signupButton.addEventListener('click', function(e) {
-            console.log('Signup button clicked directly');
-            e.preventDefault();
-            signupUser(e);
-        });
-    }
+    // Also add direct button click event as backup - check all signup forms
+    const signupForms = ['companySignupForm', 'individualSignupForm', 'companyCodeSignupForm'];
+    signupForms.forEach(formId => {
+        const signupButton = document.querySelector(`#${formId} button[type="submit"]`);
+        if (signupButton) {
+            console.log(`Signup button found for form: ${formId}`);
+            signupButton.addEventListener('click', function(e) {
+                console.log(`Signup button clicked for form: ${formId}`);
+                e.preventDefault();
+                if (formId === 'companySignupForm') {
+                    signupUser(e);
+                } else if (formId === 'individualSignupForm') {
+                    signupUser(e);
+                } else if (formId === 'companyCodeSignupForm') {
+                    signupUser(e);
+                }
+            });
+        }
+    });
 
     // Password form submission
     const passwordForm = document.getElementById('passwordForm');
@@ -10329,7 +10338,7 @@ function openPasswordModal() {
         }
         
         // Focus on password field
-            const passwordField = document.getElementById('adminPassword');
+            const passwordField = document.getElementById('adminPasswordModal');
             if (passwordField) {
                 passwordField.focus();
             }
@@ -10350,7 +10359,7 @@ function closePasswordModal() {
         modal.classList.remove('show');
         
         // Clear password field
-        const passwordField = document.getElementById('adminPassword');
+        const passwordField = document.getElementById('adminPasswordModal');
         if (passwordField) {
             passwordField.value = '';
         }
@@ -10401,7 +10410,7 @@ function checkAdminPassword(event) {
         console.log('🔍 Proceeding to password validation...');
     }
     
-    const password = document.getElementById('adminPassword').value;
+    const password = document.getElementById('adminPasswordModal').value;
     console.log('Password entered:', password ? '***' : 'empty');
     console.log('Current user:', currentUser);
     console.log('Current company:', currentCompany);

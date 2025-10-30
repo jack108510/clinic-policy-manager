@@ -11423,50 +11423,88 @@ function closePolicyAdvisorModal() {
 // Search policies based on keywords from the situation
 function findRelevantPolicies(situation) {
     const allPolicies = loadCompanyPolicies();
+    console.log('findRelevantPolicies - Total policies loaded:', allPolicies.length);
+    
     if (!allPolicies || allPolicies.length === 0) {
+        console.log('findRelevantPolicies - No policies found');
         return [];
     }
     
-    // Extract keywords from situation (simple approach - can be enhanced)
+    // If there are few policies (5 or less), return all of them (they're all relevant)
+    if (allPolicies.length <= 5) {
+        console.log('findRelevantPolicies - Few policies, returning all:', allPolicies.length);
+        return allPolicies;
+    }
+    
+    // Extract keywords from situation (more lenient approach)
     const situationLower = situation.toLowerCase();
-    const keywords = situationLower
-        .split(/\s+/)
-        .filter(word => word.length > 3)
-        .slice(0, 10); // Limit to top 10 keywords
+    const words = situationLower.split(/\s+/);
+    const keywords = words
+        .filter(word => word.length >= 3) // Changed from > 3 to >= 3 to include "got", etc.
+        .filter(word => !['the', 'and', 'for', 'are', 'but', 'not', 'you', 'all', 'can', 'had', 'her', 'was', 'one', 'our', 'out', 'day', 'get', 'has', 'him', 'his', 'how', 'man', 'new', 'now', 'old', 'see', 'two', 'way', 'who', 'boy', 'did', 'its', 'let', 'put', 'say', 'she', 'too', 'use'].includes(word))
+        .slice(0, 15); // Increased limit
+    
+    console.log('findRelevantPolicies - Extracted keywords:', keywords);
     
     // Score each policy based on keyword matches
     const scoredPolicies = allPolicies.map(policy => {
         let score = 0;
-        const policyText = `${policy.title || ''} ${policy.type || ''} ${policy.description || ''} ${policy.content || ''}`.toLowerCase();
+        
+        // Get policy content - handle different formats
+        let policyContent = '';
+        if (policy.content) {
+            try {
+                const parsed = JSON.parse(policy.content);
+                policyContent = typeof parsed === 'object' ? JSON.stringify(parsed) : parsed;
+            } catch {
+                policyContent = policy.content;
+            }
+        }
+        
+        // Build searchable text from all policy fields
+        const policyText = `${policy.title || ''} ${policy.type || ''} ${policy.description || ''} ${policyContent} ${policy.purpose || ''} ${policy.scope || ''} ${policy.procedures || ''}`.toLowerCase();
+        
+        console.log('findRelevantPolicies - Checking policy:', policy.title, 'Text preview:', policyText.substring(0, 100));
         
         // Check for keyword matches in title (higher weight)
         keywords.forEach(keyword => {
             if (policy.title && policy.title.toLowerCase().includes(keyword)) {
-                score += 3;
+                score += 5; // Increased weight
             }
             // Check in description/content
             if (policyText.includes(keyword)) {
-                score += 1;
+                score += 2; // Increased weight
             }
         });
         
         // Check for common policy-related terms
-        const policyTerms = ['procedure', 'policy', 'guideline', 'rule', 'protocol', 'process', 'step', 'action', 'compliance', 'requirement'];
+        const policyTerms = ['procedure', 'policy', 'guideline', 'rule', 'protocol', 'process', 'step', 'action', 'compliance', 'requirement', 'food', 'shipment', 'receive', 'handling', 'storage'];
         policyTerms.forEach(term => {
             if (situationLower.includes(term) && policyText.includes(term)) {
-                score += 2;
+                score += 3; // Increased weight
             }
         });
+        
+        console.log('findRelevantPolicies - Policy score:', policy.title, '=', score);
         
         return { policy, score };
     });
     
-    // Sort by score and return top 5 most relevant
-    return scoredPolicies
+    // Sort by score
+    const sorted = scoredPolicies.sort((a, b) => b.score - a.score);
+    
+    // Return top 5 most relevant, but if none have score > 0, return top 5 anyway (fallback)
+    const relevant = sorted
         .filter(item => item.score > 0)
-        .sort((a, b) => b.score - a.score)
-        .slice(0, 5)
-        .map(item => item.policy);
+        .slice(0, 5);
+    
+    if (relevant.length === 0) {
+        console.log('findRelevantPolicies - No matches with score > 0, returning top 5 as fallback');
+        return sorted.slice(0, 5).map(item => item.policy);
+    }
+    
+    console.log('findRelevantPolicies - Returning', relevant.length, 'policies');
+    return relevant.map(item => item.policy);
 }
 
 // Format policies for AI context

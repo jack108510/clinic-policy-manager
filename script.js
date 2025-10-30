@@ -11410,7 +11410,10 @@ function closePolicyAdvisor() {
 }
 
 async function sendPolicyAdvisorRequest() {
+    console.log('sendPolicyAdvisorRequest CALLED');
+    
     const question = document.getElementById('advisorQuestion').value.trim();
+    console.log('Question:', question);
     
     if (!question) {
         showNotification('Please enter a question', 'error');
@@ -11424,6 +11427,7 @@ async function sendPolicyAdvisorRequest() {
     try {
         // Get all policies
         const allPolicies = loadCompanyPolicies();
+        console.log('Loaded policies:', allPolicies.length);
         
         if (allPolicies.length === 0) {
             document.getElementById('advisorLoading').style.display = 'none';
@@ -11450,6 +11454,7 @@ async function sendPolicyAdvisorRequest() {
         const promptText = `Question: ${question}\n\nPolicies:\n${policiesText}\n\nProvide guidance based on these policies.`;
         
         const webhookUrl = localStorage.getItem('webhookUrlAI') || 'http://localhost:5678/webhook/6aa55f96-04a0-4d04-b99f-1b4da027dce6';
+        console.log('Webhook URL:', webhookUrl);
         
         // Use GET with URL params to avoid CORS preflight (like sendFollowUpPrompt)
         const params = new URLSearchParams({
@@ -11461,10 +11466,15 @@ async function sendPolicyAdvisorRequest() {
             tool: 'policy-advisor'
         });
         
-        const response = await fetch(`${webhookUrl}?${params.toString()}`);
+        const fullUrl = `${webhookUrl}?${params.toString()}`;
+        console.log('Sending request to:', fullUrl.substring(0, 200) + '...');
+        
+        const response = await fetch(fullUrl);
+        console.log('Response status:', response.status);
         
         if (response.ok) {
             const result = await response.text();
+            console.log('Success, result length:', result.length);
             document.getElementById('advisorLoading').style.display = 'none';
             document.getElementById('advisorResponse').style.display = 'block';
             document.getElementById('advisorResultText').textContent = result;

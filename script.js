@@ -1,6 +1,7 @@
 // Initialize current policies as empty array
 let currentPolicies = loadFromLocalStorage('currentPolicies', []);
 let draftPolicies = loadFromLocalStorage('draftPolicies', []);
+let notifications = loadFromLocalStorage('notifications', []);
 
 // Settings Data - Load from localStorage or use empty defaults
 let roles = loadFromLocalStorage('roles', []);
@@ -11356,6 +11357,113 @@ function deleteCategory(index) {
         displayCategories();
         showNotification('Category deleted successfully', 'success');
     }
+}
+
+// Notification Center Functions
+function toggleNotificationCenter() {
+    const notificationCenter = document.getElementById('notificationCenter');
+    const badge = document.getElementById('notificationBadge');
+    
+    if (notificationCenter) {
+        if (notificationCenter.style.display === 'none' || notificationCenter.style.display === '') {
+            notificationCenter.style.display = 'block';
+            updateNotificationDisplay();
+        } else {
+            notificationCenter.style.display = 'none';
+        }
+    }
+}
+
+function addNotification(message, type = 'info', action = null) {
+    const notification = {
+        id: Date.now(),
+        message: message,
+        type: type,
+        action: action,
+        timestamp: new Date().toISOString(),
+        read: false
+    };
+    
+    notifications.unshift(notification);
+    
+    // Keep only last 50 notifications
+    if (notifications.length > 50) {
+        notifications = notifications.slice(0, 50);
+    }
+    
+    saveToLocalStorage('notifications', notifications);
+    updateNotificationBadge();
+    updateNotificationDisplay();
+}
+
+function updateNotificationBadge() {
+    const badge = document.getElementById('notificationBadge');
+    const unreadCount = notifications.filter(n => !n.read).length;
+    
+    if (badge) {
+        if (unreadCount > 0) {
+            badge.textContent = unreadCount;
+            badge.style.display = 'inline-block';
+        } else {
+            badge.style.display = 'none';
+        }
+    }
+}
+
+function updateNotificationDisplay() {
+    const notificationList = document.getElementById('notificationList');
+    
+    if (!notificationList) return;
+    
+    const unreadNotifications = notifications.filter(n => !n.read);
+    
+    if (unreadNotifications.length === 0 && notifications.length === 0) {
+        notificationList.innerHTML = '<div class="no-notifications">No notifications</div>';
+        return;
+    }
+    
+    // Show only unread notifications
+    notificationList.innerHTML = unreadNotifications.map(notif => `
+        <div class="notification-item" onclick="markNotificationRead(${notif.id})">
+            <i class="fas fa-circle" style="color: #667eea; font-size: 8px;"></i>
+            <div class="notification-content">
+                <p>${notif.message}</p>
+                <span class="notification-time">${formatNotificationTime(notif.timestamp)}</span>
+            </div>
+        </div>
+    `).join('');
+    
+    if (unreadNotifications.length === 0) {
+        notificationList.innerHTML = '<div class="no-notifications">No new notifications</div>';
+    }
+}
+
+function markNotificationRead(id) {
+    const notification = notifications.find(n => n.id === id);
+    if (notification) {
+        notification.read = true;
+        saveToLocalStorage('notifications', notifications);
+        updateNotificationBadge();
+        updateNotificationDisplay();
+    }
+}
+
+function clearAllNotifications() {
+    notifications = notifications.map(n => ({ ...n, read: true }));
+    saveToLocalStorage('notifications', notifications);
+    updateNotificationBadge();
+    updateNotificationDisplay();
+}
+
+function formatNotificationTime(timestamp) {
+    const now = new Date();
+    const time = new Date(timestamp);
+    const diff = Math.floor((now - time) / 1000);
+    
+    if (diff < 60) return 'Just now';
+    if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
+    if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
+    return `${Math.floor(diff / 86400)}d ago`;
 }
 
 function populateCategoriesDropdown() {

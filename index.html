@@ -568,14 +568,10 @@
                 <!-- Roles Tab -->
                 <div id="rolesTab" class="settings-tab active">
                     <div class="settings-section">
-                        <h3>Manage Roles & Responsibilities</h3>
-                        <div class="add-item-form">
-                            <input type="text" id="newRoleName" placeholder="Role name (e.g., Senior Veterinarian)">
-                            <input type="text" id="newRoleDescription" placeholder="Role description">
-                            <input type="text" id="newRoleStaffName" placeholder="Staff member name">
-                            <input type="email" id="newRoleEmail" placeholder="Staff email">
-                            <button onclick="addRole()" class="btn btn-primary">
-                                <i class="fas fa-plus"></i> Add Role
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px;">
+                            <h3 style="margin: 0;">Manage Roles & Responsibilities</h3>
+                            <button onclick="openAddRoleModal()" class="btn btn-primary" style="display: flex; align-items: center; gap: 8px; padding: 12px 24px; font-size: 15px; font-weight: 600;">
+                                <i class="fas fa-plus-circle"></i> Add New Role
                             </button>
                         </div>
                         <div class="items-list" id="rolesList">
@@ -1629,6 +1625,56 @@
                         </button>
                     </div>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add Role Modal -->
+    <div id="addRoleModal" class="modal" style="z-index: 4000;">
+        <div class="modal-content" style="max-width: 600px;">
+            <div class="modal-header">
+                <h3><i class="fas fa-user-plus"></i> Add New Role</h3>
+                <span class="close" onclick="closeAddRoleModal()">&times;</span>
+            </div>
+            <div class="modal-body">
+                <form id="addRoleForm" onsubmit="event.preventDefault(); addRole();">
+                    <div class="form-group">
+                        <label for="modalRoleName">
+                            <i class="fas fa-briefcase"></i> Role Name <span style="color: red;">*</span>
+                        </label>
+                        <input type="text" id="modalRoleName" placeholder="e.g., Senior Veterinarian, Clinic Manager" required
+                               style="width: 100%; padding: 12px; border: 2px solid #ddd; border-radius: 6px; font-size: 15px;">
+                    </div>
+                    <div class="form-group">
+                        <label for="modalRoleDescription">
+                            <i class="fas fa-info-circle"></i> Role Description <span style="color: red;">*</span>
+                        </label>
+                        <textarea id="modalRoleDescription" placeholder="Describe the responsibilities and duties of this role..." required
+                                  rows="3" style="width: 100%; padding: 12px; border: 2px solid #ddd; border-radius: 6px; font-size: 15px; resize: vertical;"></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label for="modalRoleStaffName">
+                            <i class="fas fa-user"></i> Staff Member Name <span style="color: red;">*</span>
+                        </label>
+                        <input type="text" id="modalRoleStaffName" placeholder="Full name of the staff member" required
+                               style="width: 100%; padding: 12px; border: 2px solid #ddd; border-radius: 6px; font-size: 15px;">
+                    </div>
+                    <div class="form-group">
+                        <label for="modalRoleEmail">
+                            <i class="fas fa-envelope"></i> Staff Email <span style="color: red;">*</span>
+                        </label>
+                        <input type="email" id="modalRoleEmail" placeholder="staff@example.com" required
+                               style="width: 100%; padding: 12px; border: 2px solid #ddd; border-radius: 6px; font-size: 15px;">
+                    </div>
+                    <div class="modal-footer" style="display: flex; gap: 10px; justify-content: flex-end; margin-top: 25px;">
+                        <button type="button" class="btn btn-secondary" onclick="closeAddRoleModal()">
+                            <i class="fas fa-times"></i> Cancel
+                        </button>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-check"></i> Add Role
+                        </button>
+                    </div>
+                </form>
             </div>
         </div>
     </div>

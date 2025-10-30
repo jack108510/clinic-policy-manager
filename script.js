@@ -7105,19 +7105,70 @@ function saveWebhookUrls() {
     console.log('Webhook URLs saved:', { aiUrl, manualUrl, reportUrl, emailUrl });
 }
 
+// Add Role Modal Functions
+function openAddRoleModal() {
+    const modal = document.getElementById('addRoleModal');
+    if (modal) {
+        modal.style.display = 'block';
+        modal.classList.add('show');
+        
+        // Reset form
+        const form = document.getElementById('addRoleForm');
+        if (form) {
+            form.reset();
+        }
+        
+        // Focus on first input
+        setTimeout(() => {
+            const firstInput = document.getElementById('modalRoleName');
+            if (firstInput) {
+                firstInput.focus();
+            }
+        }, 100);
+    }
+}
+
+function closeAddRoleModal() {
+    const modal = document.getElementById('addRoleModal');
+    if (modal) {
+        modal.style.display = 'none';
+        modal.classList.remove('show');
+        
+        // Reset form
+        const form = document.getElementById('addRoleForm');
+        if (form) {
+            form.reset();
+        }
+    }
+}
+
 function addRole() {
-    const name = document.getElementById('newRoleName').value.trim();
-    const description = document.getElementById('newRoleDescription').value.trim();
-    const staffName = document.getElementById('newRoleStaffName').value.trim();
-    const email = document.getElementById('newRoleEmail').value.trim();
+    // Get values from modal inputs (preferred) or fallback to old inputs
+    const nameInput = document.getElementById('modalRoleName');
+    const descInput = document.getElementById('modalRoleDescription');
+    const staffInput = document.getElementById('modalRoleStaffName');
+    const emailInput = document.getElementById('modalRoleEmail');
+    
+    // Fallback to old input IDs for backward compatibility
+    const name = nameInput ? nameInput.value.trim() : (document.getElementById('newRoleName')?.value.trim() || '');
+    const description = descInput ? descInput.value.trim() : (document.getElementById('newRoleDescription')?.value.trim() || '');
+    const staffName = staffInput ? staffInput.value.trim() : (document.getElementById('newRoleStaffName')?.value.trim() || '');
+    const email = emailInput ? emailInput.value.trim() : (document.getElementById('newRoleEmail')?.value.trim() || '');
     
     if (!name || !description || !staffName || !email) {
-        alert('Please fill in all fields: role name, description, staff name, and email.');
+        showNotification('Please fill in all fields: role name, description, staff name, and email.', 'error');
+        return;
+    }
+    
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+        showNotification('Please enter a valid email address.', 'error');
         return;
     }
     
     const newRole = {
-        id: roles.length + 1,
+        id: roles.length > 0 ? Math.max(...roles.map(r => r.id)) + 1 : 1,
         name: name,
         description: description,
         staffName: staffName,
@@ -7129,11 +7180,11 @@ function addRole() {
     saveToLocalStorage('roles', roles);
     displayRoles();
     
-    // Clear form
-    document.getElementById('newRoleName').value = '';
-    document.getElementById('newRoleDescription').value = '';
-    document.getElementById('newRoleStaffName').value = '';
-    document.getElementById('newRoleEmail').value = '';
+    // Close modal
+    closeAddRoleModal();
+    
+    // Show success message
+    showNotification(`Role "${name}" added successfully!`, 'success');
 }
 
 function deleteRole(roleId) {

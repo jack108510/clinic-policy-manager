@@ -11611,10 +11611,19 @@ async function sendAdvisorRequest() {
         console.log('Policy Advisor - About to call fetch()');
         let response;
         try {
-            response = await fetch(fullUrl);
+            // Add timeout to catch hanging requests
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+            
+            response = await fetch(fullUrl, { signal: controller.signal });
+            clearTimeout(timeoutId);
+            
             console.log('Policy Advisor - Fetch completed, status:', response.status, response.statusText);
         } catch (fetchError) {
             console.error('Policy Advisor - Fetch error:', fetchError);
+            if (fetchError.name === 'AbortError') {
+                throw new Error('Request timed out. This may indicate a CORS issue when accessing from GitHub Pages.');
+            }
             throw fetchError;
         }
         

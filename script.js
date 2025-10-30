@@ -11393,258 +11393,96 @@ function deleteCategory(index) {
 }
 
 // Policy Advisor Functions
-function openPolicyAdvisorModal() {
+function openPolicyAdvisor() {
     if (!currentUser) {
         showNotification('Please log in to use the Policy Advisor', 'error');
         return;
     }
     
-    const modal = document.getElementById('policyAdvisorModal');
-    if (modal) {
-        modal.style.display = 'block';
-        modal.classList.add('show');
-        
-        // Reset form
-        document.getElementById('advisorSituation').value = '';
-        document.getElementById('advisorLoading').style.display = 'none';
-        document.getElementById('advisorResult').style.display = 'none';
-        document.getElementById('advisorSubmitBtn').disabled = false;
-    }
+    document.getElementById('policyAdvisorModal').style.display = 'block';
+    document.getElementById('advisorQuestion').value = '';
+    document.getElementById('advisorLoading').style.display = 'none';
+    document.getElementById('advisorResponse').style.display = 'none';
 }
 
-function closePolicyAdvisorModal() {
-    const modal = document.getElementById('policyAdvisorModal');
-    if (modal) {
-        modal.style.display = 'none';
-        modal.classList.remove('show');
-    }
+function closePolicyAdvisor() {
+    document.getElementById('policyAdvisorModal').style.display = 'none';
 }
 
-// Search policies based on keywords from the situation
-function findRelevantPolicies(situation) {
-    const allPolicies = loadCompanyPolicies();
-    console.log('findRelevantPolicies - Total policies loaded:', allPolicies.length);
+async function sendPolicyAdvisorRequest() {
+    const question = document.getElementById('advisorQuestion').value.trim();
     
-    if (!allPolicies || allPolicies.length === 0) {
-        console.log('findRelevantPolicies - No policies found');
-        return [];
-    }
-    
-    // If there are few policies (5 or less), return all of them (they're all relevant)
-    if (allPolicies.length <= 5) {
-        console.log('findRelevantPolicies - Few policies, returning all:', allPolicies.length);
-        return allPolicies;
-    }
-    
-    // Extract keywords from situation (more lenient approach)
-    const situationLower = situation.toLowerCase();
-    const words = situationLower.split(/\s+/);
-    const keywords = words
-        .filter(word => word.length >= 3) // Changed from > 3 to >= 3 to include "got", etc.
-        .filter(word => !['the', 'and', 'for', 'are', 'but', 'not', 'you', 'all', 'can', 'had', 'her', 'was', 'one', 'our', 'out', 'day', 'get', 'has', 'him', 'his', 'how', 'man', 'new', 'now', 'old', 'see', 'two', 'way', 'who', 'boy', 'did', 'its', 'let', 'put', 'say', 'she', 'too', 'use'].includes(word))
-        .slice(0, 15); // Increased limit
-    
-    console.log('findRelevantPolicies - Extracted keywords:', keywords);
-    
-    // Score each policy based on keyword matches
-    const scoredPolicies = allPolicies.map(policy => {
-        let score = 0;
-        
-        // Get policy content - handle different formats
-        let policyContent = '';
-        if (policy.content) {
-            try {
-                const parsed = JSON.parse(policy.content);
-                policyContent = typeof parsed === 'object' ? JSON.stringify(parsed) : parsed;
-            } catch {
-                policyContent = policy.content;
-            }
-        }
-        
-        // Build searchable text from all policy fields
-        const policyText = `${policy.title || ''} ${policy.type || ''} ${policy.description || ''} ${policyContent} ${policy.purpose || ''} ${policy.scope || ''} ${policy.procedures || ''}`.toLowerCase();
-        
-        console.log('findRelevantPolicies - Checking policy:', policy.title, 'Text preview:', policyText.substring(0, 100));
-        
-        // Check for keyword matches in title (higher weight)
-        keywords.forEach(keyword => {
-            if (policy.title && policy.title.toLowerCase().includes(keyword)) {
-                score += 5; // Increased weight
-            }
-            // Check in description/content
-            if (policyText.includes(keyword)) {
-                score += 2; // Increased weight
-            }
-        });
-        
-        // Check for common policy-related terms
-        const policyTerms = ['procedure', 'policy', 'guideline', 'rule', 'protocol', 'process', 'step', 'action', 'compliance', 'requirement', 'food', 'shipment', 'receive', 'handling', 'storage'];
-        policyTerms.forEach(term => {
-            if (situationLower.includes(term) && policyText.includes(term)) {
-                score += 3; // Increased weight
-            }
-        });
-        
-        console.log('findRelevantPolicies - Policy score:', policy.title, '=', score);
-        
-        return { policy, score };
-    });
-    
-    // Sort by score
-    const sorted = scoredPolicies.sort((a, b) => b.score - a.score);
-    
-    // Return top 5 most relevant, but if none have score > 0, return top 5 anyway (fallback)
-    const relevant = sorted
-        .filter(item => item.score > 0)
-        .slice(0, 5);
-    
-    if (relevant.length === 0) {
-        console.log('findRelevantPolicies - No matches with score > 0, returning top 5 as fallback');
-        return sorted.slice(0, 5).map(item => item.policy);
-    }
-    
-    console.log('findRelevantPolicies - Returning', relevant.length, 'policies');
-    return relevant.map(item => item.policy);
-}
-
-// Format policies for AI context
-function formatPoliciesForAI(policies) {
-    return policies.map(policy => {
-        // Extract structured content or use description/content
-        let policyContent = '';
-        
-        if (policy.purpose) policyContent += `Purpose: ${policy.purpose}\n`;
-        if (policy.scope) policyContent += `Scope: ${policy.scope}\n`;
-        if (policy.policyStatement) policyContent += `Policy Statement: ${policy.policyStatement}\n`;
-        if (policy.procedures) policyContent += `Procedures: ${policy.procedures}\n`;
-        if (policy.responsibilities) policyContent += `Responsibilities: ${policy.responsibilities}\n`;
-        if (policy.consequences) policyContent += `Consequences: ${policy.consequences}\n`;
-        
-        // Fallback to description or content
-        if (!policyContent && policy.description) {
-            policyContent = policy.description;
-        } else if (!policyContent && policy.content) {
-            // Try to parse JSON content
-            try {
-                const contentData = JSON.parse(policy.content);
-                policyContent = JSON.stringify(contentData, null, 2);
-            } catch {
-                policyContent = policy.content;
-            }
-        }
-        
-        return `Policy: ${policy.title || 'Untitled'}
-Type: ${policy.type || 'N/A'}
-Policy Code: ${policy.policyCode || 'N/A'}
-${policyContent ? `Content:\n${policyContent.substring(0, 1500)}` : 'No content available'}`;
-    }).join('\n\n---\n\n');
-}
-
-async function sendAdvisorRequest() {
-    const situationInput = document.getElementById('advisorSituation');
-    const situation = situationInput.value.trim();
-    
-    if (!situation) {
-        showNotification('Please describe your situation or question', 'error');
+    if (!question) {
+        showNotification('Please enter a question', 'error');
         return;
     }
     
-    // Show loading state
+    // Show loading
     document.getElementById('advisorLoading').style.display = 'block';
-    document.getElementById('advisorResult').style.display = 'none';
-    document.getElementById('advisorSubmitBtn').disabled = true;
+    document.getElementById('advisorResponse').style.display = 'none';
     
     try {
-        // Get ALL policies
+        // Get all policies
         const allPolicies = loadCompanyPolicies();
         
         if (allPolicies.length === 0) {
             document.getElementById('advisorLoading').style.display = 'none';
-            showNotification('No policies found. Please ensure you have policies created.', 'warning');
-            document.getElementById('advisorSubmitBtn').disabled = false;
+            showNotification('No policies found', 'warning');
             return;
         }
         
-        // Format policies text (same as sendFollowUpPrompt approach)
+        // Format policies for sending
         let policiesText = '';
         allPolicies.forEach(policy => {
-            policiesText += `Policy: ${policy.title || 'Untitled'}\n`;
-            policiesText += `Type: ${policy.type || 'N/A'}\n`;
-            if (policy.description) policiesText += `Description: ${policy.description}\n`;
+            policiesText += `${policy.title || 'Untitled'} (${policy.type || 'N/A'})\n`;
+            if (policy.description) policiesText += `${policy.description}\n`;
             if (policy.content) {
                 try {
-                    const contentData = JSON.parse(policy.content);
-                    policiesText += `Content: ${JSON.stringify(contentData)}\n`;
+                    const parsed = JSON.parse(policy.content);
+                    policiesText += `${JSON.stringify(parsed)}\n`;
                 } catch {
-                    policiesText += `Content: ${policy.content}\n`;
+                    policiesText += `${policy.content}\n`;
                 }
             }
             policiesText += '\n---\n\n';
         });
         
         // Truncate to avoid URL length issues
-        const truncatedPolicies = policiesText.substring(0, 1000);
+        const truncatedPolicies = policiesText.substring(0, 2000);
         
-        // Build the prompt (user's question + all policies)
-        const userPrompt = situation;
-
-        // Get webhook URL (same as sendFollowUpPrompt)
+        // Build prompt
+        const promptText = `Question: ${question}\n\nPolicies:\n${truncatedPolicies}\n\nProvide guidance based on these policies.`;
+        
+        // Use same webhook as other AI features
         const webhookUrl = localStorage.getItem('webhookUrlAI') || 'http://localhost:5678/webhook/05da961e-9df0-490e-815f-92d8bc9f9c1e';
         
-        // Use GET method with URL parameters (EXACT same pattern as sendFollowUpPrompt)
+        // Build request (same pattern as working webhooks)
         const params = new URLSearchParams({
-            conversationHistory: JSON.stringify([{ role: 'user', content: `Based on these policies, answer this question: ${userPrompt}\n\nPolicies:\n${truncatedPolicies}` }]),
+            conversationHistory: JSON.stringify([{ role: 'user', content: promptText }]),
             currentPolicyText: truncatedPolicies,
-            newPrompt: userPrompt,
+            newPrompt: question,
             company: currentCompany || 'Unknown',
             username: currentUser?.username || 'Unknown',
             tool: 'policy-advisor'
         });
         
-        // Send request (EXACT same as sendFollowUpPrompt)
+        // Send request
         const response = await fetch(`${webhookUrl}?${params.toString()}`);
         
         if (response.ok) {
-            const webhookResponse = await response.text();
+            const result = await response.text();
             
-            // Display results
             document.getElementById('advisorLoading').style.display = 'none';
-            document.getElementById('advisorResult').style.display = 'block';
-            document.getElementById('advisorResponse').textContent = webhookResponse;
-            
-            // Display referenced policies
-            const policiesList = document.getElementById('advisorPoliciesList');
-            policiesList.innerHTML = allPolicies.map(policy => `
-                <div style="background: white; border: 1px solid #e0e0e0; border-radius: 6px; padding: 12px; min-width: 200px;">
-                    <div style="font-weight: 600; color: #333; margin-bottom: 5px;">
-                        <i class="fas fa-file-alt" style="color: #667eea; margin-right: 8px;"></i>
-                        ${policy.title || 'Untitled Policy'}
-                    </div>
-                    ${policy.policyCode ? `<div style="font-size: 12px; color: #666; margin-top: 5px;">Code: ${policy.policyCode}</div>` : ''}
-                    <div style="font-size: 12px; color: #999; margin-top: 5px;">${policy.type || 'N/A'}</div>
-                </div>
-            `).join('');
-            
-            document.getElementById('advisorSubmitBtn').disabled = false;
-            showNotification('Policy recommendations generated successfully', 'success');
+            document.getElementById('advisorResponse').style.display = 'block';
+            document.getElementById('advisorResultText').textContent = result;
         } else {
-            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            throw new Error(`HTTP ${response.status}`);
         }
     } catch (error) {
         console.error('Policy advisor error:', error);
         document.getElementById('advisorLoading').style.display = 'none';
-        document.getElementById('advisorResult').style.display = 'block';
-        
-        let errorMessage = 'Unable to generate recommendations. ';
-        if (error.message.includes('Failed to fetch') || error.message.includes('CORS')) {
-            errorMessage += 'Unable to reach webhook server. Please ensure the webhook server is running and accessible.';
-        } else {
-            errorMessage += error.message;
-        }
-        
-        document.getElementById('advisorResponse').textContent = errorMessage;
-        document.getElementById('advisorSubmitBtn').disabled = false;
-        showNotification('Failed to get policy recommendations', 'error');
+        document.getElementById('advisorResponse').style.display = 'block';
+        document.getElementById('advisorResultText').textContent = 'Error: ' + error.message;
     }
 }
 

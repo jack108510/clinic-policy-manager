@@ -3349,19 +3349,20 @@ body:not(.user-logged-in) .navbar {
 
 .notification-badge {
     position: absolute;
-    top: -5px;
-    right: -5px;
+    top: 2px;
+    right: 2px;
     background: #ef4444;
     color: white;
     border-radius: 50%;
-    width: 20px;
-    height: 20px;
+    width: 18px;
+    height: 18px;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 11px;
+    font-size: 10px;
     font-weight: 700;
     border: 2px solid white;
+    transform: translate(50%, -50%);
 }
 
 .notification-menu {

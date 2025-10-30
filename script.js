@@ -11470,6 +11470,7 @@ async function sendPolicyAdvisorRequest() {
         
         const fullUrl = `${webhookUrl}?${params.toString()}`;
         console.log('Sending request to:', fullUrl.substring(0, 200) + '...');
+        console.log('PROMPT TEXT BEING SENT:', promptText);
         
         const response = await fetch(fullUrl);
         console.log('Response status:', response.status);

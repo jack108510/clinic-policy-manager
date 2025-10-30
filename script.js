@@ -11451,18 +11451,17 @@ async function sendPolicyAdvisorRequest() {
         
         const webhookUrl = localStorage.getItem('webhookUrlAI') || 'http://localhost:5678/webhook/05da961e-9df0-490e-815f-92d8bc9f9c1e';
         
-        // Use POST with FormData like sendFileToWebhook
-        const formData = new FormData();
-        formData.append('question', question);
-        formData.append('policies', policiesText);
-        formData.append('company', currentCompany || 'Unknown');
-        formData.append('username', currentUser?.username || 'Unknown');
-        formData.append('timestamp', new Date().toISOString());
-        
-        const response = await fetch(webhookUrl, {
-            method: 'POST',
-            body: formData
+        // Use GET with URL params to avoid CORS preflight (like sendFollowUpPrompt)
+        const params = new URLSearchParams({
+            conversationHistory: JSON.stringify([{ role: 'user', content: promptText }]),
+            currentPolicyText: policiesText.substring(0, 500),
+            newPrompt: question,
+            company: currentCompany || 'Unknown',
+            username: currentUser?.username || 'Unknown',
+            tool: 'policy-advisor'
         });
+        
+        const response = await fetch(`${webhookUrl}?${params.toString()}`);
         
         if (response.ok) {
             const result = await response.text();

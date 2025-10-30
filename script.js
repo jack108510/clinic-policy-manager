@@ -11536,8 +11536,8 @@ async function sendAdvisorRequest() {
         // Prepare prompt (same format as sendFollowUpPrompt)
         const aiPrompt = `Policy Advisor: Situation: "${situation.substring(0, 300)}"\n\nRelevant Policies:\n${truncatedPolicies}\n\nProvide clear, actionable steps based on these policies.`;
 
-        // Get webhook URL - use Policy Advisor specific webhook (same approach as sendFollowUpPrompt)
-        const webhookUrl = localStorage.getItem('webhookUrlAI') || 'http://localhost:5678/webhook/6aa55f96-04a0-4d04-b99f-1b4da027dce6';
+        // Get webhook URL - use same webhook as other AI features (same approach as sendFollowUpPrompt)
+        const webhookUrl = localStorage.getItem('webhookUrlAI') || 'http://localhost:5678/webhook/05da961e-9df0-490e-815f-92d8bc9f9c1e';
         
         // Use GET method with URL parameters (same as sendFollowUpPrompt and sendAIEditRequest)
         const params = new URLSearchParams({

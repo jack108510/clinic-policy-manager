@@ -11527,95 +11527,29 @@ async function sendAdvisorRequest() {
             return;
         }
         
-        // Format policies for AI (with aggressive truncation to avoid URL length issues)
+        // Format policies for AI (same truncation approach as sendFollowUpPrompt)
         const policiesText = formatPoliciesForAI(relevantPolicies);
         
-        // Truncate policies text aggressively for URL encoding (max 1500 chars to leave room for other params)
-        const truncatedPolicies = policiesText.substring(0, 1500);
+        // Truncate to avoid URL length issues (same as other webhook calls)
+        const truncatedPolicies = policiesText.substring(0, 500);
         
-        // Prepare a concise prompt for AI (the prompt itself is also truncated)
-        const situationSummary = situation.substring(0, 500); // Limit situation description
-        const aiPrompt = `Policy Advisor: Situation: "${situationSummary}"\n\nRelevant Policies:\n${truncatedPolicies}\n\nProvide clear, actionable steps based on these policies.`;
+        // Prepare prompt (same format as sendFollowUpPrompt)
+        const aiPrompt = `Policy Advisor: Situation: "${situation.substring(0, 300)}"\n\nRelevant Policies:\n${truncatedPolicies}\n\nProvide clear, actionable steps based on these policies.`;
 
-        // Get webhook URL - use Policy Advisor specific webhook
+        // Get webhook URL - use Policy Advisor specific webhook (same approach as sendFollowUpPrompt)
         const webhookUrl = localStorage.getItem('webhookUrlAI') || 'http://localhost:5678/webhook/6aa55f96-04a0-4d04-b99f-1b4da027dce6';
         
-        // Prepare request data (using GET to avoid CORS preflight, but with minimal payload)
+        // Use GET method with URL parameters (same as sendFollowUpPrompt and sendAIEditRequest)
         const params = new URLSearchParams({
-            conversationHistory: JSON.stringify([{ role: 'user', content: aiPrompt.substring(0, 1000) }]), // Limit conversation history
-            currentPolicyText: truncatedPolicies, // Already truncated
-            newPrompt: aiPrompt.substring(0, 1000), // Truncate prompt
+            conversationHistory: JSON.stringify([{ role: 'user', content: aiPrompt }]),
+            currentPolicyText: truncatedPolicies,
+            newPrompt: aiPrompt,
             company: currentCompany || 'Unknown',
             username: currentUser?.username || 'Unknown',
             tool: 'policy-advisor'
         });
         
-        // Check URL length and warn if too long
-        const fullUrl = `${webhookUrl}?${params.toString()}`;
-        if (fullUrl.length > 2000) {
-            console.warn('URL length is very long:', fullUrl.length, 'characters');
-            // Further truncate if needed
-            params.set('currentPolicyText', truncatedPolicies.substring(0, 800));
-            params.set('newPrompt', aiPrompt.substring(0, 600));
-        }
-        
-        let response;
-        let lastError;
-        
-        // Try GET first (to avoid CORS preflight)
-        try {
-            response = await fetch(`${webhookUrl}?${params.toString()}`, {
-                method: 'GET',
-                mode: 'cors'
-            });
-            
-            // If we got a response (even if not ok), we connected successfully
-            if (response) {
-                // Check if it's an error response but at least we connected
-                if (!response.ok && response.status !== 0) {
-                    // Got HTTP error but connected - read the error
-                    const errorText = await response.text();
-                    throw new Error(`Server returned error: ${response.status} - ${errorText}`);
-                }
-            }
-        } catch (getError) {
-            console.log('GET request failed, trying POST as fallback:', getError.message);
-            lastError = getError;
-            
-            // If GET fails (CORS or other), try POST with JSON body
-            try {
-                const postData = {
-                    conversationHistory: [{ role: 'user', content: aiPrompt.substring(0, 1000) }],
-                    currentPolicyText: truncatedPolicies,
-                    newPrompt: aiPrompt.substring(0, 1000),
-                    company: currentCompany || 'Unknown',
-                    username: currentUser?.username || 'Unknown',
-                    tool: 'policy-advisor'
-                };
-                
-                response = await fetch(webhookUrl, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify(postData),
-                    mode: 'cors'
-                });
-                
-                if (!response.ok && response.status !== 0) {
-                    const errorText = await response.text();
-                    throw new Error(`Server returned error: ${response.status} - ${errorText}`);
-                }
-            } catch (postError) {
-                console.log('POST request also failed:', postError.message);
-                // If both fail, throw a comprehensive error
-                if (postError.message.includes('CORS') || postError.message.includes('Failed to fetch') || 
-                    getError.message.includes('CORS') || getError.message.includes('Failed to fetch')) {
-                    throw new Error('CORS_BLOCKED: Cannot reach webhook server due to CORS policy. The server at ' + webhookUrl + ' needs to allow requests from ' + window.location.origin);
-                }
-                throw postError;
-            }
-        }
+        const response = await fetch(`${webhookUrl}?${params.toString()}`);
         
         if (response.ok) {
             const aiResponse = await response.text();
@@ -11648,37 +11582,12 @@ async function sendAdvisorRequest() {
         document.getElementById('advisorLoading').style.display = 'none';
         document.getElementById('advisorResult').style.display = 'block';
         
-        // Show user-friendly error message
-        let errorMessage = 'Unable to generate recommendations.\n\n';
-        
-        if (error.message.includes('CORS_BLOCKED')) {
-            errorMessage += '⚠️ CORS (Cross-Origin) Error:\n\n';
-            errorMessage += 'Your webhook server is blocking requests from this website.\n\n';
-            errorMessage += '🔧 To Fix This:\n\n';
-            errorMessage += '1. Add CORS headers to your webhook server:\n';
-            errorMessage += '   - Access-Control-Allow-Origin: *\n';
-            errorMessage += '   - Access-Control-Allow-Methods: GET, POST\n';
-            errorMessage += '   - Access-Control-Allow-Headers: Content-Type\n\n';
-            errorMessage += '2. Or specifically allow this domain:\n';
-            errorMessage += `   - Access-Control-Allow-Origin: ${window.location.origin}\n\n`;
-            errorMessage += '3. Restart your webhook server after adding CORS headers.\n\n';
-            errorMessage += '📝 Example (Node.js/Express):\n';
-            errorMessage += '   app.use((req, res, next) => {\n';
-            errorMessage += '     res.header("Access-Control-Allow-Origin", "*");\n';
-            errorMessage += '     res.header("Access-Control-Allow-Methods", "GET,POST");\n';
-            errorMessage += '     res.header("Access-Control-Allow-Headers", "Content-Type");\n';
-            errorMessage += '     next();\n';
-            errorMessage += '   });';
-        } else if (error.message.includes('CORS') || error.message.includes('Failed to fetch')) {
-            errorMessage += '⚠️ Connection Error:\n\n';
-            errorMessage += 'Cannot reach webhook server.\n\n';
-            errorMessage += 'Possible causes:\n';
-            errorMessage += '1. Webhook server not running\n';
-            errorMessage += '2. CORS not configured\n';
-            errorMessage += '3. Network/firewall blocking\n\n';
-            errorMessage += 'Check console for detailed error message.';
+        // Show user-friendly error message (same style as other webhook errors)
+        let errorMessage = 'Unable to generate recommendations. ';
+        if (error.message.includes('Failed to fetch') || error.message.includes('CORS')) {
+            errorMessage += 'Unable to reach webhook server. Please ensure the webhook server is running and accessible.';
         } else {
-            errorMessage += `Error: ${error.message}`;
+            errorMessage += error.message;
         }
         
         document.getElementById('advisorResponse').textContent = errorMessage;

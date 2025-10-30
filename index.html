@@ -583,19 +583,10 @@
                 <!-- Disciplinary Actions Tab -->
                 <div id="disciplinaryTab" class="settings-tab">
                     <div class="settings-section">
-                        <h3>Manage Disciplinary Actions</h3>
-                        <div class="add-item-form">
-                            <input type="text" id="newActionName" placeholder="Action name (e.g., Verbal Warning)">
-                            <input type="text" id="newActionDescription" placeholder="Action description">
-                            <input type="text" id="newActionPenalties" placeholder="Penalties (e.g., Written warning, Performance review)">
-                            <select id="newActionSeverity">
-                                <option value="minor">Minor</option>
-                                <option value="moderate">Moderate</option>
-                                <option value="major">Major</option>
-                                <option value="severe">Severe</option>
-                            </select>
-                            <button onclick="addDisciplinaryAction()" class="btn btn-primary">
-                                <i class="fas fa-plus"></i> Add Action
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px;">
+                            <h3 style="margin: 0;">Manage Disciplinary Actions</h3>
+                            <button onclick="openAddDisciplinaryModal()" class="btn btn-primary" style="display: flex; align-items: center; gap: 8px; padding: 12px 24px; font-size: 15px; font-weight: 600;">
+                                <i class="fas fa-plus-circle"></i> Add New Action
                             </button>
                         </div>
                         <div class="items-list" id="disciplinaryList">
@@ -607,14 +598,10 @@
                 <!-- Organizations Tab -->
                 <div id="organizationsTab" class="settings-tab">
                     <div class="settings-section">
-                        <h3>Manage Organizations</h3>
-                        <div class="add-item-form">
-                            <input type="text" id="newOrganizationName" placeholder="Organization name (e.g., Downtown Clinic)">
-                            <input type="text" id="newOrganizationAddress" placeholder="Organization address">
-                            <input type="text" id="newOrganizationPhone" placeholder="Phone number">
-                            <input type="email" id="newOrganizationEmail" placeholder="Email address">
-                            <button onclick="addOrganization()" class="btn btn-primary">
-                                <i class="fas fa-plus"></i> Add Organization
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px;">
+                            <h3 style="margin: 0;">Manage Organizations</h3>
+                            <button onclick="openAddOrganizationModal()" class="btn btn-primary" style="display: flex; align-items: center; gap: 8px; padding: 12px 24px; font-size: 15px; font-weight: 600;">
+                                <i class="fas fa-plus-circle"></i> Add New Organization
                             </button>
                         </div>
                         <div class="items-list" id="organizationsList">
@@ -626,15 +613,13 @@
                 <!-- Documents Tab -->
                 <div id="documentsTab" class="settings-tab">
                     <div class="settings-section">
-                        <h3>Related Documents</h3>
-                        <p style="margin-bottom: 20px; color: #666;">Store and manage documents that can be linked to policies</p>
-                        
-                        <div class="add-item-form">
-                            <input type="text" id="newDocumentName" placeholder="Document name (e.g., HIPAA Compliance Guide)" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px; margin-bottom: 10px;">
-                            <input type="url" id="newDocumentUrl" placeholder="Document URL or file path" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px; margin-bottom: 10px;">
-                            <textarea id="newDocumentDescription" placeholder="Document description (optional)" rows="2" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px; margin-bottom: 10px;"></textarea>
-                            <button onclick="addDocument()" class="btn btn-primary">
-                                <i class="fas fa-plus"></i> Add Document
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                            <div>
+                                <h3 style="margin: 0;">Related Documents</h3>
+                                <p style="margin: 5px 0 0 0; color: #666;">Store and manage documents that can be linked to policies</p>
+                            </div>
+                            <button onclick="openAddDocumentModal()" class="btn btn-primary" style="display: flex; align-items: center; gap: 8px; padding: 12px 24px; font-size: 15px; font-weight: 600;">
+                                <i class="fas fa-plus-circle"></i> Add New Document
                             </button>
                         </div>
                         

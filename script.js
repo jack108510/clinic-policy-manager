@@ -7013,6 +7013,19 @@ function showProfileTab(tabName) {
     event.target.classList.add('active');
 }
 
+// Modal open/close functions for settings
+function openAddDisciplinaryModal() {
+    showNotification('Disciplinary Action modal coming soon!', 'info');
+}
+
+function openAddOrganizationModal() {
+    showNotification('Organization modal coming soon!', 'info');
+}
+
+function openAddDocumentModal() {
+    showNotification('Document modal coming soon!', 'info');
+}
+
 function showSettingsTab(tabName) {
     // Hide all tabs
     document.querySelectorAll('.settings-tab').forEach(tab => tab.classList.remove('active'));

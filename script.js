@@ -10821,9 +10821,14 @@ function displayDocuments() {
 }
 
 function addDocument() {
-    const name = document.getElementById('newDocumentName').value.trim();
-    const url = document.getElementById('newDocumentUrl').value.trim();
-    const description = document.getElementById('newDocumentDescription').value.trim();
+    // Try modal inputs first, fallback to old inputs
+    const nameInput = document.getElementById('modalDocName');
+    const urlInput = document.getElementById('modalDocUrl');
+    const descInput = document.getElementById('modalDocDescription');
+    
+    const name = nameInput ? nameInput.value.trim() : (document.getElementById('newDocumentName')?.value.trim() || '');
+    const url = urlInput ? urlInput.value.trim() : (document.getElementById('newDocumentUrl')?.value.trim() || '');
+    const description = descInput ? descInput.value.trim() : (document.getElementById('newDocumentDescription')?.value.trim() || '');
     
     if (!name || !url) {
         showNotification('Please fill in document name and URL', 'error');
@@ -10841,6 +10846,12 @@ function addDocument() {
     documents.push(newDocument);
     saveDocuments();
     displayDocuments();
+    
+    // Close modal
+    closeAddDocumentModal();
+    
+    // Show success message
+    showNotification(`Document "${name}" added successfully!`, 'success');
     
     // Clear form
     document.getElementById('newDocumentName').value = '';

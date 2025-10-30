@@ -4454,6 +4454,11 @@ function saveWebhookPolicy() {
     localStorage.setItem(`policies_${currentCompany}`, JSON.stringify(companyPolicies));
     
     showNotification('Policy saved successfully!', 'success');
+    
+    // Add notification to notification center
+    const webhookPolicyTitle = webhookPolicy.policy_title || webhookPolicy.title || 'AI-Generated Policy';
+    addNotification(`New policy "${webhookPolicyTitle}" has been published`, 'success');
+    
     closeAIModal();
     
     // Reload policies if on admin dashboard

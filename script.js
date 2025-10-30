@@ -11608,8 +11608,15 @@ async function sendAdvisorRequest() {
             tool: params.get('tool')
         });
         
-        const response = await fetch(fullUrl);
-        console.log('Policy Advisor - Response status:', response.status, response.statusText);
+        console.log('Policy Advisor - About to call fetch()');
+        let response;
+        try {
+            response = await fetch(fullUrl);
+            console.log('Policy Advisor - Fetch completed, status:', response.status, response.statusText);
+        } catch (fetchError) {
+            console.error('Policy Advisor - Fetch error:', fetchError);
+            throw fetchError;
+        }
         
         if (response.ok) {
             const aiResponse = await response.text();

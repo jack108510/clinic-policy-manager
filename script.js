@@ -11517,8 +11517,11 @@ async function sendAdvisorRequest() {
     document.getElementById('advisorSubmitBtn').disabled = true;
     
     try {
+        console.log('Policy Advisor - Starting request for situation:', situation.substring(0, 50) + '...');
+        
         // Find relevant policies
         const relevantPolicies = findRelevantPolicies(situation);
+        console.log('Policy Advisor - Found relevant policies:', relevantPolicies.length);
         
         if (relevantPolicies.length === 0) {
             document.getElementById('advisorLoading').style.display = 'none';
@@ -11532,9 +11535,11 @@ async function sendAdvisorRequest() {
         
         // Truncate to avoid URL length issues (same as other webhook calls)
         const truncatedPolicies = policiesText.substring(0, 500);
+        console.log('Policy Advisor - Formatted policies, length:', truncatedPolicies.length);
         
         // Prepare prompt (same format as sendFollowUpPrompt)
         const aiPrompt = `Policy Advisor: Situation: "${situation.substring(0, 300)}"\n\nRelevant Policies:\n${truncatedPolicies}\n\nProvide clear, actionable steps based on these policies.`;
+        console.log('Policy Advisor - Prompt created, length:', aiPrompt.length);
 
         // Get webhook URL - use same webhook as other AI features (same approach as sendFollowUpPrompt)
         const webhookUrl = localStorage.getItem('webhookUrlAI') || 'http://localhost:5678/webhook/05da961e-9df0-490e-815f-92d8bc9f9c1e';
@@ -11549,7 +11554,19 @@ async function sendAdvisorRequest() {
             tool: 'policy-advisor'
         });
         
-        const response = await fetch(`${webhookUrl}?${params.toString()}`);
+        const fullUrl = `${webhookUrl}?${params.toString()}`;
+        console.log('Policy Advisor - Sending request to:', webhookUrl);
+        console.log('Policy Advisor - Request params:', {
+            conversationHistory: params.get('conversationHistory'),
+            currentPolicyText: params.get('currentPolicyText')?.substring(0, 100) + '...',
+            newPrompt: params.get('newPrompt')?.substring(0, 100) + '...',
+            company: params.get('company'),
+            username: params.get('username'),
+            tool: params.get('tool')
+        });
+        
+        const response = await fetch(fullUrl);
+        console.log('Policy Advisor - Response status:', response.status, response.statusText);
         
         if (response.ok) {
             const aiResponse = await response.text();

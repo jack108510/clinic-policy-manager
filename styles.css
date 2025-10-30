@@ -3340,6 +3340,13 @@ body:not(.user-logged-in) .navbar {
     display: inline-block;
 }
 
+.notification-dropdown .nav-link {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
 .notification-badge {
     position: absolute;
     top: -5px;

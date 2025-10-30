@@ -11527,40 +11527,48 @@ async function sendAdvisorRequest() {
             return;
         }
         
-        // Format policies for AI
+        // Format policies for AI (with aggressive truncation to avoid URL length issues)
         const policiesText = formatPoliciesForAI(relevantPolicies);
         
-        // Prepare prompt for AI
-        const aiPrompt = `You are a policy advisor. A user has described the following situation:
-
-"${situation}"
-
-Here are the relevant policies from their organization:
-
-${policiesText}
-
-Based on these policies, provide clear, actionable instructions and guidance for this situation. Include:
-1. Specific steps to take based on the policies
-2. Relevant policy references
-3. Any important considerations or warnings
-4. Best practices based on the policies
-
-Format your response in a clear, easy-to-read manner with bullet points or numbered steps where appropriate.`;
+        // Truncate policies text aggressively for URL encoding (max 1500 chars to leave room for other params)
+        const truncatedPolicies = policiesText.substring(0, 1500);
+        
+        // Prepare a concise prompt for AI (the prompt itself is also truncated)
+        const situationSummary = situation.substring(0, 500); // Limit situation description
+        const aiPrompt = `Policy Advisor: Situation: "${situationSummary}"\n\nRelevant Policies:\n${truncatedPolicies}\n\nProvide clear, actionable steps based on these policies.`;
 
         // Get webhook URL - use Policy Advisor specific webhook
         const webhookUrl = localStorage.getItem('webhookUrlAI') || 'http://localhost:5678/webhook/6aa55f96-04a0-4d04-b99f-1b4da027dce6';
         
-        // Prepare request data (using GET to avoid CORS preflight)
+        // Prepare request data (using GET to avoid CORS preflight, but with minimal payload)
         const params = new URLSearchParams({
-            conversationHistory: JSON.stringify([{ role: 'user', content: aiPrompt }]),
-            currentPolicyText: policiesText.substring(0, 3000), // Truncate if too long
-            newPrompt: aiPrompt,
+            conversationHistory: JSON.stringify([{ role: 'user', content: aiPrompt.substring(0, 1000) }]), // Limit conversation history
+            currentPolicyText: truncatedPolicies, // Already truncated
+            newPrompt: aiPrompt.substring(0, 1000), // Truncate prompt
             company: currentCompany || 'Unknown',
             username: currentUser?.username || 'Unknown',
             tool: 'policy-advisor'
         });
         
-        const response = await fetch(`${webhookUrl}?${params.toString()}`);
+        // Check URL length and warn if too long
+        const fullUrl = `${webhookUrl}?${params.toString()}`;
+        if (fullUrl.length > 2000) {
+            console.warn('URL length is very long:', fullUrl.length, 'characters');
+            // Further truncate if needed
+            params.set('currentPolicyText', truncatedPolicies.substring(0, 800));
+            params.set('newPrompt', aiPrompt.substring(0, 600));
+        }
+        
+        let response;
+        try {
+            response = await fetch(`${webhookUrl}?${params.toString()}`);
+        } catch (fetchError) {
+            // Handle CORS and network errors specifically
+            if (fetchError.message.includes('CORS') || fetchError.message.includes('Failed to fetch')) {
+                throw new Error('Cannot reach webhook server. This may be due to:\n1. The webhook server at localhost:5678 is not running\n2. CORS is not configured on the server\n3. You are accessing from GitHub Pages which cannot reach localhost\n\nPlease ensure your webhook server is running and configured to allow CORS from your domain.');
+            }
+            throw fetchError;
+        }
         
         if (response.ok) {
             const aiResponse = await response.text();
@@ -11592,9 +11600,18 @@ Format your response in a clear, easy-to-read manner with bullet points or numbe
         console.error('Policy advisor error:', error);
         document.getElementById('advisorLoading').style.display = 'none';
         document.getElementById('advisorResult').style.display = 'block';
-        document.getElementById('advisorResponse').textContent = `Error: Unable to generate recommendations. ${error.message}`;
+        
+        // Show user-friendly error message
+        let errorMessage = 'Unable to generate recommendations. ';
+        if (error.message.includes('CORS') || error.message.includes('Failed to fetch') || error.message.includes('Cannot reach webhook')) {
+            errorMessage += `\n\n⚠️ Connection Error:\n${error.message}\n\n💡 Solutions:\n- Ensure the webhook server is running on localhost:5678\n- Check that CORS is enabled on your webhook server\n- If using GitHub Pages, you'll need to configure CORS or use a proxy`;
+        } else {
+            errorMessage += error.message;
+        }
+        
+        document.getElementById('advisorResponse').textContent = errorMessage;
         document.getElementById('advisorSubmitBtn').disabled = false;
-        showNotification('Failed to get policy recommendations', 'error');
+        showNotification('Failed to get policy recommendations. Check console for details.', 'error');
     }
 }
 

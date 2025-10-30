@@ -1784,7 +1784,7 @@ async function sendAIEditRequest(index) {
     
     try {
         // Get webhook URL (same as AI generator)
-        const webhookUrl = localStorage.getItem('webhookUrlAI') || 'http://localhost:5678/webhook/05da961e-9df0-490e-815f-92d8bc9f9c1e';
+        const webhookUrl = localStorage.getItem('webhookUrlAI') || 'http://localhost:5678/webhook/6aa55f96-04a0-4d04-b99f-1b4da027dce6';
         
         // Prepare the edit request data - send more content for better context
         const editData = {
@@ -5638,7 +5638,7 @@ async function sendPolicyGenerationWebhook(policyData) {
         webhookUrl = localStorage.getItem('webhookUrlAI') || 'http://localhost:5678/webhook/05da961e-9df0-490e-815f-92d8bc9f9c1e';
     } else {
         // Manual policy or other webhook
-        webhookUrl = localStorage.getItem('webhookUrlManual') || localStorage.getItem('webhookUrlAI') || 'http://localhost:5678/webhook/05da961e-9df0-490e-815f-92d8bc9f9c1e';
+        webhookUrl = localStorage.getItem('webhookUrlManual') || localStorage.getItem('webhookUrlAI') || 'http://localhost:5678/webhook/6aa55f96-04a0-4d04-b99f-1b4da027dce6';
     }
     
     console.log('Using webhook URL:', webhookUrl, 'for AI-generated:', isAIGenerated);
@@ -10730,7 +10730,7 @@ async function sendFollowUpPrompt() {
     
     try {
         // Get webhook URL
-        const webhookUrl = localStorage.getItem('webhookUrlAI') || 'http://localhost:5678/webhook/05da961e-9df0-490e-815f-92d8bc9f9c1e';
+        const webhookUrl = localStorage.getItem('webhookUrlAI') || 'http://localhost:5678/webhook/6aa55f96-04a0-4d04-b99f-1b4da027dce6';
         
         // Use GET method with URL parameters to avoid CORS preflight
         // Truncate conversation history to last 3 messages to avoid URL length issues
@@ -11449,7 +11449,7 @@ async function sendPolicyAdvisorRequest() {
         
         const promptText = `Question: ${question}\n\nPolicies:\n${policiesText}\n\nProvide guidance based on these policies.`;
         
-        const webhookUrl = localStorage.getItem('webhookUrlAI') || 'http://localhost:5678/webhook/05da961e-9df0-490e-815f-92d8bc9f9c1e';
+        const webhookUrl = localStorage.getItem('webhookUrlAI') || 'http://localhost:5678/webhook/6aa55f96-04a0-4d04-b99f-1b4da027dce6';
         
         // Use GET with URL params to avoid CORS preflight (like sendFollowUpPrompt)
         const params = new URLSearchParams({

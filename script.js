@@ -398,20 +398,20 @@ function setupEventListeners() {
     const signupForms = ['companySignupForm', 'individualSignupForm', 'companyCodeSignupForm'];
     signupForms.forEach(formId => {
         const signupButton = document.querySelector(`#${formId} button[type="submit"]`);
-        if (signupButton) {
+    if (signupButton) {
             console.log(`Signup button found for form: ${formId}`);
-            signupButton.addEventListener('click', function(e) {
+        signupButton.addEventListener('click', function(e) {
                 console.log(`Signup button clicked for form: ${formId}`);
-                e.preventDefault();
+            e.preventDefault();
                 if (formId === 'companySignupForm') {
-                    signupUser(e);
+            signupUser(e);
                 } else if (formId === 'individualSignupForm') {
                     signupUser(e);
                 } else if (formId === 'companyCodeSignupForm') {
                     signupUser(e);
                 }
-            });
-        }
+        });
+    }
     });
 
     // Password form submission
@@ -10812,7 +10812,7 @@ async function sendFollowUpPrompt() {
                 
                 // Populate category dropdown after HTML is rendered
                 populateAICategoryDropdown();
-            } else {
+    } else {
                 document.getElementById('aiGeneratedContent').innerHTML = `<pre>${webhookResponse}</pre>`;
             }
             
@@ -10980,7 +10980,7 @@ function showIndividualSignup() {
     closeSignupModal();
     setTimeout(() => {
         const modal = document.getElementById('individualSignupModal');
-        if (modal) {
+    if (modal) {
             modal.classList.add('show');
         }
     }, 300);
@@ -11347,7 +11347,7 @@ function displayCategories() {
                         <span style="background: #667eea; color: white; padding: 6px 12px; border-radius: 4px; font-size: 14px; font-weight: bold;">${category.number || 'N/A'}</span>
                         <span style="font-size: 16px;">${category.name || 'Untitled Category'}</span>
                     </h4>
-                </div>
+            </div>
                 <button onclick="deleteCategory(${index})" class="btn btn-small btn-danger">
                     <i class="fas fa-trash"></i>
                 </button>
@@ -11609,23 +11609,8 @@ async function sendAdvisorRequest() {
         });
         
         console.log('Policy Advisor - About to call fetch()');
-        let response;
-        try {
-            // Add timeout to catch hanging requests
-            const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
-            
-            response = await fetch(fullUrl, { signal: controller.signal });
-            clearTimeout(timeoutId);
-            
-            console.log('Policy Advisor - Fetch completed, status:', response.status, response.statusText);
-        } catch (fetchError) {
-            console.error('Policy Advisor - Fetch error:', fetchError);
-            if (fetchError.name === 'AbortError') {
-                throw new Error('Request timed out. This may indicate a CORS issue when accessing from GitHub Pages.');
-            }
-            throw fetchError;
-        }
+        const response = await fetch(fullUrl);
+        console.log('Policy Advisor - Fetch completed, status:', response.status, response.statusText);
         
         if (response.ok) {
             console.log('Policy Advisor - Response OK, reading text...');

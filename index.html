@@ -560,9 +560,6 @@
                     <button class="tab-btn" onclick="showSettingsTab('categories')">
                         <i class="fas fa-folder"></i> Categories
                     </button>
-                    <button class="tab-btn" onclick="showSettingsTab('webhooks')">
-                        <i class="fas fa-link"></i> Webhooks
-                    </button>
                 </div>
                 
                 <!-- Roles Tab -->
@@ -655,68 +652,6 @@
                         <div id="categoriesList" class="items-list" style="margin-top: 20px;">
                             <!-- Categories will be displayed here -->
                         </div>
-                    </div>
-                </div>
-                
-                <!-- Webhooks Tab -->
-                <div id="webhooksTab" class="settings-tab">
-                    <div class="settings-section">
-                        <h3>Configure Webhooks</h3>
-                        <p style="margin-bottom: 20px; color: #666;">Set different webhook URLs for AI Policy Assistant and manual policy creation</p>
-                        
-                        <div class="form-group">
-                            <label for="webhookUrlAI">
-                                <i class="fas fa-robot"></i> AI Policy Assistant Webhook URL
-                            </label>
-                            <input type="text" id="webhookUrlAI" class="form-control" 
-                                   placeholder="http://localhost:5678/webhook/your-ai-webhook-id" 
-                                   style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px;">
-                            <small style="color: #666; display: block; margin-top: 5px;">
-                                This webhook will be triggered when you create policies using the AI Policy Assistant
-                            </small>
-                        </div>
-                        
-                        <div class="form-group" style="margin-top: 20px;">
-                            <label for="webhookUrlManual">
-                                <i class="fas fa-edit"></i> Manual Policy Creation Webhook URL
-                            </label>
-                            <input type="text" id="webhookUrlManual" class="form-control" 
-                                   placeholder="http://localhost:5678/webhook/your-manual-webhook-id" 
-                                   style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px;">
-                            <small style="color: #666; display: block; margin-top: 5px;">
-                                This webhook will be triggered when you create policies manually
-                            </small>
-                        </div>
-                        
-                        <div class="form-group" style="margin-top: 20px;">
-                            <label for="webhookUrlReport">
-                                <i class="fas fa-file-alt"></i> Policy Report Webhook URL
-                            </label>
-                            <input type="text" id="webhookUrlReport" class="form-control" 
-                                   placeholder="http://localhost:5678/webhook-report" 
-                                   style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px;">
-                            <small style="color: #666; display: block; margin-top: 5px;">
-                                This webhook will send the full policy report and all company user emails when a policy is saved
-                            </small>
-                        </div>
-                        
-                        <div class="form-group" style="margin-top: 20px;">
-                            <label for="emailWebhookUrl">
-                                <i class="fas fa-envelope"></i> Email Webhook URL
-                            </label>
-                            <input type="text" id="emailWebhookUrl" class="form-control" 
-                                   placeholder="http://localhost:5678/webhook/d523361e-1e04-4c16-a86e-bbb1d7729fcb" 
-                                   style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px;">
-                            <small style="color: #666; display: block; margin-top: 5px;">
-                                This webhook will be triggered when new users sign up and when new policies are created to send notification emails
-                            </small>
-                        </div>
-                        
-                        <button onclick="saveWebhookUrls()" class="btn btn-primary" style="margin-top: 20px;">
-                            <i class="fas fa-save"></i> Save Webhook URLs
-                        </button>
-                        
-                        <div id="webhookStatus" style="margin-top: 15px;"></div>
                     </div>
                 </div>
             </div>

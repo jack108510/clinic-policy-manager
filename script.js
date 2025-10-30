@@ -515,26 +515,34 @@ function displayPolicies(policiesToDisplay = policies) {
         // Get policy code
         const policyCode = policy.policyCode || '';
         
+        // Create simple thumbnail initials
+        const titleText = (policy.title || 'Untitled Policy').trim();
+        const initials = titleText
+            .split(/\s+/)
+            .slice(0, 2)
+            .map(w => w.charAt(0))
+            .join('')
+            .toUpperCase();
+        
         return `
             <div class="policy-item" data-type="${policy.type}" data-policy-code="${policyCode.toLowerCase()}" onclick="viewPolicy('${policy.id}')">
-            <div class="policy-header">
-                    <h3 class="policy-title">${policy.title || 'Untitled Policy'}</h3>
-                    <span class="policy-type-badge ${typeClass}">${typeLabel}</span>
-                    ${policyCode ? `<span class="policy-code-badge" style="display: inline-block; padding: 4px 10px; background: #667eea; color: white; border-radius: 12px; font-size: 0.75rem; font-weight: 600; margin-left: 8px;">${policyCode}</span>` : ''}
+                <div class="policy-card-header">
+                    <div class="policy-thumb ${typeClass}">${initials}</div>
+                    <div class="policy-card-title">
+                        <h3 class="policy-title">${policy.title || 'Untitled Policy'}</h3>
+                        <div class="policy-meta-row">
+                            <span class="policy-type-badge ${typeClass}">${typeLabel}</span>
+                            ${policyCode ? `<span class="policy-code-badge">${policyCode}</span>` : ''}
+                        </div>
+                </div>
             </div>
             <div class="policy-organizations">
                     <i class="fas fa-building"></i> ${organizations}
             </div>
                 <div class="policy-dates">
-                    <div class="policy-date-item">
-                        <i class="fas fa-calendar-plus"></i> Created: ${createdDate}
+                    <div class="policy-date-item"><i class="fas fa-calendar-plus"></i> Created: ${createdDate}</div>
+                    ${updatedDate !== 'N/A' ? `<div class="policy-date-item"><i class=\"fas fa-calendar-check\"></i> Updated: ${updatedDate}</div>` : ''}
             </div>
-                    ${updatedDate !== 'N/A' ? `
-                    <div class="policy-date-item">
-                        <i class="fas fa-calendar-check"></i> Updated: ${updatedDate}
-            </div>
-                    ` : ''}
-        </div>
             </div>
         `;
     }).join('');

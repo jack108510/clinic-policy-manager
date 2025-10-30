@@ -11560,14 +11560,61 @@ async function sendAdvisorRequest() {
         }
         
         let response;
+        let lastError;
+        
+        // Try GET first (to avoid CORS preflight)
         try {
-            response = await fetch(`${webhookUrl}?${params.toString()}`);
-        } catch (fetchError) {
-            // Handle CORS and network errors specifically
-            if (fetchError.message.includes('CORS') || fetchError.message.includes('Failed to fetch')) {
-                throw new Error('Cannot reach webhook server. This may be due to:\n1. The webhook server at localhost:5678 is not running\n2. CORS is not configured on the server\n3. You are accessing from GitHub Pages which cannot reach localhost\n\nPlease ensure your webhook server is running and configured to allow CORS from your domain.');
+            response = await fetch(`${webhookUrl}?${params.toString()}`, {
+                method: 'GET',
+                mode: 'cors'
+            });
+            
+            // If we got a response (even if not ok), we connected successfully
+            if (response) {
+                // Check if it's an error response but at least we connected
+                if (!response.ok && response.status !== 0) {
+                    // Got HTTP error but connected - read the error
+                    const errorText = await response.text();
+                    throw new Error(`Server returned error: ${response.status} - ${errorText}`);
+                }
             }
-            throw fetchError;
+        } catch (getError) {
+            console.log('GET request failed, trying POST as fallback:', getError.message);
+            lastError = getError;
+            
+            // If GET fails (CORS or other), try POST with JSON body
+            try {
+                const postData = {
+                    conversationHistory: [{ role: 'user', content: aiPrompt.substring(0, 1000) }],
+                    currentPolicyText: truncatedPolicies,
+                    newPrompt: aiPrompt.substring(0, 1000),
+                    company: currentCompany || 'Unknown',
+                    username: currentUser?.username || 'Unknown',
+                    tool: 'policy-advisor'
+                };
+                
+                response = await fetch(webhookUrl, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(postData),
+                    mode: 'cors'
+                });
+                
+                if (!response.ok && response.status !== 0) {
+                    const errorText = await response.text();
+                    throw new Error(`Server returned error: ${response.status} - ${errorText}`);
+                }
+            } catch (postError) {
+                console.log('POST request also failed:', postError.message);
+                // If both fail, throw a comprehensive error
+                if (postError.message.includes('CORS') || postError.message.includes('Failed to fetch') || 
+                    getError.message.includes('CORS') || getError.message.includes('Failed to fetch')) {
+                    throw new Error('CORS_BLOCKED: Cannot reach webhook server due to CORS policy. The server at ' + webhookUrl + ' needs to allow requests from ' + window.location.origin);
+                }
+                throw postError;
+            }
         }
         
         if (response.ok) {
@@ -11602,11 +11649,36 @@ async function sendAdvisorRequest() {
         document.getElementById('advisorResult').style.display = 'block';
         
         // Show user-friendly error message
-        let errorMessage = 'Unable to generate recommendations. ';
-        if (error.message.includes('CORS') || error.message.includes('Failed to fetch') || error.message.includes('Cannot reach webhook')) {
-            errorMessage += `\n\n⚠️ Connection Error:\n${error.message}\n\n💡 Solutions:\n- Ensure the webhook server is running on localhost:5678\n- Check that CORS is enabled on your webhook server\n- If using GitHub Pages, you'll need to configure CORS or use a proxy`;
+        let errorMessage = 'Unable to generate recommendations.\n\n';
+        
+        if (error.message.includes('CORS_BLOCKED')) {
+            errorMessage += '⚠️ CORS (Cross-Origin) Error:\n\n';
+            errorMessage += 'Your webhook server is blocking requests from this website.\n\n';
+            errorMessage += '🔧 To Fix This:\n\n';
+            errorMessage += '1. Add CORS headers to your webhook server:\n';
+            errorMessage += '   - Access-Control-Allow-Origin: *\n';
+            errorMessage += '   - Access-Control-Allow-Methods: GET, POST\n';
+            errorMessage += '   - Access-Control-Allow-Headers: Content-Type\n\n';
+            errorMessage += '2. Or specifically allow this domain:\n';
+            errorMessage += `   - Access-Control-Allow-Origin: ${window.location.origin}\n\n`;
+            errorMessage += '3. Restart your webhook server after adding CORS headers.\n\n';
+            errorMessage += '📝 Example (Node.js/Express):\n';
+            errorMessage += '   app.use((req, res, next) => {\n';
+            errorMessage += '     res.header("Access-Control-Allow-Origin", "*");\n';
+            errorMessage += '     res.header("Access-Control-Allow-Methods", "GET,POST");\n';
+            errorMessage += '     res.header("Access-Control-Allow-Headers", "Content-Type");\n';
+            errorMessage += '     next();\n';
+            errorMessage += '   });';
+        } else if (error.message.includes('CORS') || error.message.includes('Failed to fetch')) {
+            errorMessage += '⚠️ Connection Error:\n\n';
+            errorMessage += 'Cannot reach webhook server.\n\n';
+            errorMessage += 'Possible causes:\n';
+            errorMessage += '1. Webhook server not running\n';
+            errorMessage += '2. CORS not configured\n';
+            errorMessage += '3. Network/firewall blocking\n\n';
+            errorMessage += 'Check console for detailed error message.';
         } else {
-            errorMessage += error.message;
+            errorMessage += `Error: ${error.message}`;
         }
         
         document.getElementById('advisorResponse').textContent = errorMessage;

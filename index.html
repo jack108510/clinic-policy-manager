@@ -216,6 +216,7 @@
                 <a href="#home" class="nav-link" onclick="return requireLogin()"><i class="fas fa-home"></i> Home</a>
                 <a href="#policies" class="nav-link" onclick="return requireLogin()"><i class="fas fa-file-alt"></i> Policies</a>
                 <a href="#drafts" class="nav-link" onclick="return requireLogin()"><i class="fas fa-edit"></i> Drafts</a>
+                <a href="#" onclick="event.preventDefault(); openPolicyAdvisorModal(); return false;" class="nav-link"><i class="fas fa-robot"></i> Policy Advisor</a>
                 <span class="nav-divider"></span>
                 <a href="#" onclick="openPasswordModal()" class="nav-link admin-link"><i class="fas fa-tachometer-alt"></i> Admin</a>
                 <a href="#" onclick="showProfileModal()" class="nav-link"><i class="fas fa-user-circle"></i> Profile</a>
@@ -1790,6 +1791,68 @@
         </div>
     </div>
 
+    <!-- Policy Advisor Modal -->
+    <div id="policyAdvisorModal" class="modal" style="z-index: 4000;">
+        <div class="modal-content" style="max-width: 900px;">
+            <div class="modal-header">
+                <h3><i class="fas fa-robot"></i> AI Policy Advisor</h3>
+                <span class="close" onclick="closePolicyAdvisorModal()">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div style="margin-bottom: 25px; padding: 20px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 10px; color: white;">
+                    <h4 style="margin: 0 0 10px 0; font-size: 1.2rem;"><i class="fas fa-lightbulb"></i> How it works</h4>
+                    <p style="margin: 0; opacity: 0.95; line-height: 1.6;">
+                        Describe a situation or question, and our AI will analyze your policies to provide specific instructions and guidance based on your organization's policies.
+                    </p>
+                </div>
+                
+                <div class="form-group" style="margin-bottom: 20px;">
+                    <label for="advisorSituation" style="font-weight: 600; margin-bottom: 10px; display: block; color: #333;">
+                        <i class="fas fa-question-circle"></i> Describe your situation or question
+                    </label>
+                    <textarea id="advisorSituation" 
+                              placeholder="e.g., A staff member arrived late for their shift three times this month. What steps should I take according to our policies?&#10;&#10;Or: What is our procedure for handling a fire emergency?"
+                              rows="6"
+                              onkeydown="if(event.key === 'Enter' && event.ctrlKey) { event.preventDefault(); sendAdvisorRequest(); }"
+                              style="width: 100%; padding: 15px; border: 2px solid #ddd; border-radius: 8px; font-size: 15px; resize: vertical; font-family: inherit;"></textarea>
+                    <small style="color: #666; display: block; margin-top: 5px;"><i class="fas fa-info-circle"></i> Press Ctrl+Enter to submit</small>
+                </div>
+
+                <div id="advisorLoading" style="display: none; text-align: center; padding: 30px;">
+                    <div style="color: #667eea; font-size: 48px; margin-bottom: 15px;">
+                        <i class="fas fa-spinner fa-spin"></i>
+                    </div>
+                    <p style="color: #666; font-size: 16px;">Analyzing your policies and generating guidance...</p>
+                </div>
+
+                <div id="advisorResult" style="display: none;">
+                    <div style="background: #f8f9fa; border-left: 4px solid #667eea; padding: 20px; border-radius: 6px; margin-bottom: 20px;">
+                        <h4 style="margin: 0 0 15px 0; color: #333;">
+                            <i class="fas fa-clipboard-check"></i> AI Recommendations
+                        </h4>
+                        <div id="advisorResponse" style="color: #555; line-height: 1.8; white-space: pre-wrap;"></div>
+                    </div>
+
+                    <div id="advisorPoliciesUsed" style="margin-top: 20px;">
+                        <h5 style="color: #666; margin-bottom: 10px; font-size: 14px; text-transform: uppercase; letter-spacing: 0.5px;">
+                            <i class="fas fa-file-alt"></i> Policies Referenced
+                        </h5>
+                        <div id="advisorPoliciesList" style="display: flex; flex-wrap: wrap; gap: 10px;"></div>
+                    </div>
+                </div>
+
+                <div class="modal-footer" style="display: flex; gap: 10px; justify-content: flex-end; margin-top: 25px;">
+                    <button type="button" class="btn btn-secondary" onclick="closePolicyAdvisorModal()">
+                        <i class="fas fa-times"></i> Close
+                    </button>
+                    <button type="button" class="btn btn-primary" onclick="sendAdvisorRequest()" id="advisorSubmitBtn">
+                        <i class="fas fa-search"></i> Get Recommendations
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Change Password Modal -->
     <div id="changePasswordModal" class="modal">
         <div class="modal-content">
@@ -1832,6 +1895,6 @@
         </div>
     </footer>
 
-    <script src="script.js?v=140&t=20250202"></script>
+    <script src="script.js?v=142&t=20250202"></script>
 </body>
 </html>

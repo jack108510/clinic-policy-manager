@@ -8812,61 +8812,81 @@ function parseLegacyPolicyContent(content) {
         responsibilities: '',
         consequences: '',
         accountability: '',
+        definitions: '',
+        relatedDocuments: '',
+        reviewApproval: '',
         additional: ''
     };
-    
+
     if (!content) return sections;
-    
-    // Split by common headers (markdown, HTML, plain text)
-    const lines = content.split('\n');
-    let currentSection = 'additional';
-    let currentContent = [];
-    
-    for (let line of lines) {
-        const trimmedLine = line.trim();
-        
-        // Check for section headers
-        if (trimmedLine.match(/^#{1,3}\s*(purpose|scope|policy.*statement|statement|procedures?|responsibilities?|consequences?|accountability)/i)) {
-            // Save previous section
-            if (currentSection !== 'additional' && currentContent.length > 0) {
-                sections[currentSection] = currentContent.join('\n').trim();
-                currentContent = [];
-            }
-            
-            // Set new section
-            const headerMatch = trimmedLine.match(/^#{1,3}\s*(purpose|scope|policy.*statement|statement|procedures?|responsibilities?|consequences?|accountability)/i);
-            if (headerMatch) {
-                const sectionName = headerMatch[1].toLowerCase();
-                if (sectionName.includes('purpose')) {
-                    currentSection = 'purpose';
-                } else if (sectionName.includes('scope')) {
-                    currentSection = 'scope';
-                } else if (sectionName.includes('statement')) {
-                    currentSection = 'statement';
-                } else if (sectionName.includes('procedures')) {
-                    currentSection = 'procedures';
-                } else if (sectionName.includes('responsibilities')) {
-                    currentSection = 'responsibilities';
-                } else if (sectionName.includes('consequences')) {
-                    currentSection = 'consequences';
-                } else if (sectionName.includes('accountability')) {
-                    currentSection = 'accountability';
-                } else {
-                    currentSection = 'additional';
+
+    // Normalize line endings and split
+    const lines = content.replace(/\r\n?/g, '\n').split('\n');
+
+    // Map of header keywords to our canonical section keys
+    const headerMap = [
+        { re: /purpose/i, key: 'purpose' },
+        { re: /scope/i, key: 'scope' },
+        { re: /policy\s*statement|statement/i, key: 'policyStatement' },
+        { re: /procedure|implementation/i, key: 'procedures' },
+        { re: /responsibilit/i, key: 'responsibilities' },
+        { re: /consequence|non-?compliance|accountability/i, key: 'consequences' },
+        { re: /definition/i, key: 'definitions' },
+        { re: /related\s*documents?/i, key: 'relatedDocuments' },
+        { re: /review\s*&\s*approval|review\s*and\s*approval/i, key: 'reviewApproval' }
+    ];
+
+    // A header is considered if the line matches one of:
+    // - Markdown headers: 1-3 hashes + text
+    // - Numbered headers: "1.", "2)", etc. followed by text and optional colon
+    // - Plain uppercase word headers ending with a colon
+    const isHeader = (text) => {
+        const t = text.trim();
+        const candidates = [
+            /^#{1,3}\s*(.+)$/i,
+            /^(\d+\s*[\.)-]\s*)?(.+?):?$/i,
+        ];
+        for (const re of candidates) {
+            const m = t.match(re);
+            if (m) {
+                const label = (m[1] && !m[2]) ? m[1] : (m[2] || m[1] || t);
+                const clean = String(label).replace(/^[\d\s\.)-]+/, '').trim();
+                for (const { re: hre, key } of headerMap) {
+                    if (hre.test(clean)) return key;
                 }
             }
-        } else {
-            currentContent.push(line);
         }
+        return null;
+    };
+
+    let currentKey = 'additional';
+    const buckets = Object.keys(sections).reduce((acc, k) => { acc[k] = []; return acc; }, {});
+
+    for (const rawLine of lines) {
+        const line = rawLine.trimEnd();
+        if (!line.trim()) { // preserve blank lines inside a section
+            buckets[currentKey].push('');
+            continue;
+        }
+        const headerKey = isHeader(line);
+        if (headerKey) {
+            currentKey = headerKey;
+            continue; // do not include the header line itself
+        }
+        buckets[currentKey].push(rawLine);
     }
-    
-    // Save last section
-    if (currentSection !== 'additional' && currentContent.length > 0) {
-        sections[currentSection] = currentContent.join('\n').trim();
-    } else if (currentSection === 'additional') {
-        sections[currentSection] = currentContent.join('\n').trim();
+
+    // Commit buckets to sections (join and trim)
+    for (const key of Object.keys(sections)) {
+        const text = buckets[key].join('\n').trim();
+        if (text) sections[key] = text;
     }
-    
+
+    // Backfill: if we parsed generic 'statement', map it to policyStatement when that is empty
+    if (!sections.policyStatement && sections.statement) {
+        sections.policyStatement = sections.statement;
+    }
+
     return sections;
 }
 
@@ -11360,6 +11380,212 @@ function deleteCategory(index) {
         saveCategories();
         displayCategories();
         showNotification('Category deleted successfully', 'success');
+    }
+}
+
+// Policy Advisor Functions
+function openPolicyAdvisorModal() {
+    if (!currentUser) {
+        showNotification('Please log in to use the Policy Advisor', 'error');
+        return;
+    }
+    
+    const modal = document.getElementById('policyAdvisorModal');
+    if (modal) {
+        modal.style.display = 'block';
+        modal.classList.add('show');
+        
+        // Reset form
+        document.getElementById('advisorSituation').value = '';
+        document.getElementById('advisorLoading').style.display = 'none';
+        document.getElementById('advisorResult').style.display = 'none';
+        document.getElementById('advisorSubmitBtn').disabled = false;
+    }
+}
+
+function closePolicyAdvisorModal() {
+    const modal = document.getElementById('policyAdvisorModal');
+    if (modal) {
+        modal.style.display = 'none';
+        modal.classList.remove('show');
+    }
+}
+
+// Search policies based on keywords from the situation
+function findRelevantPolicies(situation) {
+    const allPolicies = loadCompanyPolicies();
+    if (!allPolicies || allPolicies.length === 0) {
+        return [];
+    }
+    
+    // Extract keywords from situation (simple approach - can be enhanced)
+    const situationLower = situation.toLowerCase();
+    const keywords = situationLower
+        .split(/\s+/)
+        .filter(word => word.length > 3)
+        .slice(0, 10); // Limit to top 10 keywords
+    
+    // Score each policy based on keyword matches
+    const scoredPolicies = allPolicies.map(policy => {
+        let score = 0;
+        const policyText = `${policy.title || ''} ${policy.type || ''} ${policy.description || ''} ${policy.content || ''}`.toLowerCase();
+        
+        // Check for keyword matches in title (higher weight)
+        keywords.forEach(keyword => {
+            if (policy.title && policy.title.toLowerCase().includes(keyword)) {
+                score += 3;
+            }
+            // Check in description/content
+            if (policyText.includes(keyword)) {
+                score += 1;
+            }
+        });
+        
+        // Check for common policy-related terms
+        const policyTerms = ['procedure', 'policy', 'guideline', 'rule', 'protocol', 'process', 'step', 'action', 'compliance', 'requirement'];
+        policyTerms.forEach(term => {
+            if (situationLower.includes(term) && policyText.includes(term)) {
+                score += 2;
+            }
+        });
+        
+        return { policy, score };
+    });
+    
+    // Sort by score and return top 5 most relevant
+    return scoredPolicies
+        .filter(item => item.score > 0)
+        .sort((a, b) => b.score - a.score)
+        .slice(0, 5)
+        .map(item => item.policy);
+}
+
+// Format policies for AI context
+function formatPoliciesForAI(policies) {
+    return policies.map(policy => {
+        // Extract structured content or use description/content
+        let policyContent = '';
+        
+        if (policy.purpose) policyContent += `Purpose: ${policy.purpose}\n`;
+        if (policy.scope) policyContent += `Scope: ${policy.scope}\n`;
+        if (policy.policyStatement) policyContent += `Policy Statement: ${policy.policyStatement}\n`;
+        if (policy.procedures) policyContent += `Procedures: ${policy.procedures}\n`;
+        if (policy.responsibilities) policyContent += `Responsibilities: ${policy.responsibilities}\n`;
+        if (policy.consequences) policyContent += `Consequences: ${policy.consequences}\n`;
+        
+        // Fallback to description or content
+        if (!policyContent && policy.description) {
+            policyContent = policy.description;
+        } else if (!policyContent && policy.content) {
+            // Try to parse JSON content
+            try {
+                const contentData = JSON.parse(policy.content);
+                policyContent = JSON.stringify(contentData, null, 2);
+            } catch {
+                policyContent = policy.content;
+            }
+        }
+        
+        return `Policy: ${policy.title || 'Untitled'}
+Type: ${policy.type || 'N/A'}
+Policy Code: ${policy.policyCode || 'N/A'}
+${policyContent ? `Content:\n${policyContent.substring(0, 1500)}` : 'No content available'}`;
+    }).join('\n\n---\n\n');
+}
+
+async function sendAdvisorRequest() {
+    const situationInput = document.getElementById('advisorSituation');
+    const situation = situationInput.value.trim();
+    
+    if (!situation) {
+        showNotification('Please describe your situation or question', 'error');
+        return;
+    }
+    
+    // Show loading state
+    document.getElementById('advisorLoading').style.display = 'block';
+    document.getElementById('advisorResult').style.display = 'none';
+    document.getElementById('advisorSubmitBtn').disabled = true;
+    
+    try {
+        // Find relevant policies
+        const relevantPolicies = findRelevantPolicies(situation);
+        
+        if (relevantPolicies.length === 0) {
+            document.getElementById('advisorLoading').style.display = 'none';
+            showNotification('No relevant policies found. Please ensure you have policies created.', 'warning');
+            document.getElementById('advisorSubmitBtn').disabled = false;
+            return;
+        }
+        
+        // Format policies for AI
+        const policiesText = formatPoliciesForAI(relevantPolicies);
+        
+        // Prepare prompt for AI
+        const aiPrompt = `You are a policy advisor. A user has described the following situation:
+
+"${situation}"
+
+Here are the relevant policies from their organization:
+
+${policiesText}
+
+Based on these policies, provide clear, actionable instructions and guidance for this situation. Include:
+1. Specific steps to take based on the policies
+2. Relevant policy references
+3. Any important considerations or warnings
+4. Best practices based on the policies
+
+Format your response in a clear, easy-to-read manner with bullet points or numbered steps where appropriate.`;
+
+        // Get webhook URL - use Policy Advisor specific webhook
+        const webhookUrl = localStorage.getItem('webhookUrlAI') || 'http://localhost:5678/webhook/6aa55f96-04a0-4d04-b99f-1b4da027dce6';
+        
+        // Prepare request data (using GET to avoid CORS preflight)
+        const params = new URLSearchParams({
+            conversationHistory: JSON.stringify([{ role: 'user', content: aiPrompt }]),
+            currentPolicyText: policiesText.substring(0, 3000), // Truncate if too long
+            newPrompt: aiPrompt,
+            company: currentCompany || 'Unknown',
+            username: currentUser?.username || 'Unknown',
+            tool: 'policy-advisor'
+        });
+        
+        const response = await fetch(`${webhookUrl}?${params.toString()}`);
+        
+        if (response.ok) {
+            const aiResponse = await response.text();
+            
+            // Display results
+            document.getElementById('advisorLoading').style.display = 'none';
+            document.getElementById('advisorResult').style.display = 'block';
+            document.getElementById('advisorResponse').textContent = aiResponse;
+            
+            // Display referenced policies
+            const policiesList = document.getElementById('advisorPoliciesList');
+            policiesList.innerHTML = relevantPolicies.map(policy => `
+                <div style="background: white; border: 1px solid #e0e0e0; border-radius: 6px; padding: 12px; min-width: 200px;">
+                    <div style="font-weight: 600; color: #333; margin-bottom: 5px;">
+                        <i class="fas fa-file-alt" style="color: #667eea; margin-right: 8px;"></i>
+                        ${policy.title || 'Untitled Policy'}
+                    </div>
+                    ${policy.policyCode ? `<div style="font-size: 12px; color: #666; margin-top: 5px;">Code: ${policy.policyCode}</div>` : ''}
+                    <div style="font-size: 12px; color: #999; margin-top: 5px;">${policy.type || 'N/A'}</div>
+                </div>
+            `).join('');
+            
+            document.getElementById('advisorSubmitBtn').disabled = false;
+            showNotification('Policy recommendations generated successfully', 'success');
+        } else {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+    } catch (error) {
+        console.error('Policy advisor error:', error);
+        document.getElementById('advisorLoading').style.display = 'none';
+        document.getElementById('advisorResult').style.display = 'block';
+        document.getElementById('advisorResponse').textContent = `Error: Unable to generate recommendations. ${error.message}`;
+        document.getElementById('advisorSubmitBtn').disabled = false;
+        showNotification('Failed to get policy recommendations', 'error');
     }
 }
 

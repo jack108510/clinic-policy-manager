@@ -784,7 +784,6 @@ function addOrganization() {
     // Refresh organizations display
     displayOrganizations();
 }
-
 function displayOrganizations() {
     const organizationsList = document.getElementById('organizationsList');
     if (!organizationsList) {
@@ -1522,7 +1521,6 @@ function updateUploadPolicyCode(index) {
         codeDisplay.style.display = 'none';
     }
 }
-
 function saveUploadedPolicy(index, policyType) {
     const uploadResults = window.currentUploadResults;
     
@@ -2315,7 +2313,6 @@ function generateProcedure(topic, type) {
    - Account for all staff and patients
    - Follow established evacuation routes
    - Do not re-enter building until cleared by fire department
-
 3. SEVERE WEATHER:
    - Monitor weather alerts and warnings
    - Secure outdoor equipment and supplies
@@ -3115,7 +3112,6 @@ function generateHandHygienePolicy(topic, type, requirements) {
    - Rub hands together covering all surfaces
    - Continue rubbing until hands are dry (approximately 20 seconds)
    - Ensure sanitizer contains at least 60% alcohol
-
 3. WHEN TO PERFORM HAND HYGIENE:
    - Before and after patient contact
    - Before and after wearing gloves
@@ -3910,7 +3906,6 @@ function generateAppointmentPolicy(topic, type, requirements) {
    - Overbooking prevention strategies
    - Staff scheduling coordination
    - Resource allocation planning
-
 5. QUALITY ASSURANCE:
    - Regular review of scheduling efficiency
    - Client satisfaction monitoring
@@ -4609,7 +4604,6 @@ function regeneratePolicy() {
     // Generate new policy with same inputs
     generateAIPolicy();
 }
-
 // Enhanced AI Policy Generation with Better Formatting
 function formatPolicyContent(content, type) {
     // Helper function to safely get content or show fallback
@@ -5398,7 +5392,6 @@ POLICY TYPES:
    - Effective Period (if applicable)
    - Next Steps / Action Required
    - Contact for Questions
-
 REQUIREMENTS:
 - Create comprehensive, actionable policies
 - Include detailed procedures and step-by-step instructions
@@ -6169,7 +6162,6 @@ function exportToWord(policy) {
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
 }
-
 function generatePolicyHTML(policy) {
     const currentDate = new Date().toLocaleDateString();
     
@@ -6970,7 +6962,6 @@ function closeSettingsModal() {
         openAdminModal();
     }, 250);
 }
-
 // Profile Modal Functions
 function showProfileModal() {
     console.log('Opening profile modal...');
@@ -7692,7 +7683,6 @@ function startEditing(element) {
     
     console.log(`Started editing policy field: ${field}`);
 }
-
 // Policy saving and storage functions
 async function savePolicyToStorage(policy) {
     if (!policy || !currentCompany) {
@@ -8454,7 +8444,6 @@ function viewUser(userId) {
     
     alert(`User: ${user.username}\nEmail: ${user.email}\nRole: ${user.role}\nCompany: ${user.company}\nCreated: ${user.created ? new Date(user.created).toLocaleDateString() : 'N/A'}`);
 }
-
 function editUser(userId) {
     console.log('editUser called with userId:', userId, typeof userId);
     const allUsers = JSON.parse(localStorage.getItem('masterUsers') || '[]');
@@ -9161,7 +9150,6 @@ function closeLoginModal() {
     document.getElementById('loginForm').reset();
     document.getElementById('login-error-message').style.display = 'none';
 }
-
 function signupUser(event) {
     event.preventDefault();
     
@@ -9919,7 +9907,6 @@ function executeTourAction(action) {
             break;
     }
 }
-
 // Demo Account Function
 function startDemo() {
     console.log('🎮 Starting demo...');
@@ -10091,9 +10078,10 @@ function updateUserInterface() {
     const navMenu = document.querySelector('.nav-menu');
     
     if (currentUser) {
-        // User is logged in - hide login/signup buttons
+        // User is logged in - hide login/signup buttons and show sign-out
         const authButtons = document.querySelectorAll('.auth-button');
         const authDivider = document.querySelector('.auth-buttons-divider');
+        const signOutBtn = document.querySelector('.auth-signout');
         
         authButtons.forEach(btn => {
             btn.style.display = 'none';
@@ -10102,6 +10090,9 @@ function updateUserInterface() {
         if (authDivider) {
             authDivider.style.display = 'none';
         }
+        if (signOutBtn) {
+            signOutBtn.style.display = 'flex';
+        }
         
         // Update the notification badge
         updateNotificationBadge();
@@ -10109,9 +10100,10 @@ function updateUserInterface() {
         // Filter policies by company
         filterPoliciesByCompany();
     } else {
-        // User is not logged in - show login/signup buttons
+        // User is not logged in - show login/signup buttons and hide sign-out
         const authButtons = document.querySelectorAll('.auth-button');
         const authDivider = document.querySelector('.auth-buttons-divider');
+        const signOutBtn = document.querySelector('.auth-signout');
         
         authButtons.forEach(btn => {
             btn.style.display = 'flex';
@@ -10119,6 +10111,9 @@ function updateUserInterface() {
         
         if (authDivider) {
             authDivider.style.display = 'inline-block';
+        }
+        if (signOutBtn) {
+            signOutBtn.style.display = 'none';
         }
         
         updateNotificationBadge();
@@ -10650,7 +10645,6 @@ function testPolicyGeneration() {
             alert('Policy generation test failed: ' + error.message);
         });
 }
-
 // Send follow-up prompt with conversation history
 async function sendFollowUpPrompt() {
     const followUpInput = document.getElementById('followUpInput');
@@ -11449,7 +11443,6 @@ function markNotificationRead(id) {
         updateNotificationDisplay();
     }
 }
-
 function clearAllNotifications() {
     notifications = notifications.map(n => ({ ...n, read: true }));
     saveToLocalStorage('notifications', notifications);

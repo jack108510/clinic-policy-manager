@@ -752,17 +752,17 @@ function addOrganizationToCompany(company, organizationName) {
 }
 
 function addOrganization() {
-    const orgNameInput = document.getElementById('newOrganizationName');
-    const orgAddressInput = document.getElementById('newOrganizationAddress');
-    const orgPhoneInput = document.getElementById('newOrganizationPhone');
-    const orgEmailInput = document.getElementById('newOrganizationEmail');
+    // Try modal inputs first, fallback to old inputs
+    const orgNameInput = document.getElementById('modalOrgName');
+    const orgAddressInput = document.getElementById('modalOrgAddress');
+    const orgPhoneInput = document.getElementById('modalOrgPhone');
+    const orgEmailInput = document.getElementById('modalOrgEmail');
     
-    if (!orgNameInput) {
-        showNotification('Organization input not found', 'error');
-        return;
-    }
+    const orgName = orgNameInput ? orgNameInput.value.trim() : (document.getElementById('newOrganizationName')?.value.trim() || '');
+    const orgAddress = orgAddressInput ? orgAddressInput.value.trim() : (document.getElementById('newOrganizationAddress')?.value.trim() || '');
+    const orgPhone = orgPhoneInput ? orgPhoneInput.value.trim() : (document.getElementById('newOrganizationPhone')?.value.trim() || '');
+    const orgEmail = orgEmailInput ? orgEmailInput.value.trim() : (document.getElementById('newOrganizationEmail')?.value.trim() || '');
     
-    const orgName = orgNameInput.value.trim();
     if (!orgName) {
         showNotification('Please enter an organization name', 'error');
         return;
@@ -771,13 +771,11 @@ function addOrganization() {
     // Add to current company
     addOrganizationToCompany(currentCompany, orgName);
     
-    // Clear inputs
-    orgNameInput.value = '';
-    if (orgAddressInput) orgAddressInput.value = '';
-    if (orgPhoneInput) orgPhoneInput.value = '';
-    if (orgEmailInput) orgEmailInput.value = '';
+    // Close modal
+    closeAddOrganizationModal();
     
-    showNotification(`Organization "${orgName}" added successfully`, 'success');
+    // Show success message
+    showNotification(`Organization "${orgName}" added successfully!`, 'success');
     
     // Refresh organizations display
     displayOrganizations();
@@ -7015,15 +7013,63 @@ function showProfileTab(tabName) {
 
 // Modal open/close functions for settings
 function openAddDisciplinaryModal() {
-    showNotification('Disciplinary Action modal coming soon!', 'info');
+    const modal = document.getElementById('addDisciplinaryModal');
+    if (modal) {
+        modal.style.display = 'block';
+        modal.classList.add('show');
+        const form = document.getElementById('addDisciplinaryForm');
+        if (form) form.reset();
+    }
+}
+
+function closeAddDisciplinaryModal() {
+    const modal = document.getElementById('addDisciplinaryModal');
+    if (modal) {
+        modal.style.display = 'none';
+        modal.classList.remove('show');
+        const form = document.getElementById('addDisciplinaryForm');
+        if (form) form.reset();
+    }
 }
 
 function openAddOrganizationModal() {
-    showNotification('Organization modal coming soon!', 'info');
+    const modal = document.getElementById('addOrganizationModal');
+    if (modal) {
+        modal.style.display = 'block';
+        modal.classList.add('show');
+        const form = document.getElementById('addOrganizationForm');
+        if (form) form.reset();
+    }
+}
+
+function closeAddOrganizationModal() {
+    const modal = document.getElementById('addOrganizationModal');
+    if (modal) {
+        modal.style.display = 'none';
+        modal.classList.remove('show');
+        const form = document.getElementById('addOrganizationForm');
+        if (form) form.reset();
+    }
 }
 
 function openAddDocumentModal() {
-    showNotification('Document modal coming soon!', 'info');
+    const modal = document.getElementById('addDocumentModal');
+    if (modal) {
+        modal.style.display = 'block';
+        modal.classList.add('show');
+        const form = document.getElementById('addDocumentForm');
+        if (form) form.reset();
+    }
+}
+
+function closeAddDocumentModal() {
+    const modal = document.getElementById('addDocumentModal');
+    if (modal) {
+        modal.style.display = 'none';
+        modal.classList.remove('show');
+        const form = document.getElementById('addDocumentForm');
+        if (form) form.reset();
+    }
 }
 
 function showSettingsTab(tabName) {
@@ -7238,34 +7284,40 @@ function displayRoles() {
 }
 
 function addDisciplinaryAction() {
-    const name = document.getElementById('newActionName').value.trim();
-    const description = document.getElementById('newActionDescription').value.trim();
-    const penalties = document.getElementById('newActionPenalties').value.trim();
-    const severity = document.getElementById('newActionSeverity').value;
+    // Try modal inputs first, fallback to old inputs
+    const nameInput = document.getElementById('modalActionName');
+    const descInput = document.getElementById('modalActionDescription');
+    const penaltiesInput = document.getElementById('modalActionPenalties');
+    const severityInput = document.getElementById('modalActionSeverity');
+    
+    const name = nameInput ? nameInput.value.trim() : (document.getElementById('newActionName')?.value.trim() || '');
+    const description = descInput ? descInput.value.trim() : (document.getElementById('newActionDescription')?.value.trim() || '');
+    const penalties = penaltiesInput ? penaltiesInput.value.trim() : (document.getElementById('newActionPenalties')?.value.trim() || '');
+    const severity = severityInput ? severityInput.value : (document.getElementById('newActionSeverity')?.value || 'minor');
     
     if (!name || !description || !penalties) {
-        alert('Please fill in all fields: action name, description, and penalties.');
+        showNotification('Please fill in all fields: action name, description, and penalties.', 'error');
         return;
     }
     
     const newAction = {
-        id: disciplinaryActions.length + 1,
+        id: disciplinaryActions.length > 0 ? Math.max(...disciplinaryActions.map(a => a.id)) + 1 : 1,
         name: name,
         description: description,
         penalties: penalties,
         severity: severity,
-        company: currentCompany || 'Default Company' // Assign to current company
+        company: currentCompany || 'Default Company'
     };
     
     disciplinaryActions.push(newAction);
     saveToLocalStorage('disciplinaryActions', disciplinaryActions);
     displayDisciplinaryActions();
     
-    // Clear form
-    document.getElementById('newActionName').value = '';
-    document.getElementById('newActionDescription').value = '';
-    document.getElementById('newActionPenalties').value = '';
-    document.getElementById('newActionSeverity').value = 'minor';
+    // Close modal
+    closeAddDisciplinaryModal();
+    
+    // Show success message
+    showNotification(`Disciplinary action "${name}" added successfully!`, 'success');
 }
 
 function deleteDisciplinaryAction(actionId) {

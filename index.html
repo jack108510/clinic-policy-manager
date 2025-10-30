@@ -1599,6 +1599,153 @@
         </div>
     </div>
 
+    <!-- Add Disciplinary Action Modal -->
+    <div id="addDisciplinaryModal" class="modal" style="z-index: 4000;">
+        <div class="modal-content" style="max-width: 600px;">
+            <div class="modal-header">
+                <h3><i class="fas fa-gavel"></i> Add Disciplinary Action</h3>
+                <span class="close" onclick="closeAddDisciplinaryModal()">&times;</span>
+            </div>
+            <div class="modal-body">
+                <form id="addDisciplinaryForm" onsubmit="event.preventDefault(); addDisciplinaryAction();">
+                    <div class="form-group">
+                        <label for="modalActionName">
+                            <i class="fas fa-exclamation-triangle"></i> Action Name <span style="color: red;">*</span>
+                        </label>
+                        <input type="text" id="modalActionName" placeholder="e.g., Verbal Warning, Written Warning" required
+                               style="width: 100%; padding: 12px; border: 2px solid #ddd; border-radius: 6px; font-size: 15px;">
+                    </div>
+                    <div class="form-group">
+                        <label for="modalActionDescription">
+                            <i class="fas fa-info-circle"></i> Description <span style="color: red;">*</span>
+                        </label>
+                        <textarea id="modalActionDescription" placeholder="Describe the disciplinary action..." required
+                                  rows="3" style="width: 100%; padding: 12px; border: 2px solid #ddd; border-radius: 6px; font-size: 15px; resize: vertical;"></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label for="modalActionPenalties">
+                            <i class="fas fa-shield-alt"></i> Penalties <span style="color: red;">*</span>
+                        </label>
+                        <textarea id="modalActionPenalties" placeholder="List penalties or consequences..." required
+                                  rows="2" style="width: 100%; padding: 12px; border: 2px solid #ddd; border-radius: 6px; font-size: 15px; resize: vertical;"></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label for="modalActionSeverity">
+                            <i class="fas fa-sliders-h"></i> Severity Level <span style="color: red;">*</span>
+                        </label>
+                        <select id="modalActionSeverity" required style="width: 100%; padding: 12px; border: 2px solid #ddd; border-radius: 6px; font-size: 15px;">
+                            <option value="minor">Minor</option>
+                            <option value="moderate">Moderate</option>
+                            <option value="major">Major</option>
+                            <option value="severe">Severe</option>
+                        </select>
+                    </div>
+                    <div class="modal-footer" style="display: flex; gap: 10px; justify-content: flex-end; margin-top: 25px;">
+                        <button type="button" class="btn btn-secondary" onclick="closeAddDisciplinaryModal()">
+                            <i class="fas fa-times"></i> Cancel
+                        </button>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-check"></i> Add Action
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add Organization Modal -->
+    <div id="addOrganizationModal" class="modal" style="z-index: 4000;">
+        <div class="modal-content" style="max-width: 600px;">
+            <div class="modal-header">
+                <h3><i class="fas fa-building"></i> Add Organization</h3>
+                <span class="close" onclick="closeAddOrganizationModal()">&times;</span>
+            </div>
+            <div class="modal-body">
+                <form id="addOrganizationForm" onsubmit="event.preventDefault(); addOrganization();">
+                    <div class="form-group">
+                        <label for="modalOrgName">
+                            <i class="fas fa-building"></i> Organization Name <span style="color: red;">*</span>
+                        </label>
+                        <input type="text" id="modalOrgName" placeholder="e.g., Downtown Clinic" required
+                               style="width: 100%; padding: 12px; border: 2px solid #ddd; border-radius: 6px; font-size: 15px;">
+                    </div>
+                    <div class="form-group">
+                        <label for="modalOrgAddress">
+                            <i class="fas fa-map-marker-alt"></i> Address
+                        </label>
+                        <textarea id="modalOrgAddress" placeholder="Organization address..." rows="2"
+                                  style="width: 100%; padding: 12px; border: 2px solid #ddd; border-radius: 6px; font-size: 15px; resize: vertical;"></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label for="modalOrgPhone">
+                            <i class="fas fa-phone"></i> Phone Number
+                        </label>
+                        <input type="tel" id="modalOrgPhone" placeholder="(123) 456-7890"
+                               style="width: 100%; padding: 12px; border: 2px solid #ddd; border-radius: 6px; font-size: 15px;">
+                    </div>
+                    <div class="form-group">
+                        <label for="modalOrgEmail">
+                            <i class="fas fa-envelope"></i> Email Address
+                        </label>
+                        <input type="email" id="modalOrgEmail" placeholder="organization@example.com"
+                               style="width: 100%; padding: 12px; border: 2px solid #ddd; border-radius: 6px; font-size: 15px;">
+                    </div>
+                    <div class="modal-footer" style="display: flex; gap: 10px; justify-content: flex-end; margin-top: 25px;">
+                        <button type="button" class="btn btn-secondary" onclick="closeAddOrganizationModal()">
+                            <i class="fas fa-times"></i> Cancel
+                        </button>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-check"></i> Add Organization
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add Document Modal -->
+    <div id="addDocumentModal" class="modal" style="z-index: 4000;">
+        <div class="modal-content" style="max-width: 600px;">
+            <div class="modal-header">
+                <h3><i class="fas fa-file-alt"></i> Add Document</h3>
+                <span class="close" onclick="closeAddDocumentModal()">&times;</span>
+            </div>
+            <div class="modal-body">
+                <form id="addDocumentForm" onsubmit="event.preventDefault(); addDocument();">
+                    <div class="form-group">
+                        <label for="modalDocName">
+                            <i class="fas fa-file"></i> Document Name <span style="color: red;">*</span>
+                        </label>
+                        <input type="text" id="modalDocName" placeholder="e.g., HIPAA Compliance Guide" required
+                               style="width: 100%; padding: 12px; border: 2px solid #ddd; border-radius: 6px; font-size: 15px;">
+                    </div>
+                    <div class="form-group">
+                        <label for="modalDocUrl">
+                            <i class="fas fa-link"></i> URL or File Path <span style="color: red;">*</span>
+                        </label>
+                        <input type="url" id="modalDocUrl" placeholder="https://example.com/document.pdf" required
+                               style="width: 100%; padding: 12px; border: 2px solid #ddd; border-radius: 6px; font-size: 15px;">
+                    </div>
+                    <div class="form-group">
+                        <label for="modalDocDescription">
+                            <i class="fas fa-info-circle"></i> Description
+                        </label>
+                        <textarea id="modalDocDescription" placeholder="Optional description of the document..." rows="3"
+                                  style="width: 100%; padding: 12px; border: 2px solid #ddd; border-radius: 6px; font-size: 15px; resize: vertical;"></textarea>
+                    </div>
+                    <div class="modal-footer" style="display: flex; gap: 10px; justify-content: flex-end; margin-top: 25px;">
+                        <button type="button" class="btn btn-secondary" onclick="closeAddDocumentModal()">
+                            <i class="fas fa-times"></i> Cancel
+                        </button>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-check"></i> Add Document
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
     <!-- Change Password Modal -->
     <div id="changePasswordModal" class="modal">
         <div class="modal-content">

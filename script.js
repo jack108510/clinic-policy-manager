@@ -1623,6 +1623,10 @@ function saveUploadedPolicy(index, policyType) {
     
     showNotification('Policy saved successfully!', 'success');
     
+    // Add notification to notification center
+    const uploadedPolicyTitle = policyTitle || policyData.policy_title || 'Uploaded Policy';
+    addNotification(`New policy "${uploadedPolicyTitle}" has been uploaded and saved`, 'success');
+    
     // Refresh policies display if available
     if (typeof loadPoliciesFromStorage === 'function') {
         loadPoliciesFromStorage();

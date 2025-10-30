@@ -11562,13 +11562,13 @@ async function sendAdvisorRequest() {
     try {
         console.log('Policy Advisor - Starting request for situation:', situation.substring(0, 50) + '...');
         
-        // Find relevant policies
-        const relevantPolicies = findRelevantPolicies(situation);
-        console.log('Policy Advisor - Found relevant policies:', relevantPolicies.length);
+        // Get ALL policies, no filtering
+        const relevantPolicies = loadCompanyPolicies();
+        console.log('Policy Advisor - Loading all policies:', relevantPolicies.length);
         
         if (relevantPolicies.length === 0) {
             document.getElementById('advisorLoading').style.display = 'none';
-            showNotification('No relevant policies found. Please ensure you have policies created.', 'warning');
+            showNotification('No policies found. Please ensure you have policies created.', 'warning');
             document.getElementById('advisorSubmitBtn').disabled = false;
             return;
         }

@@ -11437,21 +11437,23 @@ async function sendPolicyAdvisorRequest() {
         
         // Format policies
         let policiesText = '';
-        allPolicies.forEach(policy => {
-            policiesText += `${policy.title || 'Untitled'} (${policy.type || 'N/A'})\n`;
-            if (policy.description) policiesText += `${policy.description}\n`;
+        allPolicies.forEach((policy, index) => {
+            policiesText += `Policy #${index + 1}:\n`;
+            policiesText += `Title: ${policy.title || 'Untitled'}\n`;
+            policiesText += `Type: ${policy.type || 'N/A'}\n`;
+            if (policy.description) policiesText += `Description: ${policy.description}\n`;
             if (policy.content) {
                 try {
                     const parsed = JSON.parse(policy.content);
-                    policiesText += `${JSON.stringify(parsed)}\n`;
+                    policiesText += `Content: ${JSON.stringify(parsed)}\n`;
                 } catch {
-                    policiesText += `${policy.content}\n`;
+                    policiesText += `Content: ${policy.content}\n`;
                 }
             }
-            policiesText += '\n---\n\n';
+            policiesText += '\n';
         });
         
-        const promptText = `Question: ${question}\n\nPolicies:\n${policiesText}\n\nProvide guidance based on these policies.`;
+        const promptText = `Query: ${question}\n\n${policiesText}\n\nProvide guidance based on these policies.`;
         
         const webhookUrl = localStorage.getItem('webhookUrlAI') || 'http://localhost:5678/webhook/6aa55f96-04a0-4d04-b99f-1b4da027dce6';
         console.log('Webhook URL:', webhookUrl);

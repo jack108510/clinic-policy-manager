@@ -11541,30 +11541,22 @@ ${policyContent ? `Content:\n${policyContent.substring(0, 1500)}` : 'No content 
 }
 
 async function sendAdvisorRequest() {
-    console.log('Policy Advisor - sendAdvisorRequest() called');
-    
     const situationInput = document.getElementById('advisorSituation');
     const situation = situationInput.value.trim();
-    console.log('Policy Advisor - Situation input:', situation ? situation.substring(0, 50) + '...' : 'EMPTY');
     
     if (!situation) {
-        console.log('Policy Advisor - No situation provided, showing error');
         showNotification('Please describe your situation or question', 'error');
         return;
     }
     
     // Show loading state
-    console.log('Policy Advisor - Showing loading state');
     document.getElementById('advisorLoading').style.display = 'block';
     document.getElementById('advisorResult').style.display = 'none';
     document.getElementById('advisorSubmitBtn').disabled = true;
     
     try {
-        console.log('Policy Advisor - Starting request for situation:', situation.substring(0, 50) + '...');
-        
-        // Get ALL policies, no filtering
+        // Get ALL policies
         const relevantPolicies = loadCompanyPolicies();
-        console.log('Policy Advisor - Loading all policies:', relevantPolicies.length);
         
         if (relevantPolicies.length === 0) {
             document.getElementById('advisorLoading').style.display = 'none';
@@ -11573,21 +11565,17 @@ async function sendAdvisorRequest() {
             return;
         }
         
-        // Format policies for AI (same truncation approach as sendFollowUpPrompt)
+        // Format policies
         const policiesText = formatPoliciesForAI(relevantPolicies);
-        
-        // Truncate to avoid URL length issues (same as other webhook calls)
         const truncatedPolicies = policiesText.substring(0, 500);
-        console.log('Policy Advisor - Formatted policies, length:', truncatedPolicies.length);
         
-        // Prepare prompt (same format as sendFollowUpPrompt)
+        // Prepare prompt
         const aiPrompt = `Policy Advisor: Situation: "${situation.substring(0, 300)}"\n\nRelevant Policies:\n${truncatedPolicies}\n\nProvide clear, actionable steps based on these policies.`;
-        console.log('Policy Advisor - Prompt created, length:', aiPrompt.length);
 
-        // Get webhook URL - use same webhook as other AI features (same approach as sendFollowUpPrompt)
+        // Get webhook URL
         const webhookUrl = localStorage.getItem('webhookUrlAI') || 'http://localhost:5678/webhook/05da961e-9df0-490e-815f-92d8bc9f9c1e';
         
-        // Use GET method with URL parameters (same as sendFollowUpPrompt and sendAIEditRequest)
+        // Build request
         const params = new URLSearchParams({
             conversationHistory: JSON.stringify([{ role: 'user', content: aiPrompt }]),
             currentPolicyText: truncatedPolicies,
@@ -11597,32 +11585,16 @@ async function sendAdvisorRequest() {
             tool: 'policy-advisor'
         });
         
-        const fullUrl = `${webhookUrl}?${params.toString()}`;
-        console.log('Policy Advisor - Sending request to:', webhookUrl);
-        console.log('Policy Advisor - Request params:', {
-            conversationHistory: params.get('conversationHistory'),
-            currentPolicyText: params.get('currentPolicyText')?.substring(0, 100) + '...',
-            newPrompt: params.get('newPrompt')?.substring(0, 100) + '...',
-            company: params.get('company'),
-            username: params.get('username'),
-            tool: params.get('tool')
-        });
-        
-        console.log('Policy Advisor - About to call fetch()');
-        const response = await fetch(fullUrl);
-        console.log('Policy Advisor - Fetch completed, status:', response.status, response.statusText);
+        // Send request
+        const response = await fetch(`${webhookUrl}?${params.toString()}`);
         
         if (response.ok) {
-            console.log('Policy Advisor - Response OK, reading text...');
             const aiResponse = await response.text();
-            console.log('Policy Advisor - Response text received, length:', aiResponse.length);
-            console.log('Policy Advisor - Response preview:', aiResponse.substring(0, 200));
             
             // Display results
             document.getElementById('advisorLoading').style.display = 'none';
             document.getElementById('advisorResult').style.display = 'block';
             document.getElementById('advisorResponse').textContent = aiResponse;
-            console.log('Policy Advisor - Response displayed to user');
             
             // Display referenced policies
             const policiesList = document.getElementById('advisorPoliciesList');

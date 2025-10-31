@@ -812,7 +812,6 @@ body:not(.user-logged-in) .navbar {
 .policy-thumb.protocol { background: #10b981; }
 .policy-thumb.memo { background: #8b5cf6; }
 .policy-thumb.training { background: #ec4899; }
-.policy-thumb.reference { background: #14b8a6; }
 .policy-thumb.governance { background: #6366f1; }
 
 .policy-card-title {

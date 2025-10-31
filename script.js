@@ -11453,7 +11453,8 @@ async function sendPolicyAdvisorRequest() {
             policiesText += '\n';
         });
         
-        const webhookUrl = localStorage.getItem('webhookUrlAI') || 'http://localhost:5678/webhook/6aa55f96-04a0-4d04-b99f-1b4da027dce6';
+        // ALWAYS use the Policy Advisor webhook URL
+        const webhookUrl = 'http://localhost:5678/webhook/6aa55f96-04a0-4d04-b99f-1b4da027dce6';
         console.log('Webhook URL:', webhookUrl);
         console.log('PROMPT TEXT BEING SENT:', policiesText);
         console.log('QUESTION:', question);

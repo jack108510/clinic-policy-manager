@@ -8180,6 +8180,145 @@ function viewPolicyFromManage(policyId) {
     viewPolicy(policyId);
 }
 
+// Policy Analytics Functions
+function showPolicyAnalytics(policyId) {
+    const policies = loadCompanyPolicies();
+    const policy = policies.find(p => p.id === policyId || p.id === String(policyId) || String(p.id) === policyId);
+    
+    if (!policy) {
+        showNotification('Policy not found', 'error');
+        return;
+    }
+    
+    // Get all company users
+    const allUsers = JSON.parse(localStorage.getItem('masterUsers') || '[]');
+    const companyUsers = allUsers.filter(u => u.company === currentCompany);
+    
+    if (companyUsers.length === 0) {
+        showNotification('No users found for this company', 'warning');
+        return;
+    }
+    
+    // Get viewers for this policy
+    const viewers = getPolicyViewers(policyId);
+    const viewerIds = new Set(viewers.map(v => v.userId));
+    
+    // Calculate percentage
+    const viewPercentage = Math.round((viewers.length / companyUsers.length) * 100);
+    
+    // Get users who haven't viewed
+    const notViewed = companyUsers.filter(u => !viewerIds.has(u.id)).map(u => ({
+        id: u.id,
+        username: u.username,
+        email: u.email,
+        role: u.role
+    }));
+    
+    // Create analytics modal
+    const modalHtml = `
+        <div id="policyAnalyticsModal" class="modal" style="display: block; z-index: 3500;">
+            <div class="modal-content" style="max-width: 700px;">
+                <div class="modal-header" style="background: linear-gradient(135deg, #17a2b8 0%, #138496 100%); color: white; padding: 20px;">
+                    <h3 style="margin: 0; color: white;">
+                        <i class="fas fa-chart-bar"></i> Policy Analytics: ${policy.title}
+                    </h3>
+                    <span class="close" onclick="closePolicyAnalyticsModal()" style="color: white;">&times;</span>
+                </div>
+                <div class="modal-body" style="padding: 25px;">
+                    <!-- View Percentage -->
+                    <div style="background: #f8f9fa; padding: 20px; border-radius: 8px; margin-bottom: 25px; text-align: center;">
+                        <h4 style="margin: 0 0 15px 0; color: #333;">View Rate</h4>
+                        <div style="font-size: 48px; font-weight: 700; color: #17a2b8; margin-bottom: 10px;">
+                            ${viewPercentage}%
+                        </div>
+                        <div style="color: #666; font-size: 14px;">
+                            ${viewers.length} of ${companyUsers.length} users have viewed this policy
+                        </div>
+                        <div style="margin-top: 15px; height: 12px; background: #e9ecef; border-radius: 10px; overflow: hidden;">
+                            <div style="height: 100%; width: ${viewPercentage}%; background: linear-gradient(90deg, #17a2b8 0%, #138496 100%); border-radius: 10px; transition: width 0.3s;"></div>
+                        </div>
+                    </div>
+                    
+                    <!-- Users Who Haven't Viewed -->
+                    <div style="margin-bottom: 20px;">
+                        <h4 style="margin: 0 0 15px 0; color: #333; display: flex; align-items: center; gap: 8px;">
+                            <i class="fas fa-user-times" style="color: #dc3545;"></i> 
+                            Users Who Haven't Viewed (${notViewed.length})
+                        </h4>
+                        ${notViewed.length > 0 ? `
+                            <div style="max-height: 300px; overflow-y: auto; border: 1px solid #e5e7eb; border-radius: 8px; padding: 10px;">
+                                ${notViewed.map(user => `
+                                    <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px; border-bottom: 1px solid #f0f0f0; transition: background 0.2s;" 
+                                         onmouseover="this.style.background='#f8f9fa'" 
+                                         onmouseout="this.style.background='transparent'">
+                                        <div>
+                                            <div style="font-weight: 600; color: #333;">${user.username}</div>
+                                            <div style="font-size: 12px; color: #666; margin-top: 2px;">${user.email}</div>
+                                        </div>
+                                        <span style="padding: 4px 10px; background: #fee; color: #dc3545; border-radius: 12px; font-size: 11px; font-weight: 600;">
+                                            ${user.role || 'User'}
+                                        </span>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        ` : `
+                            <div style="padding: 20px; text-align: center; color: #28a745; background: #d4edda; border-radius: 8px;">
+                                <i class="fas fa-check-circle" style="font-size: 24px; margin-bottom: 10px;"></i>
+                                <p style="margin: 0; font-weight: 600;">All users have viewed this policy!</p>
+                            </div>
+                        `}
+                    </div>
+                    
+                    <!-- Users Who Have Viewed -->
+                    ${viewers.length > 0 ? `
+                        <div>
+                            <h4 style="margin: 0 0 15px 0; color: #333; display: flex; align-items: center; gap: 8px;">
+                                <i class="fas fa-user-check" style="color: #28a745;"></i> 
+                                Users Who Have Viewed (${viewers.length})
+                            </h4>
+                            <div style="max-height: 200px; overflow-y: auto; border: 1px solid #e5e7eb; border-radius: 8px; padding: 10px;">
+                                ${viewers.map(view => {
+                                    const viewDate = new Date(view.viewedAt).toLocaleDateString();
+                                    return `
+                                    <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px; border-bottom: 1px solid #f0f0f0;">
+                                        <div>
+                                            <div style="font-weight: 600; color: #333;">${view.username}</div>
+                                            <div style="font-size: 11px; color: #999; margin-top: 2px;">Viewed: ${viewDate}</div>
+                                        </div>
+                                        <i class="fas fa-check-circle" style="color: #28a745;"></i>
+                                    </div>
+                                `;
+                                }).join('')}
+                            </div>
+                        </div>
+                    ` : ''}
+                    
+                    <div class="form-actions" style="margin-top: 25px; text-align: right;">
+                        <button onclick="closePolicyAnalyticsModal()" class="btn btn-secondary">
+                            Close
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    // Remove existing modal if any
+    const existingModal = document.getElementById('policyAnalyticsModal');
+    if (existingModal) {
+        existingModal.remove();
+    }
+    
+    document.body.insertAdjacentHTML('beforeend', modalHtml);
+}
+
+function closePolicyAnalyticsModal() {
+    const modal = document.getElementById('policyAnalyticsModal');
+    if (modal) {
+        modal.remove();
+    }
+}
+
 function searchPolicies() {
     const searchTerm = document.getElementById('policySearchInput').value.toLowerCase();
     const cards = document.querySelectorAll('.policy-card');

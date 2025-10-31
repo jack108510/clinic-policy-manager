@@ -10546,15 +10546,6 @@ function addUser() {
     alert('User added successfully!');
 }
 
-function deleteUser(userId) {
-    if (confirm('Are you sure you want to delete this user?')) {
-        users = users.filter(user => user.id !== userId);
-        saveToLocalStorage('users', users);
-        displayUsers();
-        alert('User deleted successfully!');
-    }
-}
-
 function displayUsers() {
     const usersList = document.getElementById('usersList');
     if (!usersList) {

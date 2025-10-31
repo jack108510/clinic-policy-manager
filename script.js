@@ -10410,6 +10410,18 @@ function executeTourAction(action) {
             // Don't end tour, just let them explore
             console.log('User can explore the feature');
             break;
+            
+        case 'show-policy-advisor':
+            // Open Policy Advisor modal
+            console.log('Opening Policy Advisor...');
+            setTimeout(() => {
+                if (typeof openPolicyAdvisor === 'function') {
+                    openPolicyAdvisor();
+                } else {
+                    console.warn('openPolicyAdvisor function not found');
+                }
+            }, 500);
+            break;
     }
 }
 // Demo Account Function

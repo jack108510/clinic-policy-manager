@@ -10074,7 +10074,7 @@ function showTourStep(stepIndex) {
         countdownEl.textContent = `${timeRemaining}s`;
     }
     
-    // Update countdown every second and progress bar
+    // Store interval reference for clearing
     const countdownInterval = setInterval(() => {
         timeRemaining--;
         if (countdownEl) {
@@ -10096,19 +10096,19 @@ function showTourStep(stepIndex) {
         
         if (timeRemaining <= 0) {
             clearInterval(countdownInterval);
+            window.tourCountdownInterval = null;
         }
     }, 1000);
+    
+    // Store interval so we can clear it if needed
+    window.tourCountdownInterval = countdownInterval;
     
     // Auto-advance after 20 seconds
     tourTimer = setTimeout(() => {
         clearInterval(countdownInterval);
+        window.tourCountdownInterval = null;
         nextTourStep();
     }, 20000);
-    
-    // Store interval so we can clear it if needed
-    if (!window.tourCountdownInterval) {
-        window.tourCountdownInterval = countdownInterval;
-    }
     
     console.log('Tour step displayed successfully');
 }

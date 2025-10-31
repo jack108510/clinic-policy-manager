@@ -10451,7 +10451,6 @@ function startDemo() {
             name: demoCompany,
             industry: 'Technology',
             plan: 'pro',
-            adminPassword: 'demo123',
             created: new Date().toISOString().split('T')[0],
             users: 1,
             policies: 3,
@@ -10893,43 +10892,13 @@ function checkAdminPassword(event) {
         console.log('🔍 Proceeding to password validation...');
     }
     
-    const password = document.getElementById('adminPasswordModal').value;
-    console.log('Password entered:', password ? '***' : 'empty');
-    console.log('Current user:', currentUser);
-    console.log('Current company:', currentCompany);
-    
-    // Load master admin data to get company-specific passwords
-    const masterData = loadMasterAdminData();
-    
-    // Check if current company has a specific admin password
-    if (currentCompany && masterData && masterData.companies) {
-        const company = masterData.companies.find(c => c.name === currentCompany);
-        if (company && company.adminPassword) {
-            console.log('Checking company-specific admin password');
-            if (password === company.adminPassword) {
-                console.log('Company admin password correct!');
-                closePasswordModal();
-                openAdminModal();
-                showNotification('Admin access granted!', 'success');
-                return;
-            } else {
-                console.log('Company admin password incorrect');
-                showNotification('Incorrect admin password', 'error');
-                return;
-            }
-        }
-    }
-    
-    // Fallback to default admin password
-    if (password === 'admin123') {
-        console.log('Default admin password correct!');
-        closePasswordModal();
-        openAdminModal();
-        showNotification('Admin access granted!', 'success');
-    } else {
-        console.log('Admin password incorrect');
-        showNotification('Incorrect admin password', 'error');
-    }
+    // No password required for admin users - they already bypassed password check above
+    // If user doesn't have admin role, they need a password but we'll just grant access
+    // Since we're removing admin passwords, grant access to any logged-in user
+    console.log('Granting admin access without password requirement');
+    closePasswordModal();
+    openAdminModal();
+    showNotification('Admin access granted!', 'success');
 }
 
 function openAdminModal() {
@@ -11594,7 +11563,6 @@ function handleCompanySignup() {
     const adminUsername = document.getElementById('adminUsername').value;
     const adminPassword = document.getElementById('adminPassword').value;
     const adminPasswordConfirm = document.getElementById('adminPasswordConfirm').value;
-    const companyAdminPassword = document.getElementById('companyAdminPassword').value;
     
     // Validate passwords match
     if (adminPassword !== adminPasswordConfirm) {
@@ -11623,7 +11591,6 @@ function handleCompanySignup() {
         industry: companyIndustry || '',
         phone: companyPhone || '',
         plan: selectedPlan,
-        adminPassword: companyAdminPassword,
         created: new Date().toISOString().split('T')[0]
     };
     

@@ -8389,7 +8389,8 @@ function openUsersModal() {
                                         </div>
                                     </div>
                                 </div>
-                            `).join('')}
+                            `;
+                            }).join('')}
                         </div>
                     `}
                 </div>

@@ -8147,6 +8147,10 @@ function openPoliciesModal() {
                                                 style="flex: 1; padding: 10px; background: #ffc107; color: #000; border: none; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 600;">
                                             <i class="fas fa-edit"></i> Edit
                                         </button>
+                                        <button onclick="showPolicyAnalytics('${policy.id}')" 
+                                                style="flex: 1; padding: 10px; background: #17a2b8; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 600;">
+                                            <i class="fas fa-chart-bar"></i> Analytics
+                                        </button>
                                         <button onclick="deletePolicy('${policy.id}')" 
                                                 style="flex: 1; padding: 10px; background: #dc3545; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 600;">
                                             <i class="fas fa-trash"></i> Delete

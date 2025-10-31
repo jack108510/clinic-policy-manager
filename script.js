@@ -7028,6 +7028,107 @@ function updateProfileInfo() {
     document.getElementById('profileRole').textContent = currentUser.role || 'Guest';
 }
 
+function showChangePasswordModal() {
+    if (!currentUser) {
+        showNotification('Please log in to change your password', 'warning');
+        return;
+    }
+    
+    const modal = document.getElementById('changePasswordModal');
+    if (modal) {
+        modal.style.display = 'block';
+        modal.classList.add('show');
+    }
+}
+
+function closeChangePasswordModal() {
+    const modal = document.getElementById('changePasswordModal');
+    if (modal) {
+        modal.style.display = 'none';
+        modal.classList.remove('show');
+        // Reset form
+        const form = document.getElementById('changePasswordForm');
+        if (form) {
+            form.reset();
+        }
+    }
+}
+
+function changeUserPassword(event) {
+    event.preventDefault();
+    
+    if (!currentUser) {
+        showNotification('You must be logged in to change your password', 'error');
+        return;
+    }
+    
+    const currentPassword = document.getElementById('currentPassword').value.trim();
+    const newPassword = document.getElementById('newPassword').value.trim();
+    const confirmPassword = document.getElementById('confirmPassword').value.trim();
+    
+    // Validate inputs
+    if (!currentPassword || !newPassword || !confirmPassword) {
+        showNotification('Please fill in all fields', 'error');
+        return;
+    }
+    
+    // Verify current password
+    if (currentPassword !== currentUser.password) {
+        showNotification('Current password is incorrect', 'error');
+        return;
+    }
+    
+    // Check if new password matches confirmation
+    if (newPassword !== confirmPassword) {
+        showNotification('New passwords do not match', 'error');
+        return;
+    }
+    
+    // Check password length
+    if (newPassword.length < 6) {
+        showNotification('New password must be at least 6 characters long', 'error');
+        return;
+    }
+    
+    // Check if new password is same as current
+    if (newPassword === currentPassword) {
+        showNotification('New password must be different from current password', 'error');
+        return;
+    }
+    
+    try {
+        // Load all users from masterUsers
+        const allUsers = JSON.parse(localStorage.getItem('masterUsers') || '[]');
+        
+        // Find and update the user in the array
+        const userIndex = allUsers.findIndex(u => u.id === currentUser.id);
+        if (userIndex === -1) {
+            showNotification('User not found in system', 'error');
+            return;
+        }
+        
+        // Update password
+        allUsers[userIndex].password = newPassword;
+        
+        // Save updated users back to localStorage
+        localStorage.setItem('masterUsers', JSON.stringify(allUsers));
+        
+        // Update current user object
+        currentUser.password = newPassword;
+        saveToLocalStorage('currentUser', currentUser);
+        
+        // Close modal
+        closeChangePasswordModal();
+        
+        // Show success message
+        showNotification('Password changed successfully!', 'success');
+        
+    } catch (error) {
+        console.error('Error changing password:', error);
+        showNotification('An error occurred while changing your password', 'error');
+    }
+}
+
 function showProfileTab(tabName) {
     // Hide all tabs
     document.querySelectorAll('.profile-tab').forEach(tab => tab.classList.remove('active'));

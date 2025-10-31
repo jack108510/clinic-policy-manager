@@ -9892,6 +9892,7 @@ let tourSteps = [
 ];
 
 let currentTourStep = 0;
+let tourTimer = null; // Store timer reference for clearing
 
 function startTour() {
     console.log('🚀 Starting feature tour...');
@@ -9913,6 +9914,12 @@ window.testTour = testTour;
 
 
 function nextTourStep() {
+    // Clear timer if user manually advances
+    if (tourTimer) {
+        clearTimeout(tourTimer);
+        tourTimer = null;
+    }
+    
     currentTourStep++;
     
     if (currentTourStep >= tourSteps.length) {
@@ -9941,10 +9948,21 @@ function nextTourStep() {
 
 function skipTour() {
     console.log('⏭️ Tour skipped');
+    // Clear timer when skipping
+    if (tourTimer) {
+        clearTimeout(tourTimer);
+        tourTimer = null;
+    }
     endTour();
 }
 
 function endTour() {
+    // Clear timer when ending tour
+    if (tourTimer) {
+        clearTimeout(tourTimer);
+        tourTimer = null;
+    }
+    
     const modal = document.getElementById('tourModal');
     const overlay = document.getElementById('tourOverlay');
     
@@ -9957,6 +9975,12 @@ function endTour() {
 
 function showTourStep(stepIndex) {
     console.log('Showing tour step:', stepIndex, 'of', tourSteps.length);
+    
+    // Clear any existing timer
+    if (tourTimer) {
+        clearTimeout(tourTimer);
+        tourTimer = null;
+    }
     
     if (stepIndex >= tourSteps.length) {
         console.log('Tour complete, ending');
@@ -10018,6 +10042,22 @@ function showTourStep(stepIndex) {
             nextBtn.innerHTML = 'Next <i class="fas fa-arrow-right"></i>';
         }
     }
+    
+    // Reset and start progress bar animation
+    const progressBar = document.getElementById('tourProgressBar');
+    if (progressBar) {
+        progressBar.style.width = '0%';
+        progressBar.style.transition = 'width 5s linear';
+        // Trigger animation after a small delay to ensure reset is visible
+        setTimeout(() => {
+            progressBar.style.width = '100%';
+        }, 10);
+    }
+    
+    // Auto-advance after 5 seconds
+    tourTimer = setTimeout(() => {
+        nextTourStep();
+    }, 5000);
     
     console.log('Tour step displayed successfully');
 }

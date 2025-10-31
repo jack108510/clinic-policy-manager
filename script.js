@@ -7015,6 +7015,9 @@ function closeProfileModal() {
 function updateProfileInfo() {
     if (!currentUser) return;
     
+    // Calculate policy view percentage
+    const viewPercentage = getUserPolicyViewPercentage(currentUser.id);
+    
     // Update profile header
     document.getElementById('profileUserName').textContent = currentUser.username || 'Guest User';
     document.getElementById('profileUserCompany').textContent = currentUser.company || 'Not assigned';
@@ -7026,6 +7029,30 @@ function updateProfileInfo() {
     document.getElementById('profileEmail').textContent = currentUser.email || 'guest@example.com';
     document.getElementById('profileCompany').textContent = currentUser.company || 'Not assigned';
     document.getElementById('profileRole').textContent = currentUser.role || 'Guest';
+    
+    // Update or create policy view percentage display
+    let viewPercentageEl = document.getElementById('profileViewPercentage');
+    if (!viewPercentageEl) {
+        const infoGrid = document.querySelector('#accountTab .info-grid');
+        if (infoGrid) {
+            const viewPercentageItem = document.createElement('div');
+            viewPercentageItem.className = 'info-item';
+            viewPercentageItem.id = 'profileViewPercentage';
+            viewPercentageItem.innerHTML = `
+                <label>Policies Viewed</label>
+                <span style="display: flex; align-items: center; gap: 10px;">
+                    <span style="font-weight: 600; color: #667eea;">${viewPercentage}%</span>
+                    <div style="flex: 1; max-width: 150px; height: 8px; background: #e9ecef; border-radius: 10px; overflow: hidden;">
+                        <div style="height: 100%; width: ${viewPercentage}%; background: linear-gradient(90deg, #667eea 0%, #764ba2 100%); border-radius: 10px; transition: width 0.3s;"></div>
+                    </div>
+                </span>
+            `;
+            infoGrid.appendChild(viewPercentageItem);
+        }
+    } else {
+        viewPercentageEl.querySelector('span span').textContent = `${viewPercentage}%`;
+        viewPercentageEl.querySelector('div div').style.width = `${viewPercentage}%`;
+    }
 }
 
 function showChangePasswordModal() {
@@ -8289,7 +8316,9 @@ function openUsersModal() {
                         </div>
                     ` : `
                         <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 20px;">
-                            ${users.map(user => `
+                            ${users.map(user => {
+                                const viewPercentage = getUserPolicyViewPercentage(user.id);
+                                return `
                                 <div class="user-card" style="background: white; border: 1px solid #e0e0e0; border-radius: 12px; padding: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); transition: transform 0.2s, box-shadow 0.2s;">
                                     <div style="display: flex; align-items: flex-start; gap: 15px;">
                                         <!-- Checkbox -->
@@ -8331,6 +8360,19 @@ function openUsersModal() {
                                             <div style="display: flex; gap: 15px; font-size: 12px; color: #888; margin-bottom: 15px; padding-top: 12px; border-top: 1px solid #f0f0f0;">
                                                 <div><i class="fas fa-building"></i> ${user.company}</div>
                                                 <div><i class="fas fa-calendar"></i> ${user.created ? new Date(user.created).toLocaleDateString() : 'N/A'}</div>
+                                            </div>
+                                            
+                                            <!-- Policy View Percentage -->
+                                            <div style="margin-bottom: 15px; padding: 12px; background: #f8f9fa; border-radius: 8px;">
+                                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                                                    <span style="font-size: 12px; color: #666; font-weight: 600;">
+                                                        <i class="fas fa-eye"></i> Policies Viewed
+                                                    </span>
+                                                    <span style="font-weight: 700; color: #667eea; font-size: 14px;">${viewPercentage}%</span>
+                                                </div>
+                                                <div style="height: 8px; background: #e9ecef; border-radius: 10px; overflow: hidden;">
+                                                    <div style="height: 100%; width: ${viewPercentage}%; background: linear-gradient(90deg, #667eea 0%, #764ba2 100%); border-radius: 10px; transition: width 0.3s;"></div>
+                                                </div>
                                             </div>
                                             
                                             <!-- Actions -->
@@ -8710,6 +8752,11 @@ function viewPolicy(policyId) {
     
     console.log('Found policy:', policy);
     
+    // Track policy view
+    if (currentUser && currentUser.id) {
+        trackPolicyView(policyId, currentUser.id);
+    }
+    
     // Show the policy view modal
     const modal = document.getElementById('policyViewModal');
     const titleElement = document.getElementById('policyViewTitle');
@@ -8725,6 +8772,17 @@ function viewPolicy(policyId) {
     
     // Format the policy content
     const formattedContent = formatPolicyContentForDisplay(policy.content);
+    
+    // Get viewers for this policy
+    const viewers = getPolicyViewers(policyId);
+    const viewersList = viewers.length > 0 ? viewers.map(v => {
+        const viewDate = new Date(v.viewedAt).toLocaleDateString();
+        return `<div style="display: flex; align-items: center; gap: 8px; padding: 6px 0;">
+                    <i class="fas fa-user-circle" style="color: #667eea;"></i>
+                    <span style="font-weight: 500;">${v.username}</span>
+                    <span style="color: #999; font-size: 0.85rem;">- ${viewDate}</span>
+                </div>`;
+    }).join('') : '<p style="color: #999; font-style: italic;">No viewers yet</p>';
     
     // Build the full policy HTML
     const policyHTML = `
@@ -8766,6 +8824,15 @@ function viewPolicy(policyId) {
             ` : ''}
         </div>
         
+        <div style="background: #fff; border: 1px solid #e5e7eb; border-radius: 8px; padding: 15px; margin-bottom: 25px;">
+            <h5 style="margin: 0 0 12px 0; color: #333; display: flex; align-items: center; gap: 8px;">
+                <i class="fas fa-eye" style="color: #667eea;"></i> Viewers (${viewers.length})
+            </h5>
+            <div style="max-height: 150px; overflow-y: auto;">
+                ${viewersList}
+            </div>
+        </div>
+        
         <div class="policy-view-content" style="line-height: 1.8;">
             ${formattedContent}
         </div>
@@ -8775,6 +8842,61 @@ function viewPolicy(policyId) {
     
     // Show the modal
     modal.style.display = 'block';
+}
+
+// Track policy views
+function trackPolicyView(policyId, userId) {
+    if (!policyId || !userId) return;
+    
+    // Load existing views
+    const views = JSON.parse(localStorage.getItem('policyViews') || '{}');
+    
+    // Initialize policy views if needed
+    if (!views[policyId]) {
+        views[policyId] = [];
+    }
+    
+    // Check if user already viewed this policy
+    const existingView = views[policyId].find(v => v.userId === userId);
+    
+    if (!existingView) {
+        // Add new view
+        const user = loadFromLocalStorage('currentUser', null);
+        views[policyId].push({
+            userId: userId,
+            username: user?.username || 'Unknown',
+            viewedAt: new Date().toISOString()
+        });
+        
+        // Save to localStorage
+        localStorage.setItem('policyViews', JSON.stringify(views));
+    }
+}
+
+// Get viewers for a policy
+function getPolicyViewers(policyId) {
+    const views = JSON.parse(localStorage.getItem('policyViews') || '{}');
+    return views[policyId] || [];
+}
+
+// Calculate user's policy view percentage
+function getUserPolicyViewPercentage(userId) {
+    if (!userId) return 0;
+    
+    const policies = loadCompanyPolicies();
+    if (policies.length === 0) return 0;
+    
+    const views = JSON.parse(localStorage.getItem('policyViews') || '{}');
+    let viewedCount = 0;
+    
+    policies.forEach(policy => {
+        const policyViews = views[policy.id] || [];
+        if (policyViews.some(v => v.userId === userId)) {
+            viewedCount++;
+        }
+    });
+    
+    return Math.round((viewedCount / policies.length) * 100);
 }
 
 function closePolicyViewModal() {
@@ -10444,13 +10566,24 @@ function displayUsers() {
         return;
     }
     
-    usersList.innerHTML = users.map(user => `
+    usersList.innerHTML = users.map(user => {
+        const viewPercentage = getUserPolicyViewPercentage(user.id);
+        return `
         <div class="user-card">
             <div class="user-info">
                 <h4>${user.username} <span class="user-role ${user.role}">${user.role}</span></h4>
                 <p><strong>Email:</strong> ${user.email}</p>
                 <p><strong>Company:</strong> ${user.company}</p>
                 <p><strong>Created:</strong> ${user.created}</p>
+                <div style="margin-top: 10px; padding: 10px; background: #f8f9fa; border-radius: 6px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px;">
+                        <span style="font-size: 0.875rem; color: #666;">Policies Viewed:</span>
+                        <span style="font-weight: 600; color: #667eea;">${viewPercentage}%</span>
+                    </div>
+                    <div style="height: 6px; background: #e9ecef; border-radius: 10px; overflow: hidden;">
+                        <div style="height: 100%; width: ${viewPercentage}%; background: linear-gradient(90deg, #667eea 0%, #764ba2 100%); border-radius: 10px; transition: width 0.3s;"></div>
+                    </div>
+                </div>
             </div>
             <div class="user-actions">
                 <button onclick="deleteUser(${user.id})" class="btn btn-sm btn-danger">
@@ -10458,7 +10591,8 @@ function displayUsers() {
                 </button>
             </div>
         </div>
-    `).join('');
+    `;
+    }).join('');
 }
 
 // Admin Dashboard Functions

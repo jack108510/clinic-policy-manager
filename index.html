@@ -316,6 +316,30 @@
                     <p>Internal communications and announcements</p>
                     <a href="#memos" class="btn btn-outline" onclick="return requireLogin()">View Memos</a>
                 </div>
+                <div class="policy-card" data-type="training">
+                    <div class="policy-icon">
+                        <i class="fas fa-graduation-cap"></i>
+                    </div>
+                    <h3>Training Documents</h3>
+                    <p>Educational materials and training resources</p>
+                    <a href="#training" class="btn btn-outline" onclick="return requireLogin()">View Training</a>
+                </div>
+                <div class="policy-card" data-type="reference">
+                    <div class="policy-icon">
+                        <i class="fas fa-book"></i>
+                    </div>
+                    <h3>Reference Documents</h3>
+                    <p>Reference guides and documentation</p>
+                    <a href="#reference" class="btn btn-outline" onclick="return requireLogin()">View Reference</a>
+                </div>
+                <div class="policy-card" data-type="governance">
+                    <div class="policy-icon">
+                        <i class="fas fa-gavel"></i>
+                    </div>
+                    <h3>Governance Policies</h3>
+                    <p>Corporate governance and compliance policies</p>
+                    <a href="#governance" class="btn btn-outline" onclick="return requireLogin()">View Governance</a>
+                </div>
             </div>
         </div>
     </section>
@@ -335,6 +359,9 @@
                 <button class="filter-btn" data-filter="sog" onclick="return requireLogin()">Standard Operating Guidelines</button>
                 <button class="filter-btn" data-filter="protocol" onclick="return requireLogin()">Protocols</button>
                 <button class="filter-btn" data-filter="memo" onclick="return requireLogin()">Communication Memos</button>
+                <button class="filter-btn" data-filter="training" onclick="return requireLogin()">Training Documents</button>
+                <button class="filter-btn" data-filter="reference" onclick="return requireLogin()">Reference Documents</button>
+                <button class="filter-btn" data-filter="governance" onclick="return requireLogin()">Governance Policies</button>
             </div>
             <div class="policies-grid" id="policiesGrid">
                 <!-- Policies will be loaded here -->
@@ -374,6 +401,9 @@
                         <option value="sog">Standard Operating Guidelines</option>
                         <option value="protocol">Protocol</option>
                         <option value="memo">Communication Memo</option>
+                        <option value="training">Training Document</option>
+                        <option value="reference">Reference Document</option>
+                        <option value="governance">Governance Policy</option>
                     </select>
                 </div>
                 
@@ -456,6 +486,9 @@
                                     <option value="sog">Standard Operating Guidelines</option>
                                     <option value="protocol">Protocol</option>
                                     <option value="memo">Communication Memo</option>
+                                    <option value="training">Training Document</option>
+                                    <option value="reference">Reference Document</option>
+                                    <option value="governance">Governance Policy</option>
                                 </select>
                             </div>
                         </div>
@@ -705,6 +738,18 @@
                             <input type="radio" name="policyType" value="memo">
                             <span class="toggle-label">Communication Memo</span>
                         </label>
+                        <label class="toggle-item">
+                            <input type="radio" name="policyType" value="training">
+                            <span class="toggle-label">Training Document</span>
+                        </label>
+                        <label class="toggle-item">
+                            <input type="radio" name="policyType" value="reference">
+                            <span class="toggle-label">Reference Document</span>
+                        </label>
+                        <label class="toggle-item">
+                            <input type="radio" name="policyType" value="governance">
+                            <span class="toggle-label">Governance Policy</span>
+                        </label>
                     </div>
                 </div>
                 
@@ -747,6 +792,9 @@
                                     <button class="btn btn-sm btn-outline" onclick="selectPolicyType('sog')">Standard Operating Guidelines</button>
                                     <button class="btn btn-sm btn-outline" onclick="selectPolicyType('protocol')">Protocol</button>
                                     <button class="btn btn-sm btn-outline" onclick="selectPolicyType('memo')">Communication Memo</button>
+                                    <button class="btn btn-sm btn-outline" onclick="selectPolicyType('training')">Training Document</button>
+                                    <button class="btn btn-sm btn-outline" onclick="selectPolicyType('reference')">Reference Document</button>
+                                    <button class="btn btn-sm btn-outline" onclick="selectPolicyType('governance')">Governance Policy</button>
                                 </div>
                             </div>
                         </div>
@@ -784,6 +832,9 @@
                                 <option value="sog">Standard Operating Guidelines (Step-by-step procedures)</option>
                                 <option value="protocol">Protocol (Detailed procedures and workflows)</option>
                                 <option value="memo">Communication Memo (Staff announcement/update)</option>
+                                <option value="training">Training Document (Educational materials and training resources)</option>
+                                <option value="reference">Reference Document (Reference guides and documentation)</option>
+                                <option value="governance">Governance Policy (Corporate governance and compliance policies)</option>
                             </select>
                         </div>
                         <div class="form-group">
@@ -1882,6 +1933,6 @@
         </div>
     </footer>
 
-    <script src="script.js?v=172&t=20250202"></script>
+    <script src="script.js?v=173&t=20250202"></script>
 </body>
 </html>

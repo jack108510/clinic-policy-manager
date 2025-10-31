@@ -743,7 +743,10 @@ function getTypeLabel(type) {
         'sog': 'Standard Operating Guidelines',
         'protocol': 'Protocol',
         'memo': 'Communication Memo',
-        'memos': 'Communication Memos'
+        'memos': 'Communication Memos',
+        'training': 'Training Document',
+        'reference': 'Reference Document',
+        'governance': 'Governance Policy'
     };
     return labels[type] || type;
 }
@@ -1343,7 +1346,7 @@ function displayUploadResults(uploadResults) {
                                placeholder="Enter policy title..." />
                         <small style="color: #666; display: block; margin-top: 5px;">This title is required to save the policy</small>
                     </div>
-                    <span class="policy-type-badge ${typeClass}" style="display: inline-block; padding: 6px 12px; background: ${typeClass === 'admin' ? '#e3f2fd' : typeClass === 'sog' ? '#fff3e0' : '#f3e5f5'}; color: ${typeClass === 'admin' ? '#1976d2' : typeClass === 'sog' ? '#f57c00' : '#7b1fa2'}; border-radius: 20px; font-size: 12px; font-weight: 600;">
+                    <span class="policy-type-badge ${typeClass}" style="display: inline-block; padding: 6px 12px; background: ${typeClass === 'admin' ? '#e3f2fd' : typeClass === 'sog' ? '#fff3e0' : typeClass === 'protocol' ? '#d1fae5' : typeClass === 'memo' ? '#f3e5f5' : typeClass === 'training' ? '#cffafe' : typeClass === 'reference' ? '#ecfccb' : typeClass === 'governance' ? '#e0e7ff' : '#f3e5f5'}; color: ${typeClass === 'admin' ? '#1976d2' : typeClass === 'sog' ? '#f57c00' : typeClass === 'protocol' ? '#059669' : typeClass === 'memo' ? '#7b1fa2' : typeClass === 'training' ? '#0891b2' : typeClass === 'reference' ? '#65a30d' : typeClass === 'governance' ? '#4f46e5' : '#7b1fa2'}; border-radius: 20px; font-size: 12px; font-weight: 600;">
                         ${typeLabel}
                     </span>
                 </div>
@@ -1525,7 +1528,10 @@ function updateUploadPolicyCode(index) {
                 'sog': 'SOG',
                 'memo': 'MEMO',
                 'protocol': 'PROTO',
-                'proto': 'PROTO'
+                'proto': 'PROTO',
+                'training': 'TRAIN',
+                'reference': 'REF',
+                'governance': 'GOV'
             };
             const typeCode = typeCodes[policyType?.toLowerCase()] || 'ADMIN';
             
@@ -11286,7 +11292,10 @@ function generatePolicyCode(categoryId, policyId, policyType) {
         'sog': 'SOG',
         'memo': 'MEMO',
         'protocol': 'PROTO',
-        'proto': 'PROTO'
+        'proto': 'PROTO',
+        'training': 'TRAIN',
+        'reference': 'REF',
+        'governance': 'GOV'
     };
     
     const typeCode = typeCodes[policyType?.toLowerCase()] || 'ADMIN';
@@ -11669,7 +11678,10 @@ function updateAIPolicyCode() {
                 'sog': 'SOG',
                 'memo': 'MEMO',
                 'protocol': 'PROTO',
-                'proto': 'PROTO'
+                'proto': 'PROTO',
+                'training': 'TRAIN',
+                'reference': 'REF',
+                'governance': 'GOV'
             };
             const typeCode = typeCodes[policyType?.toLowerCase()] || 'ADMIN';
             
@@ -11723,7 +11735,10 @@ function updateManualPolicyCode() {
                 'sog': 'SOG',
                 'memo': 'MEMO',
                 'protocol': 'PROTO',
-                'proto': 'PROTO'
+                'proto': 'PROTO',
+                'training': 'TRAIN',
+                'reference': 'REF',
+                'governance': 'GOV'
             };
             const typeCode = typeCodes[policyType?.toLowerCase()] || 'ADMIN';
             

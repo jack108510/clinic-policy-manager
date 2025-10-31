@@ -811,6 +811,9 @@ body:not(.user-logged-in) .navbar {
 .policy-thumb.sog { background: #f59e0b; }
 .policy-thumb.protocol { background: #10b981; }
 .policy-thumb.memo { background: #8b5cf6; }
+.policy-thumb.training { background: #06b6d4; }
+.policy-thumb.reference { background: #84cc16; }
+.policy-thumb.governance { background: #6366f1; }
 
 .policy-card-title {
     flex: 1;

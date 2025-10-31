@@ -197,8 +197,13 @@
                 <button id="tourSkip" onclick="skipTour()" style="padding: 8px 16px; border: 1px solid #ddd; background: white; color: #666; border-radius: 6px; cursor: pointer; font-weight: 500; font-size: 0.9rem;">Skip</button>
                 <button id="tourNext" onclick="nextTourStep()" style="padding: 8px 16px; border: none; background: #667eea; color: white; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 0.9rem;">Next →</button>
             </div>
-            <!-- Progress bar for auto-advance timer -->
-            <div id="tourProgressBar" style="position: absolute; bottom: 0; left: 0; width: 0%; height: 4px; background: #667eea; border-radius: 0 0 16px 16px; transition: width 0.1s linear;"></div>
+            <!-- Timer countdown display -->
+            <div style="display: flex; align-items: center; gap: 10px; margin-top: 12px; padding-top: 12px; border-top: 1px solid #eee;">
+                <div style="flex: 1; position: relative; height: 8px; background: #e9ecef; border-radius: 10px; overflow: hidden;">
+                    <div id="tourProgressBar" style="position: absolute; top: 0; left: 0; width: 0%; height: 100%; background: linear-gradient(90deg, #667eea 0%, #764ba2 100%); border-radius: 10px; transition: width 0.1s linear; box-shadow: 0 2px 4px rgba(102, 126, 234, 0.3);"></div>
+                </div>
+                <div id="tourCountdown" style="font-size: 0.85rem; font-weight: 600; color: #667eea; min-width: 35px; text-align: right;">20s</div>
+            </div>
         </div>
         <style>
             @keyframes pulse {
@@ -1917,6 +1922,6 @@
         </div>
     </footer>
 
-    <script src="script.js?v=178&t=20250202"></script>
+    <script src="script.js?v=179&t=20250202"></script>
 </body>
 </html>

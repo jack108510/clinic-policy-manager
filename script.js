@@ -11476,9 +11476,27 @@ async function sendPolicyAdvisorRequest() {
         if (response.ok) {
             const result = await response.text();
             console.log('Success, result length:', result.length);
+            
+            // Parse and clean up the response
+            let cleanedResult = result;
+            try {
+                // Try to parse as JSON array
+                const parsed = JSON.parse(result);
+                if (Array.isArray(parsed) && parsed.length > 0 && parsed[0].output) {
+                    cleanedResult = parsed[0].output;
+                } else if (Array.isArray(parsed) && parsed.length > 0 && typeof parsed[0] === 'string') {
+                    cleanedResult = parsed[0];
+                } else if (typeof parsed === 'object' && parsed.output) {
+                    cleanedResult = parsed.output;
+                }
+            } catch (e) {
+                // Not JSON, use as-is
+                console.log('Response is not JSON, using as-is');
+            }
+            
             document.getElementById('advisorLoading').style.display = 'none';
             document.getElementById('advisorResponse').style.display = 'block';
-            document.getElementById('advisorResultText').textContent = result;
+            document.getElementById('advisorResultText').textContent = cleanedResult;
         } else {
             throw new Error(`HTTP ${response.status}`);
         }

@@ -10150,6 +10150,12 @@ let tourSteps = [
         action: null
     },
     {
+        title: '🤖 AI Policy Advisor',
+        description: '🐧 Check out the "Policy Advisor" in the navigation! Ask questions about situations and get AI-powered guidance based on your policies.',
+        icon: '🐧',
+        action: 'show-policy-advisor'
+    },
+    {
         title: 'You\'re All Set! 🚀',
         description: '🐧 You now know all the key features! Start creating policies, managing users, and exploring. Happy policy management!',
         icon: '🐧',

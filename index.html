@@ -1224,6 +1224,25 @@
                             </div>
                         </div>
                         
+                        <div class="form-group">
+                            <label for="companyAdminPassword">
+                                <span style="display: flex; align-items: center; gap: 5px;">
+                                    Company Admin Password <span style="color: red;">*</span>
+                                    <span style="position: relative; display: inline-block;">
+                                        <i class="fas fa-question-circle" style="color: #667eea; cursor: help;" onmouseenter="showTooltip(this)" onmouseleave="hideTooltip(this)"></i>
+                                        <span class="tooltip-text" style="position: absolute; bottom: 125%; left: 50%; transform: translateX(-50%); background: #333; color: white; padding: 8px 12px; border-radius: 4px; font-size: 11px; white-space: nowrap; width: 200px; text-align: center; opacity: 0; pointer-events: none; z-index: 10000; box-shadow: 0 2px 10px rgba(0,0,0,0.2);">
+                                            Required to authorize changes to policies, users, and company settings. Keep it secure.
+                                            <span style="position: absolute; top: 100%; left: 50%; transform: translateX(-50%); border: 5px solid transparent; border-top-color: #333;"></span>
+                                        </span>
+                                    </span>
+                                </span>
+                            </label>
+                            <div class="input-group">
+                                <i class="fas fa-shield-alt"></i>
+                                <input type="password" id="companyAdminPassword" placeholder="Create admin dashboard password" required minlength="6">
+                            </div>
+                            <small style="color: #666; display: block; margin-top: 5px;">Used to access the admin dashboard</small>
+                        </div>
                     </div>
                     
                     <!-- Selected Plan Info -->
@@ -1903,6 +1922,6 @@
         </div>
     </footer>
 
-    <script src="script.js?v=185&t=20250202"></script>
+    <script src="script.js?v=186&t=20250202"></script>
 </body>
 </html>

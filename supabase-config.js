@@ -8,7 +8,7 @@ const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
 // Feature flag - Controls whether to use Supabase or localStorage
 // Set to FALSE to keep using localStorage (current behavior)
 // Set to TRUE to use Supabase backend
-const USE_SUPABASE = false
+const USE_SUPABASE = true  // ✅ ENABLED FOR TESTING
 
 // Initialize Supabase client
 let supabaseClient = null

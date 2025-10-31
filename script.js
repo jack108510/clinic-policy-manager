@@ -11453,24 +11453,21 @@ async function sendPolicyAdvisorRequest() {
             policiesText += '\n';
         });
         
-        const promptText = `Query: ${question}\n\n${policiesText}\n\nProvide guidance based on these policies.`;
-        
         const webhookUrl = localStorage.getItem('webhookUrlAI') || 'http://localhost:5678/webhook/6aa55f96-04a0-4d04-b99f-1b4da027dce6';
         console.log('Webhook URL:', webhookUrl);
+        console.log('PROMPT TEXT BEING SENT:', policiesText);
+        console.log('QUESTION:', question);
         
-        // Use GET with URL params to avoid CORS preflight (like sendFollowUpPrompt)
+        // Use GET with URL params - simple format
         const params = new URLSearchParams({
-            conversationHistory: JSON.stringify([{ role: 'user', content: promptText }]),
-            currentPolicyText: policiesText.substring(0, 500),
-            newPrompt: question,
+            query: question,
+            policies: policiesText,
             company: currentCompany || 'Unknown',
-            username: currentUser?.username || 'Unknown',
-            tool: 'policy-advisor'
+            username: currentUser?.username || 'Unknown'
         });
         
         const fullUrl = `${webhookUrl}?${params.toString()}`;
         console.log('Sending request to:', fullUrl.substring(0, 200) + '...');
-        console.log('PROMPT TEXT BEING SENT:', promptText);
         
         const response = await fetch(fullUrl);
         console.log('Response status:', response.status);

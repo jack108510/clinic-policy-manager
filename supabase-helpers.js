@@ -476,7 +476,7 @@ async function supabaseGetPolicyViewers(policyId) {
 async function testSupabaseAuth() {
     console.log('🧪 Testing Supabase Authentication...')
     
-    const testEmail = `test-${Date.now()}@example.com`
+    const testEmail = `test-${Date.now()}@gmail.com`  // Use gmail.com instead
     const testPassword = 'test123456'
     
     // Test signup

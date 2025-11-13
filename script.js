@@ -9940,23 +9940,35 @@ async function signupUser(event) {
     // Add user-logged-in class to body
     document.body.classList.add('user-logged-in');
     
-    // Update UI
-    updateUserInterface();
-    
-    // Close the correct modal based on form type
+    // Close the correct modal FIRST before updating UI
     if (formId === 'companyCodeSignupForm') {
         closeCompanyCodeSignupModal();
     } else {
         closeSignupModal();
     }
     
-    // Show success message
-    showSuccessMessage('Account created successfully! Welcome to Policy Pro!');
-    
-    // Load policies from storage
-    if (currentCompany) {
-        loadPoliciesFromStorage();
-    }
+    // Small delay to ensure modal closes before UI updates
+    setTimeout(() => {
+        // Update UI with error handling
+        try {
+            updateUserInterface();
+        } catch (uiError) {
+            console.warn('Error updating UI (non-critical):', uiError);
+            // Continue anyway - user is logged in
+        }
+        
+        // Load policies from storage
+        if (currentCompany) {
+            try {
+                loadPoliciesFromStorage();
+            } catch (policyError) {
+                console.warn('Error loading policies (non-critical):', policyError);
+            }
+        }
+        
+        // Show success message
+        showSuccessMessage('Account created successfully! Welcome to Policy Pro!');
+    }, 100);
     
     // Reset button
     if (signupButton) {
@@ -9976,7 +9988,9 @@ async function signupUser(event) {
             column: error.columnNumber
         });
         
-        showSignupError('An error occurred during account creation. Please try again.');
+        // Use the correct error field ID (errorField is in scope from the function)
+        const errorFieldId = typeof errorField !== 'undefined' ? errorField : 'signup-error-message';
+        showSignupError('An error occurred during account creation: ' + error.message, errorFieldId);
         
         // Reset button on error
         if (signupButton) {

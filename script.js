@@ -10059,7 +10059,13 @@ function loginUser(event) {
         console.log('Looking for user:', { username, password: '***' });
         
         // Load all users from masterUsers (from localStorage) to include all users across all companies
-        const allUsers = JSON.parse(localStorage.getItem('masterUsers') || '[]');
+        let allUsers = JSON.parse(localStorage.getItem('masterUsers') || '[]');
+        
+        // If no master users, also check local users as fallback
+        if (allUsers.length === 0) {
+            allUsers = loadFromLocalStorage('users', []);
+        }
+        
         console.log('Available users:', allUsers.map(u => ({ username: u.username, email: u.email, hasPassword: !!u.password })));
         
         const user = allUsers.find(u => (u.username === username || u.email === username) && u.password === password);

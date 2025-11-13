@@ -99,6 +99,8 @@ function generateRandomPassword() {
 }
 
 async function initializeData() {
+    console.log('=== INITIALIZE DATA START ===');
+    
     // Load existing data from Supabase
     try {
         companies = await SupabaseDB.getCompanies();
@@ -106,10 +108,32 @@ async function initializeData() {
         users = await SupabaseDB.getUsers();
         
         console.log('Raw access codes from SupabaseDB:', rawAccessCodes);
+        console.log('Raw access codes count:', rawAccessCodes.length);
+        
+        // Check localStorage as well
+        const localCodes = JSON.parse(localStorage.getItem('masterAccessCodes') || '[]');
+        console.log('localStorage codes:', localCodes.length, localCodes);
+        
+        // Use localStorage codes if Supabase returned empty but localStorage has codes
+        let codesToUse = rawAccessCodes;
+        if (rawAccessCodes.length === 0 && localCodes.length > 0) {
+            console.log('⚠️ Supabase returned empty, using localStorage codes');
+            codesToUse = localCodes;
+        } else if (rawAccessCodes.length > 0 && localCodes.length > 0) {
+            // Merge both sources, preferring Supabase but keeping localStorage extras
+            const supabaseCodesMap = new Map(rawAccessCodes.map(c => [c.code || c.id, c]));
+            localCodes.forEach(localCode => {
+                const codeKey = localCode.code || localCode.id;
+                if (!supabaseCodesMap.has(codeKey)) {
+                    console.log('Adding localStorage code not in Supabase:', codeKey);
+                    codesToUse.push(localCode);
+                }
+            });
+        }
         
         // Normalize access codes to camelCase for display
-        accessCodes = rawAccessCodes.map(code => ({
-            id: code.id || `code-${Date.now()}`,
+        accessCodes = codesToUse.map(code => ({
+            id: code.id || `code-${Date.now()}-${Math.random()}`,
             code: code.code || '',
             description: code.description || '',
             createdDate: code.created_date || code.createdDate || new Date().toISOString().slice(0, 10),
@@ -119,22 +143,23 @@ async function initializeData() {
             status: code.status || 'active'
         }));
         
-        // Also save normalized version to localStorage
+        // Always save normalized version to localStorage
         localStorage.setItem('masterAccessCodes', JSON.stringify(accessCodes));
+        console.log('✅ Saved normalized codes to localStorage:', accessCodes.length);
         
-        console.log('Loaded data from Supabase:');
+        console.log('Loaded data:');
         console.log('companies:', companies.length);
         console.log('users:', users.length);
         console.log('accessCodes:', accessCodes.length);
         console.log('Normalized access codes:', accessCodes);
     } catch (error) {
-        console.error('Error loading data from Supabase:', error);
+        console.error('❌ Error loading data from Supabase:', error);
         // Try to load from localStorage as fallback
         try {
             const localCodes = JSON.parse(localStorage.getItem('masterAccessCodes') || '[]');
-            console.log('Loading from localStorage fallback:', localCodes.length, 'codes');
+            console.log('📦 Loading from localStorage fallback:', localCodes.length, 'codes');
             accessCodes = localCodes.map(code => ({
-                id: code.id || `code-${Date.now()}`,
+                id: code.id || `code-${Date.now()}-${Math.random()}`,
                 code: code.code || '',
                 description: code.description || '',
                 createdDate: code.createdDate || code.created_date || new Date().toISOString().slice(0, 10),
@@ -143,14 +168,18 @@ async function initializeData() {
                 usedBy: code.usedBy || code.used_by || [],
                 status: code.status || 'active'
             }));
+            console.log('✅ Loaded from localStorage:', accessCodes.length, 'codes');
         } catch (localError) {
-            console.error('Error loading from localStorage:', localError);
+            console.error('❌ Error loading from localStorage:', localError);
             accessCodes = [];
         }
         // Initialize empty arrays on error
         companies = companies || [];
         users = users || [];
     }
+    
+    console.log('=== INITIALIZE DATA COMPLETE ===');
+    console.log('Final accessCodes array:', accessCodes.length, accessCodes);
 }
 
 // Navigation Setup

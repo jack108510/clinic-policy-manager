@@ -19,14 +19,37 @@ function loadMasterAdminData() {
     const masterUsers = localStorage.getItem('masterUsers');
     const masterAccessCodes = localStorage.getItem('masterAccessCodes');
     
+    // If no master data exists, initialize with default access code (same as admin-master)
+    if (!masterAccessCodes) {
+        const defaultAccessCodes = [
+            {
+                id: 'code-default',
+                code: 'WELCOME123',
+                description: 'Welcome Access Code',
+                createdDate: new Date().toISOString().slice(0, 10),
+                expiryDate: null,
+                maxCompanies: 10,
+                usedBy: [],
+                status: 'active'
+            }
+        ];
+        localStorage.setItem('masterAccessCodes', JSON.stringify(defaultAccessCodes));
+    }
+    
     if (masterCompanies && masterUsers && masterAccessCodes) {
         return {
-            companies: JSON.parse(masterCompanies),
-            users: JSON.parse(masterUsers),
-            accessCodes: JSON.parse(masterAccessCodes)
+            companies: JSON.parse(masterCompanies) || [],
+            users: JSON.parse(masterUsers) || [],
+            accessCodes: JSON.parse(masterAccessCodes) || []
         };
     }
-    return null;
+    
+    // Return default structure if no data exists
+    return {
+        companies: masterCompanies ? JSON.parse(masterCompanies) : [],
+        users: masterUsers ? JSON.parse(masterUsers) : [],
+        accessCodes: masterAccessCodes ? JSON.parse(masterAccessCodes) : (localStorage.getItem('masterAccessCodes') ? JSON.parse(localStorage.getItem('masterAccessCodes')) : [])
+    };
 }
 
 // Initialize with master admin data if available
@@ -6622,7 +6645,7 @@ function openAIModal() {
     window.wasAdminModalOpen = wasAdminOpen;
     
     // Close admin dashboard first
-    closeAdminModal();
+        closeAdminModal();
     
     // Open AI modal
     document.getElementById('aiModal').style.display = 'block';
@@ -9513,13 +9536,13 @@ function showSignupModal() {
     console.log('showSignupModal called');
     const modal = document.getElementById('signupModal');
     if (modal) {
-    modal.classList.add('show');
+        modal.classList.add('show');
         console.log('Signup modal shown');
     
-    // Ensure event listeners are attached when modal is shown
-    setTimeout(() => {
-        setupSignupFormListeners();
-    }, 100);
+        // Ensure event listeners are attached when modal is shown
+        setTimeout(() => {
+            setupSignupFormListeners();
+        }, 100);
     } else {
         console.error('Signup modal element not found');
     }

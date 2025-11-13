@@ -703,6 +703,9 @@ function closeCreateCodeModal() {
 
 async function createAccessCode(event) {
     event.preventDefault();
+    event.stopPropagation();
+    
+    console.log('=== CREATE ACCESS CODE CALLED ===');
     
     const codeValue = document.getElementById('newAccessCode').value.trim();
     const descriptionValue = document.getElementById('codeDescription').value.trim();
@@ -729,48 +732,72 @@ async function createAccessCode(event) {
         status: 'active'
     };
     
-    console.log('Creating access code:', newCode);
+    console.log('1. Creating access code:', newCode);
+    console.log('2. Current accessCodes array before:', accessCodes.length, accessCodes);
     
     try {
-        const createdCode = await SupabaseDB.createAccessCode(newCode);
-        console.log('Created code from SupabaseDB:', createdCode);
+        // Get current codes from localStorage first
+        const currentLocalCodes = JSON.parse(localStorage.getItem('masterAccessCodes') || '[]');
+        console.log('3. Current localStorage codes:', currentLocalCodes.length, currentLocalCodes);
         
-        if (createdCode) {
-            // Normalize the code object for display (handle both formats)
-            const normalizedCode = {
-                id: createdCode.id || `code-${Date.now()}`,
-                code: createdCode.code,
-                description: createdCode.description || descriptionValue || 'Access Code',
-                createdDate: createdCode.created_date || createdCode.createdDate || newCode.created_date,
-                expiryDate: createdCode.expiry_date || createdCode.expiryDate || newCode.expiry_date,
-                maxCompanies: createdCode.max_companies || createdCode.maxCompanies || newCode.max_companies,
-                usedBy: createdCode.used_by || createdCode.usedBy || [],
-                status: createdCode.status || 'active'
-            };
-            
-            console.log('Normalized code:', normalizedCode);
-            
-            // Add to array
-            accessCodes.push(normalizedCode);
-            console.log('Access codes array length:', accessCodes.length);
-            
-            // Save to localStorage immediately
-            localStorage.setItem('masterAccessCodes', JSON.stringify(accessCodes));
-            console.log('Saved to localStorage:', JSON.parse(localStorage.getItem('masterAccessCodes')).length, 'codes');
-            
-            // Reload from localStorage to verify
-            const verifyCodes = JSON.parse(localStorage.getItem('masterAccessCodes') || '[]');
-            console.log('Verified localStorage has', verifyCodes.length, 'codes');
-            
-            displayAccessCodes();
-            closeCreateCodeModal();
-            showAlert('Access code created successfully!', 'success');
-        } else {
-            console.error('SupabaseDB.createAccessCode returned null');
+        const createdCode = await SupabaseDB.createAccessCode(newCode);
+        console.log('4. Created code from SupabaseDB:', createdCode);
+        
+        if (!createdCode) {
+            console.error('5. ERROR: SupabaseDB.createAccessCode returned null');
             showAlert('Failed to create access code. Please check the console for errors.', 'error');
+            return;
         }
+        
+        // Normalize the code object for display (handle both formats)
+        const normalizedCode = {
+            id: createdCode.id || `code-${Date.now()}`,
+            code: createdCode.code,
+            description: createdCode.description || descriptionValue || 'Access Code',
+            createdDate: createdCode.created_date || createdCode.createdDate || newCode.created_date,
+            expiryDate: createdCode.expiry_date || createdCode.expiryDate || newCode.expiry_date,
+            maxCompanies: createdCode.max_companies || createdCode.maxCompanies || newCode.max_companies,
+            usedBy: createdCode.used_by || createdCode.usedBy || [],
+            status: createdCode.status || 'active'
+        };
+        
+        console.log('5. Normalized code:', normalizedCode);
+        
+        // IMPORTANT: Load fresh data from localStorage before adding
+        const freshCodes = JSON.parse(localStorage.getItem('masterAccessCodes') || '[]');
+        console.log('6. Fresh codes from localStorage before add:', freshCodes.length);
+        
+        // Add to array
+        accessCodes.push(normalizedCode);
+        console.log('7. Access codes array after push:', accessCodes.length);
+        
+        // Save to localStorage with ALL codes
+        localStorage.setItem('masterAccessCodes', JSON.stringify(accessCodes));
+        console.log('8. Saved to localStorage');
+        
+        // Immediately verify save
+        const verifyCodes = JSON.parse(localStorage.getItem('masterAccessCodes') || '[]');
+        console.log('9. Verified localStorage has', verifyCodes.length, 'codes:', verifyCodes);
+        
+        if (verifyCodes.length === 0) {
+            console.error('10. CRITICAL ERROR: localStorage is empty after save!');
+            alert('ERROR: Code was not saved to localStorage! Check console.');
+        }
+        
+        // Force display update
+        displayAccessCodes();
+        
+        // Close modal
+        closeCreateCodeModal();
+        
+        // Show success
+        showAlert('Access code created successfully!', 'success');
+        
+        console.log('=== CREATE ACCESS CODE COMPLETE ===');
+        
     } catch (error) {
-        console.error('Error creating access code:', error);
+        console.error('ERROR in createAccessCode:', error);
+        console.error('Error stack:', error.stack);
         showAlert('Error creating access code: ' + error.message, 'error');
     }
 }
@@ -1276,10 +1303,18 @@ function listenForMainSiteUpdates() {
             updateStats();
         }
         
-        // Check if access codes have been updated
+        // Check if access codes have been updated (but don't overwrite if we just created one)
         const currentAccessCodes = JSON.parse(localStorage.getItem('masterAccessCodes') || '[]');
-        if (JSON.stringify(currentAccessCodes) !== JSON.stringify(accessCodes)) {
-            console.log('🔄 Access codes updated in localStorage, refreshing...');
+        // Only update if localStorage has MORE codes than our array (meaning another tab/window added one)
+        // Don't overwrite if our array is longer (we just added one)
+        if (currentAccessCodes.length > accessCodes.length) {
+            console.log('🔄 Access codes updated in localStorage (external update), refreshing...');
+            accessCodes = currentAccessCodes;
+            displayAccessCodes();
+            updateStats();
+        } else if (currentAccessCodes.length === accessCodes.length && JSON.stringify(currentAccessCodes) !== JSON.stringify(accessCodes)) {
+            // Same length but different content - might be an external update
+            console.log('🔄 Access codes content changed in localStorage, refreshing...');
             accessCodes = currentAccessCodes;
             displayAccessCodes();
             updateStats();

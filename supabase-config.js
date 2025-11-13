@@ -211,6 +211,24 @@ const SupabaseDB = {
     },
 
     async createAccessCode(accessCode) {
+        // Fallback to localStorage if Supabase not configured
+        if (!supabaseClient || SUPABASE_URL === 'YOUR_SUPABASE_URL') {
+            console.log('📦 Using localStorage fallback for access code creation');
+            const codes = JSON.parse(localStorage.getItem('masterAccessCodes') || '[]');
+            const newCode = {
+                id: `code-${Date.now()}`,
+                ...accessCode,
+                // Convert snake_case to camelCase for localStorage compatibility
+                createdDate: accessCode.created_date,
+                expiryDate: accessCode.expiry_date,
+                maxCompanies: accessCode.max_companies,
+                usedBy: accessCode.used_by || []
+            };
+            codes.push(newCode);
+            localStorage.setItem('masterAccessCodes', JSON.stringify(codes));
+            return newCode;
+        }
+        
         if (!supabaseClient) {
             await new Promise(resolve => setTimeout(resolve, 100));
             if (!supabaseClient) return null;

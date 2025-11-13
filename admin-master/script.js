@@ -98,41 +98,23 @@ function generateRandomPassword() {
     return password;
 }
 
-function initializeData() {
-    // Load existing data from localStorage or initialize empty arrays
-    const savedCompanies = localStorage.getItem('masterCompanies');
-    const savedAccessCodes = localStorage.getItem('masterAccessCodes');
-    const savedUsers = localStorage.getItem('masterUsers');
-    
-    console.log('Loading data from localStorage:');
-    console.log('savedCompanies:', savedCompanies);
-    console.log('savedAccessCodes:', savedAccessCodes);
-    console.log('savedUsers:', savedUsers);
-    
-    companies = savedCompanies ? JSON.parse(savedCompanies) : [];
-    accessCodes = savedAccessCodes ? JSON.parse(savedAccessCodes) : [];
-    users = savedUsers ? JSON.parse(savedUsers) : [];
-    
-    console.log('Parsed data:');
-    console.log('companies:', companies);
-    console.log('users:', users);
-    console.log('accessCodes:', accessCodes);
-    
-    // Only add default access codes if none exist
-    if (accessCodes.length === 0) {
-        accessCodes = [
-            {
-                id: 'code-default',
-                code: 'WELCOME123',
-                description: 'Welcome Access Code',
-                createdDate: new Date().toISOString().slice(0, 10),
-                expiryDate: null,
-                maxCompanies: 10,
-                usedBy: [],
-                status: 'active'
-            }
-        ];
-        localStorage.setItem('masterAccessCodes', JSON.stringify(accessCodes));
+async function initializeData() {
+    // Load existing data from Supabase
+    try {
+        companies = await SupabaseDB.getCompanies();
+        accessCodes = await SupabaseDB.getAccessCodes();
+        users = await SupabaseDB.getUsers();
+        
+        console.log('Loaded data from Supabase:');
+        console.log('companies:', companies.length);
+        console.log('users:', users.length);
+        console.log('accessCodes:', accessCodes.length);
+    } catch (error) {
+        console.error('Error loading data from Supabase:', error);
+        // Initialize empty arrays on error
+        companies = [];
+        accessCodes = [];
+        users = [];
     }
 }
 

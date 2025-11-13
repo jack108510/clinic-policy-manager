@@ -13,43 +13,30 @@ let organizations = loadFromLocalStorage('organizations', {
     'Default Company': ['Tudor Glen', 'River Valley', 'Rosslyn', 'UPC']
 });
 
-// User Management Data - Load from master admin data
-function loadMasterAdminData() {
-    const masterCompanies = localStorage.getItem('masterCompanies');
-    const masterUsers = localStorage.getItem('masterUsers');
-    const masterAccessCodes = localStorage.getItem('masterAccessCodes');
-    
-    // If no master data exists, initialize with default access code (same as admin-master)
-    if (!masterAccessCodes) {
-        const defaultAccessCodes = [
-            {
-                id: 'code-default',
-                code: 'WELCOME123',
-                description: 'Welcome Access Code',
-                createdDate: new Date().toISOString().slice(0, 10),
-                expiryDate: null,
-                maxCompanies: 10,
-                usedBy: [],
-                status: 'active'
-            }
-        ];
-        localStorage.setItem('masterAccessCodes', JSON.stringify(defaultAccessCodes));
-    }
-    
-    if (masterCompanies && masterUsers && masterAccessCodes) {
+// User Management Data - Load from Supabase
+async function loadMasterAdminData() {
+    try {
+        // Load data from Supabase
+        const [users, companies, accessCodes] = await Promise.all([
+            SupabaseDB.getUsers(),
+            SupabaseDB.getCompanies(),
+            SupabaseDB.getAccessCodes()
+        ]);
+        
         return {
-            companies: JSON.parse(masterCompanies) || [],
-            users: JSON.parse(masterUsers) || [],
-            accessCodes: JSON.parse(masterAccessCodes) || []
+            companies: companies || [],
+            users: users || [],
+            accessCodes: accessCodes || []
+        };
+    } catch (error) {
+        console.error('Error loading master admin data from Supabase:', error);
+        // Return empty structure on error
+        return {
+            companies: [],
+            users: [],
+            accessCodes: []
         };
     }
-    
-    // Return default structure if no data exists
-    return {
-        companies: masterCompanies ? JSON.parse(masterCompanies) : [],
-        users: masterUsers ? JSON.parse(masterUsers) : [],
-        accessCodes: masterAccessCodes ? JSON.parse(masterAccessCodes) : (localStorage.getItem('masterAccessCodes') ? JSON.parse(localStorage.getItem('masterAccessCodes')) : [])
-    };
 }
 
 // Initialize with master admin data if available
@@ -9581,7 +9568,7 @@ function closeLoginModal() {
     document.getElementById('loginForm').reset();
     document.getElementById('login-error-message').style.display = 'none';
 }
-function signupUser(event) {
+async function signupUser(event) {
     event.preventDefault();
     
     console.log('Signup form submitted');
@@ -9620,106 +9607,13 @@ function signupUser(event) {
     }
     console.log('Step 5: Field validation passed');
     
-    // Validate access code against master admin data
-    console.log('Step 6: Loading master admin data...');
-    const masterData = loadMasterAdminData();
-    console.log('Step 7: Master data loaded:', masterData);
-    console.log('Access codes available:', masterData.accessCodes);
-    console.log('Access code entered:', accessCode);
+    // Validate access code against Supabase
+    console.log('Step 6: Validating access code in Supabase...');
+    const foundAccessCode = await SupabaseDB.findAccessCodeByCode(accessCode);
     
-    // Log each access code for debugging
-    if (masterData.accessCodes && masterData.accessCodes.length > 0) {
-        masterData.accessCodes.forEach((code, index) => {
-            console.log(`Access code ${index + 1}:`, {
-                code: code.code,
-                status: code.status,
-                expiryDate: code.expiryDate,
-                usedBy: code.usedBy,
-                maxCompanies: code.maxCompanies,
-                description: code.description
-            });
-        });
-        
-        // Show available access codes for easy reference
-        const availableCodes = masterData.accessCodes.map(code => code.code).join(', ');
-        console.log('Available access codes:', availableCodes);
-    } else {
-        console.log('No access codes found in master data');
-    }
-    
-    console.log('Step 8: Starting access code validation...');
-    
-    let validAccessCode = false;
-    let foundAccessCode = null;
-    
-    if (masterData && masterData.accessCodes && masterData.accessCodes.length > 0) {
-        console.log('Step 9: Checking access codes...');
-        console.log('Starting access code validation...');
-        console.log('Looking for code:', accessCode);
-        
-        foundAccessCode = masterData.accessCodes.find(code => {
-            console.log(`Checking code: ${code.code}`);
-            console.log(`  - Code match: ${code.code === accessCode}`);
-            console.log(`  - Status active: ${code.status === 'active'}`);
-            console.log(`  - Not expired: ${!code.expiryDate || new Date(code.expiryDate) > new Date()}`);
-            console.log(`  - Code object:`, code);
-            
-            const isValid = code.code === accessCode && 
-                code.status === 'active' && 
-                (!code.expiryDate || new Date(code.expiryDate) > new Date());
-                
-            console.log(`  - Overall valid: ${isValid}`);
-            if (isValid) {
-                console.log('Found valid access code:', code);
-            }
-            return isValid;
-        });
-        
-        console.log('Step 10: Access code search completed. Found:', foundAccessCode);
-        validAccessCode = !!foundAccessCode;
-        
-        // Show why the access code wasn't found
-        if (!foundAccessCode) {
-            console.log('Access code validation failed. Checking each condition:');
-            masterData.accessCodes.forEach((code, index) => {
-                console.log(`Code ${index + 1} (${code.code}):`, {
-                    codeMatch: code.code === accessCode,
-                    statusActive: code.status === 'active',
-                    notExpired: !code.expiryDate || new Date(code.expiryDate) > new Date(),
-                    usedBy: code.usedBy
-                });
-            });
-        } else {
-            console.log('Access code found and validated successfully!');
-        }
-    } else {
-        console.log('Step 11: No master data or access codes found - access code required');
-        validAccessCode = false;
-    }
-    
-    console.log('Step 12: Access code validation result:', validAccessCode);
-    
-    if (!validAccessCode) {
-        console.log('Step 13: Access code validation failed, showing error');
-        // Check if master data is available
-        if (!masterData || !masterData.accessCodes || masterData.accessCodes.length === 0) {
-            showSignupError('No access codes are currently available. Please contact your administrator to create access codes in the Master Admin dashboard.');
-        } else {
-        // Check if the code exists but has issues
-        const existingCode = masterData.accessCodes.find(code => code.code === accessCode);
-        if (existingCode) {
-            if (existingCode.status !== 'active') {
-                showSignupError('Access code is not active. Please contact your administrator.');
-                } else if (existingCode.expiryDate && new Date(existingCode.expiryDate) <= new Date()) {
-                    showSignupError('Access code has expired. Please contact your administrator for a new code.');
-            } else {
-                showSignupError('Access code validation failed. Please check with your administrator.');
-            }
-        } else {
-            showSignupError('Invalid access code. Please check with your administrator for a valid code.');
-            }
-        }
-        // Reset button
+    if (!foundAccessCode) {
+        console.log('Step 7: Access code not found or invalid');
+        showSignupError('Invalid access code. Please check with your administrator for a valid code.');
         if (signupButton) {
             signupButton.textContent = 'Create Account';
             signupButton.disabled = false;
@@ -9727,87 +9621,62 @@ function signupUser(event) {
         return;
     }
     
-    console.log('Step 14: Access code validation passed, checking username/email...');
+    // Check if access code is expired
+    if (foundAccessCode.expiry_date && new Date(foundAccessCode.expiry_date) <= new Date()) {
+        console.log('Step 7: Access code expired');
+        showSignupError('Access code has expired. Please contact your administrator for a new code.');
+        if (signupButton) {
+            signupButton.textContent = 'Create Account';
+            signupButton.disabled = false;
+        }
+        return;
+    }
     
-    // Check if username already exists across all users
-    const allUsers = masterData ? masterData.users : users;
-    console.log('Step 15: Checking username uniqueness...');
+    console.log('Step 7: Access code validated successfully');
+    
+    // Check if username/email already exists
+    console.log('Step 8: Checking username/email uniqueness...');
+    const allUsers = await SupabaseDB.getUsers();
+    
     if (allUsers.find(user => user.username === username)) {
-        console.log('Step 16: Username already exists');
+        console.log('Step 9: Username already exists');
         showSignupError('Username already exists. Please choose a different username.');
-        // Reset button
         if (signupButton) {
             signupButton.textContent = 'Create Account';
             signupButton.disabled = false;
         }
         return;
     }
-    console.log('Step 17: Username is unique');
     
-    // Check if email already exists across all users
-    console.log('Step 18: Checking email uniqueness...');
     if (allUsers.find(user => user.email === email)) {
-        console.log('Step 19: Email already exists');
+        console.log('Step 9: Email already exists');
         showSignupError('Email already exists. Please use a different email.');
-        // Reset button
         if (signupButton) {
             signupButton.textContent = 'Create Account';
             signupButton.disabled = false;
         }
         return;
     }
-    console.log('Step 20: Email is unique');
     
-    // Create new user with company based on access code
-    console.log('Step 21: Creating user object...');
+    console.log('Step 9: Username and email are unique');
+    
+    // Create new user
+    console.log('Step 10: Creating user in Supabase...');
     const newUser = {
-        id: Date.now(),
         username: username,
         email: email,
-        password: password,
-        company: foundAccessCode ? foundAccessCode.description || 'CSI Company' : 'CSI Company',
+        password: password, // Note: In production, this should be hashed
+        company: foundAccessCode.description || 'Default Company',
         role: 'user',
-        accessCode: accessCode,
+        access_code: accessCode,
         created: new Date().toISOString().split('T')[0]
     };
     
-    console.log('Step 22: User object created:', newUser);
-    console.log('Creating user:', newUser);
-    console.log('masterData available:', !!masterData);
-    console.log('foundAccessCode:', !!foundAccessCode);
+    const createdUser = await SupabaseDB.createUser(newUser);
     
-    // Update master admin data if available
-    if (masterData && foundAccessCode) {
-        console.log('Step 23: Updating master admin data...');
-        // Update the access code usage
-        foundAccessCode.usedBy.push(newUser.company);
-        localStorage.setItem('masterAccessCodes', JSON.stringify(masterData.accessCodes));
-        
-        // Add user to master users list
-        masterData.users.push(newUser);
-        localStorage.setItem('masterUsers', JSON.stringify(masterData.users));
-        
-        // Also add to local users list for consistency
-        users.push(newUser);
-        saveToLocalStorage('users', users);
-        
-        // Dispatch event to notify admin-master of the new user
-        console.log('Step 24: Dispatching masterDataUpdated event...');
-        window.dispatchEvent(new CustomEvent('masterDataUpdated', {
-            detail: {
-                users: masterData.users,
-                companies: masterData.companies,
-                accessCodes: masterData.accessCodes
-            }
-        }));
-        console.log('Step 25: Event dispatched successfully');
-    } else {
-        console.log('Step 26: No valid access code - user creation not allowed');
-        // No valid access code - user creation not allowed
-        console.log('User creation blocked - no valid access code provided');
-        showSignupError('A valid access code is required to create an account. Please contact your administrator.');
-        
-        // Reset button
+    if (!createdUser) {
+        console.log('Step 11: Failed to create user');
+        showSignupError('Failed to create account. Please try again.');
         if (signupButton) {
             signupButton.textContent = 'Create Account';
             signupButton.disabled = false;
@@ -9815,56 +9684,50 @@ function signupUser(event) {
         return;
     }
     
-    // Commented out welcome email - only sending new policy notifications for now
-    // console.log('Step 27: Sending welcome email...');
-    // sendWelcomeEmail(newUser);
+    console.log('Step 11: User created successfully');
     
-    console.log('Step 27: Auto-logging in user...');
+    // Update access code usage
+    const usedBy = foundAccessCode.used_by || [];
+    usedBy.push(newUser.company);
+    await SupabaseDB.updateAccessCode(foundAccessCode.id, { used_by: usedBy });
+    
+    console.log('Step 12: Access code updated');
+    
     // Auto-login the new user
-    currentUser = newUser;
-    currentCompany = newUser.company;
+    console.log('Step 13: Auto-logging in user...');
+    currentUser = createdUser;
+    currentCompany = createdUser.company;
     saveToLocalStorage('currentUser', currentUser);
     saveToLocalStorage('currentCompany', currentCompany);
     
-    console.log('Step 28: User saved to localStorage:', {
-        users: users.length,
-        currentUser: currentUser.username,
-        currentCompany: currentCompany
-    });
+    // Refresh users list
+    users = await SupabaseDB.getUsers();
+    if (currentCompany) {
+        users = users.filter(user => user.company === currentCompany);
+    }
     
-    console.log('Step 29: Updating UI...');
+    // Add user-logged-in class to body
+    document.body.classList.add('user-logged-in');
+    
     // Update UI
     updateUserInterface();
     closeSignupModal();
     
-    console.log('Step 30: Resetting signup button...');
-    // Reset signup button
+    // Show success message
+    showSuccessMessage('Account created successfully! Welcome to Policy Pro!');
+    
+    // Load policies from storage
+    if (currentCompany) {
+        loadPoliciesFromStorage();
+    }
+    
+    // Reset button
     if (signupButton) {
         signupButton.textContent = 'Create Account';
         signupButton.disabled = false;
     }
     
-    console.log('Step 31: Loading policies...');
-    // Load policies from storage after successful signup
-    if (currentCompany) {
-        loadPoliciesFromStorage();
-    }
-    
-    console.log('Step 32: Showing success message...');
-    
-    // Add user-logged-in class to body
-    document.body.classList.add('user-logged-in');
-    
-    // Hide welcome modal
-    const welcomeModal = document.getElementById('welcomeModal');
-    if (welcomeModal) {
-        welcomeModal.style.display = 'none';
-    }
-    
-    // Show success message
-    showNotification('Account created successfully! You are now logged in.', 'success');
-    
-    console.log('Step 33: Signup process completed successfully!');
+    console.log('Step 14: Signup process completed successfully!');
     
     } catch (error) {
         console.error('Error during signup:', error);
@@ -10018,7 +9881,7 @@ function truncateText(text, maxLength) {
     return text.substring(0, maxLength) + '...';
 }
 
-function loginUser(event) {
+async function loginUser(event) {
     event.preventDefault();
     
     // Show loading state on button
@@ -10058,13 +9921,8 @@ function loginUser(event) {
         // Find user by username/email and password
         console.log('Looking for user:', { username, password: '***' });
         
-        // Load all users from masterUsers (from localStorage) to include all users across all companies
-        let allUsers = JSON.parse(localStorage.getItem('masterUsers') || '[]');
-        
-        // If no master users, also check local users as fallback
-        if (allUsers.length === 0) {
-            allUsers = loadFromLocalStorage('users', []);
-        }
+        // Load all users from Supabase
+        const allUsers = await SupabaseDB.getUsers();
         
         console.log('Available users:', allUsers.map(u => ({ username: u.username, email: u.email, hasPassword: !!u.password })));
         

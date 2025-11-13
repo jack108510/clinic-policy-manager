@@ -10776,13 +10776,18 @@ function updateUserInterface() {
 }
 
 function filterPoliciesByCompany() {
-    if (currentCompany) {
-        const companyPolicies = currentPolicies.filter(policy => 
-            policy.company === currentCompany || !policy.company
-        );
-        displayPolicies(companyPolicies);
-    } else {
-        displayPolicies(currentPolicies);
+    try {
+        if (currentCompany) {
+            const companyPolicies = currentPolicies.filter(policy => 
+                policy.company === currentCompany || !policy.company
+            );
+            displayPolicies(companyPolicies);
+        } else {
+            displayPolicies(currentPolicies);
+        }
+    } catch (error) {
+        console.warn('Error filtering policies by company (non-critical):', error);
+        // Don't throw - this is not critical for signup
     }
 }
 

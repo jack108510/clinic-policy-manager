@@ -110,6 +110,10 @@ function generateRandomPassword() {
 async function initializeData() {
     console.log('=== INITIALIZE DATA START ===');
     
+    // FIRST: Check localStorage immediately (synchronous) - this is critical!
+    const localCodes = JSON.parse(localStorage.getItem('masterAccessCodes') || '[]');
+    console.log('📦 localStorage codes (immediate check):', localCodes.length, localCodes);
+    
     // Load existing data from Supabase
     try {
         companies = await SupabaseDB.getCompanies();
@@ -119,19 +123,19 @@ async function initializeData() {
         console.log('Raw access codes from SupabaseDB:', rawAccessCodes);
         console.log('Raw access codes count:', rawAccessCodes.length);
         
-        // Check localStorage as well
-        const localCodes = JSON.parse(localStorage.getItem('masterAccessCodes') || '[]');
-        console.log('localStorage codes:', localCodes.length, localCodes);
+        // Re-check localStorage after async operations
+        const localCodesAfterAsync = JSON.parse(localStorage.getItem('masterAccessCodes') || '[]');
+        console.log('📦 localStorage codes (after async):', localCodesAfterAsync.length, localCodesAfterAsync);
         
         // Use localStorage codes if Supabase returned empty but localStorage has codes
         let codesToUse = rawAccessCodes;
-        if (rawAccessCodes.length === 0 && localCodes.length > 0) {
+        if (rawAccessCodes.length === 0 && localCodesAfterAsync.length > 0) {
             console.log('⚠️ Supabase returned empty, using localStorage codes');
-            codesToUse = localCodes;
-        } else if (rawAccessCodes.length > 0 && localCodes.length > 0) {
+            codesToUse = localCodesAfterAsync;
+        } else if (rawAccessCodes.length > 0 && localCodesAfterAsync.length > 0) {
             // Merge both sources, preferring Supabase but keeping localStorage extras
             const supabaseCodesMap = new Map(rawAccessCodes.map(c => [c.code || c.id, c]));
-            localCodes.forEach(localCode => {
+            localCodesAfterAsync.forEach(localCode => {
                 const codeKey = localCode.code || localCode.id;
                 if (!supabaseCodesMap.has(codeKey)) {
                     console.log('Adding localStorage code not in Supabase:', codeKey);
@@ -165,19 +169,24 @@ async function initializeData() {
         console.error('❌ Error loading data from Supabase:', error);
         // Try to load from localStorage as fallback
         try {
-            const localCodes = JSON.parse(localStorage.getItem('masterAccessCodes') || '[]');
-            console.log('📦 Loading from localStorage fallback:', localCodes.length, 'codes');
-            accessCodes = localCodes.map(code => ({
-                id: code.id || `code-${Date.now()}-${Math.random()}`,
-                code: code.code || '',
-                description: code.description || '',
-                createdDate: code.createdDate || code.created_date || new Date().toISOString().slice(0, 10),
-                expiryDate: code.expiryDate || code.expiry_date || null,
-                maxCompanies: code.maxCompanies || code.max_companies || 10,
-                usedBy: code.usedBy || code.used_by || [],
-                status: code.status || 'active'
-            }));
-            console.log('✅ Loaded from localStorage:', accessCodes.length, 'codes');
+            const localCodesFallback = JSON.parse(localStorage.getItem('masterAccessCodes') || '[]');
+            console.log('📦 Loading from localStorage fallback:', localCodesFallback.length, 'codes');
+            if (localCodesFallback.length > 0) {
+                accessCodes = localCodesFallback.map(code => ({
+                    id: code.id || `code-${Date.now()}-${Math.random()}`,
+                    code: code.code || '',
+                    description: code.description || '',
+                    createdDate: code.createdDate || code.created_date || new Date().toISOString().slice(0, 10),
+                    expiryDate: code.expiryDate || code.expiry_date || null,
+                    maxCompanies: code.maxCompanies || code.max_companies || 10,
+                    usedBy: code.usedBy || code.used_by || [],
+                    status: code.status || 'active'
+                }));
+                console.log('✅ Loaded from localStorage:', accessCodes.length, 'codes');
+            } else {
+                console.log('⚠️ localStorage is also empty');
+                accessCodes = [];
+            }
         } catch (localError) {
             console.error('❌ Error loading from localStorage:', localError);
             accessCodes = [];
@@ -189,6 +198,10 @@ async function initializeData() {
     
     console.log('=== INITIALIZE DATA COMPLETE ===');
     console.log('Final accessCodes array:', accessCodes.length, accessCodes);
+    
+    // Verify localStorage one more time
+    const finalCheck = JSON.parse(localStorage.getItem('masterAccessCodes') || '[]');
+    console.log('🔍 Final localStorage check:', finalCheck.length, 'codes');
 }
 
 // Navigation Setup

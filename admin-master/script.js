@@ -105,28 +105,51 @@ async function initializeData() {
         const rawAccessCodes = await SupabaseDB.getAccessCodes();
         users = await SupabaseDB.getUsers();
         
+        console.log('Raw access codes from SupabaseDB:', rawAccessCodes);
+        
         // Normalize access codes to camelCase for display
         accessCodes = rawAccessCodes.map(code => ({
-            id: code.id,
-            code: code.code,
+            id: code.id || `code-${Date.now()}`,
+            code: code.code || '',
             description: code.description || '',
-            createdDate: code.created_date || code.createdDate,
-            expiryDate: code.expiry_date || code.expiryDate,
+            createdDate: code.created_date || code.createdDate || new Date().toISOString().slice(0, 10),
+            expiryDate: code.expiry_date || code.expiryDate || null,
             maxCompanies: code.max_companies || code.maxCompanies || 10,
             usedBy: code.used_by || code.usedBy || [],
             status: code.status || 'active'
         }));
         
+        // Also save normalized version to localStorage
+        localStorage.setItem('masterAccessCodes', JSON.stringify(accessCodes));
+        
         console.log('Loaded data from Supabase:');
         console.log('companies:', companies.length);
         console.log('users:', users.length);
         console.log('accessCodes:', accessCodes.length);
+        console.log('Normalized access codes:', accessCodes);
     } catch (error) {
         console.error('Error loading data from Supabase:', error);
+        // Try to load from localStorage as fallback
+        try {
+            const localCodes = JSON.parse(localStorage.getItem('masterAccessCodes') || '[]');
+            console.log('Loading from localStorage fallback:', localCodes.length, 'codes');
+            accessCodes = localCodes.map(code => ({
+                id: code.id || `code-${Date.now()}`,
+                code: code.code || '',
+                description: code.description || '',
+                createdDate: code.createdDate || code.created_date || new Date().toISOString().slice(0, 10),
+                expiryDate: code.expiryDate || code.expiry_date || null,
+                maxCompanies: code.maxCompanies || code.max_companies || 10,
+                usedBy: code.usedBy || code.used_by || [],
+                status: code.status || 'active'
+            }));
+        } catch (localError) {
+            console.error('Error loading from localStorage:', localError);
+            accessCodes = [];
+        }
         // Initialize empty arrays on error
-        companies = [];
-        accessCodes = [];
-        users = [];
+        companies = companies || [];
+        users = users || [];
     }
 }
 
@@ -474,29 +497,54 @@ function deleteUser(userId) {
 
 function displayAccessCodes() {
     const codesList = document.getElementById('accessCodesList');
+    if (!codesList) {
+        console.error('accessCodesList element not found');
+        return;
+    }
+    
+    console.log('Displaying access codes. Array length:', accessCodes.length);
+    console.log('Access codes:', accessCodes);
+    
     codesList.innerHTML = '';
     
+    if (accessCodes.length === 0) {
+        codesList.innerHTML = '<div class="no-data">No access codes created yet. Click "Create Code" to add one.</div>';
+        return;
+    }
+    
     accessCodes.forEach(code => {
+        // Handle both camelCase and snake_case formats
+        const codeId = code.id || `code-${Date.now()}`;
+        const codeValue = code.code || '';
+        const codeStatus = code.status || 'active';
+        const codeDescription = code.description || '';
+        const createdDate = code.createdDate || code.created_date || new Date().toISOString().slice(0, 10);
+        const expiryDate = code.expiryDate || code.expiry_date || null;
+        const maxCompanies = code.maxCompanies || code.max_companies || 10;
+        const usedBy = code.usedBy || code.used_by || [];
+        
         const codeCard = document.createElement('div');
         codeCard.className = 'code-card';
         codeCard.innerHTML = `
             <div class="code-header">
-                <span class="code-value">${code.code}</span>
-                <span class="status-badge status-${code.status}">${code.status}</span>
+                <span class="code-value">${codeValue}</span>
+                <span class="status-badge status-${codeStatus}">${codeStatus}</span>
             </div>
-            <div class="code-description">${code.description}</div>
+            <div class="code-description">${codeDescription}</div>
             <div class="code-stats">
-                <span>Created: ${formatDate(code.createdDate)}</span>
-                <span>Used by: ${code.usedBy.length}/${code.maxCompanies} companies</span>
-                ${code.expiryDate ? `<span>Expires: ${formatDate(code.expiryDate)}</span>` : ''}
+                <span>Created: ${formatDate(createdDate)}</span>
+                <span>Used by: ${usedBy.length}/${maxCompanies} companies</span>
+                ${expiryDate ? `<span>Expires: ${formatDate(expiryDate)}</span>` : ''}
             </div>
             <div class="code-actions">
-                <button onclick="editAccessCode('${code.id}')" class="btn btn-small btn-primary">Edit</button>
-                <button onclick="deleteAccessCode('${code.id}')" class="btn btn-small btn-danger">Delete</button>
+                <button onclick="editAccessCode('${codeId}')" class="btn btn-small btn-primary">Edit</button>
+                <button onclick="deleteAccessCode('${codeId}')" class="btn btn-small btn-danger">Delete</button>
             </div>
         `;
         codesList.appendChild(codeCard);
     });
+    
+    console.log('Displayed', accessCodes.length, 'access codes');
 }
 
 // Company Actions
@@ -664,6 +712,13 @@ async function createAccessCode(event) {
         return;
     }
     
+    // Check if code already exists
+    const existingCode = accessCodes.find(c => c.code === codeValue);
+    if (existingCode) {
+        showAlert('This access code already exists. Please use a different code.', 'error');
+        return;
+    }
+    
     const newCode = {
         code: codeValue,
         description: descriptionValue || 'Access Code',
@@ -674,31 +729,44 @@ async function createAccessCode(event) {
         status: 'active'
     };
     
+    console.log('Creating access code:', newCode);
+    
     try {
         const createdCode = await SupabaseDB.createAccessCode(newCode);
+        console.log('Created code from SupabaseDB:', createdCode);
         
         if (createdCode) {
-            // Normalize the code object for display
+            // Normalize the code object for display (handle both formats)
             const normalizedCode = {
                 id: createdCode.id || `code-${Date.now()}`,
                 code: createdCode.code,
-                description: createdCode.description,
-                createdDate: createdCode.created_date || createdCode.createdDate,
-                expiryDate: createdCode.expiry_date || createdCode.expiryDate,
-                maxCompanies: createdCode.max_companies || createdCode.maxCompanies,
+                description: createdCode.description || descriptionValue || 'Access Code',
+                createdDate: createdCode.created_date || createdCode.createdDate || newCode.created_date,
+                expiryDate: createdCode.expiry_date || createdCode.expiryDate || newCode.expiry_date,
+                maxCompanies: createdCode.max_companies || createdCode.maxCompanies || newCode.max_companies,
                 usedBy: createdCode.used_by || createdCode.usedBy || [],
                 status: createdCode.status || 'active'
             };
             
-            accessCodes.push(normalizedCode);
+            console.log('Normalized code:', normalizedCode);
             
-            // Also save to localStorage for consistency (in case Supabase isn't configured)
+            // Add to array
+            accessCodes.push(normalizedCode);
+            console.log('Access codes array length:', accessCodes.length);
+            
+            // Save to localStorage immediately
             localStorage.setItem('masterAccessCodes', JSON.stringify(accessCodes));
+            console.log('Saved to localStorage:', JSON.parse(localStorage.getItem('masterAccessCodes')).length, 'codes');
+            
+            // Reload from localStorage to verify
+            const verifyCodes = JSON.parse(localStorage.getItem('masterAccessCodes') || '[]');
+            console.log('Verified localStorage has', verifyCodes.length, 'codes');
             
             displayAccessCodes();
             closeCreateCodeModal();
             showAlert('Access code created successfully!', 'success');
         } else {
+            console.error('SupabaseDB.createAccessCode returned null');
             showAlert('Failed to create access code. Please check the console for errors.', 'error');
         }
     } catch (error) {

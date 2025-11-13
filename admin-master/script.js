@@ -135,19 +135,23 @@ async function initializeData() {
     try {
         companies = await SupabaseDB.getCompanies();
         const rawAccessCodes = await SupabaseDB.getAccessCodes();
-        users = await SupabaseDB.getUsers();
+        const rawUsers = await SupabaseDB.getUsers();
         
         console.log('Raw access codes from SupabaseDB:', rawAccessCodes);
         console.log('Raw access codes count:', rawAccessCodes.length);
+        console.log('Raw users from SupabaseDB:', rawUsers);
+        console.log('Raw users count:', rawUsers.length);
         
         // Re-check localStorage after async operations
         const localCodesAfterAsync = JSON.parse(localStorage.getItem('masterAccessCodes') || '[]');
+        const localUsersAfterAsync = JSON.parse(localStorage.getItem('masterUsers') || '[]');
         console.log('📦 localStorage codes (after async):', localCodesAfterAsync.length, localCodesAfterAsync);
+        console.log('📦 localStorage users (after async):', localUsersAfterAsync.length, localUsersAfterAsync);
         
         // Use localStorage codes if Supabase returned empty but localStorage has codes
         let codesToUse = rawAccessCodes;
         if (rawAccessCodes.length === 0 && localCodesAfterAsync.length > 0) {
-            console.log('⚠️ Supabase returned empty, using localStorage codes');
+            console.log('⚠️ Supabase returned empty codes, using localStorage codes');
             codesToUse = localCodesAfterAsync;
         } else if (rawAccessCodes.length > 0 && localCodesAfterAsync.length > 0) {
             // Merge both sources, preferring Supabase but keeping localStorage extras
@@ -157,6 +161,23 @@ async function initializeData() {
                 if (!supabaseCodesMap.has(codeKey)) {
                     console.log('Adding localStorage code not in Supabase:', codeKey);
                     codesToUse.push(localCode);
+                }
+            });
+        }
+        
+        // Merge users from both sources
+        let usersToUse = rawUsers;
+        if (rawUsers.length === 0 && localUsersAfterAsync.length > 0) {
+            console.log('⚠️ Supabase returned empty users, using localStorage users');
+            usersToUse = localUsersAfterAsync;
+        } else if (rawUsers.length > 0 && localUsersAfterAsync.length > 0) {
+            // Merge both sources, preferring Supabase but keeping localStorage extras
+            const supabaseUsersMap = new Map(rawUsers.map(u => [u.id || u.username || u.email, u]));
+            localUsersAfterAsync.forEach(localUser => {
+                const userKey = localUser.id || localUser.username || localUser.email;
+                if (!supabaseUsersMap.has(userKey)) {
+                    console.log('Adding localStorage user not in Supabase:', userKey);
+                    usersToUse.push(localUser);
                 }
             });
         }
@@ -173,15 +194,32 @@ async function initializeData() {
             status: code.status || 'active'
         }));
         
+        // Normalize users for display
+        users = usersToUse.map(user => ({
+            id: user.id || `user-${Date.now()}-${Math.random()}`,
+            username: user.username || '',
+            email: user.email || '',
+            company: user.company || '',
+            role: user.role || 'user',
+            created: user.created || user.created_at || user.createdDate || new Date().toISOString().split('T')[0],
+            lastLogin: user.lastLogin || user.last_login_at || user.lastLoginDate || null,
+            status: user.status || 'active',
+            access_code: user.access_code || user.accessCode || null,
+            password: user.password || null // Keep password for reference but don't display
+        }));
+        
         // Always save normalized version to localStorage
         localStorage.setItem('masterAccessCodes', JSON.stringify(accessCodes));
+        localStorage.setItem('masterUsers', JSON.stringify(users));
         console.log('✅ Saved normalized codes to localStorage:', accessCodes.length);
+        console.log('✅ Saved normalized users to localStorage:', users.length);
         
         console.log('Loaded data:');
         console.log('companies:', companies.length);
         console.log('users:', users.length);
         console.log('accessCodes:', accessCodes.length);
         console.log('Normalized access codes:', accessCodes);
+        console.log('Normalized users:', users);
     } catch (error) {
         console.error('❌ Error loading data from Supabase:', error);
         // Try to load from localStorage as fallback

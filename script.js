@@ -9867,13 +9867,34 @@ async function signupUser(event) {
     
     console.log('Step 10c: User object to create:', { ...newUser, password: '***' });
     
-    const createdUser = await SupabaseDB.createUser(newUser);
-    
-    console.log('Step 10d: createUser result:', createdUser);
-    
-    if (!createdUser) {
-        console.error('Step 11: Failed to create user - createUser returned null');
-        showSignupError('Failed to create account. Please check the console for details.', errorField);
+    try {
+        const createdUser = await SupabaseDB.createUser(newUser);
+        
+        console.log('Step 10d: createUser result:', createdUser);
+        console.log('Step 10e: createdUser type:', typeof createdUser);
+        console.log('Step 10f: createdUser is null?', createdUser === null);
+        console.log('Step 10g: createdUser is undefined?', createdUser === undefined);
+        
+        if (!createdUser) {
+            console.error('Step 11: Failed to create user - createUser returned null/undefined');
+            console.error('Step 11a: Checking localStorage...');
+            const checkUsers = JSON.parse(localStorage.getItem('masterUsers') || '[]');
+            console.error('Step 11b: Users in localStorage:', checkUsers.length);
+            showSignupError('Failed to create account. Please check the console for details.', errorField);
+            if (signupButton) {
+                signupButton.textContent = 'Create Account';
+                signupButton.disabled = false;
+            }
+            return;
+        }
+        
+        // Continue with createdUser...
+        var createdUserFinal = createdUser;
+    } catch (createError) {
+        console.error('Step 11: Exception in createUser:', createError);
+        console.error('Step 11a: Error message:', createError.message);
+        console.error('Step 11b: Error stack:', createError.stack);
+        showSignupError('Error creating account: ' + createError.message, errorField);
         if (signupButton) {
             signupButton.textContent = 'Create Account';
             signupButton.disabled = false;
@@ -9882,6 +9903,7 @@ async function signupUser(event) {
     }
     
     console.log('Step 11: User created successfully');
+    console.log('Step 11a: Created user object:', createdUserFinal);
     
     // Update access code usage
     console.log('Step 12: Updating access code usage...');
@@ -9902,8 +9924,8 @@ async function signupUser(event) {
     
     // Auto-login the new user
     console.log('Step 13: Auto-logging in user...');
-    currentUser = createdUser;
-    currentCompany = createdUser.company;
+    currentUser = createdUserFinal;
+    currentCompany = createdUserFinal.company || newUser.company;
     saveToLocalStorage('currentUser', currentUser);
     saveToLocalStorage('currentCompany', currentCompany);
     

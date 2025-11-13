@@ -63,25 +63,50 @@ const SupabaseDB = {
     },
 
     async createUser(user) {
+        console.log('🔵 createUser called with:', { ...user, password: '***' });
+        console.log('🔵 supabaseClient:', !!supabaseClient);
+        console.log('🔵 SUPABASE_URL:', SUPABASE_URL);
+        
         // Fallback to localStorage if Supabase not configured
         if (!supabaseClient || SUPABASE_URL === 'YOUR_SUPABASE_URL') {
             console.log('📦 Using localStorage fallback for user creation');
-            const users = JSON.parse(localStorage.getItem('masterUsers') || '[]');
-            const newUser = {
-                id: `user-${Date.now()}`,
-                ...user,
-                created_at: user.created || user.created_at || new Date().toISOString(),
-                last_login_at: null
-            };
-            users.push(newUser);
-            localStorage.setItem('masterUsers', JSON.stringify(users));
-            console.log('✅ User created in localStorage:', newUser);
-            return newUser;
+            try {
+                const users = JSON.parse(localStorage.getItem('masterUsers') || '[]');
+                console.log('📦 Current users in localStorage:', users.length);
+                
+                const newUser = {
+                    id: `user-${Date.now()}`,
+                    ...user,
+                    created_at: user.created || user.created_at || new Date().toISOString(),
+                    last_login_at: null,
+                    fullName: user.fullName || user.full_name || '',
+                    status: user.status || 'active'
+                };
+                
+                console.log('📦 New user object:', { ...newUser, password: '***' });
+                
+                users.push(newUser);
+                localStorage.setItem('masterUsers', JSON.stringify(users));
+                
+                // Verify save
+                const verifyUsers = JSON.parse(localStorage.getItem('masterUsers') || '[]');
+                console.log('📦 Verified users in localStorage:', verifyUsers.length);
+                
+                console.log('✅ User created in localStorage:', newUser);
+                return newUser;
+            } catch (error) {
+                console.error('❌ Error in localStorage fallback:', error);
+                console.error('❌ Error stack:', error.stack);
+                return null;
+            }
         }
         
         if (!supabaseClient) {
             await new Promise(resolve => setTimeout(resolve, 100));
-            if (!supabaseClient) return null;
+            if (!supabaseClient) {
+                console.error('❌ supabaseClient still null after wait');
+                return null;
+            }
         }
         const { data, error } = await supabaseClient
             .from('users')

@@ -19,18 +19,30 @@ let analytics = {
 document.addEventListener('DOMContentLoaded', function() {
     console.log('Initializing Modern Master Admin Dashboard...');
     
-    // Initialize with sample data
-    initializeData();
-    
-    // Setup navigation
-    setupNavigation();
-    
-    // Load and display data
-    updateStats();
-    displayCompanies();
-    displayUsers();
-    displayAccessCodes();
-    loadActivityFeed();
+    // Initialize with sample data - MUST await this before displaying
+    initializeData().then(() => {
+        console.log('✅ Data initialization complete, displaying...');
+        // Setup navigation
+        setupNavigation();
+        
+        // Load and display data AFTER initialization completes
+        updateStats();
+        displayCompanies();
+        displayUsers();
+        displayAccessCodes();
+        loadActivityFeed();
+        
+        // Sync data to main site
+        syncToMainSite();
+    }).catch(error => {
+        console.error('❌ Error initializing data:', error);
+        // Still try to display what we have
+        setupNavigation();
+        updateStats();
+        displayCompanies();
+        displayUsers();
+        displayAccessCodes();
+    });
     
     // Add test button for debugging
     addTestButton();
@@ -39,9 +51,6 @@ document.addEventListener('DOMContentLoaded', function() {
     setTimeout(() => {
         initializeCharts();
     }, 1000);
-    
-    // Sync data to main site
-    syncToMainSite();
     
     // Add event listeners for modals
     document.getElementById('companyPasswordForm').addEventListener('submit', updateCompanyPassword);

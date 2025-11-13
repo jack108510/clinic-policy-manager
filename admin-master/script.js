@@ -641,29 +641,29 @@ function closeCreateCodeModal() {
     document.getElementById('createCodeForm').reset();
 }
 
-function createAccessCode(event) {
+async function createAccessCode(event) {
     event.preventDefault();
     
     const newCode = {
-        id: `code-${Date.now()}`,
         code: document.getElementById('newAccessCode').value,
         description: document.getElementById('codeDescription').value,
-        createdDate: new Date().toISOString().slice(0, 10),
-        expiryDate: document.getElementById('codeExpiry').value || null,
-        maxCompanies: parseInt(document.getElementById('maxCompanies').value),
-        usedBy: [],
+        created_date: new Date().toISOString().slice(0, 10),
+        expiry_date: document.getElementById('codeExpiry').value || null,
+        max_companies: parseInt(document.getElementById('maxCompanies').value) || 10,
+        used_by: [],
         status: 'active'
     };
     
-    accessCodes.push(newCode);
-    localStorage.setItem('masterAccessCodes', JSON.stringify(accessCodes));
-    displayAccessCodes();
-    closeCreateCodeModal();
+    const createdCode = await SupabaseDB.createAccessCode(newCode);
     
-    // Sync data to main site
-    syncToMainSite();
-    
-    showAlert('Access code created successfully!', 'success');
+    if (createdCode) {
+        accessCodes.push(createdCode);
+        displayAccessCodes();
+        closeCreateCodeModal();
+        showAlert('Access code created successfully!', 'success');
+    } else {
+        showAlert('Failed to create access code. Please try again.', 'error');
+    }
 }
 
 function deleteAccessCode(codeId) {

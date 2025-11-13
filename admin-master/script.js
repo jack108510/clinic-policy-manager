@@ -111,8 +111,25 @@ async function initializeData() {
     console.log('=== INITIALIZE DATA START ===');
     
     // FIRST: Check localStorage immediately (synchronous) - this is critical!
-    const localCodes = JSON.parse(localStorage.getItem('masterAccessCodes') || '[]');
+    const rawLocalStorage = localStorage.getItem('masterAccessCodes');
+    console.log('📦 Raw localStorage value:', rawLocalStorage);
+    const localCodes = rawLocalStorage ? JSON.parse(rawLocalStorage) : [];
     console.log('📦 localStorage codes (immediate check):', localCodes.length, localCodes);
+    
+    // Test if localStorage is working
+    try {
+        const testKey = 'test_' + Date.now();
+        localStorage.setItem(testKey, 'test');
+        const testValue = localStorage.getItem(testKey);
+        localStorage.removeItem(testKey);
+        if (testValue !== 'test') {
+            console.error('❌ localStorage test FAILED - localStorage may be disabled!');
+        } else {
+            console.log('✅ localStorage test PASSED');
+        }
+    } catch (e) {
+        console.error('❌ localStorage test ERROR:', e);
+    }
     
     // Load existing data from Supabase
     try {
@@ -822,9 +839,32 @@ async function createAccessCode(event) {
         accessCodes.push(normalizedCode);
         console.log('7. Access codes array after push:', accessCodes.length);
         
-        // Save to localStorage with ALL codes
-        localStorage.setItem('masterAccessCodes', JSON.stringify(accessCodes));
-        console.log('8. Saved to localStorage');
+        // CRITICAL: Save to localStorage with the FULL array
+        try {
+            const codesToSave = JSON.stringify(accessCodes);
+            console.log('8. About to save to localStorage:', codesToSave);
+            localStorage.setItem('masterAccessCodes', codesToSave);
+            console.log('8a. localStorage.setItem called');
+            
+            // Test localStorage immediately
+            const testRead = localStorage.getItem('masterAccessCodes');
+            console.log('8b. Immediate test read:', testRead ? 'SUCCESS' : 'FAILED');
+            
+            if (!testRead) {
+                console.error('8c. CRITICAL: localStorage.getItem returned null immediately after setItem!');
+                alert('CRITICAL ERROR: localStorage is not working! Check browser settings.');
+                return;
+            }
+            
+            // Parse and verify
+            const parsedTest = JSON.parse(testRead);
+            console.log('8d. Parsed test:', parsedTest.length, 'codes');
+            
+        } catch (saveError) {
+            console.error('8e. ERROR saving to localStorage:', saveError);
+            alert('ERROR saving to localStorage: ' + saveError.message);
+            return;
+        }
         
         // Immediately verify save
         const verifyCodes = JSON.parse(localStorage.getItem('masterAccessCodes') || '[]');
@@ -832,7 +872,10 @@ async function createAccessCode(event) {
         
         if (verifyCodes.length === 0) {
             console.error('10. CRITICAL ERROR: localStorage is empty after save!');
-            alert('ERROR: Code was not saved to localStorage! Check console.');
+            console.error('10a. localStorage.getItem result:', localStorage.getItem('masterAccessCodes'));
+            alert('ERROR: Code was not saved to localStorage! Check console. localStorage might be disabled.');
+        } else if (verifyCodes.length !== accessCodes.length) {
+            console.error('10b. WARNING: localStorage count mismatch! Expected:', accessCodes.length, 'Got:', verifyCodes.length);
         }
         
         // Force display update

@@ -47,6 +47,112 @@ let conversationHistory = []; // Store full conversation history for AI context
 let currentUser = loadFromLocalStorage('currentUser', null);
 let currentCompany = loadFromLocalStorage('currentCompany', null);
 
+// Homepage button functions - Define early and attach to window for immediate access
+function showSignupModal() {
+    console.log('showSignupModal called');
+    const modal = document.getElementById('signupModal');
+    if (modal) {
+        modal.classList.add('show');
+        modal.style.display = 'flex !important';
+        modal.style.visibility = 'visible !important';
+        modal.style.opacity = '1 !important';
+        modal.style.zIndex = '10000 !important';
+        console.log('Signup modal shown');
+        
+        // Ensure event listeners are attached when modal is shown
+        setTimeout(() => {
+            if (typeof setupSignupFormListeners === 'function') {
+                setupSignupFormListeners();
+            }
+        }, 100);
+    } else {
+        console.error('Signup modal element not found');
+    }
+}
+
+function showLoginModal() {
+    console.log('showLoginModal called');
+    const modal = document.getElementById('loginModal');
+    if (modal) {
+        modal.classList.add('show');
+        modal.style.display = 'flex !important';
+        modal.style.visibility = 'visible !important';
+        modal.style.opacity = '1 !important';
+        modal.style.zIndex = '10000 !important';
+        console.log('Login modal shown');
+    } else {
+        console.error('Login modal element not found');
+    }
+}
+
+function startDemo() {
+    console.log('🎮 Starting demo...');
+    
+    const demoCompany = 'Demo Company';
+    const demoUser = {
+        id: 'demo-user-1',
+        username: 'demo',
+        password: 'demo123',
+        email: 'demo@policypro.com',
+        fullName: 'Demo User',
+        company: demoCompany,
+        role: 'admin',
+        created: new Date().toISOString().split('T')[0]
+    };
+    
+    // Initialize demo company if it doesn't exist
+    const masterCompanies = JSON.parse(localStorage.getItem('masterCompanies') || '[]');
+    let demoCompanyData = masterCompanies.find(c => c.name === demoCompany);
+    
+    if (!demoCompanyData) {
+        // Create demo company
+        demoCompanyData = {
+            id: 'demo-company-1',
+            name: demoCompany,
+            industry: 'Technology',
+            plan: 'pro',
+            adminPassword: 'demo123',
+            created: new Date().toISOString().split('T')[0],
+            users: 1,
+            policies: 3,
+            status: 'active'
+        };
+        masterCompanies.push(demoCompanyData);
+        localStorage.setItem('masterCompanies', JSON.stringify(masterCompanies));
+    }
+    
+    // Set demo user
+    currentUser = demoUser;
+    currentCompany = demoCompany;
+    saveToLocalStorage('currentUser', demoUser);
+    saveToLocalStorage('currentCompany', demoCompany);
+    
+    // Update UI
+    if (typeof updateUserInterface === 'function') {
+        updateUserInterface();
+    }
+    
+    // Show welcome message
+    if (typeof showAlert === 'function') {
+        showAlert('Welcome to Policy Pro Demo! Explore all features.', 'success');
+    }
+    
+    console.log('✅ Demo started');
+}
+
+// Attach to window and globalThis for immediate accessibility
+if (typeof window !== 'undefined') {
+    window.showSignupModal = showSignupModal;
+    window.showLoginModal = showLoginModal;
+    window.startDemo = startDemo;
+}
+
+if (typeof globalThis !== 'undefined') {
+    globalThis.showSignupModal = showSignupModal;
+    globalThis.showLoginModal = showLoginModal;
+    globalThis.startDemo = startDemo;
+}
+
 if (masterData) {
     users = masterData.users;
     // Filter users for current company if logged in
@@ -203,14 +309,71 @@ const draftCountElement = document.getElementById('draftCount');
 document.addEventListener('DOMContentLoaded', function() {
     console.log('Initializing application...');
     
+    // Attach event listeners to homepage buttons as backup
+    function attachHomepageButtonListeners() {
+        // Signup buttons
+        const signupButtons = document.querySelectorAll('button[onclick*="showSignupModal"], .btn-signup, button.btn-secondary');
+        signupButtons.forEach(btn => {
+            if (btn.textContent.includes('Create Account') || btn.textContent.includes('Sign Up') || btn.textContent.includes('Start Free Trial')) {
+                btn.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    console.log('Signup button clicked via listener');
+                    if (typeof window.showSignupModal === 'function') {
+                        window.showSignupModal();
+                    }
+                });
+            }
+        });
+        
+        // Login buttons
+        const loginButtons = document.querySelectorAll('button[onclick*="showLoginModal"], .btn-login');
+        loginButtons.forEach(btn => {
+            if (btn.textContent.includes('Log In') || btn.textContent.includes('Get Started')) {
+                btn.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    console.log('Login button clicked via listener');
+                    if (typeof window.showLoginModal === 'function') {
+                        window.showLoginModal();
+                    }
+                });
+            }
+        });
+        
+        // Demo buttons
+        const demoButtons = document.querySelectorAll('button[onclick*="startDemo"]');
+        demoButtons.forEach(btn => {
+            btn.addEventListener('click', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                console.log('Demo button clicked via listener');
+                if (typeof window.startDemo === 'function') {
+                    window.startDemo();
+                }
+            });
+        });
+        
+        console.log('Homepage button listeners attached');
+    }
+    
+    // Attach listeners immediately and retry if DOM not ready
+    attachHomepageButtonListeners();
+    setTimeout(attachHomepageButtonListeners, 100);
+    setTimeout(attachHomepageButtonListeners, 500);
+    
     // Check if user is already logged in
     if (currentUser) {
         document.body.classList.add('user-logged-in');
     }
     
     // Initialize data displays
-    displayPolicies(currentPolicies);
-    updateStats();
+    if (typeof displayPolicies === 'function') {
+        displayPolicies(currentPolicies);
+    }
+    if (typeof updateStats === 'function') {
+        updateStats();
+    }
     displayDrafts();
     displayRoles();
     displayDisciplinaryActions();
@@ -9519,21 +9682,8 @@ function setupSignupFormListeners() {
 }
 
 // User Management Functions
-function showSignupModal() {
-    console.log('showSignupModal called');
-    const modal = document.getElementById('signupModal');
-    if (modal) {
-        modal.classList.add('show');
-        console.log('Signup modal shown');
-    
-        // Ensure event listeners are attached when modal is shown
-        setTimeout(() => {
-            setupSignupFormListeners();
-        }, 100);
-    } else {
-        console.error('Signup modal element not found');
-    }
-}
+// showSignupModal, showLoginModal, and startDemo are now defined at the top of the file
+// These duplicate definitions are kept for backward compatibility but delegate to the top-level functions
 
 function closeSignupModal() {
     const modal = document.getElementById('signupModal');
@@ -9552,16 +9702,7 @@ function closeSignupModal() {
     }
 }
 
-function showLoginModal() {
-    console.log('showLoginModal called');
-    const modal = document.getElementById('loginModal');
-    if (modal) {
-        modal.classList.add('show');
-        console.log('Login modal shown');
-    } else {
-        console.error('Login modal element not found');
-    }
-}
+// showLoginModal is now defined at the top - this is kept for backward compatibility
 
 function closeLoginModal() {
     document.getElementById('loginModal').classList.remove('show');

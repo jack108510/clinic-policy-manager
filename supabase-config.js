@@ -48,6 +48,13 @@ if (typeof window !== 'undefined') {
 const SupabaseDB = {
     // Users table operations
     async getUsers() {
+        // Fallback to localStorage if Supabase not configured
+        if (!supabaseClient || SUPABASE_URL === 'YOUR_SUPABASE_URL') {
+            console.log('📦 Using localStorage fallback for users');
+            const users = JSON.parse(localStorage.getItem('masterUsers') || '[]');
+            return users;
+        }
+        
         if (!supabaseClient) {
             await new Promise(resolve => setTimeout(resolve, 100)); // Wait for init
             if (!supabaseClient) return [];
@@ -57,7 +64,10 @@ const SupabaseDB = {
             .select('*');
         if (error) {
             console.error('Error fetching users:', error);
-            return [];
+            // Fallback to localStorage on error
+            const localUsers = JSON.parse(localStorage.getItem('masterUsers') || '[]');
+            console.log('📦 Falling back to localStorage users:', localUsers.length);
+            return localUsers;
         }
         return data || [];
     },

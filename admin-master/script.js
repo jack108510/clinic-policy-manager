@@ -1079,10 +1079,33 @@ function launchCompany(event) {
     };
     
     users.push(adminUser);
+    
+    // Save user to Supabase if configured, otherwise localStorage
+    if (typeof SupabaseDB !== 'undefined' && SupabaseDB.createUser) {
+        try {
+            const createdUser = await SupabaseDB.createUser(adminUser);
+            if (createdUser) {
+                console.log('✅ Admin user created in Supabase:', createdUser.username);
+                // Update the user object with the Supabase ID if returned
+                if (createdUser.id) {
+                    adminUser.id = createdUser.id;
+                }
+            }
+        } catch (supabaseError) {
+            console.warn('⚠️ Failed to create user in Supabase, using localStorage:', supabaseError);
+        }
+    }
+    
+    // Always save to localStorage
     localStorage.setItem('masterUsers', JSON.stringify(users));
+    console.log('✅ Admin user saved to localStorage:', adminUser.username);
     
     // Update access code usage
-    accessCode.usedBy.push(newCompany.name);
+    const usedByArray = Array.isArray(accessCode.usedBy) ? accessCode.usedBy : [];
+    if (!usedByArray.includes(newCompany.name)) {
+        usedByArray.push(newCompany.name);
+        accessCode.usedBy = usedByArray;
+    }
     localStorage.setItem('masterAccessCodes', JSON.stringify(accessCodes));
     
     // Update displays

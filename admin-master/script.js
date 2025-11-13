@@ -919,18 +919,74 @@ async function deleteAccessCode(codeId) {
 
 // Launch New Company
 function launchNewCompany() {
+    console.log('🚀 Launch New Company called');
+    console.log('Current accessCodes array:', accessCodes.length, accessCodes);
+    
+    // Ensure accessCodes is loaded - reload from localStorage if empty
+    if (!accessCodes || accessCodes.length === 0) {
+        console.log('⚠️ accessCodes array is empty, loading from localStorage...');
+        const localCodes = JSON.parse(localStorage.getItem('masterAccessCodes') || '[]');
+        console.log('Loaded from localStorage:', localCodes.length, 'codes');
+        
+        if (localCodes.length > 0) {
+            // Normalize the codes
+            accessCodes = localCodes.map(code => ({
+                id: code.id || `code-${Date.now()}-${Math.random()}`,
+                code: code.code || '',
+                description: code.description || '',
+                createdDate: code.createdDate || code.created_date || new Date().toISOString().slice(0, 10),
+                expiryDate: code.expiryDate || code.expiry_date || null,
+                maxCompanies: code.maxCompanies || code.max_companies || 10,
+                usedBy: code.usedBy || code.used_by || [],
+                status: code.status || 'active'
+            }));
+            console.log('✅ Normalized accessCodes:', accessCodes.length);
+        }
+    }
+    
     // Populate access codes dropdown
     const accessCodeSelect = document.getElementById('accessCode');
+    if (!accessCodeSelect) {
+        console.error('❌ accessCode select element not found!');
+        showAlert('Error: Access code dropdown not found', 'error');
+        return;
+    }
+    
+    // Clear existing options
     accessCodeSelect.innerHTML = '<option value="">Select Access Code</option>';
     
-    accessCodes.filter(code => code.status === 'active')
-        .forEach(code => {
+    // Filter active codes
+    const activeCodes = accessCodes.filter(code => {
+        const isActive = code.status === 'active' || !code.status;
+        // Also check if code hasn't exceeded max companies
+        const usedCount = (code.usedBy || code.used_by || []).length;
+        const maxCount = code.maxCompanies || code.max_companies || 10;
+        return isActive && usedCount < maxCount;
+    });
+    
+    console.log('Active access codes:', activeCodes.length);
+    
+    if (activeCodes.length === 0) {
+        const noCodesOption = document.createElement('option');
+        noCodesOption.value = '';
+        noCodesOption.textContent = 'No active access codes available';
+        noCodesOption.disabled = true;
+        accessCodeSelect.appendChild(noCodesOption);
+        showAlert('No active access codes available. Please create one first.', 'warning');
+    } else {
+        activeCodes.forEach(code => {
             const option = document.createElement('option');
             option.value = code.code;
-            option.textContent = `${code.code} - ${code.description}`;
+            const usedCount = (code.usedBy || code.used_by || []).length;
+            const maxCount = code.maxCompanies || code.max_companies || 10;
+            const description = code.description || 'No description';
+            option.textContent = `${code.code} - ${description} (${usedCount}/${maxCount} used)`;
             accessCodeSelect.appendChild(option);
         });
+        console.log('✅ Populated dropdown with', activeCodes.length, 'codes');
+    }
     
+    // Show the modal
     document.getElementById('launchCompanyModal').classList.add('show');
 }
 

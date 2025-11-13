@@ -63,6 +63,22 @@ const SupabaseDB = {
     },
 
     async createUser(user) {
+        // Fallback to localStorage if Supabase not configured
+        if (!supabaseClient || SUPABASE_URL === 'YOUR_SUPABASE_URL') {
+            console.log('📦 Using localStorage fallback for user creation');
+            const users = JSON.parse(localStorage.getItem('masterUsers') || '[]');
+            const newUser = {
+                id: `user-${Date.now()}`,
+                ...user,
+                created_at: user.created || user.created_at || new Date().toISOString(),
+                last_login_at: null
+            };
+            users.push(newUser);
+            localStorage.setItem('masterUsers', JSON.stringify(users));
+            console.log('✅ User created in localStorage:', newUser);
+            return newUser;
+        }
+        
         if (!supabaseClient) {
             await new Promise(resolve => setTimeout(resolve, 100));
             if (!supabaseClient) return null;
@@ -74,6 +90,7 @@ const SupabaseDB = {
             .single();
         if (error) {
             console.error('Error creating user:', error);
+            console.error('Error details:', error.message, error.details);
             return null;
         }
         return data;

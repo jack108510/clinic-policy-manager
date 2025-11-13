@@ -9842,21 +9842,38 @@ async function signupUser(event) {
     
     // Create new user
     console.log('Step 10: Creating user in Supabase...');
+    console.log('Step 10a: Access code details:', foundAccessCode);
+    
+    // Get company name from access code - check both description and used_by
+    let companyName = 'Default Company';
+    if (foundAccessCode.description) {
+        companyName = foundAccessCode.description;
+    } else if (foundAccessCode.used_by && foundAccessCode.used_by.length > 0) {
+        // If description is empty, use the first company that used this code
+        companyName = Array.isArray(foundAccessCode.used_by) ? foundAccessCode.used_by[0] : foundAccessCode.used_by;
+    }
+    
+    console.log('Step 10b: Company name determined:', companyName);
+    
     const newUser = {
         username: username,
         email: email,
         password: password, // Note: In production, this should be hashed
-        company: foundAccessCode.description || 'Default Company',
+        company: companyName,
         role: 'user',
         access_code: accessCode,
         created: new Date().toISOString().split('T')[0]
     };
     
+    console.log('Step 10c: User object to create:', { ...newUser, password: '***' });
+    
     const createdUser = await SupabaseDB.createUser(newUser);
     
+    console.log('Step 10d: createUser result:', createdUser);
+    
     if (!createdUser) {
-        console.log('Step 11: Failed to create user');
-        showSignupError('Failed to create account. Please try again.', errorField);
+        console.error('Step 11: Failed to create user - createUser returned null');
+        showSignupError('Failed to create account. Please check the console for details.', errorField);
         if (signupButton) {
             signupButton.textContent = 'Create Account';
             signupButton.disabled = false;
@@ -9867,9 +9884,19 @@ async function signupUser(event) {
     console.log('Step 11: User created successfully');
     
     // Update access code usage
+    console.log('Step 12: Updating access code usage...');
     const usedBy = foundAccessCode.used_by || [];
-    usedBy.push(newUser.company);
-    await SupabaseDB.updateAccessCode(foundAccessCode.id, { used_by: usedBy });
+    if (!Array.isArray(usedBy)) {
+        console.warn('used_by is not an array, converting...');
+    }
+    const usedByArray = Array.isArray(usedBy) ? usedBy : [];
+    if (!usedByArray.includes(newUser.company)) {
+        usedByArray.push(newUser.company);
+        await SupabaseDB.updateAccessCode(foundAccessCode.id, { used_by: usedByArray });
+        console.log('Step 12a: Access code usage updated:', usedByArray);
+    } else {
+        console.log('Step 12a: Company already in used_by list');
+    }
     
     console.log('Step 12: Access code updated');
     

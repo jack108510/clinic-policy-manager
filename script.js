@@ -9714,26 +9714,65 @@ async function signupUser(event) {
     
     console.log('Signup form submitted');
     
-    // Get button reference outside try block so it's available in catch
-    const signupButton = document.querySelector('#signupForm button[type="submit"]');
+    // Determine which form is being submitted
+    const form = event.target.closest('form');
+    const formId = form ? form.id : '';
+    console.log('Form ID:', formId);
+    
+    // Get the correct field IDs based on form type
+    let usernameField, emailField, passwordField, accessCodeField, errorField, signupButton;
+    
+    if (formId === 'companyCodeSignupForm') {
+        usernameField = 'companyCodeSignupUsername';
+        emailField = 'companyCodeSignupEmail';
+        passwordField = 'companyCodeSignupPassword';
+        accessCodeField = 'companyCodeSignupAccessCode';
+        errorField = 'company-code-signup-error-message';
+        signupButton = form.querySelector('button[type="submit"]');
+    } else {
+        // Default to original signup form IDs
+        usernameField = 'signupUsername';
+        emailField = 'signupEmail';
+        passwordField = 'signupPassword';
+        accessCodeField = 'signupAccessCode';
+        errorField = 'signup-error-message';
+        signupButton = document.querySelector('#signupForm button[type="submit"]');
+    }
+    
     console.log('Signup button found:', !!signupButton);
+    console.log('Using field IDs:', { usernameField, emailField, passwordField, accessCodeField });
     
     try {
         console.log('Step 1: Starting signup process');
         
         // Show loading state on button
-    if (signupButton) {
-        signupButton.textContent = 'Creating Account...';
-        signupButton.disabled = true;
-    }
+        if (signupButton) {
+            signupButton.textContent = 'Creating Account...';
+            signupButton.disabled = true;
+        }
         console.log('Step 2: Button state updated');
     
-    const username = document.getElementById('signupUsername').value.trim();
-    const email = document.getElementById('signupEmail').value.trim();
-    const password = document.getElementById('signupPassword').value.trim();
-    const accessCode = document.getElementById('signupAccessCode').value.trim();
+        const usernameEl = document.getElementById(usernameField);
+        const emailEl = document.getElementById(emailField);
+        const passwordEl = document.getElementById(passwordField);
+        const accessCodeEl = document.getElementById(accessCodeField);
+        
+        if (!usernameEl || !emailEl || !passwordEl || !accessCodeEl) {
+            console.error('Form fields not found:', { usernameEl: !!usernameEl, emailEl: !!emailEl, passwordEl: !!passwordEl, accessCodeEl: !!accessCodeEl });
+            showSignupError('Form fields not found. Please refresh the page.', errorField);
+            if (signupButton) {
+                signupButton.textContent = 'Create Account';
+                signupButton.disabled = false;
+            }
+            return;
+        }
+        
+        const username = usernameEl.value.trim();
+        const email = emailEl.value.trim();
+        const password = passwordEl.value.trim();
+        const accessCode = accessCodeEl.value.trim();
     
-    console.log('Step 3: Form data extracted:', { username, email, password: '***', accessCode });
+        console.log('Step 3: Form data extracted:', { username, email, password: '***', accessCode });
     
     // Validate required fields
     if (!username || !email || !password || !accessCode) {
@@ -10676,10 +10715,15 @@ function filterPoliciesByCompany() {
     }
 }
 
-function showSignupError(message) {
-    const errorElement = document.getElementById('signup-error-message');
-    errorElement.textContent = message;
-    errorElement.style.display = 'block';
+function showSignupError(message, errorFieldId = 'signup-error-message') {
+    const errorElement = document.getElementById(errorFieldId);
+    if (errorElement) {
+        errorElement.textContent = message;
+        errorElement.style.display = 'block';
+    } else {
+        console.error('Error element not found:', errorFieldId);
+        alert(message); // Fallback to alert if element not found
+    }
 }
 
 function showLoginError(message) {

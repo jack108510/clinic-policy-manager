@@ -9777,7 +9777,7 @@ async function signupUser(event) {
     // Validate required fields
     if (!username || !email || !password || !accessCode) {
         console.log('Step 4: Validation failed - missing fields');
-        showSignupError('Please fill in all required fields.');
+        showSignupError('Please fill in all required fields.', errorField);
         // Reset button
         if (signupButton) {
             signupButton.textContent = 'Create Account';
@@ -9793,7 +9793,7 @@ async function signupUser(event) {
     
     if (!foundAccessCode) {
         console.log('Step 7: Access code not found or invalid');
-        showSignupError('Invalid access code. Please check with your administrator for a valid code.');
+        showSignupError('Invalid access code. Please check with your administrator for a valid code.', errorField);
         if (signupButton) {
             signupButton.textContent = 'Create Account';
             signupButton.disabled = false;
@@ -9804,7 +9804,7 @@ async function signupUser(event) {
     // Check if access code is expired
     if (foundAccessCode.expiry_date && new Date(foundAccessCode.expiry_date) <= new Date()) {
         console.log('Step 7: Access code expired');
-        showSignupError('Access code has expired. Please contact your administrator for a new code.');
+        showSignupError('Access code has expired. Please contact your administrator for a new code.', errorField);
         if (signupButton) {
             signupButton.textContent = 'Create Account';
             signupButton.disabled = false;
@@ -9820,7 +9820,7 @@ async function signupUser(event) {
     
     if (allUsers.find(user => user.username === username)) {
         console.log('Step 9: Username already exists');
-        showSignupError('Username already exists. Please choose a different username.');
+        showSignupError('Username already exists. Please choose a different username.', errorField);
         if (signupButton) {
             signupButton.textContent = 'Create Account';
             signupButton.disabled = false;
@@ -9830,7 +9830,7 @@ async function signupUser(event) {
     
     if (allUsers.find(user => user.email === email)) {
         console.log('Step 9: Email already exists');
-        showSignupError('Email already exists. Please use a different email.');
+        showSignupError('Email already exists. Please use a different email.', errorField);
         if (signupButton) {
             signupButton.textContent = 'Create Account';
             signupButton.disabled = false;
@@ -9856,7 +9856,7 @@ async function signupUser(event) {
     
     if (!createdUser) {
         console.log('Step 11: Failed to create user');
-        showSignupError('Failed to create account. Please try again.');
+        showSignupError('Failed to create account. Please try again.', errorField);
         if (signupButton) {
             signupButton.textContent = 'Create Account';
             signupButton.disabled = false;
@@ -9891,7 +9891,13 @@ async function signupUser(event) {
     
     // Update UI
     updateUserInterface();
-    closeSignupModal();
+    
+    // Close the correct modal based on form type
+    if (formId === 'companyCodeSignupForm') {
+        closeCompanyCodeSignupModal();
+    } else {
+        closeSignupModal();
+    }
     
     // Show success message
     showSuccessMessage('Account created successfully! Welcome to Policy Pro!');

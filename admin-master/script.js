@@ -102,8 +102,20 @@ async function initializeData() {
     // Load existing data from Supabase
     try {
         companies = await SupabaseDB.getCompanies();
-        accessCodes = await SupabaseDB.getAccessCodes();
+        const rawAccessCodes = await SupabaseDB.getAccessCodes();
         users = await SupabaseDB.getUsers();
+        
+        // Normalize access codes to camelCase for display
+        accessCodes = rawAccessCodes.map(code => ({
+            id: code.id,
+            code: code.code,
+            description: code.description || '',
+            createdDate: code.created_date || code.createdDate,
+            expiryDate: code.expiry_date || code.expiryDate,
+            maxCompanies: code.max_companies || code.maxCompanies || 10,
+            usedBy: code.used_by || code.usedBy || [],
+            status: code.status || 'active'
+        }));
         
         console.log('Loaded data from Supabase:');
         console.log('companies:', companies.length);
@@ -679,6 +691,10 @@ async function createAccessCode(event) {
             };
             
             accessCodes.push(normalizedCode);
+            
+            // Also save to localStorage for consistency (in case Supabase isn't configured)
+            localStorage.setItem('masterAccessCodes', JSON.stringify(accessCodes));
+            
             displayAccessCodes();
             closeCreateCodeModal();
             showAlert('Access code created successfully!', 'success');
@@ -691,9 +707,17 @@ async function createAccessCode(event) {
     }
 }
 
-function deleteAccessCode(codeId) {
+async function deleteAccessCode(codeId) {
     if (confirm('Are you sure you want to delete this access code?')) {
+        // Try to delete from Supabase/localStorage via SupabaseDB
+        if (typeof SupabaseDB !== 'undefined' && SupabaseDB.deleteAccessCode) {
+            await SupabaseDB.deleteAccessCode(codeId);
+        }
+        
+        // Remove from local array
         accessCodes = accessCodes.filter(c => c.id !== codeId);
+        
+        // Save to localStorage for consistency
         localStorage.setItem('masterAccessCodes', JSON.stringify(accessCodes));
         displayAccessCodes();
         

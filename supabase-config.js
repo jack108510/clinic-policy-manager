@@ -264,6 +264,15 @@ const SupabaseDB = {
     },
 
     async deleteAccessCode(codeId) {
+        // Fallback to localStorage if Supabase not configured
+        if (!supabaseClient || SUPABASE_URL === 'YOUR_SUPABASE_URL') {
+            console.log('📦 Using localStorage fallback for access code deletion');
+            const codes = JSON.parse(localStorage.getItem('masterAccessCodes') || '[]');
+            const filtered = codes.filter(c => c.id !== codeId);
+            localStorage.setItem('masterAccessCodes', JSON.stringify(filtered));
+            return true;
+        }
+        
         if (!supabaseClient) {
             await new Promise(resolve => setTimeout(resolve, 100));
             if (!supabaseClient) return false;

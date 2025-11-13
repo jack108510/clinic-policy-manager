@@ -644,9 +644,17 @@ function closeCreateCodeModal() {
 async function createAccessCode(event) {
     event.preventDefault();
     
+    const codeValue = document.getElementById('newAccessCode').value.trim();
+    const descriptionValue = document.getElementById('codeDescription').value.trim();
+    
+    if (!codeValue) {
+        showAlert('Please enter an access code', 'error');
+        return;
+    }
+    
     const newCode = {
-        code: document.getElementById('newAccessCode').value,
-        description: document.getElementById('codeDescription').value,
+        code: codeValue,
+        description: descriptionValue || 'Access Code',
         created_date: new Date().toISOString().slice(0, 10),
         expiry_date: document.getElementById('codeExpiry').value || null,
         max_companies: parseInt(document.getElementById('maxCompanies').value) || 10,
@@ -654,15 +662,32 @@ async function createAccessCode(event) {
         status: 'active'
     };
     
-    const createdCode = await SupabaseDB.createAccessCode(newCode);
-    
-    if (createdCode) {
-        accessCodes.push(createdCode);
-        displayAccessCodes();
-        closeCreateCodeModal();
-        showAlert('Access code created successfully!', 'success');
-    } else {
-        showAlert('Failed to create access code. Please try again.', 'error');
+    try {
+        const createdCode = await SupabaseDB.createAccessCode(newCode);
+        
+        if (createdCode) {
+            // Normalize the code object for display
+            const normalizedCode = {
+                id: createdCode.id || `code-${Date.now()}`,
+                code: createdCode.code,
+                description: createdCode.description,
+                createdDate: createdCode.created_date || createdCode.createdDate,
+                expiryDate: createdCode.expiry_date || createdCode.expiryDate,
+                maxCompanies: createdCode.max_companies || createdCode.maxCompanies,
+                usedBy: createdCode.used_by || createdCode.usedBy || [],
+                status: createdCode.status || 'active'
+            };
+            
+            accessCodes.push(normalizedCode);
+            displayAccessCodes();
+            closeCreateCodeModal();
+            showAlert('Access code created successfully!', 'success');
+        } else {
+            showAlert('Failed to create access code. Please check the console for errors.', 'error');
+        }
+    } catch (error) {
+        console.error('Error creating access code:', error);
+        showAlert('Error creating access code: ' + error.message, 'error');
     }
 }
 

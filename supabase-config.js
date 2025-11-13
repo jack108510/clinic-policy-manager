@@ -8,11 +8,23 @@ const SUPABASE_ANON_KEY = 'YOUR_SUPABASE_ANON_KEY'; // Your Supabase anonymous/p
 let supabaseClient = null;
 
 function initSupabase() {
+    // Check if Supabase is configured
+    if (SUPABASE_URL === 'YOUR_SUPABASE_URL' || SUPABASE_ANON_KEY === 'YOUR_SUPABASE_ANON_KEY') {
+        console.warn('⚠️ Supabase not configured. Using localStorage fallback.');
+        return null; // Will use localStorage fallback
+    }
+    
     if (typeof supabase !== 'undefined') {
-        supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-        return supabaseClient;
+        try {
+            supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+            console.log('✅ Supabase client initialized');
+            return supabaseClient;
+        } catch (error) {
+            console.error('❌ Error initializing Supabase:', error);
+            return null;
+        }
     } else {
-        console.error('Supabase JS library not loaded. Please include: <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>');
+        console.warn('⚠️ Supabase JS library not loaded. Using localStorage fallback.');
         return null;
     }
 }
@@ -170,6 +182,20 @@ const SupabaseDB = {
 
     // Access codes table operations
     async getAccessCodes() {
+        // Fallback to localStorage if Supabase not configured
+        if (!supabaseClient || SUPABASE_URL === 'YOUR_SUPABASE_URL') {
+            console.log('📦 Using localStorage fallback for access codes');
+            const codes = JSON.parse(localStorage.getItem('masterAccessCodes') || '[]');
+            // Convert camelCase to snake_case for consistency
+            return codes.map(code => ({
+                ...code,
+                created_date: code.createdDate || code.created_date,
+                expiry_date: code.expiryDate || code.expiry_date,
+                max_companies: code.maxCompanies || code.max_companies,
+                used_by: code.usedBy || code.used_by || []
+            }));
+        }
+        
         if (!supabaseClient) {
             await new Promise(resolve => setTimeout(resolve, 100));
             if (!supabaseClient) return [];
@@ -236,6 +262,24 @@ const SupabaseDB = {
     },
 
     async findAccessCodeByCode(code) {
+        // Fallback to localStorage if Supabase not configured
+        if (!supabaseClient || SUPABASE_URL === 'YOUR_SUPABASE_URL') {
+            console.log('📦 Using localStorage fallback for access code lookup');
+            const codes = JSON.parse(localStorage.getItem('masterAccessCodes') || '[]');
+            const found = codes.find(c => c.code === code && (c.status === 'active' || !c.status));
+            if (found) {
+                // Convert camelCase to snake_case for consistency
+                return {
+                    ...found,
+                    created_date: found.createdDate || found.created_date,
+                    expiry_date: found.expiryDate || found.expiry_date,
+                    max_companies: found.maxCompanies || found.max_companies,
+                    used_by: found.usedBy || found.used_by || []
+                };
+            }
+            return null;
+        }
+        
         if (!supabaseClient) {
             await new Promise(resolve => setTimeout(resolve, 100));
             if (!supabaseClient) return null;

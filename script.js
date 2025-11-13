@@ -672,17 +672,19 @@ function addLoginChecksToAllElements() {
 
 // Display Policies
 function displayPolicies(policiesToDisplay = policies) {
-    if (!policiesGrid) {
-        console.error('Policies grid element not found');
+    // Get policiesGrid dynamically to avoid initialization issues
+    const policiesGridEl = document.getElementById('policiesGrid');
+    if (!policiesGridEl) {
+        console.warn('Policies grid element not found - may not be on policies page');
         return;
     }
     
     if (!policiesToDisplay || policiesToDisplay.length === 0) {
-        policiesGrid.innerHTML = '<div class="no-policies">No policies found matching your criteria.</div>';
+        policiesGridEl.innerHTML = '<div class="no-policies">No policies found matching your criteria.</div>';
         return;
     }
 
-    policiesGrid.innerHTML = policiesToDisplay.map(policy => {
+    policiesGridEl.innerHTML = policiesToDisplay.map(policy => {
         // Get policy type label
         const typeLabel = getTypeLabel(policy.type);
         const typeClass = policy.type || 'admin';
@@ -11851,8 +11853,21 @@ function closeCompanyCodeSignupModal() {
     const modal = document.getElementById('companyCodeSignupModal');
     if (modal) {
         modal.classList.remove('show');
-        document.getElementById('companyCodeSignupForm').reset();
-        document.getElementById('company-code-signup-error-message').style.display = 'none';
+        modal.style.display = 'none';
+        modal.style.visibility = 'hidden';
+        modal.style.opacity = '0';
+        modal.style.zIndex = '-1';
+        
+        const form = document.getElementById('companyCodeSignupForm');
+        if (form) {
+            form.reset();
+        }
+        
+        const errorMsg = document.getElementById('company-code-signup-error-message');
+        if (errorMsg) {
+            errorMsg.style.display = 'none';
+            errorMsg.textContent = '';
+        }
     }
 }
 

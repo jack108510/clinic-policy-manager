@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Inventory Intake Tool</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/@zxing/library@latest"></script>
     <style>
         * {
             margin: 0;
@@ -396,6 +397,102 @@
             color: #6b7280;
         }
 
+        .barcode-scanner-area {
+            text-align: center;
+            padding: 40px 20px;
+            background: white;
+            border: 3px dashed #667eea;
+            border-radius: 12px;
+            margin-bottom: 20px;
+        }
+
+        .barcode-scanner-preview-container {
+            position: relative;
+            background: #000;
+            border-radius: 12px;
+            overflow: hidden;
+            margin-bottom: 20px;
+        }
+
+        .barcode-scan-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+        }
+
+        .scan-line {
+            position: absolute;
+            top: 50%;
+            left: 10%;
+            right: 10%;
+            height: 2px;
+            background: #10b981;
+            box-shadow: 0 0 10px #10b981;
+            animation: scanLine 2s linear infinite;
+        }
+
+        @keyframes scanLine {
+            0%, 100% { transform: translateY(-100px); opacity: 0; }
+            50% { transform: translateY(100px); opacity: 1; }
+        }
+
+        .scan-corner {
+            position: absolute;
+            width: 30px;
+            height: 30px;
+            border: 3px solid #10b981;
+        }
+
+        .scan-corner.top-left {
+            top: 20%;
+            left: 20%;
+            border-right: none;
+            border-bottom: none;
+        }
+
+        .scan-corner.top-right {
+            top: 20%;
+            right: 20%;
+            border-left: none;
+            border-bottom: none;
+        }
+
+        .scan-corner.bottom-left {
+            bottom: 20%;
+            left: 20%;
+            border-right: none;
+            border-top: none;
+        }
+
+        .scan-corner.bottom-right {
+            bottom: 20%;
+            right: 20%;
+            border-left: none;
+            border-top: none;
+        }
+
+        .barcode-scan-status {
+            padding: 15px;
+            text-align: center;
+            background: #f8fafc;
+            color: #374151;
+            font-weight: 600;
+            border-radius: 0 0 12px 12px;
+        }
+
+        .barcode-scan-status.scanning {
+            background: #dbeafe;
+            color: #1e40af;
+        }
+
+        .barcode-scan-status.success {
+            background: #d1fae5;
+            color: #065f46;
+        }
+
         .scanned-data {
             background: #f8fafc;
             padding: 20px;
@@ -532,6 +629,11 @@
             text-align: center;
         }
 
+        .section-toggle {
+            margin: 20px 0 10px 0;
+            text-align: center;
+        }
+
         .library-section {
             margin-top: 20px;
             background: white;
@@ -542,6 +644,14 @@
         }
 
         .library-section.active {
+            display: block;
+        }
+
+        .collapsible-section {
+            display: none;
+        }
+
+        .collapsible-section.active {
             display: block;
         }
 
@@ -721,8 +831,13 @@
                     </p>
                 </div>
 
-                <!-- Upload Section -->
-                <div class="upload-section">
+                <!-- Upload Section Toggle -->
+                <div class="section-toggle">
+                    <button class="btn btn-primary" id="uploadToggleBtn">
+                        <i class="fas fa-upload"></i> Show Upload WDDC Order From
+                    </button>
+                </div>
+                <div class="upload-section collapsible-section" id="uploadSection">
                     <h3><i class="fas fa-upload"></i> Upload WDDC Order From</h3>
                     <div class="upload-dropzone" id="uploadDropzone">
                         <div class="upload-dropzone-content">
@@ -740,8 +855,57 @@
                     <div class="upload-status" id="uploadStatus"></div>
                 </div>
 
+                <!-- Barcode Scanner Camera Section Toggle -->
+                <div class="section-toggle">
+                    <button class="btn btn-primary" id="barcodeScannerToggleBtn">
+                        <i class="fas fa-qrcode"></i> Show Barcode Scanner Camera
+                    </button>
+                </div>
+                <!-- Barcode Scanner Camera Section -->
+                <div class="camera-section collapsible-section" id="barcodeScannerSection">
+                    <h3><i class="fas fa-qrcode"></i> Scan Barcode with Camera</h3>
+                    <div class="camera-controls">
+                        <button class="btn btn-primary" id="startBarcodeScannerBtn">
+                            <i class="fas fa-video"></i> Start Barcode Scanner
+                        </button>
+                        <button class="btn btn-secondary" id="stopBarcodeScannerBtn" style="display: none;">
+                            <i class="fas fa-stop"></i> Stop Scanner
+                        </button>
+                    </div>
+                    
+                    <div class="barcode-scanner-area" id="barcodeScannerArea">
+                        <div class="camera-capture-content">
+                            <i class="fas fa-qrcode"></i>
+                            <div>
+                                <div class="upload-dropzone-text">Click "Start Barcode Scanner" to begin</div>
+                                <div class="upload-dropzone-subtext">Point camera at barcode to scan automatically</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="barcode-scanner-preview-container" id="barcodeScannerPreviewContainer" style="display: none;">
+                        <div style="position: relative;">
+                            <video id="barcodeScannerPreview" class="camera-preview" autoplay playsinline></video>
+                            <div class="barcode-scan-overlay">
+                                <div class="scan-line"></div>
+                                <div class="scan-corner top-left"></div>
+                                <div class="scan-corner top-right"></div>
+                                <div class="scan-corner bottom-left"></div>
+                                <div class="scan-corner bottom-right"></div>
+                            </div>
+                        </div>
+                        <div class="barcode-scan-status" id="barcodeScanStatus"></div>
+                    </div>
+                </div>
+
+                <!-- Photo Capture Section Toggle -->
+                <div class="section-toggle">
+                    <button class="btn btn-primary" id="photoCaptureToggleBtn">
+                        <i class="fas fa-camera"></i> Show Capture WDDC Order Form
+                    </button>
+                </div>
                 <!-- Camera Section -->
-                <div class="camera-section">
+                <div class="camera-section collapsible-section" id="photoCaptureSection">
                     <h3><i class="fas fa-camera"></i> Capture WDDC Order Form</h3>
                     <div class="camera-controls">
                         <button class="btn btn-primary" id="startCameraBtn">
@@ -18430,6 +18594,161 @@
             }, 5000);
         }
 
+        // Barcode Scanner Camera functionality
+        let barcodeScannerStream = null;
+        let barcodeScanningActive = false;
+        let lastScannedBarcode = null;
+        let scanCooldown = 2000; // 2 seconds between scans
+
+        async function startBarcodeScanner() {
+            try {
+                const video = document.getElementById('barcodeScannerPreview');
+                const startBtn = document.getElementById('startBarcodeScannerBtn');
+                const stopBtn = document.getElementById('stopBarcodeScannerBtn');
+                const scannerArea = document.getElementById('barcodeScannerArea');
+                const previewContainer = document.getElementById('barcodeScannerPreviewContainer');
+                const scanStatus = document.getElementById('barcodeScanStatus');
+
+                // Request camera access
+                barcodeScannerStream = await navigator.mediaDevices.getUserMedia({
+                    video: {
+                        facingMode: 'environment', // Use back camera on mobile
+                        width: { ideal: 1280 },
+                        height: { ideal: 720 }
+                    }
+                });
+
+                video.srcObject = barcodeScannerStream;
+                
+                // Show/hide UI elements
+                startBtn.style.display = 'none';
+                stopBtn.style.display = 'inline-flex';
+                scannerArea.style.display = 'none';
+                previewContainer.style.display = 'block';
+                scanStatus.textContent = 'Point camera at barcode...';
+                scanStatus.className = 'barcode-scan-status scanning';
+
+                barcodeScanningActive = true;
+                lastScannedBarcode = null;
+
+                // Start scanning
+                scanBarcodeFromVideo(video);
+
+                showStatus('Barcode scanner started. Point camera at a barcode.', 'success');
+            } catch (err) {
+                console.error('Error accessing camera for barcode scanner:', err);
+                let errorMsg = 'Unable to access camera. ';
+                if (err.name === 'NotAllowedError') {
+                    errorMsg += 'Please allow camera access in your browser settings.';
+                } else if (err.name === 'NotFoundError') {
+                    errorMsg += 'No camera found on this device.';
+                } else {
+                    errorMsg += err.message;
+                }
+                showStatus(errorMsg, 'error');
+            }
+        }
+
+        function stopBarcodeScanner() {
+            if (barcodeScannerStream) {
+                barcodeScannerStream.getTracks().forEach(track => track.stop());
+                barcodeScannerStream = null;
+            }
+
+            barcodeScanningActive = false;
+
+            const video = document.getElementById('barcodeScannerPreview');
+            const startBtn = document.getElementById('startBarcodeScannerBtn');
+            const stopBtn = document.getElementById('stopBarcodeScannerBtn');
+            const scannerArea = document.getElementById('barcodeScannerArea');
+            const previewContainer = document.getElementById('barcodeScannerPreviewContainer');
+            const scanStatus = document.getElementById('barcodeScanStatus');
+
+            if (video) {
+                video.srcObject = null;
+            }
+
+            startBtn.style.display = 'inline-flex';
+            stopBtn.style.display = 'none';
+            scannerArea.style.display = 'block';
+            previewContainer.style.display = 'none';
+            scanStatus.textContent = '';
+            scanStatus.className = 'barcode-scan-status';
+
+            showStatus('Barcode scanner stopped', 'success');
+        }
+
+        async function scanBarcodeFromVideo(video) {
+            if (!barcodeScanningActive || !video) return;
+
+            const codeReader = new ZXing.BrowserMultiFormatReader();
+            
+            // Create a canvas to capture video frames
+            const canvas = document.createElement('canvas');
+            const context = canvas.getContext('2d');
+            
+            const scanFrame = async () => {
+                if (!barcodeScanningActive || !video.videoWidth || !video.videoHeight) {
+                    if (barcodeScanningActive) {
+                        setTimeout(scanFrame, 100);
+                    }
+                    return;
+                }
+
+                canvas.width = video.videoWidth;
+                canvas.height = video.videoHeight;
+                context.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+                try {
+                    const result = await codeReader.decodeFromCanvas(canvas);
+                    
+                    if (result && result.getText()) {
+                        const barcode = result.getText();
+                        
+                        // Prevent duplicate scans within cooldown period
+                        const now = Date.now();
+                        if (lastScannedBarcode && lastScannedBarcode.text === barcode && 
+                            (now - lastScannedBarcode.time) < scanCooldown) {
+                            // Continue scanning
+                            setTimeout(scanFrame, 100);
+                            return;
+                        }
+
+                        lastScannedBarcode = { text: barcode, time: now };
+                        
+                        // Update status
+                        const scanStatus = document.getElementById('barcodeScanStatus');
+                        scanStatus.textContent = `Scanned: ${barcode}`;
+                        scanStatus.className = 'barcode-scan-status success';
+
+                        // Process the barcode
+                        processBarcode(barcode);
+
+                        // Continue scanning after a brief pause
+                        setTimeout(() => {
+                            if (barcodeScanningActive) {
+                                const scanStatus = document.getElementById('barcodeScanStatus');
+                                scanStatus.textContent = 'Point camera at barcode...';
+                                scanStatus.className = 'barcode-scan-status scanning';
+                                setTimeout(scanFrame, 100);
+                            }
+                        }, 1000);
+                    } else {
+                        // Continue scanning
+                        setTimeout(scanFrame, 100);
+                    }
+                } catch (decodeError) {
+                    // No barcode detected (NotFoundException is normal), continue scanning
+                    if (barcodeScanningActive) {
+                        setTimeout(scanFrame, 100);
+                    }
+                }
+            };
+
+            // Start scanning loop
+            setTimeout(scanFrame, 500); // Small delay to ensure video is ready
+        }
+
         // Camera functionality
         let cameraStream = null;
         let capturedPhotos = [];
@@ -18721,6 +19040,42 @@
                 });
             }
 
+            // Upload section toggle
+            const uploadToggleBtn = document.getElementById('uploadToggleBtn');
+            const uploadSection = document.getElementById('uploadSection');
+            if (uploadToggleBtn && uploadSection) {
+                uploadToggleBtn.addEventListener('click', () => {
+                    const isOpen = uploadSection.classList.toggle('active');
+                    uploadToggleBtn.innerHTML = isOpen
+                        ? '<i class="fas fa-upload"></i> Hide Upload WDDC Order From'
+                        : '<i class="fas fa-upload"></i> Show Upload WDDC Order From';
+                });
+            }
+
+            // Barcode scanner section toggle
+            const barcodeScannerToggleBtn = document.getElementById('barcodeScannerToggleBtn');
+            const barcodeScannerSection = document.getElementById('barcodeScannerSection');
+            if (barcodeScannerToggleBtn && barcodeScannerSection) {
+                barcodeScannerToggleBtn.addEventListener('click', () => {
+                    const isOpen = barcodeScannerSection.classList.toggle('active');
+                    barcodeScannerToggleBtn.innerHTML = isOpen
+                        ? '<i class="fas fa-qrcode"></i> Hide Barcode Scanner Camera'
+                        : '<i class="fas fa-qrcode"></i> Show Barcode Scanner Camera';
+                });
+            }
+
+            // Photo capture section toggle
+            const photoCaptureToggleBtn = document.getElementById('photoCaptureToggleBtn');
+            const photoCaptureSection = document.getElementById('photoCaptureSection');
+            if (photoCaptureToggleBtn && photoCaptureSection) {
+                photoCaptureToggleBtn.addEventListener('click', () => {
+                    const isOpen = photoCaptureSection.classList.toggle('active');
+                    photoCaptureToggleBtn.innerHTML = isOpen
+                        ? '<i class="fas fa-camera"></i> Hide Capture WDDC Order Form'
+                        : '<i class="fas fa-camera"></i> Show Capture WDDC Order Form';
+                });
+            }
+
             // Upload functionality
             const uploadDropzone = document.getElementById('uploadDropzone');
             const fileInput = document.getElementById('fileInput');
@@ -18753,6 +19108,18 @@
                 fileInput.addEventListener('change', (e) => {
                     handleFiles(e.target.files);
                 });
+            }
+
+            // Barcode Scanner Camera functionality
+            const startBarcodeScannerBtn = document.getElementById('startBarcodeScannerBtn');
+            const stopBarcodeScannerBtn = document.getElementById('stopBarcodeScannerBtn');
+
+            if (startBarcodeScannerBtn) {
+                startBarcodeScannerBtn.addEventListener('click', startBarcodeScanner);
+            }
+
+            if (stopBarcodeScannerBtn) {
+                stopBarcodeScannerBtn.addEventListener('click', stopBarcodeScanner);
             }
 
             // Camera functionality

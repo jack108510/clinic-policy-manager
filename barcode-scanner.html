@@ -106,9 +106,15 @@
 
         .scanner-controls {
             display: flex;
-            gap: 15px;
+            gap: 12px;
             margin-bottom: 30px;
             flex-wrap: wrap;
+            align-items: center;
+            padding: 20px;
+            background: rgba(255, 255, 255, 0.03);
+            backdrop-filter: blur(10px);
+            border-radius: 16px;
+            border: 1px solid rgba(255, 255, 255, 0.08);
         }
 
         .btn {
@@ -422,9 +428,15 @@
 
         .camera-controls {
             display: flex;
-            gap: 15px;
-            margin-bottom: 20px;
+            gap: 12px;
+            margin-bottom: 25px;
             flex-wrap: wrap;
+            align-items: center;
+            padding: 16px;
+            background: rgba(255, 255, 255, 0.03);
+            backdrop-filter: blur(10px);
+            border-radius: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.08);
         }
 
         .camera-preview-container {
@@ -747,7 +759,9 @@
 
         .action-buttons {
             display: flex;
-            gap: 8px;
+            gap: 6px;
+            align-items: center;
+            justify-content: flex-end;
         }
 
         .btn-sm {
@@ -798,6 +812,21 @@
         .section-toggle {
             margin: 30px 0 15px 0;
             text-align: center;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .button-group.centered {
+            justify-content: center;
+        }
+
+        .button-group.right {
+            justify-content: flex-end;
         }
 
         .library-section {
@@ -960,10 +989,21 @@
 
             .scanner-controls {
                 flex-direction: column;
+                padding: 16px;
+            }
+
+            .camera-controls {
+                padding: 12px;
+            }
+
+            .button-group {
+                width: 100%;
+                justify-content: center;
             }
 
             .btn {
-                width: 100%;
+                flex: 1;
+                min-width: 120px;
                 justify-content: center;
             }
 
@@ -989,12 +1029,16 @@
             <!-- Scanner Section -->
             <div class="scanner-section">
                 <div class="scanner-controls">
-                    <button class="btn btn-secondary" onclick="clearScannedData()">
-                        <i class="fas fa-trash"></i> Clear All Data
-                    </button>
-                    <button class="btn btn-success" id="sendToWebhookBtn" onclick="sendDataToWebhook()">
-                        <i class="fas fa-paper-plane"></i> Send All Data to Webhook
-                    </button>
+                    <div class="button-group" style="flex: 1;">
+                        <button class="btn btn-secondary" onclick="clearScannedData()">
+                            <i class="fas fa-trash"></i> Clear All Data
+                        </button>
+                    </div>
+                    <div class="button-group">
+                        <button class="btn btn-success" id="sendToWebhookBtn" onclick="sendDataToWebhook()">
+                            <i class="fas fa-paper-plane"></i> Send All Data to Webhook
+                        </button>
+                    </div>
                 </div>
 
                 <div class="scanner-input-container">
@@ -1030,9 +1074,11 @@
                         </div>
                     </div>
                     <input type="file" id="fileInput" class="upload-file-input" multiple accept=".txt,.csv,.json">
-                    <button class="btn btn-primary upload-button" onclick="document.getElementById('fileInput').click()">
-                        <i class="fas fa-folder-open"></i> Choose Files
-                    </button>
+                    <div class="button-group centered" style="margin-top: 20px;">
+                        <button class="btn btn-primary upload-button" onclick="document.getElementById('fileInput').click()">
+                            <i class="fas fa-folder-open"></i> Choose Files
+                        </button>
+                    </div>
                     <div class="upload-status" id="uploadStatus"></div>
                 </div>
 
@@ -1046,12 +1092,14 @@
                 <div class="camera-section collapsible-section" id="barcodeScannerSection">
                     <h3><i class="fas fa-qrcode"></i> Scan Barcode with Camera</h3>
                     <div class="camera-controls">
-                        <button class="btn btn-primary" id="startBarcodeScannerBtn">
-                            <i class="fas fa-video"></i> Start Barcode Scanner
-                        </button>
-                        <button class="btn btn-secondary" id="stopBarcodeScannerBtn" style="display: none;">
-                            <i class="fas fa-stop"></i> Stop Scanner
-                        </button>
+                        <div class="button-group" style="width: 100%; justify-content: center;">
+                            <button class="btn btn-primary" id="startBarcodeScannerBtn">
+                                <i class="fas fa-video"></i> Start Barcode Scanner
+                            </button>
+                            <button class="btn btn-secondary" id="stopBarcodeScannerBtn" style="display: none;">
+                                <i class="fas fa-stop"></i> Stop Scanner
+                            </button>
+                        </div>
                     </div>
                     
                     <div class="barcode-scanner-area" id="barcodeScannerArea">
@@ -1089,15 +1137,17 @@
                 <div class="camera-section collapsible-section" id="photoCaptureSection">
                     <h3><i class="fas fa-camera"></i> Capture WDDC Order Form</h3>
                     <div class="camera-controls">
-                        <button class="btn btn-primary" id="startCameraBtn">
-                            <i class="fas fa-video"></i> Start Camera
-                        </button>
-                        <button class="btn btn-success" id="capturePhotoBtn" style="display: none;">
-                            <i class="fas fa-camera"></i> Capture Photo
-                        </button>
-                        <button class="btn btn-secondary" id="stopCameraBtn" style="display: none;">
-                            <i class="fas fa-stop"></i> Stop Camera
-                        </button>
+                        <div class="button-group" style="width: 100%; justify-content: center;">
+                            <button class="btn btn-primary" id="startCameraBtn">
+                                <i class="fas fa-video"></i> Start Camera
+                            </button>
+                            <button class="btn btn-success" id="capturePhotoBtn" style="display: none;">
+                                <i class="fas fa-camera"></i> Capture Photo
+                            </button>
+                            <button class="btn btn-secondary" id="stopCameraBtn" style="display: none;">
+                                <i class="fas fa-stop"></i> Stop Camera
+                            </button>
+                        </div>
                     </div>
                     
                     <div class="camera-capture-area" id="cameraCaptureArea">

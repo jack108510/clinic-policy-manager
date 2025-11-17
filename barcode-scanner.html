@@ -885,7 +885,7 @@
                     </div>
 
                     <div class="barcode-scanner-preview-container" id="barcodeScannerPreviewContainer" style="display: none;">
-                        <div style="position: relative;">
+                        <div id="barcodeScannerContainer" style="position: relative; width: 100%;">
                             <video id="barcodeScannerPreview" class="camera-preview" autoplay playsinline></video>
                             <div class="barcode-scan-overlay">
                                 <div class="scan-line"></div>
@@ -18713,11 +18713,13 @@
                     scanStatus.textContent = 'Initializing scanner...';
                     scanStatus.className = 'barcode-scan-status scanning';
 
+                    const container = document.getElementById('barcodeScannerContainer');
+                    
                     await Quagga.init({
                         inputStream: {
                             name: "Live",
                             type: "LiveStream",
-                            target: video,
+                            target: container,
                             constraints: {
                                 width: { ideal: 1280 },
                                 height: { ideal: 720 },

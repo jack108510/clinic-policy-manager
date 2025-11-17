@@ -5,6 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Inventory Intake Tool</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/@zxing/library@latest"></script>
     <script src="https://unpkg.com/quagga@0.12.1/dist/quagga.min.js"></script>
     <style>
@@ -15,40 +18,90 @@
         }
 
         body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: linear-gradient(135deg, #0f0c29 0%, #302b63 50%, #24243e 100%);
             min-height: 100vh;
             padding: 20px;
+            position: relative;
+            overflow-x: hidden;
+        }
+
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: 
+                radial-gradient(circle at 20% 50%, rgba(120, 119, 198, 0.3) 0%, transparent 50%),
+                radial-gradient(circle at 80% 80%, rgba(255, 119, 198, 0.3) 0%, transparent 50%);
+            pointer-events: none;
+            z-index: 0;
         }
 
         .container {
-            max-width: 1200px;
+            max-width: 1400px;
             margin: 0 auto;
-            background: white;
-            border-radius: 20px;
-            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(20px);
+            border-radius: 32px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 
+                0 8px 32px rgba(0, 0, 0, 0.4),
+                inset 0 1px 0 rgba(255, 255, 255, 0.1);
             overflow: hidden;
+            position: relative;
+            z-index: 1;
         }
 
         .header {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(135deg, rgba(139, 92, 246, 0.3) 0%, rgba(59, 130, 246, 0.3) 100%);
+            backdrop-filter: blur(20px);
             color: white;
-            padding: 30px;
+            padding: 50px 30px;
             text-align: center;
+            position: relative;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .header::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(135deg, rgba(139, 92, 246, 0.1) 0%, rgba(59, 130, 246, 0.1) 100%);
+            opacity: 0.5;
         }
 
         .header h1 {
-            font-size: 2.5em;
-            margin-bottom: 10px;
+            font-size: 3em;
+            margin-bottom: 15px;
+            font-weight: 800;
+            letter-spacing: -0.02em;
+            background: linear-gradient(135deg, #ffffff 0%, rgba(255, 255, 255, 0.8) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            position: relative;
+            z-index: 1;
+            text-shadow: 0 0 40px rgba(255, 255, 255, 0.3);
         }
 
         .header p {
             opacity: 0.9;
-            font-size: 1.1em;
+            font-size: 1.2em;
+            font-weight: 400;
+            position: relative;
+            z-index: 1;
+            letter-spacing: 0.01em;
         }
 
         .content {
-            padding: 30px;
+            padding: 40px;
+            background: rgba(255, 255, 255, 0.02);
         }
 
         .scanner-section {
@@ -58,164 +111,246 @@
         .scanner-controls {
             display: flex;
             gap: 15px;
-            margin-bottom: 20px;
+            margin-bottom: 30px;
             flex-wrap: wrap;
         }
 
         .btn {
-            padding: 12px 24px;
+            padding: 14px 28px;
             border: none;
-            border-radius: 8px;
+            border-radius: 12px;
             cursor: pointer;
-            font-size: 16px;
+            font-size: 15px;
             font-weight: 600;
-            transition: all 0.3s ease;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
             display: inline-flex;
             align-items: center;
-            gap: 8px;
+            gap: 10px;
+            position: relative;
+            overflow: hidden;
+            letter-spacing: 0.01em;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.2);
+        }
+
+        .btn::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 0;
+            height: 0;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.2);
+            transform: translate(-50%, -50%);
+            transition: width 0.6s, height 0.6s;
+        }
+
+        .btn:hover::before {
+            width: 300px;
+            height: 300px;
         }
 
         .btn-primary {
-            background: #667eea;
+            background: linear-gradient(135deg, #8b5cf6 0%, #3b82f6 100%);
             color: white;
+            border: 1px solid rgba(255, 255, 255, 0.2);
         }
 
         .btn-primary:hover {
-            background: #5568d3;
-            transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+            transform: translateY(-3px) scale(1.02);
+            box-shadow: 0 8px 24px rgba(139, 92, 246, 0.5);
         }
 
         .btn-success {
-            background: #10b981;
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
             color: white;
+            border: 1px solid rgba(255, 255, 255, 0.2);
         }
 
         .btn-success:hover {
-            background: #059669;
+            transform: translateY(-3px) scale(1.02);
+            box-shadow: 0 8px 24px rgba(16, 185, 129, 0.5);
         }
 
         .btn-danger {
-            background: #ef4444;
+            background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
             color: white;
+            border: 1px solid rgba(255, 255, 255, 0.2);
         }
 
         .btn-danger:hover {
-            background: #dc2626;
+            transform: translateY(-3px) scale(1.02);
+            box-shadow: 0 8px 24px rgba(239, 68, 68, 0.5);
         }
 
         .btn-secondary {
-            background: #6b7280;
+            background: rgba(255, 255, 255, 0.1);
             color: white;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            backdrop-filter: blur(10px);
         }
 
         .btn-secondary:hover {
-            background: #4b5563;
+            background: rgba(255, 255, 255, 0.15);
+            transform: translateY(-3px) scale(1.02);
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
         }
 
         .btn:disabled {
-            opacity: 0.6;
+            opacity: 0.5;
             cursor: not-allowed;
             pointer-events: none;
+            transform: none !important;
+        }
+
+        .btn span, .btn i {
+            position: relative;
+            z-index: 1;
         }
 
         .scanner-input-container {
-            background: #f8fafc;
-            padding: 30px;
-            border-radius: 12px;
-            margin-bottom: 20px;
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(20px);
+            padding: 40px;
+            border-radius: 24px;
+            margin-bottom: 30px;
             text-align: center;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
         }
 
         .scanner-input-container h3 {
-            margin-bottom: 15px;
-            color: #1f2937;
+            margin-bottom: 20px;
+            color: white;
+            font-size: 1.5em;
+            font-weight: 700;
+            letter-spacing: -0.01em;
         }
 
         .barcode-input {
             width: 100%;
-            max-width: 500px;
-            padding: 20px;
-            font-size: 24px;
+            max-width: 600px;
+            padding: 24px;
+            font-size: 28px;
             text-align: center;
-            border: 3px solid #667eea;
-            border-radius: 12px;
+            border: 2px solid rgba(139, 92, 246, 0.5);
+            border-radius: 16px;
             font-weight: 600;
-            letter-spacing: 2px;
-            background: white;
+            letter-spacing: 3px;
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            color: white;
             margin: 0 auto;
             display: block;
+            transition: all 0.3s ease;
+        }
+
+        .barcode-input::placeholder {
+            color: rgba(255, 255, 255, 0.5);
         }
 
         .barcode-input:focus {
             outline: none;
-            border-color: #764ba2;
-            box-shadow: 0 0 0 4px rgba(102, 126, 234, 0.1);
+            border-color: #8b5cf6;
+            box-shadow: 
+                0 0 0 4px rgba(139, 92, 246, 0.2),
+                0 8px 24px rgba(139, 92, 246, 0.3);
+            background: rgba(255, 255, 255, 0.15);
+            transform: scale(1.02);
         }
 
         .scanner-instructions {
-            margin-top: 15px;
-            color: #6b7280;
+            margin-top: 20px;
+            color: rgba(255, 255, 255, 0.7);
             font-size: 14px;
         }
 
         .scanner-status {
             text-align: center;
-            padding: 15px;
-            margin-top: 15px;
-            border-radius: 8px;
+            padding: 18px;
+            margin-top: 20px;
+            border-radius: 12px;
             font-weight: 600;
             display: none;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
         }
 
         .scanner-status.active {
             display: block;
-            background: #dbeafe;
-            color: #1e40af;
+            background: rgba(59, 130, 246, 0.2);
+            color: #93c5fd;
         }
 
         .scanner-status.success {
-            background: #d1fae5;
-            color: #065f46;
+            background: rgba(16, 185, 129, 0.2);
+            color: #6ee7b7;
         }
 
         .scanner-status.error {
-            background: #fee2e2;
-            color: #991b1b;
+            background: rgba(239, 68, 68, 0.2);
+            color: #fca5a5;
         }
 
         .upload-section {
-            background: #f8fafc;
-            padding: 30px;
-            border-radius: 12px;
-            margin-bottom: 20px;
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(20px);
+            padding: 40px;
+            border-radius: 24px;
+            margin-bottom: 30px;
             text-align: center;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
         }
 
         .upload-section h3 {
-            margin-bottom: 15px;
-            color: #1f2937;
+            margin-bottom: 25px;
+            color: white;
+            font-size: 1.8em;
+            font-weight: 700;
+            letter-spacing: -0.01em;
         }
 
         .upload-dropzone {
-            border: 3px dashed #667eea;
-            border-radius: 12px;
-            padding: 40px 20px;
-            background: white;
+            border: 3px dashed rgba(139, 92, 246, 0.5);
+            border-radius: 20px;
+            padding: 50px 30px;
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(10px);
             cursor: pointer;
-            transition: all 0.3s ease;
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
             position: relative;
+            overflow: hidden;
+        }
+
+        .upload-dropzone::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle, rgba(139, 92, 246, 0.1) 0%, transparent 70%);
+            opacity: 0;
+            transition: opacity 0.4s;
         }
 
         .upload-dropzone:hover {
-            border-color: #764ba2;
-            background: #f8fafc;
+            border-color: #8b5cf6;
+            background: rgba(255, 255, 255, 0.1);
+            transform: translateY(-5px) scale(1.01);
+            box-shadow: 0 12px 40px rgba(139, 92, 246, 0.3);
+        }
+
+        .upload-dropzone:hover::before {
+            opacity: 1;
         }
 
         .upload-dropzone.dragover {
             border-color: #10b981;
-            background: #d1fae5;
-            transform: scale(1.02);
+            background: rgba(16, 185, 129, 0.1);
+            transform: scale(1.03);
+            box-shadow: 0 12px 40px rgba(16, 185, 129, 0.4);
         }
 
         .upload-dropzone-content {
@@ -226,23 +361,34 @@
         }
 
         .upload-dropzone i {
-            font-size: 3em;
-            color: #667eea;
+            font-size: 4em;
+            color: rgba(139, 92, 246, 0.8);
+            filter: drop-shadow(0 4px 12px rgba(139, 92, 246, 0.4));
+            transition: all 0.3s ease;
+        }
+
+        .upload-dropzone:hover i {
+            transform: scale(1.1) rotate(5deg);
+            color: #8b5cf6;
         }
 
         .upload-dropzone.dragover i {
             color: #10b981;
+            transform: scale(1.2);
         }
 
         .upload-dropzone-text {
-            font-size: 16px;
+            font-size: 18px;
             font-weight: 600;
-            color: #374151;
+            color: white;
+            margin-top: 15px;
+            letter-spacing: 0.01em;
         }
 
         .upload-dropzone-subtext {
             font-size: 14px;
-            color: #6b7280;
+            color: rgba(255, 255, 255, 0.7);
+            margin-top: 8px;
         }
 
         .upload-file-input {
@@ -276,15 +422,21 @@
         }
 
         .camera-section {
-            background: #f8fafc;
-            padding: 30px;
-            border-radius: 12px;
-            margin-bottom: 20px;
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(20px);
+            padding: 40px;
+            border-radius: 24px;
+            margin-bottom: 30px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
         }
 
         .camera-section h3 {
-            margin-bottom: 15px;
-            color: #1f2937;
+            margin-bottom: 25px;
+            color: white;
+            font-size: 1.8em;
+            font-weight: 700;
+            letter-spacing: -0.01em;
         }
 
         .camera-controls {
@@ -549,22 +701,28 @@
         }
 
         .data-list h3 {
-            margin-bottom: 20px;
-            color: #1f2937;
+            margin-bottom: 25px;
+            color: white;
+            font-size: 1.8em;
+            font-weight: 700;
+            letter-spacing: -0.01em;
         }
 
         .data-table {
             width: 100%;
             border-collapse: collapse;
-            background: white;
-            border-radius: 12px;
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(20px);
+            border-radius: 20px;
             overflow: hidden;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+            border: 1px solid rgba(255, 255, 255, 0.1);
         }
 
         .data-table thead {
-            background: #667eea;
+            background: linear-gradient(135deg, rgba(139, 92, 246, 0.3) 0%, rgba(59, 130, 246, 0.3) 100%);
             color: white;
+            backdrop-filter: blur(10px);
         }
 
         .data-table th,
@@ -578,12 +736,14 @@
         }
 
         .data-table tbody tr {
-            border-bottom: 1px solid #e5e7eb;
-            transition: background 0.2s;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            transition: all 0.3s ease;
+            color: rgba(255, 255, 255, 0.9);
         }
 
         .data-table tbody tr:hover {
-            background: #f9fafb;
+            background: rgba(255, 255, 255, 0.1);
+            transform: scale(1.01);
         }
 
         .data-table tbody tr:last-child {
@@ -602,14 +762,15 @@
 
         .empty-state {
             text-align: center;
-            padding: 60px 20px;
-            color: #6b7280;
+            padding: 80px 20px;
+            color: rgba(255, 255, 255, 0.6);
         }
 
         .empty-state i {
-            font-size: 4em;
-            margin-bottom: 20px;
-            opacity: 0.5;
+            font-size: 5em;
+            margin-bottom: 25px;
+            opacity: 0.4;
+            color: rgba(139, 92, 246, 0.5);
         }
 
         .modal {
@@ -631,21 +792,36 @@
         }
 
         .section-toggle {
-            margin: 20px 0 10px 0;
+            margin: 30px 0 15px 0;
             text-align: center;
         }
 
         .library-section {
             margin-top: 20px;
-            background: white;
-            border-radius: 16px;
-            padding: 30px;
-            box-shadow: 0 10px 30px rgba(55, 65, 81, 0.08);
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(20px);
+            border-radius: 24px;
+            padding: 40px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+            border: 1px solid rgba(255, 255, 255, 0.1);
             display: none;
         }
 
         .library-section.active {
             display: block;
+        }
+
+        .library-section h3 {
+            color: white;
+            font-size: 1.8em;
+            font-weight: 700;
+            letter-spacing: -0.01em;
+            margin-bottom: 15px;
+        }
+
+        .library-section p {
+            color: rgba(255, 255, 255, 0.8);
+            margin-bottom: 25px;
         }
 
         .collapsible-section {

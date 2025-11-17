@@ -18599,6 +18599,7 @@
         let barcodeScanningActive = false;
         let lastScannedBarcode = null;
         let scanCooldown = 2000; // 2 seconds between scans
+        let currentCodeReader = null;
 
         async function startBarcodeScanner() {
             try {
@@ -18650,6 +18651,16 @@
         }
 
         function stopBarcodeScanner() {
+            // Stop the code reader
+            if (currentCodeReader) {
+                try {
+                    currentCodeReader.reset();
+                } catch (e) {
+                    console.log('Code reader reset:', e);
+                }
+                currentCodeReader = null;
+            }
+
             if (barcodeScannerStream) {
                 barcodeScannerStream.getTracks().forEach(track => track.stop());
                 barcodeScannerStream = null;
@@ -18682,71 +18693,64 @@
             if (!barcodeScanningActive || !video) return;
 
             const codeReader = new ZXing.BrowserMultiFormatReader();
+            currentCodeReader = codeReader;
             
-            // Create a canvas to capture video frames
-            const canvas = document.createElement('canvas');
-            const context = canvas.getContext('2d');
-            
-            const scanFrame = async () => {
-                if (!barcodeScanningActive || !video.videoWidth || !video.videoHeight) {
-                    if (barcodeScanningActive) {
-                        setTimeout(scanFrame, 100);
-                    }
+            // Use decodeFromVideoDevice for continuous scanning
+            // This is the recommended method for real-time barcode scanning
+            try {
+                // Get the video stream's device ID
+                const stream = video.srcObject;
+                if (!stream) {
+                    console.error('No video stream available');
                     return;
                 }
-
-                canvas.width = video.videoWidth;
-                canvas.height = video.videoHeight;
-                context.drawImage(video, 0, 0, canvas.width, canvas.height);
-
-                try {
-                    const result = await codeReader.decodeFromCanvas(canvas);
-                    
-                    if (result && result.getText()) {
-                        const barcode = result.getText();
-                        
-                        // Prevent duplicate scans within cooldown period
-                        const now = Date.now();
-                        if (lastScannedBarcode && lastScannedBarcode.text === barcode && 
-                            (now - lastScannedBarcode.time) < scanCooldown) {
-                            // Continue scanning
-                            setTimeout(scanFrame, 100);
-                            return;
-                        }
-
-                        lastScannedBarcode = { text: barcode, time: now };
-                        
-                        // Update status
-                        const scanStatus = document.getElementById('barcodeScanStatus');
-                        scanStatus.textContent = `Scanned: ${barcode}`;
-                        scanStatus.className = 'barcode-scan-status success';
-
-                        // Process the barcode
-                        processBarcode(barcode);
-
-                        // Continue scanning after a brief pause
-                        setTimeout(() => {
-                            if (barcodeScanningActive) {
-                                const scanStatus = document.getElementById('barcodeScanStatus');
-                                scanStatus.textContent = 'Point camera at barcode...';
-                                scanStatus.className = 'barcode-scan-status scanning';
-                                setTimeout(scanFrame, 100);
+                
+                const videoTrack = stream.getVideoTracks()[0];
+                const deviceId = videoTrack ? videoTrack.getSettings().deviceId : null;
+                
+                // Start continuous decoding from video device
+                codeReader.decodeFromVideoDevice(
+                    deviceId,
+                    video,
+                    (result, err) => {
+                        if (result) {
+                            const barcode = result.getText();
+                            const now = Date.now();
+                            
+                            // Prevent duplicate scans within cooldown period
+                            if (lastScannedBarcode && lastScannedBarcode.text === barcode && 
+                                (now - lastScannedBarcode.time) < scanCooldown) {
+                                return; // Skip duplicate scan
                             }
-                        }, 1000);
-                    } else {
-                        // Continue scanning
-                        setTimeout(scanFrame, 100);
-                    }
-                } catch (decodeError) {
-                    // No barcode detected (NotFoundException is normal), continue scanning
-                    if (barcodeScanningActive) {
-                        setTimeout(scanFrame, 100);
-                    }
-                }
-            };
 
-            // Start scanning loop
-            setTimeout(scanFrame, 500); // Small delay to ensure video is ready
+                            lastScannedBarcode = { text: barcode, time: now };
+                            
+                            // Update status
+                            const scanStatus = document.getElementById('barcodeScanStatus');
+                            scanStatus.textContent = `Scanned: ${barcode}`;
+                            scanStatus.className = 'barcode-scan-status success';
+
+                            // Process the barcode
+                            processBarcode(barcode);
+
+                            // Reset status after a brief pause
+                            setTimeout(() => {
+                                if (barcodeScanningActive) {
+                                    const scanStatus = document.getElementById('barcodeScanStatus');
+                                    scanStatus.textContent = 'Point camera at barcode...';
+                                    scanStatus.className = 'barcode-scan-status scanning';
+                                }
+                            }, 1000);
+                        }
+                        
+                        // err is normal when no barcode is detected (NotFoundException)
+                        // We don't need to handle it as the scanner continues automatically
+                    }
+                );
+            } catch (error) {
+                console.error('Error starting barcode scanner:', error);
+                showStatus('Error starting barcode scanner: ' + error.message, 'error');
+            }
         }
 
         // Camera functionality

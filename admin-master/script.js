@@ -15,34 +15,166 @@ let analytics = {
     userActivity: {}
 };
 
+function normalizeCompanyWebhooks(company = {}) {
+    if (!company) return company;
+    return {
+        ...company,
+        webhook_advisor_url: company.webhook_advisor_url || company.webhookAdvisorUrl || '',
+        webhook_generator_url: company.webhook_generator_url || company.webhookGeneratorUrl || '',
+        webhook_summarizer_url: company.webhook_summarizer_url || company.webhookSummarizerUrl || '',
+        webhook_email_url: company.webhook_email_url || company.webhookEmailUrl || ''
+    };
+}
+
+function normalizeCompanies(list = []) {
+    if (!Array.isArray(list)) return [];
+    return list.map(normalizeCompanyWebhooks);
+}
+
+// CRITICAL: Attach functions to window immediately - functions are hoisted
+// This runs immediately when script loads, before DOM is ready
+(function attachFunctionsImmediately() {
+    'use strict';
+    if (typeof window === 'undefined') return;
+    
+    // Functions are hoisted, so they exist at this point
+    // Direct assignment - no checks needed
+    try {
+        window.showSection = showSection;
+        window.launchNewCompany = launchNewCompany;
+        window.exportAllData = exportAllData;
+        window.openAIModal = openAIModal;
+        window.showCreateCodeModal = showCreateCodeModal;
+        window.refreshDashboard = refreshDashboard;
+        window.logout = logout;
+        window.createAccessCode = createAccessCode;
+        window.launchCompany = launchCompany;
+        window.closeCreateCodeModal = closeCreateCodeModal;
+        window.closeLaunchModal = closeLaunchModal;
+        window.deleteAccessCode = deleteAccessCode;
+        window.showCompanyDetails = showCompanyDetails;
+        window.closeCompanyDetailsModal = closeCompanyDetailsModal;
+        window.changeUserRole = changeUserRole;
+        window.deleteUser = deleteUser;
+        window.closeAIModal = closeAIModal;
+        window.saveCompanyWebhooks = saveCompanyWebhooks;
+        
+        console.log('✅ Functions attached to window immediately (hoisted)');
+    } catch (e) {
+        console.error('Error attaching functions immediately:', e);
+        // Create fallback stubs if assignment fails
+        window.showSection = function(s) { console.error('showSection not available'); };
+        window.launchNewCompany = function() { console.error('launchNewCompany not available'); };
+        window.exportAllData = function() { console.error('exportAllData not available'); };
+        window.openAIModal = function() { console.error('openAIModal not available'); };
+    }
+})();
+
+// Copy to clipboard function (defined early for immediate access)
+function copyToClipboard(text, label = 'Text') {
+    if (!text) {
+        if (typeof showAlert === 'function') {
+            showAlert('Nothing to copy', 'warning');
+        }
+        return;
+    }
+    
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(() => {
+            if (typeof showAlert === 'function') {
+                showAlert(`${label} copied to clipboard!`, 'success');
+            }
+        }).catch(err => {
+            console.error('Failed to copy:', err);
+            // Fallback method
+            const textarea = document.createElement('textarea');
+            textarea.value = text;
+            textarea.style.position = 'fixed';
+            textarea.style.opacity = '0';
+            document.body.appendChild(textarea);
+            textarea.select();
+            try {
+                document.execCommand('copy');
+                if (typeof showAlert === 'function') {
+                    showAlert(`${label} copied to clipboard!`, 'success');
+                }
+            } catch (e) {
+                if (typeof showAlert === 'function') {
+                    showAlert('Failed to copy. Please copy manually.', 'error');
+                }
+            }
+            document.body.removeChild(textarea);
+        });
+    } else {
+        // Fallback for older browsers
+        const textarea = document.createElement('textarea');
+        textarea.value = text;
+        textarea.style.position = 'fixed';
+        textarea.style.opacity = '0';
+        document.body.appendChild(textarea);
+        textarea.select();
+        try {
+            document.execCommand('copy');
+            if (typeof showAlert === 'function') {
+                showAlert(`${label} copied to clipboard!`, 'success');
+            }
+        } catch (e) {
+            if (typeof showAlert === 'function') {
+                showAlert('Failed to copy. Please copy manually.', 'error');
+            }
+        }
+        document.body.removeChild(textarea);
+    }
+}
+
+if (typeof window !== 'undefined') {
+    window.copyToClipboard = copyToClipboard;
+}
+
 // Initialize Dashboard
 document.addEventListener('DOMContentLoaded', function() {
     console.log('Initializing Modern Master Admin Dashboard...');
     
     // Initialize with sample data - MUST await this before displaying
-    initializeData().then(() => {
-        console.log('✅ Data initialization complete, displaying...');
-        // Setup navigation
-        setupNavigation();
-        
-        // Load and display data AFTER initialization completes
-        updateStats();
-        displayCompanies();
-        displayUsers();
-        displayAccessCodes();
-        loadActivityFeed();
-        
-        // Sync data to main site
-        syncToMainSite();
-    }).catch(error => {
-        console.error('❌ Error initializing data:', error);
-        // Still try to display what we have
-        setupNavigation();
-        updateStats();
-        displayCompanies();
-        displayUsers();
-        displayAccessCodes();
-    });
+    // Wrap in try-catch to ensure buttons work even if initialization fails
+    try {
+        initializeData().then(() => {
+            console.log('✅ Data initialization complete, displaying...');
+    // Setup navigation
+    setupNavigation();
+    
+            // Load and display data AFTER initialization completes
+    updateStats();
+    displayCompanies();
+    displayUsers();
+    displayAccessCodes();
+    loadActivityFeed();
+            
+            // Sync data to main site
+            syncToMainSite();
+        }).catch(error => {
+            console.error('❌ Error initializing data:', error);
+            console.error('Error stack:', error.stack);
+            // Still try to display what we have
+            try {
+                setupNavigation();
+                updateStats();
+                displayCompanies();
+                displayUsers();
+                displayAccessCodes();
+            } catch (displayError) {
+                console.error('❌ Error displaying data:', displayError);
+            }
+        });
+    } catch (initError) {
+        console.error('❌ Error in initialization wrapper:', initError);
+        // Ensure basic functionality still works
+        try {
+            setupNavigation();
+        } catch (navError) {
+            console.error('❌ Error setting up navigation:', navError);
+        }
+    }
     
     // Add test button for debugging
     addTestButton();
@@ -53,7 +185,14 @@ document.addEventListener('DOMContentLoaded', function() {
     }, 1000);
     
     // Add event listeners for modals
-    document.getElementById('companyPasswordForm').addEventListener('submit', updateCompanyPassword);
+    try {
+        const companyPasswordForm = document.getElementById('companyPasswordForm');
+        if (companyPasswordForm) {
+            companyPasswordForm.addEventListener('submit', updateCompanyPassword);
+        }
+    } catch (e) {
+        console.warn('Could not attach companyPasswordForm listener:', e);
+    }
     
     // Add event listener for delete buttons using event delegation
     document.addEventListener('click', function(event) {
@@ -64,6 +203,125 @@ document.addEventListener('DOMContentLoaded', function() {
             deleteUser(userId);
         }
     });
+    
+    // AGGRESSIVE: Remove onclick and add direct event listeners to ALL buttons
+    setTimeout(() => {
+        try {
+            console.log('🔧 Setting up aggressive button listeners...');
+            
+            // Function to attach listener to a button
+            function attachButtonListener(selector, handler, description) {
+                const buttons = document.querySelectorAll(selector);
+                buttons.forEach((btn, index) => {
+                    if (btn && !btn.dataset.listenerAdded) {
+                        // Save onclick value BEFORE removing it
+                        const onclickValue = btn.getAttribute('onclick') || '';
+                        btn.dataset.originalOnclick = onclickValue; // Store for reference
+                        btn.removeAttribute('onclick');
+                        
+                        // Add direct listener
+                        btn.addEventListener('click', function(e) {
+                            console.log(`🖱️ ${description} button clicked (index: ${index})`);
+                            e.preventDefault();
+                            e.stopPropagation();
+                            e.stopImmediatePropagation();
+                            
+                            try {
+                                if (typeof handler === 'function') {
+                                    // Pass the button and original onclick to handler
+                                    handler.call(btn, e, onclickValue);
+                                } else {
+                                    console.error(`${description} handler is not a function:`, typeof handler);
+                                }
+                            } catch (err) {
+                                console.error(`Error in ${description} handler:`, err);
+                                console.error('Stack:', err.stack);
+                            }
+                            return false;
+                        }, true); // Use capture phase
+                        
+                        // Also add mousedown as backup
+                        btn.addEventListener('mousedown', function(e) {
+                            console.log(`🖱️ ${description} button mousedown`);
+                        });
+                        
+                        btn.dataset.listenerAdded = 'true';
+                        btn.style.cursor = 'pointer';
+                        btn.style.pointerEvents = 'auto';
+                        console.log(`✅ Attached listener to ${description} button ${index + 1}`);
+                    }
+                });
+                return buttons.length;
+            }
+            
+            // Attach listeners to all buttons
+            let totalAttached = 0;
+            
+            totalAttached += attachButtonListener('button[onclick*="launchNewCompany"]', launchNewCompany, 'Launch New Company');
+            totalAttached += attachButtonListener('button[onclick*="showCreateCodeModal"]', showCreateCodeModal, 'Create Code');
+            totalAttached += attachButtonListener('button[onclick*="showSection"]', function(e, originalOnclick) {
+                // Extract section from original onclick like showSection('access-codes')
+                const match = originalOnclick.match(/showSection\(['"]([^'"]+)['"]\)/);
+                const section = match ? match[1] : (this.getAttribute('data-section') || 'access-codes');
+                console.log('ShowSection called with:', section, 'from onclick:', originalOnclick);
+                if (typeof showSection === 'function') {
+                    showSection(section);
+                } else {
+                    console.error('showSection is not a function:', typeof showSection);
+                }
+            }, 'Show Section');
+            totalAttached += attachButtonListener('button[onclick*="refreshDashboard"]', refreshDashboard, 'Refresh Dashboard');
+            totalAttached += attachButtonListener('button[onclick*="exportAllData"]', exportAllData, 'Export Data');
+            totalAttached += attachButtonListener('button[onclick*="openAIModal"]', openAIModal, 'Open AI Modal');
+            totalAttached += attachButtonListener('button[onclick*="logout"]', logout, 'Logout');
+            totalAttached += attachButtonListener('button[onclick*="closeCreateCodeModal"]', closeCreateCodeModal, 'Close Create Code Modal');
+            totalAttached += attachButtonListener('button[onclick*="closeLaunchModal"]', closeLaunchModal, 'Close Launch Modal');
+            
+            // Also attach to action-card buttons by class
+            document.querySelectorAll('.action-card').forEach((btn, index) => {
+                if (!btn.dataset.listenerAdded) {
+                    const onclick = btn.getAttribute('onclick');
+                    if (onclick) {
+                        btn.removeAttribute('onclick');
+                        btn.addEventListener('click', function(e) {
+                            console.log(`🖱️ Action card ${index} clicked`);
+                            e.preventDefault();
+                            e.stopPropagation();
+                            // Try to execute the original onclick
+                            try {
+                                if (onclick.includes('launchNewCompany')) launchNewCompany();
+                                else if (onclick.includes('showSection')) {
+                                    const section = onclick.match(/'([^']+)'/)?.[1] || 'access-codes';
+                                    showSection(section);
+                                }
+                                else if (onclick.includes('exportAllData')) exportAllData();
+                                else if (onclick.includes('openAIModal')) openAIModal();
+                            } catch (err) {
+                                console.error('Error executing action card handler:', err);
+                            }
+                        }, true);
+                        btn.dataset.listenerAdded = 'true';
+                        totalAttached++;
+                    }
+                }
+            });
+            
+            // Navigation items are handled by setupNavigation() - no need to duplicate here
+            
+            console.log(`✅ Attached ${totalAttached} button listeners`);
+            
+            // Test: Try to call a function directly
+            console.log('🧪 Testing function availability:');
+            console.log('  launchNewCompany:', typeof launchNewCompany);
+            console.log('  showCreateCodeModal:', typeof showCreateCodeModal);
+            console.log('  showSection:', typeof showSection);
+            console.log('  window.launchNewCompany:', typeof window.launchNewCompany);
+            
+        } catch (e) {
+            console.error('❌ Error in aggressive button listener setup:', e);
+            console.error('Stack:', e.stack);
+        }
+    }, 1000); // Wait 1 second to ensure DOM is ready
     
     // Listen for data updates from main site
     window.addEventListener('masterDataUpdated', function(event) {
@@ -82,7 +340,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }
         
         if (event.detail && event.detail.companies) {
-            companies = event.detail.companies;
+            companies = normalizeCompanies(event.detail.companies);
             displayCompanies();
             updateStats();
         }
@@ -134,6 +392,7 @@ async function initializeData() {
     // Load existing data from Supabase
     try {
         companies = await SupabaseDB.getCompanies();
+        companies = normalizeCompanies(companies || []);
         const rawAccessCodes = await SupabaseDB.getAccessCodes();
         const rawUsers = await SupabaseDB.getUsers();
         
@@ -247,7 +506,7 @@ async function initializeData() {
             accessCodes = [];
         }
         // Initialize empty arrays on error
-        companies = companies || [];
+        companies = normalizeCompanies(companies || []);
         users = users || [];
     }
     
@@ -259,40 +518,163 @@ async function initializeData() {
     console.log('🔍 Final localStorage check:', finalCheck.length, 'codes');
 }
 
-// Navigation Setup
+// Navigation Setup - COMPLETELY REDONE
 function setupNavigation() {
-    const navItems = document.querySelectorAll('.nav-item[data-section]');
-    navItems.forEach(item => {
-        item.addEventListener('click', (e) => {
-            e.preventDefault();
-            const section = item.getAttribute('data-section');
-            showSection(section);
+    console.log('🔧 Setting up navigation (REDONE)...');
+    
+    // Remove ALL existing event listeners by replacing the entire sidebar nav
+    const sidebarNavs = document.querySelectorAll('.sidebar-nav');
+    sidebarNavs.forEach(nav => {
+        const buttons = nav.querySelectorAll('button[data-section]');
+        buttons.forEach(btn => {
+            // Clone button to remove all listeners
+            const newBtn = btn.cloneNode(true);
+            btn.parentNode.replaceChild(newBtn, btn);
         });
     });
+    
+    // Now attach fresh listeners to ALL nav items
+    const navItems = document.querySelectorAll('.nav-item[data-section]');
+    console.log(`Found ${navItems.length} navigation items`);
+    
+    navItems.forEach((item, index) => {
+        const sectionId = item.getAttribute('data-section');
+        console.log(`  Setting up nav item ${index + 1}: ${sectionId}`);
+        
+        // Ensure it's a button
+        if (item.tagName !== 'BUTTON') {
+            console.warn(`Nav item ${sectionId} is not a button, converting...`);
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = item.className;
+            btn.setAttribute('data-section', sectionId);
+            btn.innerHTML = item.innerHTML;
+            item.parentNode.replaceChild(btn, item);
+            item = btn;
+        }
+        
+        // Remove ALL existing attributes that might interfere
+        item.removeAttribute('href');
+        item.removeAttribute('onclick');
+        
+        // Add MULTIPLE event listeners for maximum compatibility
+        const clickHandler = function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            e.stopImmediatePropagation();
+            const section = this.getAttribute('data-section');
+            console.log(`🖱️ Navigation clicked: ${section}`);
+            
+            // Update active state immediately
+            document.querySelectorAll('.nav-item').forEach(nav => nav.classList.remove('active'));
+            this.classList.add('active');
+            
+            // Call showSection
+            if (typeof showSection === 'function') {
+            showSection(section);
+            } else {
+                console.error('showSection is not a function:', typeof showSection);
+                // Fallback: manually show section
+                document.querySelectorAll('.content-section').forEach(s => s.classList.remove('active'));
+                const targetSection = document.getElementById(section);
+                if (targetSection) {
+                    targetSection.classList.add('active');
+                }
+            }
+            return false;
+        };
+        
+        // Add click listener (multiple ways)
+        item.addEventListener('click', clickHandler, true); // Capture phase
+        item.addEventListener('click', clickHandler, false); // Bubble phase
+        
+        // Also add mousedown
+        item.addEventListener('mousedown', function(e) {
+            console.log(`🖱️ Navigation mousedown: ${this.getAttribute('data-section')}`);
+        });
+        
+        // Force styles
+        item.style.cursor = 'pointer';
+        item.style.pointerEvents = 'auto';
+        item.style.border = 'none';
+        item.style.background = 'transparent';
+        item.style.width = '100%';
+        item.style.textAlign = 'left';
+        item.style.padding = '0.75rem 1.5rem';
+        
+        // Add data attribute to track
+        item.dataset.navSetup = 'true';
+    });
+    
+    console.log('✅ Navigation setup complete - all items are buttons with listeners');
 }
 
 // Navigation
 function showSection(sectionId) {
+    console.log(`📂 showSection called with: ${sectionId}`);
+    
+    try {
     // Hide all sections
-    document.querySelectorAll('.content-section').forEach(section => {
+        const allSections = document.querySelectorAll('.content-section');
+        console.log(`Found ${allSections.length} content sections`);
+        allSections.forEach(section => {
         section.classList.remove('active');
     });
     
     // Show selected section
-    document.getElementById(sectionId).classList.add('active');
+        const targetSection = document.getElementById(sectionId);
+        if (!targetSection) {
+            console.error(`❌ Section with id "${sectionId}" not found!`);
+            return;
+        }
+        
+        targetSection.classList.add('active');
+        console.log(`✅ Showing section: ${sectionId}`);
     
     // Update navigation
     document.querySelectorAll('.nav-item').forEach(item => {
         item.classList.remove('active');
     });
-    document.querySelector(`[data-section="${sectionId}"]`).classList.add('active');
+        
+        const navItem = document.querySelector(`[data-section="${sectionId}"]`);
+        if (navItem) {
+            navItem.classList.add('active');
+            console.log(`✅ Activated nav item for: ${sectionId}`);
+        } else {
+            console.warn(`⚠️ Nav item with data-section="${sectionId}" not found`);
+        }
     
     currentSection = sectionId;
     
     // Load section-specific data
     if (sectionId === 'analytics') {
+            if (typeof updateCharts === 'function') {
         updateCharts();
     }
+        } else if (sectionId === 'companies') {
+            if (typeof displayCompanies === 'function') {
+                displayCompanies();
+            }
+        } else if (sectionId === 'users') {
+            if (typeof displayUsers === 'function') {
+                displayUsers();
+            }
+        } else if (sectionId === 'access-codes') {
+            if (typeof displayAccessCodes === 'function') {
+                displayAccessCodes();
+            }
+        }
+        
+        console.log(`✅ Section ${sectionId} loaded successfully`);
+    } catch (error) {
+        console.error(`❌ Error in showSection(${sectionId}):`, error);
+        console.error('Stack:', error.stack);
+    }
+}
+
+// Attach showSection to window immediately after definition
+if (typeof window !== 'undefined') {
+    window.showSection = showSection;
 }
 
 // Statistics and Analytics
@@ -303,10 +685,17 @@ function updateStats() {
     analytics.totalPolicies = companies.reduce((total, company) => total + company.policies, 0);
     
     // Update main stats
-    document.getElementById('totalCompanies').textContent = analytics.totalCompanies;
-    document.getElementById('totalUsers').textContent = analytics.totalUsers;
-    document.getElementById('totalPolicies').textContent = analytics.totalPolicies;
-    document.getElementById('activeCompanies').textContent = analytics.activeCompanies;
+    const totalCompaniesEl = document.getElementById('totalCompanies');
+    const totalUsersEl = document.getElementById('totalUsers');
+    const totalPoliciesEl = document.getElementById('totalPolicies');
+    const activeCompaniesEl = document.getElementById('activeCompanies');
+    const totalAccessCodesEl = document.getElementById('totalAccessCodes');
+    
+    if (totalCompaniesEl) totalCompaniesEl.textContent = analytics.totalCompanies;
+    if (totalUsersEl) totalUsersEl.textContent = analytics.totalUsers;
+    if (totalPoliciesEl) totalPoliciesEl.textContent = analytics.totalPolicies;
+    if (activeCompaniesEl) activeCompaniesEl.textContent = analytics.activeCompanies;
+    if (totalAccessCodesEl) totalAccessCodesEl.textContent = accessCodes.length;
     
     // Update navigation badges
     const companyBadge = document.getElementById('companyBadge');
@@ -349,6 +738,23 @@ function displayCompanies() {
     }
     
     companies.forEach(company => {
+        const webhookFields = [
+            company.webhook_advisor_url,
+            company.webhook_generator_url,
+            company.webhook_summarizer_url,
+            company.webhook_email_url
+        ];
+        const totalWebhooks = webhookFields.length;
+        const configuredCount = webhookFields.filter(url => url && url.trim() !== '').length;
+        const webhookStatusClass = configuredCount === totalWebhooks
+            ? 'configured'
+            : configuredCount > 0
+                ? 'partial'
+                : 'not-configured';
+        const webhookStatusLabel = configuredCount === totalWebhooks
+            ? 'All webhooks configured'
+            : `${configuredCount}/${totalWebhooks} configured`;
+        
         const row = document.createElement('tr');
         row.innerHTML = `
             <td>
@@ -361,7 +767,10 @@ function displayCompanies() {
             <td>${company.policies}</td>
             <td>
                 <div class="password-info">
-                    <span class="password-display">${company.adminPassword || 'Not Set'}</span>
+                    <span class="password-display" style="font-family: monospace; font-size: 0.9rem;">${company.adminPassword || 'Not Set'}</span>
+                    <button onclick="copyToClipboard('${company.adminPassword || ''}', 'Admin Password')" class="btn btn-small btn-secondary" title="Copy password">
+                        <i class="fas fa-copy"></i>
+                    </button>
                     <button onclick="setCompanyPassword('${company.id}')" class="btn btn-small btn-secondary">
                         <i class="fas fa-key"></i> Set
                     </button>
@@ -374,6 +783,14 @@ function displayCompanies() {
                     </span>
                     <button onclick="configureCompanyAPI('${company.id}')" class="btn btn-small btn-info">
                         <i class="fas fa-cog"></i> Configure
+                    </button>
+                </div>
+                <div class="webhook-info">
+                    <span class="webhook-status-chip ${webhookStatusClass}">
+                        <i class="fas fa-plug"></i> ${webhookStatusLabel}
+                    </span>
+                    <button onclick="showCompanyDetails('${company.id}', 'webhooks')" class="btn btn-small btn-outline">
+                        Manage
                     </button>
                 </div>
             </td>
@@ -405,7 +822,7 @@ function displayUsers() {
     if (users.length === 0) {
         usersList.innerHTML = `
             <tr>
-                <td colspan="8" class="empty-state">
+                <td colspan="10" class="empty-state">
                     <i class="fas fa-users"></i>
                     <h3>No Users Found</h3>
                     <p>Users will appear here as companies are created</p>
@@ -417,17 +834,40 @@ function displayUsers() {
     
     users.forEach(user => {
         console.log('Processing user:', user.username, 'ID:', user.id, 'ID type:', typeof user.id);
+        
+        // Get password from user or company admin password
+        let userPassword = user.password;
+        if (!userPassword) {
+            const companies = JSON.parse(localStorage.getItem('masterCompanies') || '[]');
+            const userCompany = companies.find(c => c.name === user.company);
+            if (userCompany && userCompany.adminEmail === user.email && userCompany.adminPassword) {
+                userPassword = userCompany.adminPassword;
+            }
+        }
+        
         const row = document.createElement('tr');
         row.innerHTML = `
             <td><input type="checkbox" class="user-checkbox" value="${user.id}"></td>
             <td>
                 <div class="company-info">
-                    <strong>${user.username}</strong>
-                    <small>${user.email}</small>
+                    <strong>${user.username || 'N/A'}</strong>
                 </div>
             </td>
-            <td>${user.company}</td>
-            <td>${user.role}</td>
+            <td>
+                <div class="email-info">
+                    ${user.email || '<span class="text-muted">No email</span>'}
+                </div>
+            </td>
+            <td>
+                <div class="password-info">
+                    <span class="password-display" style="font-family: monospace; font-size: 0.9rem;">${userPassword || '<span class="text-muted">Not Set</span>'}</span>
+                    <button onclick="copyToClipboard('${userPassword || ''}', 'Password')" class="btn btn-small btn-secondary" title="Copy password">
+                        <i class="fas fa-copy"></i>
+                    </button>
+                </div>
+            </td>
+            <td>${user.company || 'N/A'}</td>
+            <td>${user.role || 'user'}</td>
             <td>${formatDate(user.created)}</td>
             <td>${formatDate(user.lastLogin || user.created)}</td>
             <td><span class="status-badge status-active">Active</span></td>
@@ -633,15 +1073,28 @@ function displayAccessCodes() {
         codeCard.className = 'code-card';
         codeCard.innerHTML = `
             <div class="code-header">
-                <span class="code-value">${codeValue}</span>
+                <div class="code-value-container" style="display: flex; align-items: center; gap: 0.5rem;">
+                    <span class="code-value" style="font-family: monospace; font-size: 1.2rem; font-weight: bold;">${codeValue}</span>
+                    <button onclick="copyToClipboard('${codeValue}', 'Access Code')" class="btn btn-small btn-secondary" title="Copy code">
+                        <i class="fas fa-copy"></i> Copy
+                    </button>
+            </div>
                 <span class="status-badge status-${codeStatus}">${codeStatus}</span>
             </div>
-            <div class="code-description">${codeDescription}</div>
+            <div class="code-description"><strong>Description:</strong> ${codeDescription || 'No description'}</div>
             <div class="code-stats">
-                <span>Created: ${formatDate(createdDate)}</span>
-                <span>Used by: ${usedBy.length}/${maxCompanies} companies</span>
-                ${expiryDate ? `<span>Expires: ${formatDate(expiryDate)}</span>` : ''}
+                <span><strong>Created:</strong> ${formatDate(createdDate)}</span>
+                <span><strong>Used by:</strong> ${usedBy.length}/${maxCompanies} companies</span>
+                ${expiryDate ? `<span><strong>Expires:</strong> ${formatDate(expiryDate)}</span>` : '<span><strong>Expires:</strong> Never</span>'}
             </div>
+            ${usedBy.length > 0 ? `
+            <div class="code-used-by" style="margin-top: 0.5rem; padding-top: 0.5rem; border-top: 1px solid var(--border-light);">
+                <strong>Used by companies:</strong>
+                <ul style="margin: 0.25rem 0 0 1.5rem; padding: 0;">
+                    ${usedBy.map(company => `<li>${company}</li>`).join('')}
+                </ul>
+            </div>
+            ` : ''}
             <div class="code-actions">
                 <button onclick="editAccessCode('${codeId}')" class="btn btn-small btn-primary">Edit</button>
                 <button onclick="deleteAccessCode('${codeId}')" class="btn btn-small btn-danger">Delete</button>
@@ -801,11 +1254,13 @@ function syncFromMainSite() {
 function showCreateCodeModal() {
     document.getElementById('createCodeModal').classList.add('show');
 }
+if (typeof window !== 'undefined') window.showCreateCodeModal = showCreateCodeModal;
 
 function closeCreateCodeModal() {
     document.getElementById('createCodeModal').classList.remove('show');
     document.getElementById('createCodeForm').reset();
 }
+if (typeof window !== 'undefined') window.closeCreateCodeModal = closeCreateCodeModal;
 
 async function createAccessCode(event) {
     event.preventDefault();
@@ -917,13 +1372,13 @@ async function createAccessCode(event) {
         }
         
         // Force display update
-        displayAccessCodes();
+    displayAccessCodes();
         
         // Close modal
-        closeCreateCodeModal();
-        
+    closeCreateCodeModal();
+    
         // Show success
-        showAlert('Access code created successfully!', 'success');
+    showAlert('Access code created successfully!', 'success');
         
         console.log('=== CREATE ACCESS CODE COMPLETE ===');
         
@@ -933,6 +1388,7 @@ async function createAccessCode(event) {
         showAlert('Error creating access code: ' + error.message, 'error');
     }
 }
+if (typeof window !== 'undefined') window.createAccessCode = createAccessCode;
 
 async function deleteAccessCode(codeId) {
     if (confirm('Are you sure you want to delete this access code?')) {
@@ -1027,13 +1483,15 @@ function launchNewCompany() {
     // Show the modal
     document.getElementById('launchCompanyModal').classList.add('show');
 }
+if (typeof window !== 'undefined') window.launchNewCompany = launchNewCompany;
 
 function closeLaunchModal() {
     document.getElementById('launchCompanyModal').classList.remove('show');
     document.getElementById('launchCompanyForm').reset();
 }
+if (typeof window !== 'undefined') window.closeLaunchModal = closeLaunchModal;
 
-function launchCompany(event) {
+async function launchCompany(event) {
     event.preventDefault();
     
     const selectedAccessCode = document.getElementById('accessCode').value;
@@ -1071,6 +1529,7 @@ function launchCompany(event) {
         id: `user-${newCompany.id}-admin`,
         username: newCompany.adminUsername,
         email: newCompany.adminEmail,
+        password: newCompany.adminPassword, // Store password for login
         company: newCompany.name,
         role: 'Admin',
         created: newCompany.signupDate,
@@ -1127,6 +1586,7 @@ function launchCompany(event) {
     
     showAlert(`Company "${newCompany.name}" launched successfully!`, 'success');
 }
+if (typeof window !== 'undefined') window.launchCompany = launchCompany;
 
 // Activity Feed
 function loadActivityFeed() {
@@ -1346,6 +1806,7 @@ function exportAllData() {
     URL.revokeObjectURL(url);
     showAlert('Data exported successfully!', 'success');
 }
+if (typeof window !== 'undefined') window.exportAllData = exportAllData;
 
 function exportCompanyReport() {
     const csv = generateCompanyCSV();
@@ -1498,9 +1959,10 @@ function listenForMainSiteUpdates() {
     setInterval(() => {
         // Check if companies have been updated
         const currentCompanies = JSON.parse(localStorage.getItem('masterCompanies') || '[]');
-        if (JSON.stringify(currentCompanies) !== JSON.stringify(companies)) {
+        const normalizedCompanies = normalizeCompanies(currentCompanies);
+        if (JSON.stringify(normalizedCompanies) !== JSON.stringify(companies)) {
             console.log('🔄 Companies updated in localStorage, refreshing...');
-            companies = currentCompanies;
+            companies = normalizedCompanies;
             displayCompanies();
             updateStats();
         }
@@ -1538,7 +2000,9 @@ listenForMainSiteUpdates();
 
 // Utility Functions
 function formatDate(dateString) {
-    return new Date(dateString).toLocaleDateString('en-US', {
+    if (!dateString) return 'N/A';
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-US', {
         year: 'numeric',
         month: 'short',
         day: 'numeric'
@@ -1695,6 +2159,7 @@ function logout() {
         window.location.href = '../index.html';
     }
 }
+if (typeof window !== 'undefined') window.logout = logout;
 
 // API Configuration Functions
 function configureCompanyAPI(companyId) {
@@ -1793,6 +2258,13 @@ function showCompanyDetails(companyId) {
     
     // Get users for this company
     const companyUsers = users.filter(user => user.company === company.name);
+    const sanitize = (value) => (value || '').replace(/"/g, '&quot;');
+    const webhookInputs = {
+        advisor: sanitize(company.webhook_advisor_url),
+        generator: sanitize(company.webhook_generator_url),
+        summarizer: sanitize(company.webhook_summarizer_url),
+        email: sanitize(company.webhook_email_url)
+    };
     
     // Update modal title
     document.getElementById('companyDetailsTitle').textContent = `${company.name} - User Management`;
@@ -1833,9 +2305,49 @@ function showCompanyDetails(companyId) {
                 </div>
             </div>
             
+            <div class="webhook-settings-card" id="companyWebhookCard-${company.id}">
+                <div class="webhook-settings-header">
+                    <h4><i class="fas fa-plug"></i> Webhook Integrations</h4>
+                    <p>Configure company-specific endpoints used across Policy Pro features. Leave blank to fall back to the default URLs.</p>
+                </div>
+                <div class="webhook-input-grid">
+                    <label>Policy Advisor</label>
+                    <div class="input-wrapper">
+                        <i class="fas fa-comments"></i>
+                        <input type="url" id="companyWebhookAdvisor-${company.id}" value="${webhookInputs.advisor}" placeholder="https://advisor.example.com/webhook">
+                    </div>
+                    <label>AI Generator</label>
+                    <div class="input-wrapper">
+                        <i class="fas fa-robot"></i>
+                        <input type="url" id="companyWebhookGenerator-${company.id}" value="${webhookInputs.generator}" placeholder="https://generator.example.com/webhook">
+                    </div>
+                    <label>Summarizer / Drag & Drop</label>
+                    <div class="input-wrapper">
+                        <i class="fas fa-upload"></i>
+                        <input type="url" id="companyWebhookSummarizer-${company.id}" value="${webhookInputs.summarizer}" placeholder="https://summarizer.example.com/webhook">
+                    </div>
+                    <label>Email Notifications</label>
+                    <div class="input-wrapper">
+                        <i class="fas fa-envelope"></i>
+                        <input type="url" id="companyWebhookEmail-${company.id}" value="${webhookInputs.email}" placeholder="https://email.example.com/webhook">
+                    </div>
+                </div>
+                <div class="webhook-card-actions">
+                    <div id="companyWebhookStatus-${company.id}" class="webhook-status-text"></div>
+                    <button class="btn btn-primary" onclick="saveCompanyWebhooks('${company.id}')">
+                        <i class="fas fa-save"></i> Save Webhooks
+                    </button>
+                </div>
+            </div>
+            
             <div class="users-management-section">
                 <div class="section-header">
                     <h4><i class="fas fa-users"></i> User Management (${companyUsers.length} users)</h4>
+                    <div class="header-actions">
+                        <button onclick="addNewUser('${companyId}')" class="btn btn-primary">
+                            <i class="fas fa-plus"></i> Add User
+                        </button>
+                    </div>
                     <div class="user-stats">
                         <span class="stat-item admin-count">
                             <i class="fas fa-crown"></i> ${companyUsers.filter(u => u.isAdmin).length} Admins
@@ -1938,10 +2450,64 @@ function showCompanyDetails(companyId) {
     
     document.getElementById('companyDetailsContent').innerHTML = content;
     document.getElementById('companyDetailsModal').classList.add('show');
+    
+    if (focusSection === 'webhooks') {
+        const webhooksCard = document.getElementById(`companyWebhookCard-${company.id}`);
+        if (webhooksCard) {
+            webhooksCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+    }
 }
 
-function closeCompanyDetailsModal() {
-    document.getElementById('companyDetailsModal').classList.remove('show');
+async function saveCompanyWebhooks(companyId) {
+    const company = companies.find(c => c.id === companyId);
+    if (!company) {
+        showAlert('Company not found', 'error');
+        return;
+    }
+    
+    const getValue = (suffix) => {
+        const input = document.getElementById(`companyWebhook${suffix}-${companyId}`);
+        return input ? input.value.trim() : '';
+    };
+    
+    const updates = {
+        webhook_advisor_url: getValue('Advisor'),
+        webhook_generator_url: getValue('Generator'),
+        webhook_summarizer_url: getValue('Summarizer'),
+        webhook_email_url: getValue('Email')
+    };
+    
+    Object.assign(company, updates);
+    saveData();
+    displayCompanies();
+    
+    const statusDiv = document.getElementById(`companyWebhookStatus-${companyId}`);
+    if (statusDiv) {
+        statusDiv.textContent = 'Webhook settings saved.';
+        statusDiv.classList.remove('error');
+    }
+    
+    showAlert(`Webhook settings updated for ${company.name}`, 'success');
+    
+    if (typeof SupabaseDB !== 'undefined' && typeof SupabaseDB.updateCompany === 'function') {
+        try {
+            await SupabaseDB.updateCompany(company.id, {
+                webhook_advisor_url: updates.webhook_advisor_url || null,
+                webhook_generator_url: updates.webhook_generator_url || null,
+                webhook_summarizer_url: updates.webhook_summarizer_url || null,
+                webhook_email_url: updates.webhook_email_url || null
+            });
+        } catch (error) {
+            console.error('Failed to update webhooks in Supabase:', error);
+            if (statusDiv) {
+                statusDiv.textContent = 'Saved locally, but failed to update Supabase.';
+                statusDiv.classList.add('error');
+            }
+        }
+    }
+    
+    showCompanyDetails(company.id, 'webhooks');
 }
 
 function toggleUserAdmin(userId, isAdmin, companyId) {
@@ -2095,28 +2661,7 @@ function editUserInfo(userId) {
     });
 }
 
-function deleteUser(userId, companyId) {
-    const user = users.find(u => u.id === userId);
-    if (!user) {
-        showAlert('User not found', 'error');
-        return;
-    }
-    
-    if (confirm(`Are you sure you want to delete user "${user.username}"? This action cannot be undone.`)) {
-        const userIndex = users.findIndex(u => u.id === userId);
-        if (userIndex > -1) {
-            users.splice(userIndex, 1);
-            saveData();
-            syncToMainSite();
-            showAlert(`User "${user.username}" deleted successfully`, 'success');
-            
-            // Refresh company details
-            if (companyId) {
-                showCompanyDetails(companyId);
-            }
-        }
-    }
-}
+// deleteUser function is already defined above (line 512) - this duplicate is removed
 
 function bulkMakeAdmin(companyId) {
     const company = companies.find(c => c.id === companyId);
@@ -2261,19 +2806,19 @@ function initializeHelpSection() {
 }
 
 // Refresh Dashboard Function
-function refreshDashboard() {
+function refreshDashboard(event) {
     console.log('Refreshing dashboard data...');
     
     // Show loading state
-    const refreshBtn = event.target.closest('button');
+    const refreshBtn = event ? event.target.closest('button') : document.querySelector('.btn-secondary');
     const originalText = refreshBtn.innerHTML;
     refreshBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Refreshing...';
     refreshBtn.disabled = true;
     
     // Simulate refresh delay
-    setTimeout(() => {
+    setTimeout(async () => {
         // Reload data
-        initializeData();
+        await initializeData();
         updateStats();
         displayCompanies();
         displayUsers();
@@ -2287,6 +2832,7 @@ function refreshDashboard() {
         showNotification('Dashboard refreshed successfully!', 'success');
     }, 1500);
 }
+if (typeof window !== 'undefined') window.refreshDashboard = refreshDashboard;
 
 // Notification System
 function showNotification(message, type = 'info') {
@@ -2813,32 +3359,7 @@ function clearAllUsers() {
     }
 }
 
-function exportAllData() {
-    // Load policies from storage
-    const savedPolicies = localStorage.getItem('masterPolicies');
-    const policies = savedPolicies ? JSON.parse(savedPolicies) : [];
-    
-    const allData = {
-        companies: companies,
-        users: users,
-        accessCodes: accessCodes,
-        policies: policies,
-        analytics: analytics,
-        timestamp: new Date().toISOString()
-    };
-    
-    const dataStr = JSON.stringify(allData, null, 2);
-    const dataBlob = new Blob([dataStr], { type: 'application/json' });
-    const url = URL.createObjectURL(dataBlob);
-    
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `policy-pro-data-${new Date().toISOString().slice(0, 10)}.json`;
-    link.click();
-    
-    URL.revokeObjectURL(url);
-    showNotification('Data exported successfully!', 'success');
-}
+// exportAllData function is already defined above (line 1326) - this duplicate is removed
 
 // AI Policy Assistant Functions
 let chatState = {
@@ -2889,11 +3410,13 @@ function openAIModal() {
     resetChat();
     console.log('🎉 AI Modal opened successfully');
 }
+if (typeof window !== 'undefined') window.openAIModal = openAIModal;
 
 function closeAIModal() {
     document.getElementById('aiModal').style.display = 'none';
     resetChat();
 }
+if (typeof window !== 'undefined') window.closeAIModal = closeAIModal;
 
 function resetChat() {
     chatState = {
@@ -3242,17 +3765,7 @@ function continueChat() {
     chatState.step = 'modify';
 }
 
-function saveGeneratedPolicy() {
-    if (!chatState.currentPolicy) {
-        alert('No policy to save');
-        return;
-    }
-    
-    // Here you would implement saving the policy
-    // For now, just show a success message
-    showNotification('Policy saved successfully!', 'success');
-    closeAIModal();
-}
+// saveGeneratedPolicy function is already defined below (line 3565) - this duplicate is removed
 
 function downloadGeneratedPolicy() {
     if (!chatState.currentPolicy) {
@@ -3371,11 +3884,7 @@ function getPolicyTypeLabel(type) {
     return labels[type] || type;
 }
 
-function formatDate(dateString) {
-    if (!dateString) return 'N/A';
-    const date = new Date(dateString);
-    return date.toLocaleDateString();
-}
+// formatDate function is already defined above (line 1540) - this duplicate is removed
 
 function updatePolicyBadge() {
     const badge = document.getElementById('policyBadge');
@@ -3846,4 +4355,36 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Initialize email marketing
     loadEmailCampaigns();
+});
+
+// Functions are already attached at the top of the file (hoisted)
+// This is just a backup re-attachment after DOM loads
+
+// Also attach on DOMContentLoaded as backup
+document.addEventListener('DOMContentLoaded', function() {
+    try {
+        if (typeof window !== 'undefined') {
+            window.launchNewCompany = launchNewCompany;
+            window.showCreateCodeModal = showCreateCodeModal;
+            window.showSection = showSection;
+            window.refreshDashboard = refreshDashboard;
+            window.closeCreateCodeModal = closeCreateCodeModal;
+            window.closeLaunchModal = closeLaunchModal;
+            window.launchCompany = launchCompany;
+            window.createAccessCode = createAccessCode;
+            window.deleteAccessCode = deleteAccessCode;
+            window.showCompanyDetails = showCompanyDetails;
+            window.closeCompanyDetailsModal = closeCompanyDetailsModal;
+            window.exportAllData = exportAllData;
+            window.openAIModal = openAIModal;
+            window.closeAIModal = closeAIModal;
+            window.logout = logout;
+            window.changeUserRole = changeUserRole;
+            window.deleteUser = deleteUser;
+            window.showSection = showSection;
+            console.log('✅ Button functions re-attached on DOMContentLoaded');
+        }
+    } catch (e) {
+        console.error('Error re-attaching functions:', e);
+    }
 });

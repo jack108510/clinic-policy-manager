@@ -44,44 +44,167 @@ const masterData = loadMasterAdminData();
 let users = [];
 let policies = [];
 let conversationHistory = []; // Store full conversation history for AI context
-let currentUser = loadFromLocalStorage('currentUser', null);
-let currentCompany = loadFromLocalStorage('currentCompany', null);
 
-// Homepage button functions - Define early and attach to window for immediate access
-function showSignupModal() {
-    console.log('showSignupModal called');
-    const modal = document.getElementById('signupModal');
-    if (modal) {
-        modal.classList.add('show');
-        modal.style.display = 'flex !important';
-        modal.style.visibility = 'visible !important';
-        modal.style.opacity = '1 !important';
-        modal.style.zIndex = '10000 !important';
-        console.log('Signup modal shown');
-        
-        // Ensure event listeners are attached when modal is shown
+// AI Wizard state - initialized early to avoid temporal dead zone issues
+let aiWizardState = {};
+let aiWizardCurrentStep = 0;
+
+// AI Wizard Questions - initialized early to avoid temporal dead zone issues
+let wizardQuestions = [
+    {
+        id: 'policyType',
+        title: 'What type of policy do you need?',
+        subtitle: 'Select the document type that best fits your needs',
+        type: 'choice',
+        options: [
+            { value: 'admin', label: 'Admin Policy', description: 'Administrative procedures and governance', icon: 'fa-file-alt', color: '#6366f1' },
+            { value: 'sog', label: 'Standard Operating Guidelines', description: 'Operational procedures and workflows', icon: 'fa-clipboard-list', color: '#10b981' },
+            { value: 'protocol', label: 'Protocol', description: 'Detailed step-by-step procedures', icon: 'fa-tasks', color: '#f59e0b' },
+            { value: 'memo', label: 'Communication Memo', description: 'Internal announcements and updates', icon: 'fa-envelope', color: '#ec4899' },
+            { value: 'training', label: 'Training Document', description: 'Educational materials and guides', icon: 'fa-graduation-cap', color: '#8b5cf6' },
+            { value: 'governance', label: 'Governance Policy', description: 'Corporate governance and compliance', icon: 'fa-shield-alt', color: '#64748b' }
+        ]
+    },
+    {
+        id: 'policyCategory',
+        title: 'What category does this policy cover?',
+        subtitle: 'Choose the primary focus area',
+        type: 'choice',
+        options: [
+            { value: 'clinical_safety', label: 'Clinical & Patient Safety', description: 'Medication safety, infection control, anesthesia protocols', icon: 'fa-heartbeat', color: '#10b981' },
+            { value: 'emergency_response', label: 'Emergency Response', description: 'Disaster plans, evacuation procedures, crisis management', icon: 'fa-exclamation-triangle', color: '#ef4444' },
+            { value: 'operations', label: 'Operations & Workflow', description: 'Scheduling, logistics, client experience', icon: 'fa-cogs', color: '#6366f1' },
+            { value: 'data_security', label: 'Data & Security', description: 'Cybersecurity, documentation, privacy compliance', icon: 'fa-lock', color: '#8b5cf6' },
+            { value: 'hr_people', label: 'HR & People', description: 'Hiring, training, performance management', icon: 'fa-users', color: '#f59e0b' },
+            { value: 'custom', label: 'Custom Topic', description: 'Something specific to your organization', icon: 'fa-lightbulb', color: '#ec4899' }
+        ]
+    },
+    {
+        id: 'audience',
+        title: 'Who is the primary audience?',
+        subtitle: 'Select who needs to follow this policy',
+        type: 'choice',
+        options: [
+            { value: 'clinical_team', label: 'Clinical Team', description: 'Veterinarians, technicians, medical staff', icon: 'fa-user-md', color: '#10b981' },
+            { value: 'front_desk', label: 'Client Services', description: 'Reception, CSRs, client communications', icon: 'fa-headset', color: '#6366f1' },
+            { value: 'leadership', label: 'Leadership & Management', description: 'Directors, supervisors, administrators', icon: 'fa-user-tie', color: '#8b5cf6' },
+            { value: 'all_staff', label: 'All Staff', description: 'Everyone in the organization', icon: 'fa-users', color: '#f59e0b' }
+        ]
+    },
+    {
+        id: 'urgency',
+        title: 'What\'s the urgency level?',
+        subtitle: 'This helps us set the appropriate tone and timeline',
+        type: 'choice',
+        options: [
+            { value: 'immediate', label: 'Immediate', description: 'Urgent - needs immediate implementation', icon: 'fa-bolt', color: '#ef4444' },
+            { value: 'soon', label: 'Soon', description: 'Within the next few weeks', icon: 'fa-clock', color: '#f59e0b' },
+            { value: 'planned', label: 'Planned', description: 'Part of routine planning or annual updates', icon: 'fa-calendar', color: '#10b981' }
+        ]
+    },
+    {
+        id: 'compliance',
+        title: 'Any compliance requirements?',
+        subtitle: 'Select applicable regulations or standards',
+        type: 'choice',
+        options: [
+            { value: 'hipaa', label: 'HIPAA / PHI', description: 'Privacy and protected health information', icon: 'fa-shield-alt', color: '#6366f1' },
+            { value: 'osha', label: 'OSHA / Safety', description: 'Workplace safety and hazard control', icon: 'fa-hard-hat', color: '#f59e0b' },
+            { value: 'accreditation', label: 'AAHA / Accreditation', description: 'Industry best practices and standards', icon: 'fa-certificate', color: '#10b981' },
+            { value: 'none', label: 'No Specific Requirement', description: 'General best practices only', icon: 'fa-check-circle', color: '#64748b' }
+        ]
+    },
+    {
+        id: 'details',
+        title: 'Additional details and requirements',
+        subtitle: 'Add any specific information, names, locations, or special instructions',
+        type: 'text',
+        placeholder: 'Example: "This policy should be called Controlled Substance Handling SOP for River Valley Clinic. Include DEA log procedures and monthly audit requirements. Reference our existing inventory management system."',
+        helper: 'Be as specific as possible. Include clinic names, specific procedures, metrics, or any unique requirements.',
+        required: false
+    }
+];
+let rememberDevicePreferenceRaw = localStorage.getItem('rememberDevice');
+let rememberDevicePreference = rememberDevicePreferenceRaw === null ? true : rememberDevicePreferenceRaw === 'true';
+let currentUser = rememberDevicePreference ? loadFromLocalStorage('currentUser', null) : loadFromSessionStorage('currentUser', null);
+let currentCompany = rememberDevicePreference ? loadFromLocalStorage('currentCompany', null) : loadFromSessionStorage('currentCompany', null);
+
+const WEBHOOK_DEFAULTS = {
+    advisor: '',
+    generator: '',
+    summarizer: '',
+    email: ''
+};
+
+const WEBHOOK_FALLBACKS = {
+    advisor: 'http://localhost:5678/webhook/6aa55f96-04a0-4d04-b99f-1b4da027dce6',
+    generator: 'http://localhost:5678/webhook/6aa55f96-04a0-4d04-b99f-1b4da027dce6',
+    summarizer: 'http://localhost:5678/webhook/b501e849-7a23-49d6-9502-66fb14b5a77e',
+    email: 'http://localhost:5678/webhook/d523361e-1e04-4c16-a86e-bbb1d7729fcb'
+};
+
+const WEBHOOK_STORAGE_KEY = 'companyWebhookSettings';
+let currentWebhookSettings = { ...WEBHOOK_DEFAULTS };
+
+// Auth portal helpers
+function openAuthPortal(portalId) {
+    const portal = document.getElementById(portalId);
+    if (!portal) {
+        console.error(`Portal ${portalId} not found`);
+        return null;
+    }
+    
+    portal.style.display = 'flex';
+    requestAnimationFrame(() => portal.classList.add('show'));
+    document.body.classList.add('auth-open');
+    return portal;
+}
+
+function closeAuthPortal(portalId) {
+    const portal = document.getElementById(portalId);
+    if (!portal) return;
+    
+    portal.classList.remove('show');
         setTimeout(() => {
-            if (typeof setupSignupFormListeners === 'function') {
-                setupSignupFormListeners();
-            }
-        }, 100);
-    } else {
-        console.error('Signup modal element not found');
+        portal.style.display = 'none';
+        if (!isAnyAuthPortalOpen()) {
+            document.body.classList.remove('auth-open');
+        }
+    }, 200);
+}
+
+function isAnyAuthPortalOpen() {
+    return ['loginPortal', 'createAccountPortal'].some(id => {
+        const portal = document.getElementById(id);
+        return portal && portal.classList.contains('show');
+    });
+}
+
+function showSignupModal() {
+    showCreateAccountPortal();
+}
+
+function showCreateAccountPortal() {
+    console.log('Opening create account portal');
+    closeAuthPortal('loginPortal');
+    const portal = openAuthPortal('createAccountPortal');
+    if (portal) {
+        const field = document.getElementById('signupFullName') || document.getElementById('signupUsername');
+        if (field) field.focus();
     }
 }
 
 function showLoginModal() {
-    console.log('showLoginModal called');
-    const modal = document.getElementById('loginModal');
-    if (modal) {
-        modal.classList.add('show');
-        modal.style.display = 'flex !important';
-        modal.style.visibility = 'visible !important';
-        modal.style.opacity = '1 !important';
-        modal.style.zIndex = '10000 !important';
-        console.log('Login modal shown');
-    } else {
-        console.error('Login modal element not found');
+    console.log('Opening login portal');
+    closeAuthPortal('createAccountPortal');
+    const portal = openAuthPortal('loginPortal');
+    if (portal) {
+        const field = document.getElementById('loginUsername');
+        if (field) field.focus();
+        const rememberField = document.getElementById('rememberDevice');
+        if (rememberField) {
+            rememberField.checked = rememberDevicePreference;
+        }
     }
 }
 
@@ -105,7 +228,6 @@ function startDemo() {
     let demoCompanyData = masterCompanies.find(c => c.name === demoCompany);
     
     if (!demoCompanyData) {
-        // Create demo company
         demoCompanyData = {
             id: 'demo-company-1',
             name: demoCompany,
@@ -121,21 +243,111 @@ function startDemo() {
         localStorage.setItem('masterCompanies', JSON.stringify(masterCompanies));
     }
     
-    // Set demo user
+    // Ensure demo user exists in master users for fallback auth
+    const masterUsers = JSON.parse(localStorage.getItem('masterUsers') || '[]');
+    const existingDemoUser = masterUsers.find(u => u.username === 'demo' && u.company === demoCompany);
+    if (!existingDemoUser) {
+        masterUsers.push(demoUser);
+        localStorage.setItem('masterUsers', JSON.stringify(masterUsers));
+    }
+    
+    // Create sample policies for demo
+    const demoPolicies = [
+        {
+            id: 'demo-policy-1',
+            title: 'Data Security Policy',
+            type: 'admin',
+            clinics: ['All Organizations'],
+            clinicNames: 'All Organizations',
+            description: 'This policy establishes guidelines for data security and protection of sensitive information.',
+            content: 'Purpose: To ensure the secure handling of data.\n\nProcedures: All data must be encrypted.\n\nCompliance: Required monthly reviews.',
+            company: demoCompany,
+            created: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+            lastModified: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+            status: 'active',
+            categoryId: null,
+            policyCode: 'ADMIN.1.1.2025'
+        },
+        {
+            id: 'demo-policy-2',
+            title: 'Employee Code of Conduct',
+            type: 'admin',
+            clinics: ['All Organizations'],
+            clinicNames: 'All Organizations',
+            description: 'Guidelines for professional behavior and ethical conduct.',
+            content: 'Purpose: Maintain professional standards.\n\nGuidelines: Respect, integrity, accountability.',
+            company: demoCompany,
+            created: new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+            lastModified: new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+            status: 'active',
+            categoryId: null,
+            policyCode: 'ADMIN.1.2.2025'
+        },
+        {
+            id: 'demo-policy-3',
+            title: 'Remote Work Guidelines',
+            type: 'sog',
+            clinics: ['All Organizations'],
+            clinicNames: 'All Organizations',
+            description: 'Standard operating guidelines for remote work arrangements.',
+            content: 'Purpose: Establish remote work protocols.\n\nProcedures: Check-in times, communication requirements, productivity expectations.',
+            company: demoCompany,
+            created: new Date(Date.now() - 21 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+            lastModified: new Date(Date.now() - 21 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+            status: 'active',
+            categoryId: null,
+            policyCode: 'SOG.1.1.2025'
+        }
+    ];
+    localStorage.setItem(`policies_${demoCompany}`, JSON.stringify(demoPolicies));
+    
+    // Ensure organizations include demo company
+    const organizations = JSON.parse(localStorage.getItem('organizations') || '{}');
+    if (!organizations[demoCompany]) {
+        organizations[demoCompany] = [demoCompany];
+        localStorage.setItem('organizations', JSON.stringify(organizations));
+    }
+    
+    // Log in as demo user
     currentUser = demoUser;
     currentCompany = demoCompany;
-    saveToLocalStorage('currentUser', demoUser);
-    saveToLocalStorage('currentCompany', demoCompany);
+    persistAuthUser(currentUser, currentCompany, true);
+    refreshCurrentWebhookSettings();
     
-    // Update UI
+    document.body.classList.add('user-logged-in');
     if (typeof updateUserInterface === 'function') {
         updateUserInterface();
     }
+    if (typeof loadPoliciesFromStorage === 'function') {
+        loadPoliciesFromStorage();
+    }
     
-    // Show welcome message
-    if (typeof showAlert === 'function') {
+    const landingPage = document.getElementById('landingPage');
+    if (landingPage) {
+        landingPage.style.display = 'none';
+    }
+    
+    if (typeof showNotification === 'function') {
+        showNotification('🎮 Demo mode activated! Explore Policy Pro with sample data.', 'success');
+    } else if (typeof showAlert === 'function') {
         showAlert('Welcome to Policy Pro Demo! Explore all features.', 'success');
     }
+    
+    window.scrollTo(0, 0);
+    
+    setTimeout(() => {
+        const modal = document.getElementById('tourModal');
+        const overlay = document.getElementById('tourOverlay');
+        console.log('Tour modal found:', !!modal);
+        console.log('Tour overlay found:', !!overlay);
+        
+        if (typeof startTour === 'function') {
+            console.log('Calling startTour()...');
+            startTour();
+        } else {
+            console.error('❌ startTour function not found!');
+        }
+    }, 1000);
     
     console.log('✅ Demo started');
 }
@@ -144,12 +356,14 @@ function startDemo() {
 if (typeof window !== 'undefined') {
     window.showSignupModal = showSignupModal;
     window.showLoginModal = showLoginModal;
+    window.showCreateAccountPortal = showCreateAccountPortal;
     window.startDemo = startDemo;
 }
 
 if (typeof globalThis !== 'undefined') {
     globalThis.showSignupModal = showSignupModal;
     globalThis.showLoginModal = showLoginModal;
+    globalThis.showCreateAccountPortal = showCreateAccountPortal;
     globalThis.startDemo = startDemo;
 }
 
@@ -238,6 +452,11 @@ window.addEventListener('masterDataUpdated', function(event) {
     }
     
     console.log('✅ Master data sync complete');
+    refreshCurrentWebhookSettings();
+    const webhooksTab = document.getElementById('webhooksTab');
+    if (webhooksTab && webhooksTab.classList.contains('active')) {
+        loadWebhookUrls();
+    }
 });
 
 // ChatGPT API Key Management
@@ -289,6 +508,172 @@ function loadFromLocalStorage(key, defaultValue = []) {
     }
 }
 
+function saveToSessionStorage(key, data) {
+    try {
+        if (typeof sessionStorage === 'undefined') return;
+        sessionStorage.setItem(key, JSON.stringify(data));
+    } catch (error) {
+        console.error('Error saving to sessionStorage:', error);
+    }
+}
+
+function loadFromSessionStorage(key, defaultValue = null) {
+    try {
+        if (typeof sessionStorage === 'undefined') return defaultValue;
+        const data = sessionStorage.getItem(key);
+        return data ? JSON.parse(data) : defaultValue;
+    } catch (error) {
+        console.error('Error loading from sessionStorage:', error);
+        return defaultValue;
+    }
+}
+
+function updateRememberDevicePreference(remember) {
+    rememberDevicePreference = !!remember;
+    localStorage.setItem('rememberDevice', rememberDevicePreference ? 'true' : 'false');
+}
+
+function persistAuthUser(user, company, preferenceOverride) {
+    if (typeof preferenceOverride === 'boolean') {
+        updateRememberDevicePreference(preferenceOverride);
+    }
+    
+    if (!user) {
+        clearAuthPersistence();
+        return;
+    }
+    
+    if (rememberDevicePreference) {
+        saveToLocalStorage('currentUser', user);
+        saveToLocalStorage('currentCompany', company);
+        try {
+            if (typeof sessionStorage !== 'undefined') {
+                sessionStorage.removeItem('currentUser');
+                sessionStorage.removeItem('currentCompany');
+            }
+        } catch (error) {
+            console.warn('Unable to clear sessionStorage auth cache:', error);
+        }
+    } else {
+        saveToSessionStorage('currentUser', user);
+        saveToSessionStorage('currentCompany', company);
+        localStorage.removeItem('currentUser');
+        localStorage.removeItem('currentCompany');
+    }
+}
+
+function clearAuthPersistence() {
+    try {
+        if (typeof sessionStorage !== 'undefined') {
+            sessionStorage.removeItem('currentUser');
+            sessionStorage.removeItem('currentCompany');
+        }
+    } catch (error) {
+        console.warn('Unable to clear sessionStorage auth data:', error);
+    }
+    
+    localStorage.removeItem('currentUser');
+    localStorage.removeItem('currentCompany');
+}
+
+function getCompanyRecordByName(name) {
+    if (!name) return null;
+    try {
+        const companies = JSON.parse(localStorage.getItem('masterCompanies') || '[]');
+        return companies.find(company => company.name === name) || null;
+    } catch (error) {
+        console.error('Error parsing master companies from localStorage:', error);
+        return null;
+    }
+}
+
+function filterEmptyWebhookValues(values = {}) {
+    const filtered = {};
+    Object.entries(values).forEach(([key, value]) => {
+        if (typeof value === 'string' && value.trim() !== '') {
+            filtered[key] = value.trim();
+        }
+    });
+    return filtered;
+}
+
+function refreshCurrentWebhookSettings() {
+    const companyName = currentCompany || 'Default Company';
+    const storedMap = loadFromLocalStorage(WEBHOOK_STORAGE_KEY, {});
+    const companyRecord = getCompanyRecordByName(companyName);
+    const companyValues = companyRecord ? filterEmptyWebhookValues({
+        advisor: companyRecord.webhook_advisor_url,
+        generator: companyRecord.webhook_generator_url,
+        summarizer: companyRecord.webhook_summarizer_url,
+        email: companyRecord.webhook_email_url
+    }) : {};
+    
+    const storedValues = filterEmptyWebhookValues(storedMap[companyName] || {});
+    currentWebhookSettings = {
+        ...WEBHOOK_DEFAULTS,
+        ...companyValues,
+        ...storedValues
+    };
+    
+    storedMap[companyName] = currentWebhookSettings;
+    saveToLocalStorage(WEBHOOK_STORAGE_KEY, storedMap);
+}
+
+async function saveCompanyWebhookSettings(settings) {
+    const companyName = currentCompany || 'Default Company';
+    const sanitized = {
+        advisor: settings.advisor?.trim() || '',
+        generator: settings.generator?.trim() || '',
+        summarizer: settings.summarizer?.trim() || '',
+        email: settings.email?.trim() || ''
+    };
+    
+    const storedMap = loadFromLocalStorage(WEBHOOK_STORAGE_KEY, {});
+    storedMap[companyName] = sanitized;
+    saveToLocalStorage(WEBHOOK_STORAGE_KEY, storedMap);
+    currentWebhookSettings = { ...WEBHOOK_DEFAULTS, ...sanitized };
+    
+    const companies = JSON.parse(localStorage.getItem('masterCompanies') || '[]');
+    const companyIndex = companies.findIndex(c => c.name === companyName);
+    if (companyIndex !== -1) {
+        companies[companyIndex] = {
+            ...companies[companyIndex],
+            webhook_advisor_url: sanitized.advisor || null,
+            webhook_generator_url: sanitized.generator || null,
+            webhook_summarizer_url: sanitized.summarizer || null,
+            webhook_email_url: sanitized.email || null
+        };
+        localStorage.setItem('masterCompanies', JSON.stringify(companies));
+        
+        const companyId = companies[companyIndex].id;
+        if (companyId && SupabaseDB && typeof SupabaseDB.updateCompany === 'function') {
+            try {
+                await SupabaseDB.updateCompany(companyId, {
+                    webhook_advisor_url: sanitized.advisor || null,
+                    webhook_generator_url: sanitized.generator || null,
+                    webhook_summarizer_url: sanitized.summarizer || null,
+                    webhook_email_url: sanitized.email || null
+                });
+            } catch (error) {
+                console.error('Error updating company webhooks in Supabase:', error);
+                throw error;
+            }
+        }
+    }
+    
+    return sanitized;
+}
+
+function getWebhookUrl(type) {
+    const setting = currentWebhookSettings?.[type];
+    if (setting && setting.trim()) {
+        return setting.trim();
+    }
+    return WEBHOOK_FALLBACKS[type] || '';
+}
+
+refreshCurrentWebhookSettings();
+
 // DOM Elements
 const policiesGrid = document.getElementById('policiesGrid');
 const policySearch = document.getElementById('policySearch');
@@ -309,59 +694,6 @@ const draftCountElement = document.getElementById('draftCount');
 document.addEventListener('DOMContentLoaded', function() {
     console.log('Initializing application...');
     
-    // Attach event listeners to homepage buttons as backup
-    function attachHomepageButtonListeners() {
-        // Signup buttons
-        const signupButtons = document.querySelectorAll('button[onclick*="showSignupModal"], .btn-signup, button.btn-secondary');
-        signupButtons.forEach(btn => {
-            if (btn.textContent.includes('Create Account') || btn.textContent.includes('Sign Up') || btn.textContent.includes('Start Free Trial')) {
-                btn.addEventListener('click', function(e) {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    console.log('Signup button clicked via listener');
-                    if (typeof window.showSignupModal === 'function') {
-                        window.showSignupModal();
-                    }
-                });
-            }
-        });
-        
-        // Login buttons
-        const loginButtons = document.querySelectorAll('button[onclick*="showLoginModal"], .btn-login');
-        loginButtons.forEach(btn => {
-            if (btn.textContent.includes('Log In') || btn.textContent.includes('Get Started')) {
-                btn.addEventListener('click', function(e) {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    console.log('Login button clicked via listener');
-                    if (typeof window.showLoginModal === 'function') {
-                        window.showLoginModal();
-                    }
-                });
-            }
-        });
-        
-        // Demo buttons
-        const demoButtons = document.querySelectorAll('button[onclick*="startDemo"]');
-        demoButtons.forEach(btn => {
-            btn.addEventListener('click', function(e) {
-                e.preventDefault();
-                e.stopPropagation();
-                console.log('Demo button clicked via listener');
-                if (typeof window.startDemo === 'function') {
-                    window.startDemo();
-                }
-            });
-        });
-        
-        console.log('Homepage button listeners attached');
-    }
-    
-    // Attach listeners immediately and retry if DOM not ready
-    attachHomepageButtonListeners();
-    setTimeout(attachHomepageButtonListeners, 100);
-    setTimeout(attachHomepageButtonListeners, 500);
-    
     // Check if user is already logged in
     if (currentUser) {
         document.body.classList.add('user-logged-in');
@@ -369,10 +701,10 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Initialize data displays
     if (typeof displayPolicies === 'function') {
-        displayPolicies(currentPolicies);
+    displayPolicies(currentPolicies);
     }
     if (typeof updateStats === 'function') {
-        updateStats();
+    updateStats();
     }
     displayDrafts();
     displayRoles();
@@ -474,8 +806,8 @@ document.addEventListener('DOMContentLoaded', function() {
 function requireLogin() {
     console.log('requireLogin called, currentUser:', currentUser);
     if (!currentUser) {
-        console.log('User not logged in, showing signup modal');
-        showSignupModal();
+        console.log('User not logged in, showing login modal');
+        showLoginModal();
         return false;
     }
     console.log('User is logged in, allowing access');
@@ -554,38 +886,7 @@ function setupEventListeners() {
         generateAIPolicy();
     });
 
-    // Signup Form submission
-    const signupForm = document.getElementById('signupForm');
-    console.log('Signup form element:', signupForm);
-    if (signupForm) {
-        signupForm.addEventListener('submit', function(e) {
-            console.log('Signup form submit event triggered');
-            e.preventDefault();
-            signupUser(e);
-        });
-    } else {
-        console.error('Signup form element not found');
-    }
-
-    // Also add direct button click event as backup - check all signup forms
-    const signupForms = ['companySignupForm', 'individualSignupForm', 'companyCodeSignupForm'];
-    signupForms.forEach(formId => {
-        const signupButton = document.querySelector(`#${formId} button[type="submit"]`);
-    if (signupButton) {
-            console.log(`Signup button found for form: ${formId}`);
-        signupButton.addEventListener('click', function(e) {
-                console.log(`Signup button clicked for form: ${formId}`);
-            e.preventDefault();
-                if (formId === 'companySignupForm') {
-            signupUser(e);
-                } else if (formId === 'individualSignupForm') {
-                    signupUser(e);
-                } else if (formId === 'companyCodeSignupForm') {
-                    signupUser(e);
-                }
-        });
-    }
-    });
+    setupSignupFormListeners();
 
     // Password form submission
     const passwordForm = document.getElementById('passwordForm');
@@ -876,16 +1177,21 @@ window.addEventListener('click', function(e) {
 
 // Update Statistics
 function updateStats() {
+    // Ensure arrays exist to prevent undefined errors
+    const policies = currentPolicies || [];
+    const drafts = draftPolicies || [];
+    const userList = users || [];
+    
     // Update main stats if elements exist
     if (totalPoliciesElement) {
-        totalPoliciesElement.textContent = currentPolicies.length;
+        totalPoliciesElement.textContent = policies.length;
     }
     
     // Count recent updates (last 7 days)
     const recentDate = new Date();
     recentDate.setDate(recentDate.getDate() - 7);
-    const recentUpdates = currentPolicies.filter(policy => 
-        new Date(policy.updated) >= recentDate
+    const recentUpdates = policies.filter(policy => 
+        policy && policy.updated && new Date(policy.updated) >= recentDate
     ).length;
     
     if (recentUpdatesElement) {
@@ -893,7 +1199,7 @@ function updateStats() {
     }
     
     if (draftCountElement) {
-        draftCountElement.textContent = draftPolicies.length;
+        draftCountElement.textContent = drafts.length;
     }
     
     // Update admin stats
@@ -902,11 +1208,11 @@ function updateStats() {
     const adminUserCount = document.getElementById('adminUserCount');
     const adminCompanyCount = document.getElementById('adminCompanyCount');
     
-    if (adminTotalPolicies) adminTotalPolicies.textContent = currentPolicies.length;
-    if (adminDraftCount) adminDraftCount.textContent = draftPolicies.length;
-    if (adminUserCount) adminUserCount.textContent = users.length;
+    if (adminTotalPolicies) adminTotalPolicies.textContent = policies.length;
+    if (adminDraftCount) adminDraftCount.textContent = drafts.length;
+    if (adminUserCount) adminUserCount.textContent = userList.length;
     if (adminCompanyCount) {
-        const uniqueCompanies = [...new Set(users.map(user => user.company))];
+        const uniqueCompanies = [...new Set(userList.map(user => user && user.company ? user.company : null).filter(Boolean))];
         adminCompanyCount.textContent = uniqueCompanies.length;
     }
 }
@@ -1173,7 +1479,12 @@ async function processFiles(files) {
 
 async function sendFileToWebhook(file, statusElement) {
     console.log('sendFileToWebhook called with file:', file.name, 'statusElement:', statusElement);
-    const webhookUrl = 'http://localhost:5678/webhook/b501e849-7a23-49d6-9502-66fb14b5a77e';
+    const webhookUrl = getWebhookUrl('summarizer');
+    
+    if (!webhookUrl) {
+        showNotification('No Summarizer webhook configured. Please set one under Settings ➜ Webhooks.', 'error');
+        return null;
+    }
     
     try {
         // Create FormData for binary file upload (multipart/form-data)
@@ -1963,7 +2274,10 @@ async function sendAIEditRequest(index) {
     
     try {
         // Get webhook URL (same as AI generator)
-        const webhookUrl = localStorage.getItem('webhookUrlAI') || 'http://localhost:5678/webhook/6aa55f96-04a0-4d04-b99f-1b4da027dce6';
+        const webhookUrl = getWebhookUrl('generator');
+        if (!webhookUrl) {
+            throw new Error('No generator webhook configured.');
+        }
         
         // Prepare the edit request data - send more content for better context
         const editData = {
@@ -4710,11 +5024,16 @@ function storeDraft() {
 }
 
 function displayDrafts() {
-    // Check if draftList element exists
-    if (!draftList) {
-        console.log('draftList element not found, skipping displayDrafts');
+    // Only display drafts in admin dashboard, not on main page
+    // Check for admin draft list instead of main page draft list
+    const adminDraftList = document.getElementById('adminDraftList');
+    if (!adminDraftList) {
+        // If admin draft list doesn't exist, this is being called from main page - skip it
         return;
     }
+    
+    // Use admin draft list
+    const draftList = adminDraftList;
     
     // Filter drafts by company
     const companyDrafts = currentCompany ? 
@@ -5647,6 +5966,144 @@ function hideWebhookLoading() {
     document.getElementById('aiLoading').style.display = 'none';
 }
 
+function displayWebhookResponse(webhookResponse) {
+    const loadingEl = document.getElementById('aiLoading');
+    const resultEl = document.getElementById('aiResult');
+    if (loadingEl) loadingEl.style.display = 'none';
+    if (resultEl) resultEl.style.display = 'block';
+    
+    let responseData = webhookResponse;
+    if (typeof webhookResponse === 'string') {
+        try {
+            responseData = JSON.parse(webhookResponse);
+        } catch (error) {
+            responseData = webhookResponse;
+        }
+    }
+    
+    const aiGeneratedContent = document.getElementById('aiGeneratedContent');
+    if (!aiGeneratedContent) return;
+    
+    let displayContent = '';
+    
+    if (Array.isArray(responseData) && responseData.length > 0 && responseData[0].markdown) {
+        const policy = responseData[0];
+        displayContent = `
+            <div class="policy-preview professional">
+                <div class="policy-header">
+                    <div class="form-group" style="margin-bottom: 15px;">
+                        <label for="policyTitleInput" style="display: block; margin-bottom: 5px; font-weight: 600; color: #333;">
+                            <i class="fas fa-heading"></i> Policy Title <span style="color: red;">*</span>
+                        </label>
+                        <input type="text" id="policyTitleInput" value="${policy.policy_title || 'Generated Policy'}" required
+                               style="width: 100%; padding: 12px; border: 2px solid #ddd; border-radius: 6px; font-size: 1.1rem; font-weight: 600;"
+                               placeholder="Enter policy title..." 
+                               oninput="this.style.borderColor='#ddd'" />
+                        <small style="color: #666; display: block; margin-top: 5px;">This title is required to save the policy</small>
+                    </div>
+                    <span class="policy-type-badge admin">${policy.policy_type || 'Policy'}</span>
+                </div>
+                
+                <div class="policy-meta">
+                    <div class="meta-item"><strong>Company:</strong> ${policy.company}</div>
+                    <div class="meta-item"><strong>Effective Date:</strong> ${policy.effective_date}</div>
+                    <div class="meta-item"><strong>Applies To:</strong> ${policy.applies_to}</div>
+                    <div class="meta-item"><strong>Author:</strong> ${policy.author}</div>
+                    <div class="meta-item"><strong>Version:</strong> ${policy.version}</div>
+                </div>
+                
+                <div class="policy-content-display" style="max-height: 600px; overflow-y: auto;">
+                    ${generateEditablePolicySections(parseWebhookPolicyMarkdown(policy.markdown))}
+                </div>
+                
+                <div class="form-group" style="margin-top: 20px; margin-bottom: 20px;">
+                    <label for="aiPolicyCategory" style="display: block; margin-bottom: 5px; font-weight: 600; color: #333;">
+                        <i class="fas fa-tags"></i> Select Category (for policy code generation)
+                    </label>
+                    <select id="aiPolicyCategory" onchange="updateAIPolicyCode()" style="width: 100%; padding: 12px; border: 2px solid #ddd; border-radius: 6px; font-size: 1rem;">
+                        <option value="">No Category (optional)</option>
+                    </select>
+                    <small style="color: #666; display: block; margin-top: 5px;">Policy code will be generated in format: Type.Category#.Policy#.Year (e.g., ADMIN.1.2.2025)</small>
+                    <div id="aiPolicyCodeDisplay" style="display: none; margin-top: 10px; padding: 10px; background: #f0f8ff; border-radius: 6px;">
+                        <strong>Policy Code:</strong> <span id="aiPolicyCodeText"></span>
+                    </div>
+                </div>
+                
+                <div class="ai-result-actions" style="margin-top: 20px;">
+                    <button class="btn btn-info" onclick="showRefinePolicyModal()" style="background: #667eea; border-color: #667eea; color: white;">
+                        <i class="fas fa-magic"></i> Refine with AI
+                    </button>
+                    <button class="btn btn-success" onclick="saveWebhookPolicy()">
+                        <i class="fas fa-save"></i> Save Policy
+                    </button>
+                    <button class="btn btn-secondary" onclick="closeAIModal()">
+                        <i class="fas fa-times"></i> Close
+                    </button>
+                </div>
+            </div>
+        `;
+        
+        aiGeneratedContent.innerHTML = displayContent;
+        setTimeout(() => populateAICategoryDropdown(), 0);
+        window.currentWebhookPolicy = responseData;
+        return;
+    }
+    
+    if (typeof responseData === 'object') {
+        displayContent = `
+            <div style="text-align: center; padding: 40px;">
+                <h4 style="color: #0066cc; margin-bottom: 20px;">✅ Webhook Response Received</h4>
+                <div style="background: #f0f8ff; border: 2px solid #0066cc; border-radius: 8px; padding: 20px; margin: 20px auto; max-width: 800px;">
+                    <pre style="background: white; padding: 15px; border-radius: 4px; overflow-x: auto; white-space: pre-wrap; word-wrap: break-word; text-align: left; margin: 0;">${JSON.stringify(responseData, null, 2)}</pre>
+                </div>
+                <div class="ai-result-actions">
+                    <button class="btn btn-primary" onclick="closeAIModal()">Close</button>
+                </div>
+            </div>
+        `;
+        aiGeneratedContent.innerHTML = displayContent;
+        window.currentWebhookPolicy = responseData;
+        return;
+    }
+    
+    displayContent = `
+        <div style="text-align: center; padding: 40px;">
+            <h4 style="color: #0066cc; margin-bottom: 20px;">✅ Webhook Response Received</h4>
+            <div style="background: #f0f8ff; border: 2px solid #0066cc; border-radius: 8px; padding: 20px; margin: 20px auto; max-width: 800px;">
+                <pre style="background: white; padding: 15px; border-radius: 4px; overflow-x: auto; white-space: pre-wrap; word-wrap: break-word; text-align: left; margin: 0;">${webhookResponse}</pre>
+            </div>
+            <div class="ai-result-actions">
+                <button class="btn btn-primary" onclick="closeAIModal()">Close</button>
+            </div>
+        </div>
+    `;
+    aiGeneratedContent.innerHTML = displayContent;
+    window.currentWebhookPolicy = responseData;
+}
+
+function displayWebhookError(message) {
+    const loadingEl = document.getElementById('aiLoading');
+    const resultEl = document.getElementById('aiResult');
+    if (loadingEl) loadingEl.style.display = 'none';
+    if (resultEl) resultEl.style.display = 'block';
+    
+    const aiGeneratedContent = document.getElementById('aiGeneratedContent');
+    if (!aiGeneratedContent) return;
+    
+    aiGeneratedContent.innerHTML = `
+        <div style="text-align: center; padding: 40px;">
+            <h4 style="color: #cc0000; margin-bottom: 20px;">❌ Webhook Error</h4>
+            <div style="background: #ffe6e6; border: 2px solid #cc0000; border-radius: 8px; padding: 20px; margin: 20px auto; max-width: 800px;">
+                <h5 style="color: #cc0000; margin: 0 0 15px 0;">Error Message:</h5>
+                <p style="margin: 0; color: #cc0000; font-size: 16px;">${message}</p>
+            </div>
+            <div class="ai-result-actions">
+                <button class="btn btn-primary" onclick="closeAIModal()">Close</button>
+            </div>
+        </div>
+    `;
+}
+
 // Webhook function to send policy generation data
 // Helper function to get company users' emails
 function getCompanyUserEmails() {
@@ -5663,7 +6120,7 @@ function getCompanyUserEmails() {
 
 // Webhook function to send policy data when published
 async function sendPolicyPublishWebhook(policyData) {
-    const webhookUrl = 'http://localhost:5678/webhook/d523361e-1e04-4c16-a86e-bbb1d7729fcb';
+    const webhookUrl = getWebhookUrl('email');
     
     console.log('📤 Sending policy publish webhook to:', webhookUrl);
     
@@ -5752,7 +6209,7 @@ async function sendPolicyPublishWebhook(policyData) {
 
 async function sendPolicyReportWebhook(policyData) {
     // Get webhook URL for policy reports
-    const reportWebhookUrl = localStorage.getItem('webhookUrlReport') || 'http://localhost:5678/webhook-report';
+    const reportWebhookUrl = getWebhookUrl('summarizer');
     
     console.log('Sending policy report webhook to:', reportWebhookUrl);
     
@@ -5811,15 +6268,7 @@ async function sendPolicyGenerationWebhook(policyData) {
     // Check if it's an AI-generated policy (should use ChatGPT webhook)
     const isAIGenerated = policyData.generatedBy === 'ChatGPT' || policyData.type;
     
-    let webhookUrl;
-    if (isAIGenerated) {
-        // AI Policy Assistant webhook
-        webhookUrl = localStorage.getItem('webhookUrlAI') || 'http://localhost:5678/webhook/6aa55f96-04a0-4d04-b99f-1b4da027dce6';
-    } else {
-        // Manual policy or other webhook
-        webhookUrl = localStorage.getItem('webhookUrlManual') || localStorage.getItem('webhookUrlAI') || 'http://localhost:5678/webhook/6aa55f96-04a0-4d04-b99f-1b4da027dce6';
-    }
-    
+    const webhookUrl = getWebhookUrl('generator');
     console.log('Using webhook URL:', webhookUrl, 'for AI-generated:', isAIGenerated);
     
     const webhookData = {
@@ -6788,35 +7237,34 @@ function populateRolesAndDisciplinaryActions() {
     }
 }
 
+// AI Policy Generator - Complete Redesign
+// wizardQuestions is now initialized at the top of the file (line 53)
+
+// AI Policy Generator - Main Functions
 function openAIModal() {
-    // Track if admin dashboard was open before opening AI modal
+    // Track if admin dashboard was open
     const adminModal = document.getElementById('adminModal');
     const wasAdminOpen = adminModal && adminModal.style.display !== 'none';
-    
-    // Store this state so we know to reopen it later
     window.wasAdminModalOpen = wasAdminOpen;
     
     // Close admin dashboard first
-        closeAdminModal();
+    closeAdminModal();
     
     // Open AI modal
-    document.getElementById('aiModal').style.display = 'block';
+    const aiModal = document.getElementById('aiModal');
+    if (!aiModal) {
+        console.error('AI Modal not found');
+        return;
+    }
+    aiModal.style.display = 'block';
+    
+    // Hide result and loading, show wizard
     document.getElementById('aiResult').style.display = 'none';
     document.getElementById('aiLoading').style.display = 'none';
+    document.getElementById('aiWizard').style.display = 'block';
     
-    // Show all policy configuration options and chat interface
-    document.querySelector('.policy-type-selection').style.display = 'block';
-    document.querySelector('.policy-options-selection').style.display = 'block';
-    document.querySelector('.chat-container').style.display = 'block';
-    document.getElementById('aiSurveyForm').style.display = 'none';
-    
-    // Populate roles and disciplinary actions from settings (includes organizations)
-    populateRolesAndDisciplinaryActions();
-    
-    // Populate AI survey organizations
-    populateAIOrganizations();
-    
-    resetChat();
+    // Initialize wizard
+    initWizard();
 }
 
 function closeAIModal() {
@@ -6824,65 +7272,737 @@ function closeAIModal() {
     if (aiModal) {
         aiModal.style.display = 'none';
     }
-    resetChat();
     
-    // Automatically reopen admin dashboard when closing AI modal
+    resetWizard();
+    
+    // Reopen admin modal if it was open
+    const shouldReopenAdmin = window.wasAdminModalOpen !== false;
+    window.wasAdminModalOpen = false;
+    if (shouldReopenAdmin) {
+        setTimeout(() => openAdminModal(), 250);
+    }
+}
+
+function resetWizard() {
+    aiWizardState = {};
+    aiWizardCurrentStep = 0;
+}
+
+function initWizard() {
+    aiWizardState = {};
+    aiWizardCurrentStep = 0;
+    
+    // Ensure containers are visible
+    const optionsContainer = document.getElementById('wizardOptionsContainer');
+    const textContainer = document.getElementById('wizardTextContainer');
+    if (optionsContainer) optionsContainer.style.display = 'grid';
+    if (textContainer) textContainer.style.display = 'none';
+    
+    renderWizardStep();
+}
+
+function renderWizardStep() {
+    if (!wizardQuestions || wizardQuestions.length === 0) {
+        console.error('Wizard questions not found');
+        return;
+    }
+    
+    if (aiWizardCurrentStep < 0 || aiWizardCurrentStep >= wizardQuestions.length) {
+        console.error('Invalid step index:', aiWizardCurrentStep);
+        return;
+    }
+    
+    const question = wizardQuestions[aiWizardCurrentStep];
+    if (!question) {
+        console.error('Question not found at step:', aiWizardCurrentStep);
+        return;
+    }
+    
+    const total = wizardQuestions.length;
+    const progress = ((aiWizardCurrentStep + 1) / total) * 100;
+    
+    // Update progress bar
+    const progressFill = document.getElementById('wizardProgressFill');
+    if (progressFill) {
+        progressFill.style.width = `${progress}%`;
+    }
+    
+    // Update step text
+    const stepText = document.getElementById('wizardStepText');
+    if (stepText) {
+        stepText.textContent = `Step ${aiWizardCurrentStep + 1} of ${total}`;
+    }
+    
+    // Update question title and subtitle
+    const questionTitle = document.getElementById('wizardQuestionTitle');
+    const questionSubtitle = document.getElementById('wizardQuestionSubtitle');
+    if (questionTitle) questionTitle.textContent = question.title || 'Question';
+    if (questionSubtitle) questionSubtitle.textContent = question.subtitle || '';
+    
+    // Show/hide containers based on question type
+    const optionsContainer = document.getElementById('wizardOptionsContainer');
+    const textContainer = document.getElementById('wizardTextContainer');
+    
+    console.log('Rendering step', aiWizardCurrentStep, {
+        questionId: question.id,
+        questionType: question.type,
+        hasOptions: question.options?.length,
+        containerFound: !!optionsContainer,
+        containerDisplay: optionsContainer?.style.display
+    });
+    
+    if (question.type === 'choice') {
+        if (!optionsContainer) {
+            console.error('Options container element not found in DOM!');
+        return;
+    }
+    
+        // Force display
+        optionsContainer.style.display = 'grid';
+        optionsContainer.style.visibility = 'visible';
+        optionsContainer.style.opacity = '1';
+        optionsContainer.style.minHeight = '400px';
+        
+        if (textContainer) {
+            textContainer.style.display = 'none';
+        }
+        
+        // Render options
+        console.log('About to call renderChoiceOptions with:', { question, container: optionsContainer });
+        renderChoiceOptions(question, optionsContainer);
+    } else if (question.type === 'text') {
+        if (optionsContainer) optionsContainer.style.display = 'none';
+        if (textContainer) {
+            textContainer.style.display = 'block';
+            renderTextInput(question, textContainer);
+        }
+    }
+    
+    // Update navigation buttons
+    updateNavigationButtons();
+}
+
+function renderChoiceOptions(question, container) {
+    console.log('=== RENDER CHOICE OPTIONS START ===');
+    console.log('Question:', question);
+    console.log('Container:', container);
+    console.log('Container ID:', container?.id);
+    console.log('Container display:', container?.style?.display);
+    console.log('Has options:', question?.options?.length);
+    
+    if (!container) {
+        console.error('❌ Container is NULL or UNDEFINED');
+        // Try to find it again
+        const retryContainer = document.getElementById('wizardOptionsContainer');
+        console.log('Retry container:', retryContainer);
+        if (!retryContainer) {
+            alert('ERROR: Options container not found! Check console.');
+            return;
+        }
+        container = retryContainer;
+    }
+        
+    if (!question || !question.options || question.options.length === 0) {
+        console.error('❌ No options available', question);
+        container.innerHTML = '<p style="color: #ef4444; text-align: center; padding: 40px; font-size: 1.2rem; background: #fee; border: 2px solid #f00; border-radius: 12px;">ERROR: No options available for this question.</p>';
+        return;
+    }
+    
+    // Clear and force display
+    container.innerHTML = '';
+    container.style.display = 'grid';
+    container.style.visibility = 'visible';
+    container.style.opacity = '1';
+    container.style.minHeight = '400px';
+    container.style.padding = '20px 0';
+    
+    console.log('Container after setup:', {
+        display: container.style.display,
+        visibility: container.style.visibility,
+        opacity: container.style.opacity,
+        innerHTML: container.innerHTML.length
+    });
+        
+    // Kahoot-style colors: red, blue, yellow, green, purple, orange
+    const kahootColors = ['red', 'blue', 'yellow', 'green', 'purple', 'orange'];
+    
+    question.options.forEach((option, index) => {
+        console.log(`Creating option ${index + 1}:`, option.label);
+        
+        const optionBtn = document.createElement('button');
+        optionBtn.type = 'button';
+        optionBtn.className = 'wizard-option-card';
+        optionBtn.dataset.question = question.id;
+        
+        // Assign Kahoot-style color based on index
+        const colorIndex = index % kahootColors.length;
+        const kahootColor = kahootColors[colorIndex];
+        optionBtn.dataset.color = kahootColor;
+        
+            if (aiWizardState[question.id] === option.value) {
+            optionBtn.classList.add('selected');
+        }
+        
+        // Use the original color for the icon, but Kahoot color for the card
+        const iconColor = option.color || '#6366f1';
+        
+        optionBtn.innerHTML = `
+            <div class="option-icon" style="background: ${iconColor}20; color: ${iconColor}; border: 3px solid ${iconColor};">
+                <i class="fas ${option.icon || 'fa-circle'}"></i>
+            </div>
+            <div class="option-content">
+                <h4>${option.label}</h4>
+                <p>${option.description || ''}</p>
+            </div>
+            ${aiWizardState[question.id] === option.value ? '<div class="option-check"><i class="fas fa-check"></i></div>' : ''}
+        `;
+        
+        // Force all styles
+        optionBtn.style.display = 'block';
+        optionBtn.style.visibility = 'visible';
+        optionBtn.style.opacity = '1';
+        optionBtn.style.width = '100%';
+        optionBtn.style.height = 'auto';
+        optionBtn.style.minHeight = '180px';
+        optionBtn.style.position = 'relative';
+        optionBtn.style.zIndex = '10';
+        
+        optionBtn.addEventListener('click', () => {
+            console.log('Option clicked:', option.label);
+            selectOption(question, option, optionBtn);
+        });
+        
+        container.appendChild(optionBtn);
+        console.log(`✅ Appended option ${index + 1} to container. Container children: ${container.children.length}`);
+    });
+    
+    console.log(`=== RENDER COMPLETE: ${question.options.length} options rendered ===`);
+    console.log('Container final state:', {
+        children: container.children.length,
+        display: container.style.display,
+        innerHTML: container.innerHTML.substring(0, 200) + '...'
+    });
+    
+    // Final verification
+    if (container.children.length === 0) {
+        console.error('❌ CRITICAL: No children appended to container!');
+        alert('ERROR: Buttons were not created. Check console for details.');
+    }
+}
+
+function renderTextInput(question, container) {
+    if (!container) return;
+    
+    const textInput = document.getElementById('wizardTextInput');
+    const helperText = document.getElementById('wizardHelperText');
+    
+    if (textInput) {
+        textInput.value = aiWizardState[question.id] || '';
+        textInput.placeholder = question.placeholder || '';
+    }
+    
+    if (helperText && question.helper) {
+        helperText.textContent = question.helper;
+        helperText.style.display = 'block';
+    } else if (helperText) {
+        helperText.style.display = 'none';
+    }
+}
+
+function selectOption(question, option, button) {
+    aiWizardState[question.id] = option.value;
+    
+    // Update all buttons for this question
+    const allButtons = document.querySelectorAll('.wizard-option-card');
+    allButtons.forEach(btn => {
+        if (btn.dataset.question === question.id) {
+            btn.classList.remove('selected');
+        }
+    });
+    button.classList.add('selected');
+    
+    // Add checkmark
+    if (!button.querySelector('.option-check')) {
+        const check = document.createElement('div');
+        check.className = 'option-check';
+        check.innerHTML = '<i class="fas fa-check"></i>';
+        button.appendChild(check);
+    }
+    
+    // Auto-advance after short delay
     setTimeout(() => {
-        openAdminModal();
-    }, 250);
+        if (aiWizardCurrentStep < wizardQuestions.length - 1) {
+            aiWizardCurrentStep++;
+            renderWizardStep();
+        } else {
+            wizardGeneratePolicy();
+        }
+    }, 300);
 }
 
-function showPolicyOptions() {
-    document.querySelector('.policy-type-selection').style.display = 'block';
-    document.querySelector('.policy-options-selection').style.display = 'block';
-    document.querySelector('.chat-container').style.display = 'none';
+function updateNavigationButtons() {
+    const backBtn = document.getElementById('wizardBackBtn');
+    const nextBtn = document.getElementById('wizardNextBtn');
+    const generateBtn = document.getElementById('wizardGenerateBtn');
+    const question = wizardQuestions[aiWizardCurrentStep];
+    
+    // Back button
+    if (backBtn) {
+        backBtn.style.display = aiWizardCurrentStep > 0 ? 'inline-flex' : 'none';
+    }
+    
+    // Next/Generate buttons
+    if (question.type === 'text') {
+        if (nextBtn) nextBtn.style.display = 'none';
+        if (generateBtn) generateBtn.style.display = 'inline-flex';
+    } else {
+        if (nextBtn) nextBtn.style.display = 'none';
+        if (generateBtn) generateBtn.style.display = 'none';
+    }
 }
 
-function showChatInterface() {
-    document.querySelector('.policy-type-selection').style.display = 'block';
-    document.querySelector('.policy-options-selection').style.display = 'block';
-    document.querySelector('.chat-container').style.display = 'block';
+function wizardGoBack() {
+    if (aiWizardCurrentStep > 0) {
+    aiWizardCurrentStep--;
+        renderWizardStep();
+    }
 }
 
-function resetChat() {
-    chatState = {
-        step: 'start',
-        isGenerating: false,
-        currentPolicy: null
+function wizardGoNext() {
+    const question = wizardQuestions[aiWizardCurrentStep];
+    if (question.type === 'text') {
+        const input = document.getElementById('wizardTextInput');
+            if (input) {
+            aiWizardState[question.id] = input.value.trim();
+            }
+    }
+    
+    if (aiWizardCurrentStep < wizardQuestions.length - 1) {
+        aiWizardCurrentStep++;
+        renderWizardStep();
+    } else {
+        wizardGeneratePolicy();
+    }
+}
+
+function wizardGeneratePolicy() {
+    // Save text input if on text step
+    const question = wizardQuestions[aiWizardCurrentStep];
+    if (question && question.type === 'text') {
+        const input = document.getElementById('wizardTextInput');
+        if (input) {
+            aiWizardState[question.id] = input.value.trim();
+        }
+    }
+    
+    // Hide wizard, show loading
+    document.getElementById('aiWizard').style.display = 'none';
+    document.getElementById('aiLoading').style.display = 'block';
+    document.getElementById('aiResult').style.display = 'none';
+    
+    // Animate loading steps
+    animateLoadingSteps();
+    
+    // Build prompt from wizard responses
+    const prompt = buildWizardPrompt();
+    
+    // Prepare policy data
+    const policyData = {
+        type: aiWizardState.policyType || 'admin',
+        clinicNames: currentCompany || 'All Organizations',
+        prompt: prompt,
+        generatedBy: 'AI Generator'
     };
     
-    // Clear conversation history
-    conversationHistory = [];
+    // Send to webhook
+    sendPolicyGenerationWebhook(policyData)
+        .then(response => {
+            displayWizardResult(response);
+        })
+        .catch(error => {
+            console.error('Policy generation error:', error);
+            displayWizardError(error.message || 'Unable to generate policy. Please try again.');
+        });
+}
+
+function buildWizardPrompt() {
+    const getOptionLabel = (questionId, value) => {
+        if (!value) return 'Not specified';
+        const question = wizardQuestions.find(q => q.id === questionId);
+        if (!question || !question.options) return value;
+        const option = question.options.find(opt => opt.value === value);
+        return option ? option.label : value;
+    };
     
-    const chatMessages = document.getElementById('chatMessages');
-    chatMessages.innerHTML = `
-        <div class="message ai-message">
-            <div class="message-avatar">
-                <i class="fas fa-robot"></i>
+    const parts = [
+        `POLICY GENERATION REQUEST`,
+        `Company: ${currentCompany || 'Unknown Company'}`,
+        `Requested by: ${currentUser?.username || 'Unknown User'}`,
+        ``,
+        `Document Type: ${getOptionLabel('policyType', aiWizardState.policyType)}`,
+        `Category: ${getOptionLabel('policyCategory', aiWizardState.policyCategory)}`,
+        `Audience: ${getOptionLabel('audience', aiWizardState.audience)}`,
+        `Urgency: ${getOptionLabel('urgency', aiWizardState.urgency)}`,
+        `Compliance: ${getOptionLabel('compliance', aiWizardState.compliance)}`,
+        ``,
+        `Additional Details:`,
+        aiWizardState.details || 'No additional details provided.'
+    ];
+    
+    return parts.join('\n');
+}
+
+function animateLoadingSteps() {
+    const steps = ['step1', 'step2', 'step3', 'step4'];
+    const messages = [
+        'Processing your inputs...',
+        'Researching best practices and compliance standards...',
+        'Generating comprehensive policy content...',
+        'Finalizing and formatting your policy...'
+    ];
+    
+    let currentStep = 0;
+    const loadingMessage = document.getElementById('loadingMessage');
+    
+    const interval = setInterval(() => {
+        if (currentStep < steps.length) {
+            // Mark previous steps as complete
+            if (currentStep > 0) {
+                const prevStep = document.getElementById(steps[currentStep - 1]);
+                if (prevStep) {
+                    prevStep.classList.add('complete');
+                    prevStep.querySelector('i').className = 'fas fa-check-circle';
+                }
+            }
+            
+            // Activate current step
+            const currentStepEl = document.getElementById(steps[currentStep]);
+            if (currentStepEl) {
+                currentStepEl.classList.add('active');
+            }
+            
+            // Update message
+            if (loadingMessage && messages[currentStep]) {
+                loadingMessage.textContent = messages[currentStep];
+            }
+            
+            currentStep++;
+        } else {
+            clearInterval(interval);
+        }
+    }, 1500);
+}
+
+function displayWizardResult(response) {
+    // Hide loading, show result
+    document.getElementById('aiLoading').style.display = 'none';
+    document.getElementById('aiWizard').style.display = 'none';
+    document.getElementById('aiResult').style.display = 'block';
+    
+    // Parse the response - could be JSON string, array, or object
+    let policyData = null;
+    
+    console.log('Raw response type:', typeof response);
+    console.log('Raw response:', response);
+    
+    if (typeof response === 'string') {
+        try {
+            // Try to parse as JSON
+            const parsed = JSON.parse(response);
+            if (Array.isArray(parsed) && parsed.length > 0) {
+                policyData = parsed[0];
+            } else if (parsed && typeof parsed === 'object') {
+                policyData = parsed;
+            } else {
+                policyData = { markdown: response };
+            }
+        } catch (e) {
+            // If not JSON, treat as markdown content
+            console.log('Response is not JSON, treating as markdown');
+            policyData = { markdown: response };
+        }
+    } else if (Array.isArray(response) && response.length > 0) {
+        policyData = response[0];
+    } else if (response && typeof response === 'object') {
+        policyData = response;
+    }
+    
+    console.log('Parsed policy data:', policyData);
+    
+    // Display generated content in editable format
+    const contentEl = document.getElementById('aiGeneratedContent');
+    if (contentEl && policyData) {
+        contentEl.innerHTML = renderEditablePolicy(policyData);
+        
+        // Add event listener for preview updates
+        const contentTextarea = document.getElementById('editPolicyContent');
+        if (contentTextarea) {
+            contentTextarea.addEventListener('input', updatePolicyPreview);
+            // Initial preview
+            setTimeout(updatePolicyPreview, 100);
+        }
+    } else {
+        contentEl.innerHTML = '<p>Policy generated successfully. Content will be displayed here.</p>';
+    }
+    
+    // Store generated policy for saving/publishing
+    window.generatedPolicy = policyData || response;
+}
+
+function renderEditablePolicy(policy) {
+    // Extract fields with defaults
+    const title = policy.policy_title || policy.title || 'Untitled Policy';
+    const type = policy.policy_type || policy.type || 'admin';
+    const company = policy.company || policy.applies_to || currentCompany || 'Unknown Company';
+    const effectiveDate = policy.effective_date ? new Date(policy.effective_date).toISOString().split('T')[0] : new Date().toISOString().split('T')[0];
+    const approvedBy = policy.approved_by || '';
+    const version = policy.version || '1.0';
+    const author = policy.author || currentUser?.username || 'Unknown';
+    const appliesTo = policy.applies_to || company;
+    const markdown = policy.markdown || policy.content || policy.statement || '';
+    
+    return `
+        <div class="policy-editor">
+            <div class="policy-field-group">
+                <label class="policy-field-label">
+                    <strong>Policy Title</strong>
+                </label>
+                <input type="text" id="editPolicyTitle" class="policy-field-input" value="${escapeHtml(title)}" placeholder="Enter policy title">
             </div>
-            <div class="message-content">
-                <p><strong>Hello! I'm your AI Policy Assistant powered by ChatGPT.</strong></p>
-                <p>I can create comprehensive, professional healthcare policies for your veterinary clinics. Configure your policy settings above, then describe what you need.</p>
-                <p><strong>Configure your policy:</strong></p>
-                <ul>
-                    <li><strong>Policy Type:</strong> Select Admin Policy, SOG, or Communication Memo</li>
-                    <li><strong>Organizations:</strong> Choose which clinics this applies to</li>
-                    <li><strong>Responsible Roles:</strong> Who will implement this policy</li>
-                    <li><strong>Disciplinary Actions:</strong> What happens if policy is violated</li>
-                </ul>
-                <p><strong>Then describe what policy you need:</strong></p>
-                <ul>
-                    <li>"Create a patient safety protocol policy"</li>
-                    <li>"Generate hand hygiene procedures"</li>
-                    <li>"Write emergency response procedures"</li>
-                </ul>
-                <p><strong>What policy would you like me to create?</strong></p>
+            
+            <div class="policy-field-group">
+                <label class="policy-field-label">
+                    <strong>Policy Type</strong>
+                </label>
+                <select id="editPolicyType" class="policy-field-input">
+                    <option value="admin" ${type === 'admin' ? 'selected' : ''}>Admin Policy</option>
+                    <option value="sog" ${type === 'sog' ? 'selected' : ''}>Standard Operating Guidelines</option>
+                    <option value="protocol" ${type === 'protocol' ? 'selected' : ''}>Protocol</option>
+                    <option value="memo" ${type === 'memo' ? 'selected' : ''}>Communication Memo</option>
+                    <option value="training" ${type === 'training' ? 'selected' : ''}>Training Document</option>
+                    <option value="governance" ${type === 'governance' ? 'selected' : ''}>Governance Policy</option>
+                </select>
+            </div>
+            
+            <div class="policy-field-row">
+                <div class="policy-field-group">
+                    <label class="policy-field-label">
+                        <strong>Company</strong>
+                    </label>
+                    <input type="text" id="editPolicyCompany" class="policy-field-input" value="${escapeHtml(company)}" placeholder="Company name">
+                </div>
+                
+                <div class="policy-field-group">
+                    <label class="policy-field-label">
+                        <strong>Applies To</strong>
+                    </label>
+                    <input type="text" id="editPolicyAppliesTo" class="policy-field-input" value="${escapeHtml(appliesTo)}" placeholder="Applies to">
+                </div>
+            </div>
+            
+            <div class="policy-field-row">
+                <div class="policy-field-group">
+                    <label class="policy-field-label">
+                        <strong>Effective Date</strong>
+                    </label>
+                    <input type="date" id="editPolicyEffectiveDate" class="policy-field-input" value="${effectiveDate}">
+                </div>
+                
+                <div class="policy-field-group">
+                    <label class="policy-field-label">
+                        <strong>Version</strong>
+                    </label>
+                    <input type="text" id="editPolicyVersion" class="policy-field-input" value="${escapeHtml(version)}" placeholder="1.0">
+                </div>
+            </div>
+            
+            <div class="policy-field-row">
+                <div class="policy-field-group">
+                    <label class="policy-field-label">
+                        <strong>Author</strong>
+                    </label>
+                    <input type="text" id="editPolicyAuthor" class="policy-field-input" value="${escapeHtml(author)}" placeholder="Author name">
+                </div>
+                
+                <div class="policy-field-group">
+                    <label class="policy-field-label">
+                        <strong>Approved By</strong>
+                    </label>
+                    <input type="text" id="editPolicyApprovedBy" class="policy-field-input" value="${escapeHtml(approvedBy)}" placeholder="Approver name">
+                </div>
+            </div>
+            
+            <div class="policy-field-group">
+                <label class="policy-field-label">
+                    <strong>Policy Content (Markdown)</strong>
+                </label>
+                <textarea id="editPolicyContent" class="policy-field-textarea" rows="20" placeholder="Policy content in markdown format">${escapeHtml(markdown)}</textarea>
+                <div class="policy-field-help">
+                    <small>You can edit the markdown content directly. Use standard markdown syntax for formatting.</small>
+                </div>
+            </div>
+            
+            <div class="policy-preview-section">
+                <h4>Preview</h4>
+                <div id="policyPreview" class="policy-preview-content"></div>
             </div>
         </div>
     `;
+}
+
+function escapeHtml(text) {
+    if (!text) return '';
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+// Update preview when content changes
+function updatePolicyPreview() {
+    const content = document.getElementById('editPolicyContent')?.value || '';
+    const preview = document.getElementById('policyPreview');
+    if (preview) {
+        // Simple markdown to HTML conversion (basic)
+        let html = content
+            .replace(/^# (.*$)/gim, '<h1>$1</h1>')
+            .replace(/^## (.*$)/gim, '<h2>$1</h2>')
+            .replace(/^### (.*$)/gim, '<h3>$1</h3>')
+            .replace(/^\*\*(.*)\*\*/gim, '<strong>$1</strong>')
+            .replace(/^\*(.*)\*/gim, '<em>$1</em>')
+            .replace(/\n/g, '<br>');
+        preview.innerHTML = html || '<em>No content to preview</em>';
+    }
+}
+
+function displayWizardError(message) {
+    document.getElementById('aiLoading').style.display = 'none';
+    document.getElementById('aiWizard').style.display = 'block';
     
-    document.getElementById('generatePolicyBtn').style.display = 'none';
-    document.getElementById('chatInput').value = '';
+    showNotification(message, 'error');
+}
+
+function wizardSavePolicy() {
+    if (!window.generatedPolicy) {
+        showNotification('No policy to save', 'error');
+        return;
+    }
+    
+    // Get values from editable fields
+    const title = document.getElementById('editPolicyTitle')?.value || 'Untitled Policy';
+    const type = document.getElementById('editPolicyType')?.value || 'admin';
+    const company = document.getElementById('editPolicyCompany')?.value || currentCompany;
+    const effectiveDate = document.getElementById('editPolicyEffectiveDate')?.value || new Date().toISOString().split('T')[0];
+    const version = document.getElementById('editPolicyVersion')?.value || '1.0';
+    const author = document.getElementById('editPolicyAuthor')?.value || currentUser?.username;
+    const approvedBy = document.getElementById('editPolicyApprovedBy')?.value || '';
+    const appliesTo = document.getElementById('editPolicyAppliesTo')?.value || company;
+    const content = document.getElementById('editPolicyContent')?.value || '';
+    
+    const newPolicy = {
+        id: Date.now(),
+        title: title,
+        type: type,
+        company: company,
+        appliesTo: appliesTo,
+        effectiveDate: effectiveDate,
+        version: version,
+        author: author,
+        approvedBy: approvedBy,
+        statement: content,
+        markdown: content,
+        status: 'draft',
+        createdAt: new Date().toISOString(),
+        clinics: [currentCompany || 'All Organizations']
+    };
+    
+    draftPolicies.push(newPolicy);
+    saveToLocalStorage('draftPolicies', draftPolicies);
+    
+    showNotification('Policy saved to drafts!', 'success');
+    closeAIModal();
+    loadPolicies();
+}
+
+function wizardPublishPolicy() {
+    if (!window.generatedPolicy) {
+        showNotification('No policy to publish', 'error');
+        return;
+    }
+    
+    // Get values from editable fields
+    const title = document.getElementById('editPolicyTitle')?.value || 'Untitled Policy';
+    const type = document.getElementById('editPolicyType')?.value || 'admin';
+    const company = document.getElementById('editPolicyCompany')?.value || currentCompany;
+    const effectiveDate = document.getElementById('editPolicyEffectiveDate')?.value || new Date().toISOString().split('T')[0];
+    const version = document.getElementById('editPolicyVersion')?.value || '1.0';
+    const author = document.getElementById('editPolicyAuthor')?.value || currentUser?.username;
+    const approvedBy = document.getElementById('editPolicyApprovedBy')?.value || '';
+    const appliesTo = document.getElementById('editPolicyAppliesTo')?.value || company;
+    const content = document.getElementById('editPolicyContent')?.value || '';
+    
+    const newPolicy = {
+        id: Date.now(),
+        title: title,
+        type: type,
+        company: company,
+        appliesTo: appliesTo,
+        effectiveDate: effectiveDate,
+        version: version,
+        author: author,
+        approvedBy: approvedBy,
+        statement: content,
+        markdown: content,
+        status: 'active',
+        createdAt: new Date().toISOString(),
+        clinics: [currentCompany || 'All Organizations']
+    };
+    
+    currentPolicies.push(newPolicy);
+    saveToLocalStorage('currentPolicies', currentPolicies);
+    
+    showNotification('Policy published successfully!', 'success');
+    closeAIModal();
+    loadPolicies();
+}
+
+function wizardEditPolicy() {
+    // Switch to edit mode - could open in policy editor
+    showNotification('Edit functionality coming soon', 'info');
+}
+
+function wizardRefinePolicy() {
+    const refinementText = document.getElementById('refinementInput')?.value.trim();
+    if (!refinementText) {
+        showNotification('Please describe what you\'d like to change', 'error');
+        return;
+    }
+    
+    // Hide result, show loading
+    document.getElementById('aiResult').style.display = 'none';
+    document.getElementById('aiLoading').style.display = 'block';
+    
+    // Build refinement prompt
+    const originalPrompt = buildWizardPrompt();
+    const refinementPrompt = `${originalPrompt}\n\nREFINEMENT REQUEST:\n${refinementText}`;
+    
+    const policyData = {
+        type: aiWizardState.policyType || 'admin',
+        clinicNames: currentCompany || 'All Organizations',
+        prompt: refinementPrompt,
+        generatedBy: 'AI Generator'
+    };
+    
+    sendPolicyGenerationWebhook(policyData)
+        .then(response => {
+            displayWizardResult(response);
+            // Clear refinement input
+            const refinementInput = document.getElementById('refinementInput');
+            if (refinementInput) refinementInput.value = '';
+        })
+        .catch(error => {
+            console.error('Policy refinement error:', error);
+            displayWizardError(error.message || 'Unable to refine policy. Please try again.');
+        });
 }
 
 function selectPolicyType(type) {
@@ -7317,7 +8437,7 @@ function changeUserPassword(event) {
         
         // Update current user object
         currentUser.password = newPassword;
-        saveToLocalStorage('currentUser', currentUser);
+        persistAuthUser(currentUser, currentCompany);
         
         // Close modal
         closeChangePasswordModal();
@@ -7435,7 +8555,7 @@ function closeAddCategoryModal() {
     }
 }
 
-function showSettingsTab(tabName) {
+function showSettingsTab(tabName, evt) {
     // Hide all tabs
     document.querySelectorAll('.settings-tab').forEach(tab => tab.classList.remove('active'));
     document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
@@ -7445,7 +8565,10 @@ function showSettingsTab(tabName) {
     if (tabElement) {
         tabElement.classList.add('active');
     }
-    event.target.classList.add('active');
+    const trigger = evt?.currentTarget || evt?.target || window.event?.currentTarget || window.event?.target;
+    if (trigger) {
+        trigger.classList.add('active');
+    }
     
     // Load data when specific tab is opened
     if (tabName === 'webhooks') {
@@ -7460,71 +8583,52 @@ function showSettingsTab(tabName) {
 }
 
 function loadWebhookUrls() {
-    const aiUrlInput = document.getElementById('webhookUrlAI');
-    const manualUrlInput = document.getElementById('webhookUrlManual');
-    const reportUrlInput = document.getElementById('webhookUrlReport');
-    const emailUrlInput = document.getElementById('emailWebhookUrl');
+    refreshCurrentWebhookSettings();
+    const advisorInput = document.getElementById('webhookAdvisorUrl');
+    const generatorInput = document.getElementById('webhookGeneratorUrl');
+    const summarizerInput = document.getElementById('webhookSummarizerUrl');
+    const emailInput = document.getElementById('webhookEmailUrl');
+    const companyContext = document.getElementById('webhookCompanyContext');
+    const companyName = currentCompany || 'Default Company';
     
-    if (aiUrlInput) {
-        const savedUrl = localStorage.getItem('webhookUrlAI');
-        if (savedUrl) {
-            aiUrlInput.value = savedUrl;
-        }
+    if (companyContext) {
+        companyContext.textContent = `Currently editing settings for "${companyName}"`;
     }
     
-    if (manualUrlInput) {
-        const savedUrl = localStorage.getItem('webhookUrlManual');
-        if (savedUrl) {
-            manualUrlInput.value = savedUrl;
-        }
-    }
-    
-    if (reportUrlInput) {
-        const savedUrl = localStorage.getItem('webhookUrlReport');
-        if (savedUrl) {
-            reportUrlInput.value = savedUrl;
-        }
-    }
-    
-    if (emailUrlInput) {
-        const savedUrl = localStorage.getItem('emailWebhookUrl');
-        if (savedUrl) {
-            emailUrlInput.value = savedUrl;
-        }
-    }
+    const config = currentWebhookSettings || WEBHOOK_DEFAULTS;
+    if (advisorInput) advisorInput.value = config.advisor || '';
+    if (generatorInput) generatorInput.value = config.generator || '';
+    if (summarizerInput) summarizerInput.value = config.summarizer || '';
+    if (emailInput) emailInput.value = config.email || '';
 }
 
-function saveWebhookUrls() {
-    const aiUrl = document.getElementById('webhookUrlAI')?.value.trim();
-    const manualUrl = document.getElementById('webhookUrlManual')?.value.trim();
-    const reportUrl = document.getElementById('webhookUrlReport')?.value.trim();
-    const emailUrl = document.getElementById('emailWebhookUrl')?.value.trim();
+async function saveWebhookUrls(event) {
+    if (event) {
+        event.preventDefault();
+    }
+    
+    const settings = {
+        advisor: document.getElementById('webhookAdvisorUrl')?.value || '',
+        generator: document.getElementById('webhookGeneratorUrl')?.value || '',
+        summarizer: document.getElementById('webhookSummarizerUrl')?.value || '',
+        email: document.getElementById('webhookEmailUrl')?.value || ''
+    };
     const statusDiv = document.getElementById('webhookStatus');
     
-    if (aiUrl) {
-        localStorage.setItem('webhookUrlAI', aiUrl);
+    try {
+        await saveCompanyWebhookSettings(settings);
+        if (statusDiv) {
+            statusDiv.innerHTML = '<div class="notification success">Webhook settings saved successfully.</div>';
+            setTimeout(() => { statusDiv.innerHTML = ''; }, 4000);
+        }
+        showNotification('Webhook settings updated.', 'success');
+    } catch (error) {
+        console.error('Failed to save webhook settings:', error);
+        if (statusDiv) {
+            statusDiv.innerHTML = '<div class="notification error">Failed to save webhooks. Please try again.</div>';
+        }
+        showNotification('Unable to save webhook settings. Check console for details.', 'error');
     }
-    
-    if (manualUrl) {
-        localStorage.setItem('webhookUrlManual', manualUrl);
-    }
-    
-    if (reportUrl) {
-        localStorage.setItem('webhookUrlReport', reportUrl);
-    }
-    
-    if (emailUrl) {
-        localStorage.setItem('emailWebhookUrl', emailUrl);
-    }
-    
-    if (statusDiv) {
-        statusDiv.innerHTML = '<div class="notification success">Webhook URLs saved successfully!</div>';
-        setTimeout(() => {
-            statusDiv.innerHTML = '';
-        }, 3000);
-    }
-    
-    console.log('Webhook URLs saved:', { aiUrl, manualUrl, reportUrl, emailUrl });
 }
 
 // Add Role Modal Functions
@@ -7953,7 +9057,7 @@ function savePolicyField(field) {
         // Remove editing styling
         editableContent.classList.remove('editing');
         
-        showSuccessMessage(`Policy field "${field}" saved successfully!`);
+        showNotification(`Policy field "${field}" saved successfully!`, 'success');
         
         console.log(`Saved policy field ${field}:`, newContent);
     }
@@ -8073,149 +9177,14 @@ async function savePolicyToStorage(policy) {
         try {
             const webhookResponse = await sendPolicyGenerationWebhook(policy);
             console.log('Webhook response received:', webhookResponse);
-            
-            // Show ONLY the webhook response, not the policy
-            document.getElementById('aiLoading').style.display = 'none';
-            document.getElementById('aiResult').style.display = 'block';
-            
-            // Parse the webhook response as JSON
-            let responseData = null;
-            try {
-                responseData = JSON.parse(webhookResponse);
-            } catch (e) {
-                // Not JSON, show as text
-                responseData = webhookResponse;
-            }
-            
-            const aiGeneratedContent = document.getElementById('aiGeneratedContent');
-            if (aiGeneratedContent) {
-                
-                // Format the response based on whether it's structured data
-                let displayContent = '';
-                
-                if (Array.isArray(responseData) && responseData.length > 0 && responseData[0].markdown) {
-                    // It's a formatted policy from webhook
-                    const policy = responseData[0];
-                    
-                    // Parse markdown into editable sections
-                    const sections = parseWebhookPolicyMarkdown(policy.markdown);
-                    
-                    displayContent = `
-                        <div class="policy-preview professional">
-                            <div class="policy-header">
-                                <div class="form-group" style="margin-bottom: 15px;">
-                                    <label for="policyTitleInput" style="display: block; margin-bottom: 5px; font-weight: 600; color: #333;">
-                                        <i class="fas fa-heading"></i> Policy Title <span style="color: red;">*</span>
-                                    </label>
-                                    <input type="text" id="policyTitleInput" value="${policy.policy_title || 'Generated Policy'}" required
-                                           style="width: 100%; padding: 12px; border: 2px solid #ddd; border-radius: 6px; font-size: 1.1rem; font-weight: 600;"
-                                           placeholder="Enter policy title..." 
-                                           oninput="this.style.borderColor='#ddd'" />
-                                    <small style="color: #666; display: block; margin-top: 5px;">This title is required to save the policy</small>
-                                </div>
-                                <span class="policy-type-badge admin">${policy.policy_type || 'Policy'}</span>
-                            </div>
-                            
-                            <div class="policy-meta">
-                                <div class="meta-item"><strong>Company:</strong> ${policy.company}</div>
-                                <div class="meta-item"><strong>Effective Date:</strong> ${policy.effective_date}</div>
-                                <div class="meta-item"><strong>Applies To:</strong> ${policy.applies_to}</div>
-                                <div class="meta-item"><strong>Author:</strong> ${policy.author}</div>
-                                <div class="meta-item"><strong>Version:</strong> ${policy.version}</div>
-                            </div>
-                            
-                            <div class="policy-content-display" style="max-height: 600px; overflow-y: auto;">
-                                ${generateEditablePolicySections(sections)}
-                            </div>
-                            
-                            <div class="form-group" style="margin-top: 20px; margin-bottom: 20px;">
-                                <label for="aiPolicyCategory" style="display: block; margin-bottom: 5px; font-weight: 600; color: #333;">
-                                    <i class="fas fa-tags"></i> Select Category (for policy code generation)
-                                </label>
-                                <select id="aiPolicyCategory" onchange="updateAIPolicyCode()" style="width: 100%; padding: 12px; border: 2px solid #ddd; border-radius: 6px; font-size: 1rem;">
-                                    <option value="">No Category (optional)</option>
-                                </select>
-                                <small style="color: #666; display: block; margin-top: 5px;">Policy code will be generated in format: Type.Category#.Policy#.Year (e.g., ADMIN.1.2.2025)</small>
-                                <div id="aiPolicyCodeDisplay" style="display: none; margin-top: 10px; padding: 10px; background: #f0f8ff; border-radius: 6px;">
-                                    <strong>Policy Code:</strong> <span id="aiPolicyCodeText"></span>
-                                </div>
-                            </div>
-                            
-                            <div class="ai-result-actions" style="margin-top: 20px;">
-                                <button class="btn btn-info" onclick="showRefinePolicyModal()" style="background: #667eea; border-color: #667eea; color: white;">
-                                    <i class="fas fa-magic"></i> Refine with AI
-                                </button>
-                                <button class="btn btn-success" onclick="saveWebhookPolicy()">
-                                    <i class="fas fa-save"></i> Save Policy
-                                </button>
-                                <button class="btn btn-secondary" onclick="closeAIModal()">
-                                    <i class="fas fa-times"></i> Close
-                                </button>
-                            </div>
-                        </div>
-                    `;
-                } else if (typeof responseData === 'object') {
-                    // Generic JSON response
-                    displayContent = `
-                        <div style="text-align: center; padding: 40px;">
-                            <h4 style="color: #0066cc; margin-bottom: 20px;">✅ Webhook Response Received</h4>
-                            <div style="background: #f0f8ff; border: 2px solid #0066cc; border-radius: 8px; padding: 20px; margin: 20px auto; max-width: 800px;">
-                                <pre style="background: white; padding: 15px; border-radius: 4px; overflow-x: auto; white-space: pre-wrap; word-wrap: break-word; text-align: left; margin: 0;">${JSON.stringify(responseData, null, 2)}</pre>
-                            </div>
-                            <div class="ai-result-actions">
-                                <button class="btn btn-primary" onclick="closeAIModal()">Close</button>
-                            </div>
-                        </div>
-                    `;
-                } else {
-                    // Plain text response
-                    displayContent = `
-                        <div style="text-align: center; padding: 40px;">
-                            <h4 style="color: #0066cc; margin-bottom: 20px;">✅ Webhook Response Received</h4>
-                            <div style="background: #f0f8ff; border: 2px solid #0066cc; border-radius: 8px; padding: 20px; margin: 20px auto; max-width: 800px;">
-                                <pre style="background: white; padding: 15px; border-radius: 4px; overflow-x: auto; white-space: pre-wrap; word-wrap: break-word; text-align: left; margin: 0;">${webhookResponse}</pre>
-                            </div>
-                            <div class="ai-result-actions">
-                                <button class="btn btn-primary" onclick="closeAIModal()">Close</button>
-                            </div>
-                        </div>
-                    `;
-                }
-                
-                aiGeneratedContent.innerHTML = displayContent;
-                
-                // Populate category dropdown after HTML is rendered
-                populateAICategoryDropdown();
-            }
-            
-            // Store the webhook policy data for saving
-            window.currentWebhookPolicy = responseData;
+            displayWebhookResponse(webhookResponse);
             
             // Only sync to master admin dashboard if webhook succeeded
             syncPoliciesToMasterAdmin(companyPolicies);
     console.log(`Policy saved for company ${currentCompany}:`, policy.title);
         } catch (error) {
             console.error('Webhook error:', error);
-            
-            // Show ONLY the webhook error, not the policy
-            document.getElementById('aiLoading').style.display = 'none';
-            document.getElementById('aiResult').style.display = 'block';
-            
-            const aiGeneratedContent = document.getElementById('aiGeneratedContent');
-            if (aiGeneratedContent) {
-                aiGeneratedContent.innerHTML = `
-                    <div style="text-align: center; padding: 40px;">
-                        <h4 style="color: #cc0000; margin-bottom: 20px;">❌ Webhook Error</h4>
-                        <div style="background: #ffe6e6; border: 2px solid #cc0000; border-radius: 8px; padding: 20px; margin: 20px auto; max-width: 800px;">
-                            <h5 style="color: #cc0000; margin: 0 0 15px 0;">Error Message:</h5>
-                            <p style="margin: 0; color: #cc0000; font-size: 16px;">${error.message}</p>
-                        </div>
-                        <div class="ai-result-actions">
-                            <button class="btn btn-primary" onclick="closeAIModal()">Close</button>
-                        </div>
-                    </div>
-                `;
-            }
+            displayWebhookError(error.message || 'Unable to generate policy with the provided information.');
         }
     }
 }
@@ -8853,7 +9822,7 @@ function bulkEditUsers() {
                 if (currentUser && (currentUser.id === user.id || currentUser.username === user.username)) {
                     console.log('Updating currentUser role from', currentUser.role, 'to', newRole);
                     currentUser.role = newRole;
-                    saveToLocalStorage('currentUser', currentUser);
+                    persistAuthUser(currentUser, currentCompany);
                 }
             }
             
@@ -8871,7 +9840,7 @@ function bulkEditUsers() {
                 // CRITICAL: If we're editing the currently logged in user, update organizations
                 if (currentUser && (currentUser.id === user.id || currentUser.username === user.username)) {
                     currentUser.organizations = user.organizations;
-                    saveToLocalStorage('currentUser', currentUser);
+                    persistAuthUser(currentUser, currentCompany);
                 }
             }
         });
@@ -9019,7 +9988,7 @@ function editUser(userId) {
             console.log('Updating currentUser role from', currentUser.role, 'to', newRole);
             currentUser.role = newRole;
             currentUser.organizations = selectedOrgs;
-            saveToLocalStorage('currentUser', currentUser);
+            persistAuthUser(currentUser, currentCompany);
         }
         
         // Save to localStorage
@@ -9647,40 +10616,29 @@ function loadPoliciesFromStorage() {
 function setupSignupFormListeners() {
     console.log('Setting up signup form listeners...');
     
-    // Get elements
-    const signupForm = document.getElementById('signupForm');
-    const signupButton = document.querySelector('#signupForm button[type="submit"]');
+    const signupFormIds = ['companyCodeSignupForm', 'signupForm'];
     
-    console.log('Signup form element:', signupForm);
-    console.log('Signup button element:', signupButton);
-    
-    if (signupForm) {
-        // Remove any existing listeners
-        const newForm = signupForm.cloneNode(true);
-        signupForm.parentNode.replaceChild(newForm, signupForm);
+    signupFormIds.forEach(formId => {
+        const form = document.getElementById(formId);
+        if (!form) {
+            return;
+        }
         
-        // Add new event listener
-        document.getElementById('signupForm').addEventListener('submit', function(e) {
-            console.log('Signup form submit event triggered');
+        if (form.dataset.signupListenerAttached === 'true') {
+            return;
+        }
+        
+        form.addEventListener('submit', function(e) {
+            console.log(`Signup form submit event triggered for ${formId}`);
             e.preventDefault();
             signupUser(e);
         });
-        console.log('Signup form event listener attached');
-    }
-    
-    if (signupButton) {
-        // Remove any existing listeners
-        const newButton = signupButton.cloneNode(true);
-        signupButton.parentNode.replaceChild(newButton, signupButton);
         
-        // Add new event listener
-        document.querySelector('#signupForm button[type="submit"]').addEventListener('click', function(e) {
-            console.log('Signup button click event triggered');
-            e.preventDefault();
-            signupUser(e);
-        });
-        console.log('Signup button event listener attached');
-    }
+        form.dataset.signupListenerAttached = 'true';
+        console.log(`Signup form listener attached for ${formId}`);
+    });
+    
+    console.log('Signup form listeners setup complete');
 }
 
 // User Management Functions
@@ -9688,10 +10646,7 @@ function setupSignupFormListeners() {
 // These duplicate definitions are kept for backward compatibility but delegate to the top-level functions
 
 function closeSignupModal() {
-    const modal = document.getElementById('signupModal');
-    if (modal) {
-        modal.classList.remove('show');
-    }
+    closeAuthPortal('createAccountPortal');
     
     const signupForm = document.getElementById('signupForm');
     if (signupForm) {
@@ -9707,9 +10662,11 @@ function closeSignupModal() {
 // showLoginModal is now defined at the top - this is kept for backward compatibility
 
 function closeLoginModal() {
-    document.getElementById('loginModal').classList.remove('show');
-    document.getElementById('loginForm').reset();
-    document.getElementById('login-error-message').style.display = 'none';
+    closeAuthPortal('loginPortal');
+    const form = document.getElementById('loginForm');
+    if (form) form.reset();
+    const error = document.getElementById('login-error-message');
+    if (error) error.style.display = 'none';
 }
 async function signupUser(event) {
     event.preventDefault();
@@ -9748,16 +10705,17 @@ async function signupUser(event) {
         console.log('Step 1: Starting signup process');
         
         // Show loading state on button
-        if (signupButton) {
-            signupButton.textContent = 'Creating Account...';
-            signupButton.disabled = true;
-        }
+    if (signupButton) {
+        signupButton.textContent = 'Creating Account...';
+        signupButton.disabled = true;
+    }
         console.log('Step 2: Button state updated');
     
         const usernameEl = document.getElementById(usernameField);
         const emailEl = document.getElementById(emailField);
         const passwordEl = document.getElementById(passwordField);
         const accessCodeEl = document.getElementById(accessCodeField);
+        const fullNameEl = document.getElementById('signupFullName');
         
         if (!usernameEl || !emailEl || !passwordEl || !accessCodeEl) {
             console.error('Form fields not found:', { usernameEl: !!usernameEl, emailEl: !!emailEl, passwordEl: !!passwordEl, accessCodeEl: !!accessCodeEl });
@@ -9773,11 +10731,12 @@ async function signupUser(event) {
         const email = emailEl.value.trim();
         const password = passwordEl.value.trim();
         const accessCode = accessCodeEl.value.trim();
+        const fullName = fullNameEl ? fullNameEl.value.trim() : '';
     
-        console.log('Step 3: Form data extracted:', { username, email, password: '***', accessCode });
+    console.log('Step 3: Form data extracted:', { username, email, password: '***', accessCode, fullName });
     
     // Validate required fields
-    if (!username || !email || !password || !accessCode) {
+    if (!username || !email || !password || !accessCode || (fullNameEl && !fullName)) {
         console.log('Step 4: Validation failed - missing fields');
         showSignupError('Please fill in all required fields.', errorField);
         // Reset button
@@ -9791,9 +10750,17 @@ async function signupUser(event) {
     
     // Validate access code against Supabase
     console.log('Step 6: Validating access code in Supabase...');
-    const foundAccessCode = await SupabaseDB.findAccessCodeByCode(accessCode);
+    console.log('Step 6a: Searching for code:', accessCode);
     
-    if (!foundAccessCode) {
+    // Check localStorage directly for debugging
+    const allCodes = JSON.parse(localStorage.getItem('masterAccessCodes') || '[]');
+    console.log('Step 6b: All codes in localStorage:', allCodes.length);
+    console.log('Step 6c: Code list:', allCodes.map(c => ({ code: c.code, status: c.status })));
+    
+    const foundAccessCode = await SupabaseDB.findAccessCodeByCode(accessCode);
+    console.log('Step 6d: Found access code:', foundAccessCode ? 'YES' : 'NO', foundAccessCode);
+    
+        if (!foundAccessCode) {
         console.log('Step 7: Access code not found or invalid');
         showSignupError('Invalid access code. Please check with your administrator for a valid code.', errorField);
         if (signupButton) {
@@ -9842,61 +10809,307 @@ async function signupUser(event) {
     
     console.log('Step 9: Username and email are unique');
     
-    // Create new user
-    console.log('Step 10: Creating user in Supabase...');
+    // Get company name from access code
+    console.log('Step 10: Determining company...');
     console.log('Step 10a: Access code details:', foundAccessCode);
     
-    // Get company name from access code - check both description and used_by
     let companyName = 'Default Company';
     if (foundAccessCode.description) {
         companyName = foundAccessCode.description;
     } else if (foundAccessCode.used_by && foundAccessCode.used_by.length > 0) {
-        // If description is empty, use the first company that used this code
         companyName = Array.isArray(foundAccessCode.used_by) ? foundAccessCode.used_by[0] : foundAccessCode.used_by;
     }
     
     console.log('Step 10b: Company name determined:', companyName);
     
-    const newUser = {
+    // Find or create company
+    console.log('Step 10c: Finding or creating company...');
+    let company = await SupabaseDB.findCompanyByName(companyName);
+    let companyId = null;
+    
+    if (!company) {
+        // Create new company
+        console.log('Step 10d: Creating new company:', companyName);
+        company = await SupabaseDB.createCompany({
+            name: companyName,
+            plan: 'free-trial',
+            created_at: new Date().toISOString()
+        });
+        
+        if (!company) {
+            console.error('Failed to create company');
+            showSignupError('Failed to create company. Please try again.', errorField);
+        if (signupButton) {
+            signupButton.textContent = 'Create Account';
+            signupButton.disabled = false;
+        }
+        return;
+    }
+        console.log('Step 10e: Company created:', company.id);
+    } else {
+        console.log('Step 10e: Company found:', company.id);
+    }
+    
+    companyId = company.id;
+    
+    // Create user via Supabase Auth (with localStorage fallback)
+    console.log('Step 11: Creating user via Supabase Auth...');
+    
+    // Check if Supabase is configured and working
+    const supabaseClient = window.supabaseClient || (typeof SupabaseDB !== 'undefined' && SupabaseDB.getClient ? SupabaseDB.getClient() : null);
+    const SUPABASE_URL = (typeof window !== 'undefined' && window.SUPABASE_URL) || 'YOUR_SUPABASE_URL';
+    const isSupabaseConfigured = supabaseClient && SUPABASE_URL !== 'YOUR_SUPABASE_URL';
+    
+    let authData = null;
+    let authError = null;
+    let useLocalStorageFallback = false;
+    
+    if (isSupabaseConfigured) {
+        try {
+            // Try Supabase Auth signup
+            const signupResult = await SupabaseDB.signUp(email, password, {
+                username: username,
+                full_name: fullName || username
+            });
+            
+            authData = signupResult.data;
+            authError = signupResult.error;
+            
+            if (authError) {
+                console.error('Step 11a: Auth signup error:', authError);
+                // If it's a 500 error or network error, fall back to localStorage
+                if (authError.message.includes('500') || authError.message.includes('network') || authError.status === 500) {
+                    console.log('Step 11b: Supabase Auth failed with 500 error, using localStorage fallback');
+                    useLocalStorageFallback = true;
+                } else if (authError.message.includes('already registered')) {
+                    showSignupError('Email already registered. Please use a different email or log in.', errorField);
+        if (signupButton) {
+            signupButton.textContent = 'Create Account';
+            signupButton.disabled = false;
+        }
+        return;
+        } else {
+                    // For other errors, try localStorage fallback
+                    console.log('Step 11c: Auth error, falling back to localStorage');
+                    useLocalStorageFallback = true;
+                }
+            } else if (!authData || !authData.user) {
+                console.log('Step 11d: No user returned from auth, using localStorage fallback');
+                useLocalStorageFallback = true;
+        } else {
+                console.log('Step 11e: Auth user created:', authData.user.id);
+            }
+        } catch (signupException) {
+            console.error('Step 11f: Exception during Supabase Auth signup:', signupException);
+            console.log('Step 11g: Using localStorage fallback due to exception');
+            useLocalStorageFallback = true;
+        }
+    } else {
+        console.log('Step 11h: Supabase not configured, using localStorage fallback');
+        useLocalStorageFallback = true;
+    }
+    
+    // Use localStorage fallback if Supabase failed or not configured
+    if (useLocalStorageFallback) {
+        console.log('Step 11i: Creating user in localStorage...');
+        const userId = `user-${Date.now()}`;
+        
+        // Create normalized user object for app compatibility
+        const createdUserFinal = {
+            id: userId,
         username: username,
         email: email,
-        password: password, // Note: In production, this should be hashed
-        company: companyName,
+            password: password, // Store password for localStorage fallback login
+            company: companyName,
+            company_id: companyId,
         role: 'user',
-        access_code: accessCode,
-        created: new Date().toISOString().split('T')[0]
-    };
-    
-    console.log('Step 10c: User object to create:', { ...newUser, password: '***' });
-    
-    try {
-        const createdUser = await SupabaseDB.createUser(newUser);
+            fullName: fullName || username,
+            organizations: [],
+            created: new Date().toISOString().split('T')[0],
+            created_at: new Date().toISOString()
+        };
         
-        console.log('Step 10d: createUser result:', createdUser);
-        console.log('Step 10e: createdUser type:', typeof createdUser);
-        console.log('Step 10f: createdUser is null?', createdUser === null);
-        console.log('Step 10g: createdUser is undefined?', createdUser === undefined);
+        // Save user to localStorage masterUsers
+        const masterUsers = JSON.parse(localStorage.getItem('masterUsers') || '[]');
+        masterUsers.push(createdUserFinal);
+        localStorage.setItem('masterUsers', JSON.stringify(masterUsers));
+        console.log('Step 11j: User saved to localStorage masterUsers');
         
-        if (!createdUser) {
-            console.error('Step 11: Failed to create user - createUser returned null/undefined');
-            console.error('Step 11a: Checking localStorage...');
-            const checkUsers = JSON.parse(localStorage.getItem('masterUsers') || '[]');
-            console.error('Step 11b: Users in localStorage:', checkUsers.length);
-            showSignupError('Failed to create account. Please check the console for details.', errorField);
-            if (signupButton) {
-                signupButton.textContent = 'Create Account';
-                signupButton.disabled = false;
+        // Continue with the rest of the signup flow
+        currentUser = createdUserFinal;
+        currentCompany = companyName;
+        persistAuthUser(currentUser, currentCompany, true);
+        refreshCurrentWebhookSettings();
+    
+        // Update access code usage
+        console.log('Step 12: Updating access code usage...');
+        const usedBy = foundAccessCode.used_by || [];
+        const usedByArray = Array.isArray(usedBy) ? usedBy : [];
+        if (!usedByArray.includes(companyName)) {
+            usedByArray.push(companyName);
+            // Update in localStorage
+            const accessCodes = JSON.parse(localStorage.getItem('masterAccessCodes') || '[]');
+            const codeIndex = accessCodes.findIndex(c => c.id === foundAccessCode.id);
+            if (codeIndex !== -1) {
+                accessCodes[codeIndex].used_by = usedByArray;
+                localStorage.setItem('masterAccessCodes', JSON.stringify(accessCodes));
             }
-            return;
+            console.log('Step 12a: Access code usage updated in localStorage:', usedByArray);
         }
         
-        // Continue with createdUser...
-        var createdUserFinal = createdUser;
-    } catch (createError) {
-        console.error('Step 11: Exception in createUser:', createError);
-        console.error('Step 11a: Error message:', createError.message);
-        console.error('Step 11b: Error stack:', createError.stack);
-        showSignupError('Error creating account: ' + createError.message, errorField);
+        // Add user-logged-in class to body
+        document.body.classList.add('user-logged-in');
+        
+        // Close the correct modal FIRST before updating UI
+        if (formId === 'companyCodeSignupForm') {
+            closeCompanyCodeSignupModal();
+    } else {
+            closeSignupModal();
+        }
+        
+    // Update UI
+        try {
+    updateUserInterface();
+            loadPoliciesFromStorage();
+        } catch (uiError) {
+            console.error('Error updating UI:', uiError);
+        }
+    
+    if (signupButton) {
+        signupButton.textContent = 'Create Account';
+        signupButton.disabled = false;
+    }
+    
+        console.log('Step 13: Signup complete via localStorage fallback');
+        return;
+    }
+    
+    // Continue with Supabase flow if it succeeded
+    if (authData && authData.user) {
+        console.log('Step 11c: Auth user created:', authData.user.id);
+        
+        // Update profile with company_id and username
+        console.log('Step 12: Updating profile...');
+        const profileUpdate = {
+        username: username,
+            company_id: companyId,
+        role: 'user',
+            organizations: []
+        };
+        
+        const updatedProfile = await SupabaseDB.updateUser(authData.user.id, profileUpdate);
+        
+        if (!updatedProfile) {
+            console.warn('Step 12a: Profile update failed, but auth user created');
+            // Create profile manually if update failed
+            const profileData = {
+                id: authData.user.id,
+                username: username,
+                email: email,
+                full_name: username,
+                company_id: companyId,
+                role: 'user',
+                organizations: []
+            };
+            
+            // Get supabaseClient from supabase-config
+            const supabaseClient = window.supabaseClient || (typeof SupabaseDB !== 'undefined' && SupabaseDB.getClient ? SupabaseDB.getClient() : null);
+            if (supabaseClient) {
+                const { data: profile, error: profileError } = await supabaseClient
+                    .from('profiles')
+                    .upsert(profileData)
+                    .select()
+                    .single();
+            
+                if (profileError) {
+                    console.error('Step 12b: Failed to create profile:', profileError);
+                    // Continue anyway - profile might be created by trigger
+                }
+            }
+        }
+        
+        // Create normalized user object for app compatibility
+        const createdUserFinal = {
+            id: authData.user.id,
+            username: username,
+            email: email,
+            password: password, // Store password for localStorage fallback login
+            company: companyName,
+            company_id: companyId,
+            role: 'user',
+            organizations: [],
+            created: new Date().toISOString().split('T')[0],
+            created_at: new Date().toISOString()
+        };
+        
+        // If Supabase is not configured, save user to localStorage masterUsers
+        const supabaseClient = window.supabaseClient || (typeof SupabaseDB !== 'undefined' && SupabaseDB.getClient ? SupabaseDB.getClient() : null);
+        const SUPABASE_URL = (typeof window !== 'undefined' && window.SUPABASE_URL) || 'YOUR_SUPABASE_URL';
+        if (!supabaseClient || SUPABASE_URL === 'YOUR_SUPABASE_URL') {
+            const masterUsers = JSON.parse(localStorage.getItem('masterUsers') || '[]');
+            masterUsers.push(createdUserFinal);
+            localStorage.setItem('masterUsers', JSON.stringify(masterUsers));
+            console.log('Step 13a: User saved to localStorage masterUsers');
+        }
+        
+        console.log('Step 13: User created successfully:', createdUserFinal);
+        
+        // Update access code usage
+        console.log('Step 14: Updating access code usage...');
+        const usedBy = foundAccessCode.used_by || [];
+        const usedByArray = Array.isArray(usedBy) ? usedBy : [];
+        if (!usedByArray.includes(companyName)) {
+            usedByArray.push(companyName);
+            await SupabaseDB.updateAccessCode(foundAccessCode.id, { used_by: usedByArray });
+            console.log('Step 14a: Access code usage updated:', usedByArray);
+        } else {
+            console.log('Step 14a: Company already in used_by list');
+        }
+        
+        console.log('Step 14: Access code updated');
+        
+    // Auto-login the new user
+        console.log('Step 15: Auto-logging in user...');
+        currentUser = createdUserFinal;
+        currentCompany = createdUserFinal.company || companyName;
+        persistAuthUser(currentUser, currentCompany, true);
+        refreshCurrentWebhookSettings();
+    
+        // Refresh users list
+        users = await SupabaseDB.getUsers();
+        if (currentCompany) {
+            users = users.filter(user => user.company === currentCompany);
+        }
+        
+        // Add user-logged-in class to body
+        document.body.classList.add('user-logged-in');
+        
+        // Close the correct modal FIRST before updating UI
+        if (formId === 'companyCodeSignupForm') {
+            closeCompanyCodeSignupModal();
+        } else {
+            closeSignupModal();
+        }
+        
+    // Update UI
+        try {
+    updateUserInterface();
+            loadPoliciesFromStorage();
+        } catch (uiError) {
+            console.error('Error updating UI:', uiError);
+        }
+    
+        if (signupButton) {
+            signupButton.textContent = 'Create Account';
+            signupButton.disabled = false;
+        }
+    
+        console.log('Step 15: Signup complete');
+        return;
+    }
+    } catch (error) {
+        console.error('Unexpected error during signup:', error);
+        showSignupError('An unexpected error occurred. Please try again.', errorField || 'signup-error-message');
         if (signupButton) {
             signupButton.textContent = 'Create Account';
             signupButton.disabled = false;
@@ -9904,99 +11117,12 @@ async function signupUser(event) {
         return;
     }
     
-    console.log('Step 11: User created successfully');
-    console.log('Step 11a: Created user object:', createdUserFinal);
-    
-    // Update access code usage
-    console.log('Step 12: Updating access code usage...');
-    const usedBy = foundAccessCode.used_by || [];
-    if (!Array.isArray(usedBy)) {
-        console.warn('used_by is not an array, converting...');
-    }
-    const usedByArray = Array.isArray(usedBy) ? usedBy : [];
-    if (!usedByArray.includes(newUser.company)) {
-        usedByArray.push(newUser.company);
-        await SupabaseDB.updateAccessCode(foundAccessCode.id, { used_by: usedByArray });
-        console.log('Step 12a: Access code usage updated:', usedByArray);
-    } else {
-        console.log('Step 12a: Company already in used_by list');
-    }
-    
-    console.log('Step 12: Access code updated');
-    
-    // Auto-login the new user
-    console.log('Step 13: Auto-logging in user...');
-    currentUser = createdUserFinal;
-    currentCompany = createdUserFinal.company || newUser.company;
-    saveToLocalStorage('currentUser', currentUser);
-    saveToLocalStorage('currentCompany', currentCompany);
-    
-    // Refresh users list
-    users = await SupabaseDB.getUsers();
-    if (currentCompany) {
-        users = users.filter(user => user.company === currentCompany);
-    }
-    
-    // Add user-logged-in class to body
-    document.body.classList.add('user-logged-in');
-    
-    // Close the correct modal FIRST before updating UI
-    if (formId === 'companyCodeSignupForm') {
-        closeCompanyCodeSignupModal();
-    } else {
-        closeSignupModal();
-    }
-    
-    // Small delay to ensure modal closes before UI updates
-    setTimeout(() => {
-        // Update UI with error handling
-        try {
-            updateUserInterface();
-        } catch (uiError) {
-            console.warn('Error updating UI (non-critical):', uiError);
-            // Continue anyway - user is logged in
-        }
-        
-        // Load policies from storage
-        if (currentCompany) {
-            try {
-                loadPoliciesFromStorage();
-            } catch (policyError) {
-                console.warn('Error loading policies (non-critical):', policyError);
-            }
-        }
-        
-        // Show success message
-        showSuccessMessage('Account created successfully! Welcome to Policy Pro!');
-    }, 100);
-    
-    // Reset button
+    // If we get here, something went wrong
+    console.error('Step 11: Signup failed - no user created');
+    showSignupError('Failed to create account. Please try again.', errorField);
     if (signupButton) {
         signupButton.textContent = 'Create Account';
         signupButton.disabled = false;
-    }
-    
-    console.log('Step 14: Signup process completed successfully!');
-    
-    } catch (error) {
-        console.error('Error during signup:', error);
-        console.error('Error stack:', error.stack);
-        console.error('Error details:', {
-            message: error.message,
-            name: error.name,
-            line: error.lineNumber,
-            column: error.columnNumber
-        });
-        
-        // Use the correct error field ID (errorField is in scope from the function)
-        const errorFieldId = typeof errorField !== 'undefined' ? errorField : 'signup-error-message';
-        showSignupError('An error occurred during account creation: ' + error.message, errorFieldId);
-        
-        // Reset button on error
-        if (signupButton) {
-            signupButton.textContent = 'Create Account';
-            signupButton.disabled = false;
-        }
     }
 }
 
@@ -10006,7 +11132,7 @@ async function sendWelcomeEmail(user) {
         console.log('Sending welcome email to:', user.email);
         
         // Get email webhook URL from settings
-        const emailWebhookUrl = localStorage.getItem('emailWebhookUrl') || 'http://localhost:5678/webhook/d523361e-1e04-4c16-a86e-bbb1d7729fcb';
+        const emailWebhookUrl = getWebhookUrl('email');
         
         // Prepare email data
         const emailData = {
@@ -10059,7 +11185,7 @@ async function sendNewPolicyNotificationEmail(policy) {
         console.log('Sending new policy notification emails for:', policy.title);
         
         // Get email webhook URL from settings
-        const emailWebhookUrl = localStorage.getItem('emailWebhookUrl') || 'http://localhost:5678/webhook/d523361e-1e04-4c16-a86e-bbb1d7729fcb';
+        const emailWebhookUrl = getWebhookUrl('email');
         
         // Get all users for this company
         const companyUsers = getCompanyUserEmails();
@@ -10160,39 +11286,149 @@ async function loginUser(event) {
             }, 10000);
         }
         
-        const username = document.getElementById('loginUsername').value.trim();
+        const usernameOrEmail = document.getElementById('loginUsername').value.trim();
         const password = document.getElementById('loginPassword').value.trim();
+        const rememberDeviceInput = document.getElementById('rememberDevice');
+        const rememberDevice = rememberDeviceInput ? rememberDeviceInput.checked : true;
         
-        if (!username || !password) {
+        if (!usernameOrEmail || !password) {
             showLoginError('Please fill in all required fields.');
             resetButton();
             return;
         }
         
-        // Find user by username/email and password
-        console.log('Looking for user:', { username, password: '***' });
+        // Try to find user by email first (Supabase Auth uses email)
+        console.log('Attempting login:', { usernameOrEmail, password: '***' });
         
-        // Load all users from Supabase
+        // Load all users to find email if username was provided
         const allUsers = await SupabaseDB.getUsers();
+        console.log('📋 Loaded users for login:', allUsers.length);
+        console.log('📋 Users:', allUsers.map(u => ({ username: u.username, email: u.email })));
         
-        console.log('Available users:', allUsers.map(u => ({ username: u.username, email: u.email, hasPassword: !!u.password })));
+        // Check if Supabase is configured
+        // Get supabaseClient from window or SupabaseDB
+        const supabaseClient = window.supabaseClient || (typeof SupabaseDB !== 'undefined' && SupabaseDB.getClient ? SupabaseDB.getClient() : null);
+        const SUPABASE_URL = (typeof window !== 'undefined' && window.SUPABASE_URL) || 'YOUR_SUPABASE_URL';
+        const isSupabaseConfigured = supabaseClient && SUPABASE_URL !== 'YOUR_SUPABASE_URL';
         
-        const user = allUsers.find(u => (u.username === username || u.email === username) && u.password === password);
-        
-        if (!user) {
-            console.log('User not found or password incorrect');
-            showLoginError('Invalid username/email or password. Please try again.');
+        if (!isSupabaseConfigured) {
+            // LOCALSTORAGE FALLBACK: Check against stored users
+            console.log('📦 Using localStorage fallback for login');
+            
+            // Find user by username or email
+            const foundUser = allUsers.find(u => {
+                const matchesUsername = u.username && u.username.toLowerCase() === usernameOrEmail.toLowerCase();
+                const matchesEmail = u.email && u.email.toLowerCase() === usernameOrEmail.toLowerCase();
+                return matchesUsername || matchesEmail;
+            });
+            
+            if (!foundUser) {
+                console.log('❌ User not found:', usernameOrEmail);
+                showLoginError('Invalid email/username or password. Please try again.');
+                resetButton();
+                return;
+            }
+            
+            // Check password (in localStorage fallback, password is stored directly)
+            // If user doesn't have password stored, try to get it from company data
+            let userPassword = foundUser.password;
+            if (!userPassword) {
+                // Try to find password from company admin data
+                const companies = JSON.parse(localStorage.getItem('masterCompanies') || '[]');
+                const userCompany = companies.find(c => c.name === foundUser.company);
+                if (userCompany && userCompany.adminEmail === foundUser.email && userCompany.adminPassword) {
+                    userPassword = userCompany.adminPassword;
+                    console.log('📦 Found password from company data');
+                }
+            }
+            
+            if (!userPassword || userPassword !== password) {
+                console.log('❌ Password mismatch');
+                console.log('Expected:', userPassword ? '***' : 'none');
+                console.log('Got:', password ? '***' : 'none');
+                showLoginError('Invalid email/username or password. Please try again.');
+                resetButton();
+                return;
+            }
+            
+            console.log('✅ Login successful (localStorage):', foundUser.username);
+            const user = foundUser;
+            
+            // Set current user and company
+            currentUser = user;
+            currentCompany = user.company || user.company_id;
+            persistAuthUser(currentUser, currentCompany, rememberDevice);
+            refreshCurrentWebhookSettings();
+            
+            // Update UI
+            updateUserInterface();
+            closeLoginModal();
+            
+            // Add user-logged-in class to body
+            document.body.classList.add('user-logged-in');
+            
+            // Hide welcome modal
+            const welcomeModal = document.getElementById('welcomeModal');
+            if (welcomeModal) {
+                welcomeModal.style.display = 'none';
+            }
+            
+            // Show success message
+            showNotification('Login successful! Welcome back!', 'success');
+            
+            // Load policies from storage after successful login
+            if (currentCompany) {
+                loadPoliciesFromStorage();
+            }
+            
+            // Reset button after successful login
             resetButton();
             return;
         }
         
-        console.log('User found:', user.username);
+        // SUPABASE AUTH: Use Supabase authentication
+        let loginEmail = usernameOrEmail;
+        
+        // If username was provided, find the email
+        const foundUser = allUsers.find(u => u.username === usernameOrEmail || u.email === usernameOrEmail);
+        if (foundUser && foundUser.email) {
+            loginEmail = foundUser.email;
+        }
+        
+        // Sign in via Supabase Auth
+        const { data: authData, error: authError } = await SupabaseDB.signIn(loginEmail, password);
+        
+        if (authError) {
+            console.log('Login error:', authError.message);
+            showLoginError('Invalid email/username or password. Please try again.');
+            resetButton();
+            return;
+        }
+        
+        if (!authData.user) {
+            console.log('No user returned from auth');
+            showLoginError('Login failed. Please try again.');
+            resetButton();
+            return;
+        }
+        
+        // Get user profile
+        const user = allUsers.find(u => u.id === authData.user.id || u.email === authData.user.email);
+        
+        if (!user) {
+            console.log('User profile not found');
+            showLoginError('User profile not found. Please contact support.');
+            resetButton();
+            return;
+        }
+        
+        console.log('User logged in:', user.username);
         
         // Set current user and company
         currentUser = user;
         currentCompany = user.company;
-        saveToLocalStorage('currentUser', currentUser);
-        saveToLocalStorage('currentCompany', currentCompany);
+        persistAuthUser(currentUser, currentCompany, rememberDevice);
+        refreshCurrentWebhookSettings();
         
         // Update UI
         updateUserInterface();
@@ -10562,165 +11798,12 @@ function executeTourAction(action) {
             break;
     }
 }
-// Demo Account Function
-function startDemo() {
-    console.log('🎮 Starting demo...');
-    
-    const demoCompany = 'Demo Company';
-    const demoUser = {
-        id: 'demo-user-1',
-        username: 'demo',
-        password: 'demo123',
-        email: 'demo@policypro.com',
-        fullName: 'Demo User',
-        company: demoCompany,
-        role: 'admin',
-        created: new Date().toISOString().split('T')[0]
-    };
-    
-    // Initialize demo company if it doesn't exist
-    const masterCompanies = JSON.parse(localStorage.getItem('masterCompanies') || '[]');
-    let demoCompanyData = masterCompanies.find(c => c.name === demoCompany);
-    
-    if (!demoCompanyData) {
-        // Create demo company
-        demoCompanyData = {
-            id: 'demo-company-1',
-            name: demoCompany,
-            industry: 'Technology',
-            plan: 'pro',
-            adminPassword: 'demo123',
-            created: new Date().toISOString().split('T')[0],
-            users: 1,
-            policies: 3,
-            status: 'active'
-        };
-        masterCompanies.push(demoCompanyData);
-        localStorage.setItem('masterCompanies', JSON.stringify(masterCompanies));
-    }
-    
-    // Initialize demo user
-    const masterUsers = JSON.parse(localStorage.getItem('masterUsers') || '[]');
-    const existingDemoUser = masterUsers.find(u => u.username === 'demo' && u.company === demoCompany);
-    
-    if (!existingDemoUser) {
-        masterUsers.push(demoUser);
-        localStorage.setItem('masterUsers', JSON.stringify(masterUsers));
-    }
-    
-    // Create sample policies for demo
-    const demoPolicies = [
-        {
-            id: 'demo-policy-1',
-            title: 'Data Security Policy',
-            type: 'admin',
-            clinics: ['All Organizations'],
-            clinicNames: 'All Organizations',
-            description: 'This policy establishes guidelines for data security and protection of sensitive information.',
-            content: 'Purpose: To ensure the secure handling of data.\n\nProcedures: All data must be encrypted.\n\nCompliance: Required monthly reviews.',
-            company: demoCompany,
-            created: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-            lastModified: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-            status: 'active',
-            categoryId: null,
-            policyCode: 'ADMIN.1.1.2025'
-        },
-        {
-            id: 'demo-policy-2',
-            title: 'Employee Code of Conduct',
-            type: 'admin',
-            clinics: ['All Organizations'],
-            clinicNames: 'All Organizations',
-            description: 'Guidelines for professional behavior and ethical conduct.',
-            content: 'Purpose: Maintain professional standards.\n\nGuidelines: Respect, integrity, accountability.',
-            company: demoCompany,
-            created: new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-            lastModified: new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-            status: 'active',
-            categoryId: null,
-            policyCode: 'ADMIN.1.2.2025'
-        },
-        {
-            id: 'demo-policy-3',
-            title: 'Remote Work Guidelines',
-            type: 'sog',
-            clinics: ['All Organizations'],
-            clinicNames: 'All Organizations',
-            description: 'Standard operating guidelines for remote work arrangements.',
-            content: 'Purpose: Establish remote work protocols.\n\nProcedures: Check-in times, communication requirements, productivity expectations.',
-            company: demoCompany,
-            created: new Date(Date.now() - 21 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-            lastModified: new Date(Date.now() - 21 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-            status: 'active',
-            categoryId: null,
-            policyCode: 'SOG.1.1.2025'
-        }
-    ];
-    
-    // Save demo policies
-    localStorage.setItem(`policies_${demoCompany}`, JSON.stringify(demoPolicies));
-    
-    // Set up organizations for demo company
-    const organizations = JSON.parse(localStorage.getItem('organizations') || '{}');
-    if (!organizations[demoCompany]) {
-        organizations[demoCompany] = [demoCompany];
-        localStorage.setItem('organizations', JSON.stringify(organizations));
-    }
-    
-    // Log in as demo user
-    currentUser = demoUser;
-    currentCompany = demoCompany;
-    saveToLocalStorage('currentUser', currentUser);
-    saveToLocalStorage('currentCompany', currentCompany);
-    
-    // Update UI
-    document.body.classList.add('user-logged-in');
-    updateUserInterface();
-    
-    // Load demo policies
-    loadPoliciesFromStorage();
-    
-    // Hide landing page
-    const landingPage = document.getElementById('landingPage');
-    if (landingPage) {
-        landingPage.style.display = 'none';
-    }
-    
-    // Show success notification
-    showNotification('🎮 Demo mode activated! Explore Policy Pro with sample data.', 'success');
-    
-    // Always start the feature tour for demo mode
-    console.log('✅ Demo started successfully');
-    console.log('🚀 Starting tour in 1 second...');
-    
-    // Scroll to top
-    window.scrollTo(0, 0);
-    
-    // Start tour with shorter delay
-    setTimeout(() => {
-        console.log('⏰ Tour timer fired');
-        
-        const modal = document.getElementById('tourModal');
-        const overlay = document.getElementById('tourOverlay');
-        console.log('Tour modal found:', !!modal);
-        console.log('Tour overlay found:', !!overlay);
-        
-        if (typeof startTour === 'function') {
-            console.log('Calling startTour()...');
-            startTour();
-        } else {
-            console.error('❌ startTour function not found!');
-        }
-    }, 1000);
-}
-
 // Duplicate requireLogin function removed - using the one defined earlier
-
 function logoutUser() {
     currentUser = null;
     currentCompany = null;
-    saveToLocalStorage('currentUser', null);
-    saveToLocalStorage('currentCompany', null);
+    clearAuthPersistence();
+    refreshCurrentWebhookSettings();
     
     // Clear admin session flag
     localStorage.removeItem('adminSessionActive');
@@ -10777,13 +11860,13 @@ function updateUserInterface() {
 
 function filterPoliciesByCompany() {
     try {
-        if (currentCompany) {
-            const companyPolicies = currentPolicies.filter(policy => 
-                policy.company === currentCompany || !policy.company
-            );
-            displayPolicies(companyPolicies);
-        } else {
-            displayPolicies(currentPolicies);
+    if (currentCompany) {
+        const companyPolicies = currentPolicies.filter(policy => 
+            policy.company === currentCompany || !policy.company
+        );
+        displayPolicies(companyPolicies);
+    } else {
+        displayPolicies(currentPolicies);
         }
     } catch (error) {
         console.warn('Error filtering policies by company (non-critical):', error);
@@ -10794,8 +11877,8 @@ function filterPoliciesByCompany() {
 function showSignupError(message, errorFieldId = 'signup-error-message') {
     const errorElement = document.getElementById(errorFieldId);
     if (errorElement) {
-        errorElement.textContent = message;
-        errorElement.style.display = 'block';
+    errorElement.textContent = message;
+    errorElement.style.display = 'block';
     } else {
         console.error('Error element not found:', errorFieldId);
         alert(message); // Fallback to alert if element not found
@@ -10905,8 +11988,14 @@ function openPasswordModal() {
     console.log('Role type:', typeof currentUser?.role);
     console.log('Full user object:', JSON.stringify(currentUser, null, 2));
     
+    // Require login before proceeding
+    if (!currentUser || !currentCompany) {
+        showNotification('Please log in to your company account before accessing the admin dashboard.', 'warning');
+        showLoginModal();
+        return;
+    }
+    
     // Check if user has admin privileges - check multiple possible role values
-    // Only bypass password if role is explicitly 'admin', otherwise require password
     const isAdmin = currentUser && currentUser.role && 
         (currentUser.role === 'admin' || 
          currentUser.role === 'Admin' || 
@@ -10923,16 +12012,8 @@ function openPasswordModal() {
         isLowerCaseMatch: currentUser?.role?.toLowerCase() === 'admin'
     });
     
-    // CRITICAL: If role is 'user', ALWAYS require password regardless of any other check
-    const isUserRole = currentUser?.role === 'user' || currentUser?.role === 'User';
-    console.log('Is user role?', isUserRole);
-    
-    if (isUserRole) {
-        console.log('🔐 User has user role - requiring password, bypassing admin check');
-        // Skip the admin bypass and go straight to password modal
-    }
-    // For debugging - if this is true, the user will bypass password
-    else if (isAdmin) {
+    // If user has admin role, grant immediate access without password
+    if (isAdmin) {
         console.log('✅ User has admin role, granting immediate access without password');
         showNotification('Admin access granted!', 'success');
         openAdminModal(); // Open admin dashboard directly
@@ -11005,7 +12086,7 @@ function closePasswordModal() {
     }
 }
 
-function checkAdminPassword(event) {
+async function checkAdminPassword(event) {
     if (event) {
         event.preventDefault();
     }
@@ -11019,47 +12100,61 @@ function checkAdminPassword(event) {
     // First, check if user is logged in with their company
     if (!currentUser || !currentCompany) {
         console.log('User not logged in with company');
-        showSignupModal();
+        showLoginModal();
         return;
     }
     
-    // Check if user has admin role - bypass password
+    // Check if user has admin role - bypass password completely
     console.log('🔍 Checking user role:', currentUser.role);
     console.log('Role comparison results:');
     console.log('  currentUser.role === "admin":', currentUser.role === 'admin');
     console.log('  currentUser.role === "Admin":', currentUser.role === 'Admin');
     console.log('  currentUser.role.toLowerCase() === "admin":', currentUser.role && currentUser.role.toLowerCase() === 'admin');
     
-    if (currentUser.role === 'admin' || currentUser.role === 'Admin' || (currentUser.role && currentUser.role.toLowerCase() === 'admin')) {
+    const isAdmin = currentUser.role === 'admin' || 
+                    currentUser.role === 'Admin' || 
+                    (currentUser.role && currentUser.role.toLowerCase() === 'admin');
+    
+    if (isAdmin) {
         console.log('✅ User has admin role, granting access without password');
         closePasswordModal();
         openAdminModal();
         showNotification('Admin access granted!', 'success');
         return;
-    } else {
-        console.log('❌ User does not have admin role, requiring password');
-        console.log('🔍 Proceeding to password validation...');
     }
+    
+    // User doesn't have admin role, proceed with password check
+    console.log('❌ User does not have admin role, requiring password');
+    console.log('🔍 Proceeding to password validation...');
     
     const password = document.getElementById('adminPasswordModal').value;
     console.log('Password entered:', password ? '***' : 'empty');
     console.log('Current user:', currentUser);
     console.log('Current company:', currentCompany);
     
+    if (!password || password.trim() === '') {
+        showNotification('Please enter a password', 'error');
+        return;
+    }
+    
     // Load master admin data to get company-specific passwords
-    const masterData = loadMasterAdminData();
+    let masterData = null;
+    try {
+        masterData = await loadMasterAdminData();
+    } catch (error) {
+        console.error('Failed to load master admin data for admin password check:', error);
+    }
+    
+    let passwordCorrect = false;
     
     // Check if current company has a specific admin password
-    if (currentCompany && masterData && masterData.companies) {
+    if (currentCompany && masterData && Array.isArray(masterData.companies)) {
         const company = masterData.companies.find(c => c.name === currentCompany);
         if (company && company.adminPassword) {
             console.log('Checking company-specific admin password');
             if (password === company.adminPassword) {
                 console.log('Company admin password correct!');
-                closePasswordModal();
-                openAdminModal();
-                showNotification('Admin access granted!', 'success');
-                return;
+                passwordCorrect = true;
             } else {
                 console.log('Company admin password incorrect');
                 showNotification('Incorrect admin password', 'error');
@@ -11068,15 +12163,24 @@ function checkAdminPassword(event) {
         }
     }
     
-    // Fallback to default admin password
+    // Fallback to default admin password if not company-specific
+    if (!passwordCorrect) {
     if (password === 'admin123') {
         console.log('Default admin password correct!');
-        closePasswordModal();
-        openAdminModal();
-        showNotification('Admin access granted!', 'success');
+            passwordCorrect = true;
     } else {
         console.log('Admin password incorrect');
         showNotification('Incorrect admin password', 'error');
+            return;
+        }
+    }
+    
+    // If password is correct, open admin dashboard
+    if (passwordCorrect) {
+        console.log('Password correct - opening admin dashboard');
+        closePasswordModal();
+        openAdminModal();
+        showNotification('Admin access granted!', 'success');
     }
 }
 
@@ -11112,10 +12216,10 @@ function updateAdminStats() {
     console.log('Updating admin stats...');
     
     try {
-        // Update policy counts
-        const totalPolicies = policies.length;
-        const draftCount = policies.filter(p => p.status === 'draft').length;
-        const userCount = users.length;
+        // Update policy counts - use currentPolicies instead of policies
+        const totalPolicies = (currentPolicies && currentPolicies.length) ? currentPolicies.length : 0;
+        const draftCount = (draftPolicies && draftPolicies.length) ? draftPolicies.length : 0;
+        const userCount = (users && users.length) ? users.length : 0;
         
         // Update DOM elements
         const totalPoliciesEl = document.getElementById('adminTotalPolicies');
@@ -11123,14 +12227,14 @@ function updateAdminStats() {
         const userCountEl = document.getElementById('adminUserCount');
         
         if (totalPoliciesEl) totalPoliciesEl.textContent = totalPolicies;
-        if (draftCountEl) draftCountEl.textContent = draftPolicies.length; // Use draftPolicies array, not policies with status
+        if (draftCountEl) draftCountEl.textContent = draftCount; // Use draftCount variable
         if (userCountEl) userCountEl.textContent = userCount;
         
         // Also update admin draft list
         displayAdminDrafts();
-        displayDrafts(); // Display drafts on main page too
+        displayDrafts(); // Display drafts in admin dashboard
         
-        console.log('Admin stats updated:', { totalPolicies, draftCount: draftPolicies.length, userCount });
+        console.log('Admin stats updated:', { totalPolicies, draftCount, userCount });
     } catch (error) {
         console.error('Error updating admin stats:', error);
         // Don't block modal opening if stats update fails
@@ -11361,7 +12465,10 @@ async function sendFollowUpPrompt() {
     
     try {
         // Get webhook URL
-        const webhookUrl = localStorage.getItem('webhookUrlAI') || 'http://localhost:5678/webhook/6aa55f96-04a0-4d04-b99f-1b4da027dce6';
+        const webhookUrl = getWebhookUrl('generator');
+        if (!webhookUrl) {
+            throw new Error('No generator webhook configured.');
+        }
         
         // Use GET method with URL parameters to avoid CORS preflight
         // Truncate conversation history to last 3 messages to avoid URL length issues
@@ -11656,33 +12763,17 @@ function selectPlan(plan) {
         'enterprise': 'Enterprise (Custom)'
     };
     
-    // Update the plan display in the signup modal
+    // Update selected plan display if portal is open
     const planDisplay = document.getElementById('selectedPlanDisplay');
     if (planDisplay) {
         planDisplay.textContent = planNames[plan] || plan;
     }
     
-    // Close pricing modal
     closePricingModal();
     
-    // Open company signup form after a short delay
     setTimeout(() => {
-        console.log('Attempting to open company signup modal...');
-        const modal = document.getElementById('companySignupModal');
-        console.log('Company signup modal element:', modal);
-    
-    if (modal) {
-            console.log('Opening company signup modal...');
-        modal.style.display = 'block';
-        modal.classList.add('show');
-            
-            // Setup form listeners
-            setupCompanySignupFormListeners();
-            console.log('Company signup modal opened successfully');
-    } else {
-            console.error('Company signup modal not found!');
-        }
-    }, 300);
+        showCreateAccountPortal();
+    }, 200);
     
     // Show notification about plan selection
     showNotification('Selected ' + planNames[plan] + ' plan. Complete your account setup below.', 'success');
@@ -11841,9 +12932,9 @@ function handleCompanySignup() {
     currentUser = newUser;
     currentCompany = companyName;
     
-    // Save to localStorage
-    saveToLocalStorage('currentUser', currentUser);
-    saveToLocalStorage('currentCompany', currentCompany);
+    // Save session preference (default to remember device for new admins)
+    persistAuthUser(currentUser, currentCompany, true);
+    refreshCurrentWebhookSettings();
     
     // Add user-logged-in class to body
     document.body.classList.add('user-logged-in');
@@ -11858,12 +12949,20 @@ function handleCompanySignup() {
 }
 
 function showCompanyCodeSignup() {
+    console.log('showCompanyCodeSignup called');
     closeSignupModal(); // Close the signup type selection modal
     closePricingModal(); // Close pricing modal if open
     setTimeout(() => {
         const modal = document.getElementById('companyCodeSignupModal');
         if (modal) {
             modal.classList.add('show');
+            modal.style.display = 'flex';
+            modal.style.visibility = 'visible';
+            modal.style.opacity = '1';
+            modal.style.zIndex = '10000';
+            console.log('Company code signup modal shown');
+        } else {
+            console.error('Company code signup modal element not found');
         }
     }, 300);
 }
@@ -11888,6 +12987,12 @@ function closeCompanyCodeSignupModal() {
             errorMsg.textContent = '';
         }
     }
+}
+
+// Attach to window immediately after definition
+if (typeof window !== 'undefined') {
+    window.showCompanyCodeSignup = showCompanyCodeSignup;
+    window.closeCompanyCodeSignupModal = closeCompanyCodeSignupModal;
 }
 
 function closeIndividualSignupModal() {
@@ -12038,45 +13143,182 @@ function deleteCategory(index) {
     }
 }
 
-// Policy Advisor Functions
+// Policy Advisor Functions - Redesigned
+let advisorConversation = [];
+
 function openPolicyAdvisor() {
     if (!currentUser) {
         showNotification('Please log in to use the Policy Advisor', 'error');
         return;
     }
     
-    document.getElementById('policyAdvisorModal').style.display = 'block';
+    const modal = document.getElementById('policyAdvisorModal');
+    if (modal) {
+        modal.style.display = 'block';
+    }
+    
+    // Reset state
     document.getElementById('advisorQuestion').value = '';
-    document.getElementById('advisorLoading').style.display = 'none';
-    document.getElementById('advisorResponse').style.display = 'none';
+    
+    // Show welcome screen if no conversation
+    if (advisorConversation.length === 0) {
+        document.getElementById('advisorWelcome').style.display = 'block';
+        document.getElementById('advisorChat').style.display = 'none';
+    } else {
+        document.getElementById('advisorWelcome').style.display = 'none';
+        document.getElementById('advisorChat').style.display = 'block';
+        renderAdvisorChat();
+    }
 }
 
 function closePolicyAdvisor() {
     document.getElementById('policyAdvisorModal').style.display = 'none';
 }
 
-async function sendPolicyAdvisorRequest() {
-    console.log('sendPolicyAdvisorRequest CALLED');
+function useExampleQuestion(question) {
+    document.getElementById('advisorQuestion').value = question;
+    document.getElementById('advisorQuestion').focus();
+    // Auto-send after a moment
+    setTimeout(() => {
+        sendPolicyAdvisorRequest();
+    }, 300);
+}
+
+function showExampleQuestions() {
+    document.getElementById('advisorWelcome').style.display = 'block';
+    document.getElementById('advisorChat').style.display = 'none';
+}
+
+function clearAdvisorChat() {
+    if (confirm('Clear all conversation history?')) {
+        advisorConversation = [];
+        document.getElementById('advisorWelcome').style.display = 'block';
+        document.getElementById('advisorChat').style.display = 'none';
+        document.getElementById('advisorChatMessages').innerHTML = '';
+    }
+}
+
+function handleAdvisorKeydown(event) {
+    if (event.key === 'Enter' && !event.shiftKey) {
+        event.preventDefault();
+        sendPolicyAdvisorRequest();
+    }
+}
+
+function renderAdvisorChat() {
+    const messagesContainer = document.getElementById('advisorChatMessages');
+    if (!messagesContainer) return;
     
-    const question = document.getElementById('advisorQuestion').value.trim();
-    console.log('Question:', question);
+    messagesContainer.innerHTML = '';
+    
+    advisorConversation.forEach((msg, index) => {
+        const messageDiv = document.createElement('div');
+        messageDiv.className = `advisor-message ${msg.role}`;
+        
+        if (msg.role === 'user') {
+            messageDiv.innerHTML = `
+                <div class="message-avatar user-avatar">
+                    <i class="fas fa-user"></i>
+                </div>
+                <div class="message-content">
+                    <div class="message-text">${escapeHtml(msg.content)}</div>
+                    <div class="message-time">${formatMessageTime(msg.timestamp)}</div>
+                </div>
+            `;
+        } else {
+            messageDiv.innerHTML = `
+                <div class="message-avatar bot-avatar">
+                    <i class="fas fa-robot"></i>
+                </div>
+                <div class="message-content">
+                    <div class="message-text">${formatAdvisorResponse(msg.content)}</div>
+                    <div class="message-time">${formatMessageTime(msg.timestamp)}</div>
+                </div>
+            `;
+        }
+        
+        messagesContainer.appendChild(messageDiv);
+    });
+    
+    // Scroll to bottom
+    messagesContainer.scrollTop = messagesContainer.scrollHeight;
+}
+
+function addAdvisorMessage(role, content) {
+    advisorConversation.push({
+        role: role,
+        content: content,
+        timestamp: new Date()
+    });
+    
+    // Hide welcome, show chat
+    document.getElementById('advisorWelcome').style.display = 'none';
+    document.getElementById('advisorChat').style.display = 'block';
+    
+    renderAdvisorChat();
+}
+
+function formatAdvisorResponse(text) {
+    if (!text) return '';
+    
+    // Convert markdown-like formatting to HTML
+    let html = escapeHtml(text)
+        .replace(/\n\n/g, '</p><p>')
+        .replace(/\n/g, '<br>')
+        .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+        .replace(/\*(.*?)\*/g, '<em>$1</em>')
+        .replace(/^### (.*$)/gim, '<h3>$1</h3>')
+        .replace(/^## (.*$)/gim, '<h2>$1</h2>')
+        .replace(/^# (.*$)/gim, '<h1>$1</h1>');
+    
+    return `<p>${html}</p>`;
+}
+
+function formatMessageTime(date) {
+    if (!date) return '';
+    const d = new Date(date);
+    const now = new Date();
+    const diff = now - d;
+    
+    if (diff < 60000) return 'Just now';
+    if (diff < 3600000) return `${Math.floor(diff / 60000)}m ago`;
+    return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+}
+
+async function sendPolicyAdvisorRequest() {
+    const questionInput = document.getElementById('advisorQuestion');
+    const question = questionInput?.value.trim();
     
     if (!question) {
         showNotification('Please enter a question', 'error');
         return;
     }
     
-    // Show loading
-    document.getElementById('advisorLoading').style.display = 'block';
-    document.getElementById('advisorResponse').style.display = 'none';
+    // Add user message to conversation
+    addAdvisorMessage('user', question);
+    
+    // Clear input
+    if (questionInput) questionInput.value = '';
+    
+    // Show typing indicator
+    document.getElementById('advisorTyping').style.display = 'block';
+    const sendBtn = document.getElementById('advisorSendBtn');
+    if (sendBtn) sendBtn.disabled = true;
+    
+    // Scroll to bottom
+    const messagesContainer = document.getElementById('advisorChatMessages');
+    if (messagesContainer) {
+        messagesContainer.scrollTop = messagesContainer.scrollHeight;
+    }
     
     try {
         // Get all policies
         const allPolicies = loadCompanyPolicies();
-        console.log('Loaded policies:', allPolicies.length);
         
         if (allPolicies.length === 0) {
-            document.getElementById('advisorLoading').style.display = 'none';
+            document.getElementById('advisorTyping').style.display = 'none';
+            if (sendBtn) sendBtn.disabled = false;
+            addAdvisorMessage('assistant', 'I don\'t have access to any policies yet. Please create some policies first, then I can help answer your questions.');
             showNotification('No policies found', 'warning');
             return;
         }
@@ -12088,7 +13330,9 @@ async function sendPolicyAdvisorRequest() {
             policiesText += `Title: ${policy.title || 'Untitled'}\n`;
             policiesText += `Type: ${policy.type || 'N/A'}\n`;
             if (policy.description) policiesText += `Description: ${policy.description}\n`;
-            if (policy.content) {
+            if (policy.statement) {
+                policiesText += `Content: ${policy.statement}\n`;
+            } else if (policy.content) {
                 try {
                     const parsed = JSON.parse(policy.content);
                     policiesText += `Content: ${JSON.stringify(parsed)}\n`;
@@ -12099,13 +13343,10 @@ async function sendPolicyAdvisorRequest() {
             policiesText += '\n';
         });
         
-        // ALWAYS use the Policy Advisor webhook URL
-        const webhookUrl = 'http://localhost:5678/webhook/6aa55f96-04a0-4d04-b99f-1b4da027dce6';
-        console.log('Webhook URL:', webhookUrl);
-        console.log('PROMPT TEXT BEING SENT:', policiesText);
-        console.log('QUESTION:', question);
+        // Use Policy Advisor webhook URL
+        const webhookUrl = getWebhookUrl('advisor');
         
-        // Use GET with URL params - simple format
+        // Use GET with URL params
         const params = new URLSearchParams({
             query: question,
             policies: policiesText,
@@ -12114,19 +13355,15 @@ async function sendPolicyAdvisorRequest() {
         });
         
         const fullUrl = `${webhookUrl}?${params.toString()}`;
-        console.log('Sending request to:', fullUrl.substring(0, 200) + '...');
         
         const response = await fetch(fullUrl);
-        console.log('Response status:', response.status);
         
         if (response.ok) {
             const result = await response.text();
-            console.log('Success, result length:', result.length);
             
             // Parse and clean up the response
             let cleanedResult = result;
             try {
-                // Try to parse as JSON array
                 const parsed = JSON.parse(result);
                 if (Array.isArray(parsed) && parsed.length > 0 && parsed[0].output) {
                     cleanedResult = parsed[0].output;
@@ -12137,20 +13374,23 @@ async function sendPolicyAdvisorRequest() {
                 }
             } catch (e) {
                 // Not JSON, use as-is
-                console.log('Response is not JSON, using as-is');
             }
             
-            document.getElementById('advisorLoading').style.display = 'none';
-            document.getElementById('advisorResponse').style.display = 'block';
-            document.getElementById('advisorResultText').textContent = cleanedResult;
+            // Hide typing, add response
+            document.getElementById('advisorTyping').style.display = 'none';
+            if (sendBtn) sendBtn.disabled = false;
+            
+            addAdvisorMessage('assistant', cleanedResult);
         } else {
             throw new Error(`HTTP ${response.status}`);
         }
     } catch (error) {
         console.error('Policy advisor error:', error);
-        document.getElementById('advisorLoading').style.display = 'none';
-        document.getElementById('advisorResponse').style.display = 'block';
-        document.getElementById('advisorResultText').textContent = 'Error: ' + error.message;
+        document.getElementById('advisorTyping').style.display = 'none';
+        if (sendBtn) sendBtn.disabled = false;
+        
+        addAdvisorMessage('assistant', `I'm sorry, I encountered an error: ${error.message}. Please try again or contact support if the problem persists.`);
+        showNotification('Error getting response', 'error');
     }
 }
 

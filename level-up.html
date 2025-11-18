@@ -1,0 +1,2643 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>The Level Up App</title>
+    <style>
+      :root {
+        color-scheme: light dark;
+        font-family: "Sora", "Inter", system-ui, -apple-system, BlinkMacSystemFont,
+          Arial, sans-serif;
+        --primary: #2563eb;
+        --secondary: #7c3aed;
+        --tertiary: #10b981;
+        --bg: #040b1f;
+        --card: rgba(15, 23, 42, 0.75);
+        --text: #f8fafc;
+        --muted: #c7d2fe;
+        --border: rgba(148, 163, 184, 0.3);
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        background: radial-gradient(circle at top, rgba(79, 70, 229, 0.35), transparent 55%),
+          radial-gradient(circle at 20% 20%, rgba(16, 185, 129, 0.25), transparent 40%),
+          #030711;
+        color: var(--text);
+        min-height: 100vh;
+        padding: 2rem clamp(1rem, 4vw, 3rem) 3rem;
+        position: relative;
+        overflow-x: hidden;
+      }
+      h1,
+      h2,
+      h3 {
+        margin: 0;
+      }
+      header {
+        max-width: 1200px;
+        margin: 0 auto 2rem;
+        text-align: center;
+        position: relative;
+        z-index: 2;
+      }
+      .grid {
+        display: grid;
+        gap: 1.5rem;
+        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+        max-width: 1200px;
+        margin: 0 auto;
+        position: relative;
+        z-index: 2;
+      }
+      section {
+        background: var(--card);
+        border: 1px solid var(--border);
+        padding: 1.5rem;
+        border-radius: 1.25rem;
+        box-shadow: 0 25px 40px rgba(2, 6, 23, 0.35);
+        display: flex;
+        flex-direction: column;
+        gap: 0.75rem;
+        position: relative;
+        overflow: hidden;
+        backdrop-filter: blur(12px);
+        transition: transform 0.25s ease, border-color 0.25s ease;
+      }
+      section::after {
+        content: "";
+        position: absolute;
+        inset: 0;
+        border-radius: inherit;
+        border: 1px solid transparent;
+        background: linear-gradient(120deg, rgba(37, 99, 235, 0.35), rgba(16, 185, 129, 0.2))
+          border-box;
+        mask: linear-gradient(#fff 0 0) padding-box, linear-gradient(#fff 0 0);
+        mask-composite: exclude;
+        pointer-events: none;
+      }
+      section:hover {
+        transform: translateY(-6px);
+        border-color: rgba(59, 130, 246, 0.6);
+      }
+      .tag {
+        font-size: 0.8rem;
+        padding: 0.25rem 0.75rem;
+        border-radius: 999px;
+        background: rgba(59, 130, 246, 0.15);
+        color: #c4cfff;
+        display: inline-flex;
+        width: fit-content;
+      }
+      form {
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+      }
+      label {
+        font-size: 0.85rem;
+        color: var(--muted);
+      }
+      input,
+      textarea,
+      select {
+        padding: 0.75rem 1rem;
+        border: 1px solid rgba(15, 23, 42, 0.1);
+        border-radius: 0.75rem;
+        font-size: 0.95rem;
+        font-family: inherit;
+        background: rgba(15, 23, 42, 0.65);
+        color: var(--text);
+        border: 1px solid rgba(148, 163, 184, 0.3);
+        transition: border-color 0.2s ease, background 0.2s ease;
+      }
+      input:focus,
+      textarea:focus,
+      select:focus {
+        outline: none;
+        border-color: rgba(59, 130, 246, 0.6);
+        background: rgba(15, 23, 42, 0.8);
+      }
+      input::placeholder,
+      textarea::placeholder {
+        color: rgba(199, 210, 254, 0.5);
+      }
+      button {
+        border: none;
+        border-radius: 0.75rem;
+        padding: 0.75rem 1rem;
+        font-size: 0.95rem;
+        cursor: pointer;
+        background: linear-gradient(120deg, #2563eb, #7c3aed);
+        color: white;
+        transition: transform 0.2s ease, box-shadow 0.2s ease, opacity 0.2s ease;
+        box-shadow: 0 10px 25px rgba(59, 130, 246, 0.4);
+      }
+      button:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 20px 35px rgba(99, 102, 241, 0.45);
+      }
+      button:active {
+        transform: translateY(0);
+        opacity: 0.9;
+      }
+      button:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+        transform: none;
+      }
+      .toast {
+        position: fixed;
+        bottom: 2rem;
+        right: 2rem;
+        background: rgba(16, 185, 129, 0.95);
+        color: white;
+        padding: 1rem 1.5rem;
+        border-radius: 0.75rem;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+        z-index: 2000;
+        animation: slideIn 0.3s ease;
+        max-width: 300px;
+      }
+      @keyframes slideIn {
+        from {
+          transform: translateX(100%);
+          opacity: 0;
+        }
+        to {
+          transform: translateX(0);
+          opacity: 1;
+        }
+      }
+      .help-text {
+        font-size: 0.8rem;
+        color: rgba(199, 210, 254, 0.6);
+        margin-top: 0.25rem;
+        font-style: italic;
+      }
+      @media (max-width: 768px) {
+        body {
+          padding: 1rem;
+        }
+        header {
+          margin-bottom: 1rem;
+        }
+        .grid {
+          grid-template-columns: 1fr;
+          gap: 1rem;
+        }
+        .category-nav {
+          gap: 0.5rem;
+          grid-template-columns: repeat(2, 1fr);
+        }
+        .category-nav button {
+          font-size: 0.75rem;
+          padding: 0.75rem 0.5rem;
+        }
+        .toast {
+          bottom: 1rem;
+          right: 1rem;
+          left: 1rem;
+          max-width: none;
+        }
+        .summary-grid,
+        .weekly-grid,
+        .budget-list {
+          grid-template-columns: 1fr;
+        }
+        .category-modal {
+          padding: 0.5rem;
+        }
+        .category-modal-content {
+          padding: 1.5rem;
+          max-height: 95vh;
+        }
+        .category-modal-header {
+          flex-direction: column;
+          align-items: flex-start;
+          gap: 0.75rem;
+        }
+        .category-modal-header h2 {
+          font-size: 1.5rem;
+        }
+      }
+      ul {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+      }
+      li {
+        padding: 0.65rem 0.85rem;
+        background: rgba(15, 23, 42, 0.5);
+        border-radius: 0.75rem;
+        font-size: 0.9rem;
+        display: flex;
+        justify-content: space-between;
+        gap: 0.75rem;
+        border: 1px solid rgba(148, 163, 184, 0.2);
+      }
+      .progress {
+        height: 0.65rem;
+        border-radius: 999px;
+        background: rgba(15, 23, 42, 0.08);
+        overflow: hidden;
+      }
+      .progress-bar {
+        height: 100%;
+        background: linear-gradient(90deg, var(--primary), var(--secondary));
+        border-radius: inherit;
+        width: 0%;
+        transition: width 0.3s ease;
+      }
+      .mini-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        gap: 1rem;
+      }
+      .budget-list {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 0.75rem;
+      }
+      .budget-card {
+        border: 1px solid rgba(148, 163, 184, 0.25);
+        border-radius: 1rem;
+        padding: 0.75rem 1rem;
+        background: rgba(15, 23, 42, 0.65);
+        box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+      }
+      .budget-card h4 {
+        margin: 0 0 0.25rem;
+        font-size: 1rem;
+      }
+      .budget-card p {
+        margin: 0;
+        font-size: 0.85rem;
+        color: var(--muted);
+      }
+      .muted {
+        color: var(--muted);
+        font-size: 0.85rem;
+      }
+      .modal-overlay {
+        position: fixed;
+        inset: 0;
+        background: rgba(15, 23, 42, 0.85);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 1.5rem;
+        z-index: 1000;
+        backdrop-filter: blur(8px);
+        overflow-y: auto;
+        animation: fadeIn 0.2s ease;
+      }
+      @keyframes fadeIn {
+        from { opacity: 0; }
+        to { opacity: 1; }
+      }
+      .modal {
+        background: var(--card);
+        border-radius: 1.5rem;
+        padding: 2rem;
+        max-width: 900px;
+        width: 100%;
+        max-height: 90vh;
+        overflow-y: auto;
+        box-shadow: 0 25px 50px rgba(15, 23, 42, 0.4);
+        display: flex;
+        flex-direction: column;
+        gap: 1.5rem;
+        position: relative;
+        border: 1px solid var(--border);
+        animation: slideUp 0.3s ease;
+      }
+      @keyframes slideUp {
+        from {
+          transform: translateY(30px);
+          opacity: 0;
+        }
+        to {
+          transform: translateY(0);
+          opacity: 1;
+        }
+      }
+      .modal-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding-bottom: 1rem;
+        border-bottom: 1px solid var(--border);
+      }
+      .modal-close {
+        background: rgba(239, 68, 68, 0.15);
+        border: 1px solid rgba(248, 113, 113, 0.35);
+        color: #fecaca;
+        width: 36px;
+        height: 36px;
+        border-radius: 0.5rem;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        font-size: 1.25rem;
+        padding: 0;
+      }
+      .modal-close:hover {
+        background: rgba(239, 68, 68, 0.25);
+        transform: scale(1.05);
+      }
+      .modal h3 {
+        font-size: 1.5rem;
+        margin: 0;
+      }
+      .modal p {
+        margin: 0;
+        color: var(--muted);
+      }
+      .category-modal-section {
+        display: flex;
+        flex-direction: column;
+        gap: 1rem;
+      }
+      .category-modal-section > section {
+        background: rgba(15, 23, 42, 0.5);
+        border: 1px solid rgba(148, 163, 184, 0.2);
+        border-radius: 1rem;
+        padding: 1.25rem;
+      }
+      .choice-group {
+        display: flex;
+        flex-direction: column;
+        gap: 0.75rem;
+      }
+      .toggle-option {
+        display: flex;
+        align-items: center;
+        gap: 0.65rem;
+        padding: 0.5rem 0.75rem;
+        border-radius: 0.85rem;
+        border: 1px solid rgba(148, 163, 184, 0.35);
+        background: rgba(15, 23, 42, 0.5);
+      }
+      .toggle-option input {
+        width: 18px;
+        height: 18px;
+      }
+      .choice-group button {
+        width: 100%;
+        font-size: 1rem;
+      }
+      .vice-multi {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+        gap: 0.4rem;
+        margin-bottom: 0.5rem;
+      }
+      .vice-multi label {
+        display: flex;
+        align-items: center;
+        gap: 0.35rem;
+        padding: 0.45rem 0.65rem;
+        border-radius: 0.65rem;
+        border: 1px solid rgba(148, 163, 184, 0.2);
+        background: rgba(15, 23, 42, 0.45);
+        font-size: 0.85rem;
+      }
+      .category-nav {
+        margin: 2rem auto 1.5rem;
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 0.75rem;
+        max-width: 900px;
+      }
+      .category-nav {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+        gap: 0.75rem;
+        max-width: 1000px;
+      }
+      .category-nav button {
+        background: rgba(15, 23, 42, 0.75);
+        border: 1px solid rgba(94, 234, 212, 0.3);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+        font-size: 0.9rem;
+        transition: all 0.2s ease;
+        cursor: pointer;
+        padding: 1rem;
+        font-weight: 500;
+      }
+      .category-nav button:hover {
+        border-color: rgba(94, 234, 212, 0.6);
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(94, 234, 212, 0.3);
+      }
+      .category-modal {
+        position: fixed;
+        inset: 0;
+        background: rgba(15, 23, 42, 0.85);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 1.5rem;
+        z-index: 2000;
+        backdrop-filter: blur(8px);
+        overflow-y: auto;
+      }
+      .category-modal.hidden {
+        display: none;
+      }
+      .category-modal-content {
+        background: var(--card);
+        border-radius: 1.5rem;
+        padding: 2rem;
+        max-width: 900px;
+        width: 100%;
+        max-height: 90vh;
+        overflow-y: auto;
+        box-shadow: 0 25px 50px rgba(0, 0, 0, 0.4);
+        position: relative;
+        border: 1px solid var(--border);
+      }
+      .category-modal-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 1.5rem;
+        padding-bottom: 1rem;
+        border-bottom: 1px solid var(--border);
+      }
+      .category-modal-header h2 {
+        margin: 0;
+        font-size: 1.75rem;
+      }
+      .close-modal {
+        background: rgba(239, 68, 68, 0.2);
+        border: 1px solid rgba(248, 113, 113, 0.4);
+        color: #fecaca;
+        padding: 0.5rem 1rem;
+        border-radius: 0.5rem;
+        cursor: pointer;
+        font-size: 0.9rem;
+        transition: all 0.2s ease;
+      }
+      .close-modal:hover {
+        background: rgba(239, 68, 68, 0.3);
+        transform: scale(1.05);
+      }
+      .category-hidden {
+        display: none !important;
+      }
+      .weekly-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        gap: 1rem;
+      }
+      .weekly-card {
+        border: 1px solid rgba(148, 163, 184, 0.3);
+        border-radius: 1rem;
+        padding: 1rem;
+        background: rgba(15, 23, 42, 0.65);
+        display: flex;
+        flex-direction: column;
+        gap: 0.4rem;
+      }
+      .weekly-card h4 {
+        margin: 0;
+        font-size: 1rem;
+      }
+      .log-list {
+        list-style: none;
+        padding: 0;
+        margin: 1rem 0 0;
+        display: flex;
+        flex-direction: column;
+        gap: 0.65rem;
+      }
+      .log-list li {
+        border: 1px solid rgba(148, 163, 184, 0.25);
+        border-radius: 0.85rem;
+        padding: 0.75rem 1rem;
+        background: rgba(15, 23, 42, 0.5);
+        display: flex;
+        justify-content: space-between;
+        gap: 0.75rem;
+      }
+      .summary-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        gap: 1rem;
+      }
+      .summary-card {
+        border: 1px solid rgba(148, 163, 184, 0.3);
+        border-radius: 1.2rem;
+        padding: 1.2rem;
+        background: rgba(15, 23, 42, 0.7);
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+      }
+      .summary-value {
+        font-size: 2rem;
+        font-weight: 600;
+      }
+      .summary-subtext {
+        font-size: 0.85rem;
+        color: var(--muted);
+      }
+      .hidden {
+        display: none !important;
+      }
+      .bg-orb {
+        position: absolute;
+        width: clamp(180px, 35vw, 320px);
+        height: clamp(180px, 35vw, 320px);
+        background: radial-gradient(circle, rgba(59, 130, 246, 0.5), transparent 65%);
+        filter: blur(8px);
+        opacity: 0.5;
+        pointer-events: none;
+        animation: float 18s ease-in-out infinite;
+      }
+      .vibe-card {
+        background: rgba(15, 23, 42, 0.8);
+        border: 1px solid rgba(94, 234, 212, 0.35);
+        border-radius: 1rem;
+        padding: 1rem;
+        display: flex;
+        flex-direction: column;
+        gap: 0.75rem;
+      }
+      .vibe-output {
+        border-radius: 0.85rem;
+        padding: 0.85rem 1rem;
+        background: rgba(59, 130, 246, 0.12);
+        border: 1px solid rgba(59, 130, 246, 0.4);
+        font-weight: 600;
+        letter-spacing: 0.01em;
+      }
+      .habit-card,
+      .friend-card,
+      .business-card {
+        border: 1px solid rgba(148, 163, 184, 0.25);
+        border-radius: 1rem;
+        padding: 0.85rem 1rem;
+        background: rgba(15, 23, 42, 0.6);
+        display: flex;
+        flex-direction: column;
+        gap: 0.45rem;
+      }
+      .habit-card button {
+        background: rgba(16, 185, 129, 0.2);
+        color: var(--text);
+      }
+      .resume-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        gap: 1rem;
+      }
+      .skill-card button {
+        background: linear-gradient(120deg, #10b981, #22d3ee);
+        color: #04111f;
+      }
+      .orb-1 {
+        top: 2%;
+        left: 5%;
+      }
+      .orb-2 {
+        bottom: 5%;
+        right: 10%;
+        animation-delay: 4s;
+      }
+      @keyframes float {
+        0% {
+          transform: translateY(0px);
+        }
+        50% {
+          transform: translateY(-25px) translateX(10px);
+        }
+        100% {
+          transform: translateY(0px);
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="bg-orb orb-1"></div>
+    <div class="bg-orb orb-2"></div>
+    <div id="sober-modal" class="modal-overlay hidden">
+      <div class="modal">
+        <p class="tag">Check-in first</p>
+        <h3>Are you sober?</h3>
+        <p>Before logging progress, note the current state of mind.</p>
+        <form id="sober-form" class="choice-group">
+          <label class="toggle-option">
+            <input type="checkbox" name="sober-state" value="Sober" />
+            <span>Yes, sober</span>
+          </label>
+          <label class="toggle-option">
+            <input type="checkbox" name="sober-state" value="Beved" />
+            <span>Beved?</span>
+          </label>
+          <label class="toggle-option">
+            <input type="checkbox" name="sober-state" value="Geeked" />
+            <span>Geeked?</span>
+          </label>
+          <label class="toggle-option">
+            <input type="checkbox" name="sober-state" value="Psychedelics" />
+            <span>Psychedelics?</span>
+          </label>
+          <label class="toggle-option">
+            <input type="checkbox" name="sober-state" value="Other" />
+            <span>Other</span>
+          </label>
+          <input type="text" id="sober-other" placeholder="If other, describe" />
+          <button type="submit" id="sober-save-btn">Save state</button>
+        </form>
+      </div>
+    </div>
+    <header>
+      <p class="tag">The Level Up App</p>
+      <h1>Self-Improvement HQ</h1>
+      <p class="muted">
+        Track everything—money, fitness, skills, goals, and moments—in one powerful dashboard.
+      </p>
+      <p class="muted">
+        Current state: <strong id="sober-status">Unlogged</strong>
+        <span class="help-text"> (Click any category above to open and log)</span>
+      </p>
+      <nav style="margin-top:1.5rem;display:flex;justify-content:center;gap:1rem;flex-wrap:wrap;">
+        <a href="level-up.html" style="text-decoration:none;">
+          <button type="button">Dashboard</button>
+        </a>
+        <a href="level-up-calendar.html" style="text-decoration:none;">
+          <button type="button">Calendar view</button>
+        </a>
+      </nav>
+      <div class="category-nav">
+        <button type="button" data-open-modal="money" onclick="if(window.openCategoryModal) window.openCategoryModal('money'); return false;">💰 Money</button>
+        <button type="button" data-open-modal="body" onclick="if(window.openCategoryModal) window.openCategoryModal('body'); return false;">💪 Body</button>
+        <button type="button" data-open-modal="social" onclick="if(window.openCategoryModal) window.openCategoryModal('social'); return false;">👥 Social</button>
+        <button type="button" data-open-modal="mind" onclick="if(window.openCategoryModal) window.openCategoryModal('mind'); return false;">🧠 Mind & Skills</button>
+        <button type="button" data-open-modal="fun" onclick="if(window.openCategoryModal) window.openCategoryModal('fun'); return false;">🎨 Fun & Creativity</button>
+        <button type="button" data-open-modal="night" onclick="if(window.openCategoryModal) window.openCategoryModal('night'); return false;">🌙 Night & Vices</button>
+        <button type="button" data-open-modal="career" onclick="if(window.openCategoryModal) window.openCategoryModal('career'); return false;">💼 Career</button>
+      </div>
+    </header>
+
+    <section id="daily-overview" data-category="mind">
+      <p class="tag">Daily overview</p>
+      <h2>Efficiency & momentum</h2>
+      <div class="summary-grid">
+        <div class="summary-card">
+          <h3>Day efficiency</h3>
+          <div class="summary-value" id="efficiency-score">--%</div>
+          <p class="summary-subtext" id="efficiency-formula">
+            Formula: (Categories you logged today / Total categories) × 100
+          </p>
+          <p class="summary-subtext" id="efficiency-missing"></p>
+          <p class="help-text" style="margin-top:0.5rem;">
+            Log activity in any category (Money, Body, Social, Mind, Fun, Night, Career) to increase your score.
+          </p>
+        </div>
+        <div class="summary-card">
+          <h3>Net balance</h3>
+          <div class="summary-value" id="summary-net">$0</div>
+          <p class="summary-subtext">Income − Expenses progress toward goals.</p>
+        </div>
+        <div class="summary-card">
+          <h3>Weekly hours</h3>
+          <div class="summary-value" id="summary-hours">0 / 15.6</div>
+          <p class="summary-subtext">Skill + strength + games + recovery.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Modal containers for each category -->
+    <div id="category-modals">
+      <div class="modal-overlay hidden" id="modal-money">
+        <div class="modal">
+          <div class="modal-header">
+            <div>
+              <p class="tag">Money</p>
+              <h3>Business Dashboard</h3>
+            </div>
+            <button type="button" class="modal-close" onclick="closeCategoryModal('money')">×</button>
+          </div>
+          <div class="category-modal-section" id="modal-content-money"></div>
+        </div>
+      </div>
+      <div class="modal-overlay hidden" id="modal-body">
+        <div class="modal">
+          <div class="modal-header">
+            <div>
+              <p class="tag">Body</p>
+              <h3>Transformation & Health</h3>
+            </div>
+            <button type="button" class="modal-close" onclick="closeCategoryModal('body')">×</button>
+          </div>
+          <div class="category-modal-section" id="modal-content-body"></div>
+        </div>
+      </div>
+      <div class="modal-overlay hidden" id="modal-social">
+        <div class="modal">
+          <div class="modal-header">
+            <div>
+              <p class="tag">Social</p>
+              <h3>Connections & Relationships</h3>
+            </div>
+            <button type="button" class="modal-close" onclick="closeCategoryModal('social')">×</button>
+          </div>
+          <div class="category-modal-section" id="modal-content-social"></div>
+        </div>
+      </div>
+      <div class="modal-overlay hidden" id="modal-mind">
+        <div class="modal">
+          <div class="modal-header">
+            <div>
+              <p class="tag">Mind & Skills</p>
+              <h3>Growth & Development</h3>
+            </div>
+            <button type="button" class="modal-close" onclick="closeCategoryModal('mind')">×</button>
+          </div>
+          <div class="category-modal-section" id="modal-content-mind"></div>
+        </div>
+      </div>
+      <div class="modal-overlay hidden" id="modal-fun">
+        <div class="modal">
+          <div class="modal-header">
+            <div>
+              <p class="tag">Fun & Creativity</p>
+              <h3>Joy & Inspiration</h3>
+            </div>
+            <button type="button" class="modal-close" onclick="closeCategoryModal('fun')">×</button>
+          </div>
+          <div class="category-modal-section" id="modal-content-fun"></div>
+        </div>
+      </div>
+      <div class="modal-overlay hidden" id="modal-night">
+        <div class="modal">
+          <div class="modal-header">
+            <div>
+              <p class="tag">Night & Vices</p>
+              <h3>Late Night Ideas & Tracking</h3>
+            </div>
+            <button type="button" class="modal-close" onclick="closeCategoryModal('night')">×</button>
+          </div>
+          <div class="category-modal-section" id="modal-content-night"></div>
+        </div>
+      </div>
+      <div class="modal-overlay hidden" id="modal-career">
+        <div class="modal">
+          <div class="modal-header">
+            <div>
+              <p class="tag">Career</p>
+              <h3>Professional Growth</h3>
+            </div>
+            <button type="button" class="modal-close" onclick="closeCategoryModal('career')">×</button>
+          </div>
+          <div class="category-modal-section" id="modal-content-career"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="grid category-hidden" id="sections-container">
+      <section id="jokes" data-category="fun">
+        <p class="tag">Jokes & talking points</p>
+        <h2>Warm up the convo</h2>
+        <div class="vibe-card">
+          <p class="muted">Prompt of the day:</p>
+          <div id="joke-output" class="vibe-output"></div>
+          <button type="button" id="new-joke-btn">Give me another</button>
+        </div>
+        <form data-target="joke">
+          <label>Add your own</label>
+          <textarea name="description" rows="2" placeholder="Talking point or joke" required></textarea>
+          <button type="submit">Save line</button>
+        </form>
+        <ul id="joke-list"></ul>
+      </section>
+
+      <section id="money" data-category="money">
+        <p class="tag">Money</p>
+        <h2>Business Dashboard</h2>
+        <p class="help-text" style="margin-bottom:0.75rem;">
+          Track income, expenses, investments, and budget allocations all in one place.
+        </p>
+
+        <form data-target="income">
+          <label>Log earned money</label>
+          <input type="text" name="description" placeholder="Client / product" required />
+          <input type="number" name="amount" placeholder="$ amount" min="0" step="0.01" required />
+          <button type="submit">Add income</button>
+        </form>
+
+        <form data-target="expense">
+          <label>Log expense</label>
+          <input type="text" name="description" placeholder="Software, rent..." required />
+          <input type="number" name="amount" placeholder="$ amount" min="0" step="0.01" required />
+          <button type="submit">Add expense</button>
+        </form>
+
+        <form data-target="investment">
+          <label>Log investment</label>
+          <input type="text" name="description" placeholder="Asset / ticker" required />
+          <input type="number" name="amount" placeholder="$ amount" min="0" step="0.01" required />
+          <button type="submit">Add investment</button>
+        </form>
+
+        <div>
+          <h3>Track progress</h3>
+          <div class="progress">
+            <div class="progress-bar" id="money-progress"></div>
+          </div>
+          <p class="muted">
+            Goal: $5,000 net. Current: <span id="net-balance">$0</span>
+          </p>
+        </div>
+
+        <div class="mini-grid">
+          <div>
+            <h3>Required expenses total</h3>
+            <form data-target="required">
+              <input
+                type="number"
+                name="amount"
+                placeholder="$ amount"
+                min="0"
+                step="0.01"
+                required
+              />
+              <button type="submit">Save required total</button>
+            </form>
+            <p class="muted">
+              Current required spend: <span id="required-expenses-display">$0.00</span>
+            </p>
+          </div>
+          <div>
+            <h3>Budget funds</h3>
+            <p class="muted">Automatically allocate what's left after required expenses.</p>
+            <div id="budget-list" class="budget-list"></div>
+          </div>
+        </div>
+
+        <div class="mini-grid">
+          <div>
+            <h3>Income</h3>
+            <ul id="income-list"></ul>
+          </div>
+          <div>
+            <h3>Expenses</h3>
+            <ul id="expense-list"></ul>
+          </div>
+          <div>
+            <h3>Investments</h3>
+            <ul id="investment-list"></ul>
+          </div>
+        </div>
+
+        <div>
+          <h3>To-do list</h3>
+          <form data-target="todo">
+            <input type="text" name="description" placeholder="Send proposal..." required />
+            <button type="submit">Add task</button>
+          </form>
+          <ul id="todo-list"></ul>
+        </div>
+
+        <div>
+          <h3>Goals</h3>
+          <form data-target="goal">
+            <select name="horizon" required>
+              <option value="Daily">Day</option>
+              <option value="Monthly">Month</option>
+              <option value="Yearly">Year</option>
+            </select>
+            <input type="text" name="description" placeholder="Goal" required />
+            <button type="submit">Save goal</button>
+          </form>
+          <ul id="goal-list"></ul>
+        </div>
+      </section>
+
+      <section id="goal-logger" data-category="money">
+        <p class="tag">Goal logger</p>
+        <h2>Track commits</h2>
+        <form data-target="goalLog">
+          <input type="text" name="title" placeholder="Goal title" required />
+          <select name="status" required>
+            <option value="In progress">In progress</option>
+            <option value="Completed">Completed</option>
+            <option value="Stalled">Stalled</option>
+          </select>
+          <textarea name="description" rows="2" placeholder="Notes / proof" required></textarea>
+          <button type="submit">Log goal update</button>
+        </form>
+        <ul id="goal-log-list"></ul>
+      </section>
+
+      <section id="business" data-category="career">
+        <p class="tag">Idea rolodex</p>
+        <h2>Business sparks</h2>
+        <form data-target="business">
+          <input type="text" name="name" placeholder="Idea / venture name" required />
+          <input type="text" name="sector" placeholder="Sector or vehicle" />
+          <input type="text" name="contact" placeholder="Partner / contact info" />
+          <textarea name="description" rows="2" placeholder="Why it works" required></textarea>
+          <button type="submit">Save idea</button>
+        </form>
+        <ul id="business-list"></ul>
+      </section>
+
+      <section id="resume" data-category="career">
+        <p class="tag">Resume builder</p>
+        <h2>Skills • jobs • brag ideas</h2>
+        <div class="resume-grid">
+          <div>
+            <h3>Skills to list</h3>
+            <form data-target="resumeSkill">
+              <input type="text" name="description" placeholder="Eg. SQL automations" required />
+              <button type="submit">Add skill</button>
+            </form>
+            <ul id="resume-skill-list"></ul>
+          </div>
+          <div>
+            <h3>Jobs / experience</h3>
+            <form data-target="resumeJob">
+              <input type="text" name="description" placeholder="Role or client" required />
+              <textarea name="details" rows="2" placeholder="Impact / quant proof"></textarea>
+              <button type="submit">Add role</button>
+            </form>
+            <ul id="resume-job-list"></ul>
+          </div>
+          <div>
+            <h3>Future resume ideas</h3>
+            <form data-target="resumeIdea">
+              <textarea name="description" rows="3" placeholder="Build AI QA bot for clinics..." required></textarea>
+              <button type="submit">Add idea</button>
+            </form>
+            <ul id="resume-idea-list"></ul>
+          </div>
+        </div>
+      </section>
+
+      <section id="skill-practice" data-category="mind">
+        <p class="tag">Skill reps</p>
+        <h2>Practice today</h2>
+        <div class="vibe-card skill-card">
+          <p class="muted">Skill generator</p>
+          <div class="vibe-output" id="skill-suggestion"></div>
+          <button type="button" id="skill-new-btn">Spin skill</button>
+        </div>
+        <form data-target="skillLog">
+          <input type="text" name="description" placeholder="Skill practiced" required />
+          <textarea name="details" rows="2" placeholder="What reps you did / proof"></textarea>
+          <button type="submit">Log skill reps</button>
+        </form>
+        <ul id="skill-log-list"></ul>
+      </section>
+
+      <section id="weekly-plan" data-category="mind">
+        <p class="tag">Weekly goals</p>
+        <h2>Training hours snapshot</h2>
+        <p class="help-text" style="margin-bottom:1rem;">
+          Track weekly training hours across 4 activities. Goal: 15–16 hours/week total.
+        </p>
+        <div id="weekly-plan-grid" class="weekly-grid"></div>
+        <form data-target="weeklyHour" style="display:flex;flex-wrap:wrap;gap:0.75rem;align-items:flex-end;">
+          <div style="flex:1;min-width:180px;">
+            <label>Activity</label>
+            <select name="activity" required>
+              <option value="Skill development">Skill development (Goal: 7.5h)</option>
+              <option value="Strength/conditioning">Strength/conditioning (Goal: 3.5h)</option>
+              <option value="Games / scrimmages">Games / scrimmages (Goal: 3.1h)</option>
+              <option value="Recovery/stretching">Recovery/stretching (Goal: 1h)</option>
+            </select>
+          </div>
+          <div style="width:140px;">
+            <label>Hours</label>
+            <input type="number" name="hours" min="0.1" step="0.1" placeholder="1.0" required />
+            <span class="help-text">Use decimals (e.g., 1.5)</span>
+          </div>
+          <button type="submit">Add hours</button>
+        </form>
+        <div style="display:flex;gap:0.75rem;flex-wrap:wrap;">
+          <button type="button" id="weekly-reset-btn" style="background:rgba(239,68,68,0.15);border:1px solid rgba(248,113,113,0.35);color:#fecaca;">
+            Reset week
+          </button>
+        </div>
+        <ul id="weekly-log-list" class="log-list"></ul>
+      </section>
+
+      <section id="body" data-category="body">
+        <p class="tag">Body Transformation</p>
+        <h2>Move · Eat · Hydrate</h2>
+
+        <form data-target="workout">
+          <label>Workouts</label>
+          <input type="text" name="description" placeholder="Lift: Push day" required />
+          <button type="submit">Log workout</button>
+        </form>
+        <ul id="workout-list"></ul>
+
+        <form data-target="meal">
+          <label>Eating</label>
+          <input type="text" name="description" placeholder="High-protein lunch" required />
+          <button type="submit">Log meal</button>
+        </form>
+        <ul id="meal-list"></ul>
+
+        <form data-target="water">
+          <label>Water (cups)</label>
+          <input type="number" name="amount" min="1" max="30" required />
+          <button type="submit">Add water</button>
+        </form>
+        <p class="muted">
+          Daily hydration: <span id="water-total">0</span>/8 cups
+        </p>
+        <div class="progress">
+          <div class="progress-bar" id="water-progress"></div>
+        </div>
+
+        <div>
+          <h3>Calorie photo analyzer (beta)</h3>
+          <p class="muted">
+            Drop a meal photo and the app will guesstimate calories (for fun — verify before
+            logging officially).
+          </p>
+          <form id="calorie-form">
+            <input type="file" id="calorie-photo" accept="image/*" required />
+            <input type="text" id="calorie-caption" placeholder="Meal description" />
+            <button type="submit">Analyze</button>
+          </form>
+          <div id="calorie-result" class="muted"></div>
+          <ul id="calorie-list"></ul>
+        </div>
+      </section>
+
+      <section id="social" data-category="social">
+        <p class="tag">Social</p>
+        <h2>Connection reps</h2>
+
+        <form data-target="compliment">
+          <label>Compliments / touchpoints</label>
+          <input type="text" name="description" placeholder="Texted Alex appreciation" required />
+          <button type="submit">Log compliment</button>
+        </form>
+        <ul id="compliment-list"></ul>
+
+        <div class="mini-grid">
+          <div>
+            <h3>Kissed?</h3>
+            <form data-target="kiss">
+              <input type="text" name="description" placeholder="Who / where" required />
+              <button type="submit">Log kiss</button>
+            </form>
+            <ul id="kiss-list"></ul>
+          </div>
+          <div>
+            <h3>Fucked / hookups</h3>
+            <form data-target="hookup">
+              <input type="text" name="description" placeholder="Name / context" required />
+              <button type="submit">Log hookup</button>
+            </form>
+            <ul id="hookup-list"></ul>
+          </div>
+        </div>
+      </section>
+
+      <section id="habits" data-category="mind">
+        <p class="tag">Habits of the month</p>
+        <h2>Consistency board</h2>
+        <form data-target="habit">
+          <input type="text" name="name" placeholder="Habit name" required />
+          <button type="submit">Add habit</button>
+        </form>
+        <div id="habit-list" class="mini-grid"></div>
+      </section>
+
+      <section id="friends" data-category="social">
+        <p class="tag">Social rolodex</p>
+        <h2>Friends & allies</h2>
+        <form data-target="friend">
+          <input type="text" name="name" placeholder="Name" required />
+          <input type="text" name="contact" placeholder="Contact info" required />
+          <input type="text" name="skills" placeholder="Skills" />
+          <input type="text" name="occupation" placeholder="Occupation" />
+          <button type="submit">Add friend</button>
+        </form>
+        <ul id="friend-list"></ul>
+      </section>
+
+      <section id="fun" data-category="fun">
+        <p class="tag">Fun</p>
+        <h2>Memories bank</h2>
+        <p class="muted">
+          Log highlights, inside jokes, spontaneous adventures — anything worth
+          savoring.
+        </p>
+
+        <form data-target="funMemory">
+          <label>Memory</label>
+          <textarea
+            name="description"
+            rows="3"
+            placeholder="Sunset skate session with friends..."
+            required
+          ></textarea>
+          <label>Belief tag</label>
+          <select name="belief" required>
+            <option value="Keep">Select & keep</option>
+            <option value="Release">Leave / release</option>
+          </select>
+          <button type="submit">Save memory</button>
+        </form>
+        <ul id="fun-memory-list"></ul>
+      </section>
+
+      <section id="influence" data-category="night">
+        <p class="tag">Under the influence</p>
+        <h2>Morning-after idea check</h2>
+        <p class="muted">
+          Capture thoughts from nights out so you can audit them with a clear mind the
+          next day.
+        </p>
+
+        <form data-target="influenceIdea">
+          <label>Vices tonight (pick all)</label>
+          <div class="vice-multi">
+            <label><input type="checkbox" name="vice-option" value="Alcohol" />Alcohol</label>
+            <label><input type="checkbox" name="vice-option" value="Weed" />Weed</label>
+            <label><input type="checkbox" name="vice-option" value="Gambling" />Gambling</label>
+            <label><input type="checkbox" name="vice-option" value="Nicotine" />Nicotine</label>
+            <label><input type="checkbox" name="vice-option" value="Friends" />Friends</label>
+            <label><input type="checkbox" name="vice-option" value="Psychedelics" />Psychedelics</label>
+            <label><input type="checkbox" name="vice-option" value="Other" />Other</label>
+          </div>
+          <input type="text" name="otherVice" placeholder="If other, describe the vice" />
+          <label>Idea dump (review next morning)</label>
+          <textarea
+            name="description"
+            rows="3"
+            placeholder="Thought of launching midnight burrito stand..."
+            required
+          ></textarea>
+          <button type="submit">Save idea</button>
+        </form>
+        <ul id="influence-idea-list"></ul>
+      </section>
+
+      <section id="night-email" data-category="night">
+        <p class="tag">Thoughts from last night</p>
+        <h2>Email yourself</h2>
+        <form data-target="nightEmail">
+          <input type="email" name="recipient" placeholder="Recipient email" required />
+          <input type="text" name="subject" placeholder="Subject" required />
+          <textarea name="description" rows="3" placeholder="What future-you must know" required></textarea>
+          <button type="submit">Queue email</button>
+        </form>
+        <p class="muted">
+          Emails aren’t sent automatically yet, but you can copy the latest with one click.
+        </p>
+        <ul id="night-email-list"></ul>
+      </section>
+
+      <section id="vice-dash" data-category="night">
+        <p class="tag">Vice dashboards</p>
+        <h2>Breakdown by fuel</h2>
+        <div id="vice-cards" class="budget-list"></div>
+      </section>
+
+      <section id="vibe" data-category="fun">
+        <p class="tag">Night-mode randomizer</p>
+        <h2>Try this today</h2>
+        <div class="vibe-card">
+          <p class="muted">Daily pull:</p>
+          <div class="vibe-output" id="daily-vibe"></div>
+          <form data-target="vibeLog">
+            <input
+              type="text"
+              name="description"
+              placeholder="Add a note (optional)"
+            />
+            <button type="submit">Log this vibe</button>
+          </form>
+        </div>
+        <ul id="vibe-log-list"></ul>
+      </section>
+
+      <section id="geeked" data-category="fun">
+        <p class="tag">Geeked mode</p>
+        <h2>Things to do while geeked</h2>
+        <p class="muted">Tap an idea when you finish it to build receipts.</p>
+        <div id="geeked-list" class="mini-grid"></div>
+        <form data-target="geekedLog">
+          <input type="text" name="description" placeholder="Log your own wild idea" required />
+          <button type="submit">Add to log</button>
+        </form>
+        <ul id="geeked-log-list"></ul>
+      </section>
+
+      <section id="research" data-category="mind">
+        <p class="tag">Daily curiosity</p>
+        <h2>Research spark</h2>
+        <div>
+          <p class="muted">Today's topic to poke at:</p>
+          <div
+            id="daily-topic"
+            style="
+              padding: 0.85rem 1rem;
+              border-radius: 0.85rem;
+              border: 1px solid rgba(94, 234, 212, 0.45);
+              background: rgba(15, 23, 42, 0.6);
+              font-weight: 600;
+              letter-spacing: 0.02em;
+            "
+          ></div>
+        </div>
+        <p class="muted">
+          When something weird or brilliant pops up, feature it so future-you can riff on
+          it.
+        </p>
+        <form data-target="researchLog">
+          <label>Odd discovery</label>
+          <textarea
+            name="description"
+            rows="3"
+            placeholder="Victorian sea fort Airbnb?"
+            required
+          ></textarea>
+          <button type="submit">Log odd thing</button>
+        </form>
+        <ul id="research-log-list"></ul>
+      </section>
+
+      <section id="journal" data-category="mind">
+        <p class="tag">Journal</p>
+        <h2>Reflect & grow</h2>
+
+        <form data-target="journal">
+          <label>Thoughts</label>
+          <textarea name="description" rows="4" placeholder="Stream of consciousness..." required></textarea>
+          <button type="submit">Add entry</button>
+        </form>
+        <ul id="journal-list"></ul>
+
+        <div>
+          <h3>Streaks</h3>
+          <p class="muted">Current journal streak: <span id="journal-streak">0</span> days</p>
+        </div>
+
+        <div>
+          <h3>AI Summary prompt</h3>
+          <p class="muted">
+            Paste the latest entry into your favorite AI and ask for a
+            three-sentence summary + key action.
+          </p>
+        </div>
+      </section>
+    </div>
+
+    <!-- Category Modals -->
+    <div id="modal-money" class="category-modal hidden">
+      <div class="category-modal-content">
+        <div class="category-modal-header">
+          <h2>💰 Money</h2>
+          <button type="button" class="close-modal" data-close-modal="money">✕ Close</button>
+        </div>
+        <div id="modal-money-content"></div>
+      </div>
+    </div>
+
+    <div id="modal-body" class="category-modal hidden">
+      <div class="category-modal-content">
+        <div class="category-modal-header">
+          <h2>💪 Body</h2>
+          <button type="button" class="close-modal" data-close-modal="body">✕ Close</button>
+        </div>
+        <div id="modal-body-content"></div>
+      </div>
+    </div>
+
+    <div id="modal-social" class="category-modal hidden">
+      <div class="category-modal-content">
+        <div class="category-modal-header">
+          <h2>👥 Social</h2>
+          <button type="button" class="close-modal" data-close-modal="social">✕ Close</button>
+        </div>
+        <div id="modal-social-content"></div>
+      </div>
+    </div>
+
+    <div id="modal-mind" class="category-modal hidden">
+      <div class="category-modal-content">
+        <div class="category-modal-header">
+          <h2>🧠 Mind & Skills</h2>
+          <button type="button" class="close-modal" data-close-modal="mind">✕ Close</button>
+        </div>
+        <div id="modal-mind-content"></div>
+      </div>
+    </div>
+
+    <div id="modal-fun" class="category-modal hidden">
+      <div class="category-modal-content">
+        <div class="category-modal-header">
+          <h2>🎨 Fun & Creativity</h2>
+          <button type="button" class="close-modal" data-close-modal="fun">✕ Close</button>
+        </div>
+        <div id="modal-fun-content"></div>
+      </div>
+    </div>
+
+    <div id="modal-night" class="category-modal hidden">
+      <div class="category-modal-content">
+        <div class="category-modal-header">
+          <h2>🌙 Night & Vices</h2>
+          <button type="button" class="close-modal" data-close-modal="night">✕ Close</button>
+        </div>
+        <div id="modal-night-content"></div>
+      </div>
+    </div>
+
+    <div id="modal-career" class="category-modal hidden">
+      <div class="category-modal-content">
+        <div class="category-modal-header">
+          <h2>💼 Career</h2>
+          <button type="button" class="close-modal" data-close-modal="career">✕ Close</button>
+        </div>
+        <div id="modal-career-content"></div>
+      </div>
+    </div>
+
+    <script>
+      const store = JSON.parse(localStorage.getItem("levelup-data") || "{}");
+
+      // Define weeklyTargets and defaultWeeklyHours BEFORE state initialization
+      const weeklyTargets = {
+        "Skill development": 7.5,
+        "Strength/conditioning": 3.5,
+        "Games / scrimmages": 3.1,
+        "Recovery/stretching": 1,
+      };
+
+      const defaultWeeklyHours = () =>
+        Object.fromEntries(Object.keys(weeklyTargets).map((key) => [key, 0]));
+
+      // Define categorySections early
+      const categorySections = {
+        money: ["money", "goal-logger"],
+        body: ["body"],
+        social: ["social", "friends"],
+        mind: ["skill-practice", "weekly-plan", "habits", "research", "journal"],
+        fun: ["jokes", "fun", "vibe", "geeked"],
+        night: ["influence", "night-email", "vice-dash"],
+        career: ["business", "resume"],
+      };
+
+      const state = {
+        income: store.income || [],
+        expense: store.expense || [],
+        investment: store.investment || [],
+        todo: store.todo || [],
+        goal: store.goal || [],
+        workout: store.workout || [],
+        meal: store.meal || [],
+        water: store.water || [],
+        compliment: store.compliment || [],
+        funMemory: store.funMemory || [],
+        influenceIdea: store.influenceIdea || [],
+        researchLog: store.researchLog || [],
+        vibeLog: store.vibeLog || [],
+        journal: store.journal || [],
+        joke: store.joke || [],
+        goalLog: store.goalLog || [],
+        business: store.business || [],
+        kiss: store.kiss || [],
+        hookup: store.hookup || [],
+        friend: store.friend || [],
+        calorie: store.calorie || [],
+        habit: store.habit || [],
+        nightEmail: store.nightEmail || [],
+        geekedLog: store.geekedLog || [],
+        resumeSkill: store.resumeSkill || [],
+        resumeJob: store.resumeJob || [],
+        resumeIdea: store.resumeIdea || [],
+        skillLog: store.skillLog || [],
+        weeklyHours: { ...defaultWeeklyHours(), ...(store.weeklyHours || {}) },
+        weeklyLog: store.weeklyLog || [],
+        required: typeof store.required === "number" ? store.required : 0,
+        soberStatus: store.soberStatus || null,
+      };
+
+      const listIds = {
+        income: "income-list",
+        expense: "expense-list",
+        investment: "investment-list",
+        todo: "todo-list",
+        goal: "goal-list",
+        workout: "workout-list",
+        meal: "meal-list",
+        compliment: "compliment-list",
+        funMemory: "fun-memory-list",
+        influenceIdea: "influence-idea-list",
+        researchLog: "research-log-list",
+        vibeLog: "vibe-log-list",
+        joke: "joke-list",
+        goalLog: "goal-log-list",
+        business: "business-list",
+        kiss: "kiss-list",
+        hookup: "hookup-list",
+        friend: "friend-list",
+        calorie: "calorie-list",
+        nightEmail: "night-email-list",
+        geekedLog: "geeked-log-list",
+        resumeSkill: "resume-skill-list",
+        resumeJob: "resume-job-list",
+        resumeIdea: "resume-idea-list",
+        skillLog: "skill-log-list",
+        journal: "journal-list",
+      };
+      const soberModal = document.getElementById("sober-modal");
+      const soberStatusLabel = document.getElementById("sober-status");
+      const soberForm = document.getElementById("sober-form");
+      const soberOtherInput = document.getElementById("sober-other");
+      const dailyTopicEl = document.getElementById("daily-topic");
+      const dailyVibeEl = document.getElementById("daily-vibe");
+      const jokeOutput = document.getElementById("joke-output");
+      const newJokeBtn = document.getElementById("new-joke-btn");
+      const habitListEl = document.getElementById("habit-list");
+      const viceCardsEl = document.getElementById("vice-cards");
+      const geekedContainer = document.getElementById("geeked-list");
+      const calorieForm = document.getElementById("calorie-form");
+      const caloriePhotoInput = document.getElementById("calorie-photo");
+      const calorieCaptionInput = document.getElementById("calorie-caption");
+      const calorieResult = document.getElementById("calorie-result");
+      const skillSuggestionEl = document.getElementById("skill-suggestion");
+      const skillNewBtn = document.getElementById("skill-new-btn");
+      const weeklyPlanGrid = document.getElementById("weekly-plan-grid");
+      const weeklyLogList = document.getElementById("weekly-log-list");
+      const weeklyResetBtn = document.getElementById("weekly-reset-btn");
+      const efficiencyScoreEl = document.getElementById("efficiency-score");
+      const efficiencyFormulaEl = document.getElementById("efficiency-formula");
+      const efficiencyMissingEl = document.getElementById("efficiency-missing");
+      const summaryNetEl = document.getElementById("summary-net");
+      const summaryHoursEl = document.getElementById("summary-hours");
+
+      const budgetCategories = [
+        { key: "fun", label: "Fun", percent: 0.2 },
+        { key: "realEstate", label: "Real Estate (REIT)", percent: 0.1 },
+        { key: "personalGrowth", label: "Personal Growth / Education", percent: 0.1 },
+        { key: "crypto", label: "Crypto", percent: 0.1 },
+        { key: "endOfWorld", label: "End of World fund", percent: 0.1 },
+        { key: "businessLaunch", label: "Business Launches / Ideas", percent: 0.2 },
+      ];
+
+      const dailyTopics = [
+        "Neural lace interfaces",
+        "Ancient trade routes",
+        "Zero-knowledge proofs",
+        "Bioluminescent ecosystems",
+        "Satellite debris cleanup",
+        "Mycelium-based materials",
+        "Urban vertical farming",
+        "Solar punk architecture",
+        "Ocean thermal energy",
+        "Quantum-safe encryption",
+        "Biohacking longevity labs",
+        "Regenerative travel ideas",
+        "AI jailbreak defenses",
+        "Floating city prototypes",
+        "Interstellar probe concepts",
+        "Climate-positive textiles",
+        "Sound healing tech",
+        "Deep-sea archaeology",
+        "Space law loopholes",
+        "Psychogeography walks",
+      ];
+
+      const dailyVibes = [
+        "Watch a nature documentary",
+        "Listen to an album start-to-finish",
+        "Play video games",
+        "Draw something stupid",
+        "Walk outside at night",
+        "Have a deep talk with a friend",
+        "Eat something crunchy",
+        "Watch stand-up comedy",
+        "Do a puzzle",
+        "Stretch or do light yoga",
+        "Watch ASMR",
+        "Cook something simple",
+        "Sit in the shower",
+        "Watch a trippy movie",
+        "Play with a pet",
+        "Stargaze",
+        "Listen to lo-fi beats",
+        "Journal whatever pops into your head",
+        "Make a ridiculous snack combo",
+        "Rearrange your room",
+        "Go for a late-night drive (only if sober enough — otherwise don’t)",
+        "Try VR",
+        "Listen to music in the dark",
+        "Watch a sunset",
+        "People-watch",
+        "Build Lego",
+        "Redecorate a corner of your space",
+        "Browse Pinterest",
+        "Watch cooking videos",
+        "Play “Would You Rather”",
+        "Lay on the floor and vibe",
+        "Color in a coloring book",
+        "Try a meditation app",
+        "Watch satisfying cleaning videos",
+        "Explore random Wikipedia pages",
+        "Talk to your AI (me)",
+        "Make a TikTok draft",
+        "Stretch your back against a wall",
+        "Taste test random snacks",
+        "Play with slime/kinetic sand",
+        "Try a new playlist",
+        "Watch your favorite childhood movie",
+        "Read shower thoughts",
+        "Play a mobile game",
+        "Light a candle and stare at it",
+        "Try origami",
+        "Organize your camera roll",
+        "Nap",
+        "Do a skincare routine",
+        "Sit outside and listen to wind",
+        "Watch sports highlights",
+        "Scroll Zillow and judge houses",
+        "Play with a fidget toy",
+        "Make a list of random ideas",
+        "Watch animal videos",
+        "Rewatch a show you forgot",
+        "Test your reflexes on reaction-time games",
+        "Read Reddit stories",
+        "Make your bed super nicely",
+        "Lay under a blanket and listen to rain sounds",
+        "Take aesthetic photos",
+        "Make a to-do list for sober-you",
+        "Play with filters on your phone",
+        "Try a brain-teaser app",
+        "Stretch your hands and wrists",
+        "Browse Instagram explore",
+        "Watch meme compilations",
+        "Dance to one song",
+        "Watch fast food review videos",
+        "Look at cool astronomy images",
+        "Doodle on your notes app",
+        "Have a “shower thoughts” conversation",
+        "Voice memo your thoughts",
+        "Make up a fake business plan for fun",
+        "Try breathing exercises",
+        "Drink cold water — feels amazing",
+        "Watch speedruns",
+        "Learn a random skill on YouTube",
+        "Listen to movie soundtracks",
+        "Play with an instrument if you have one",
+        "Clean one tiny corner of your room",
+        "Watch oddly satisfying animations",
+        "Try a hypnosis/relaxation video",
+        "Look up conspiracy theories (don’t take them seriously)",
+        "Light incense or use essential oils",
+        "Scroll product reviews on Amazon",
+        "Make a snack charcuterie board",
+        "Watch a movie trailer marathon",
+        "Create a Pinterest mood board",
+        "Try mouthwash — the tingle hits harder",
+        "Watch slow-motion videos",
+        "Read funny Yelp reviews",
+        "Write a bucket list",
+        "Shake a snow globe",
+        "Look at planet zoom-ins or space timelines",
+        "Play “Geoguessr”",
+        "Watch marble racing",
+        "Make up fake movie plots",
+        "Watch pet grooming videos",
+        "Lay down, close your eyes, and just enjoy the float",
+      ];
+
+      const jokeBank = [
+        "What's a tiny win you had this week that deserves a flex?",
+        "Ask: if you had to start a business with your younger self, what would it be?",
+        "What conspiracy theory is clearly false but you believe anyway for vibes?",
+        "Two truths and a lie, but all career related — go.",
+        "Pick a superpower that only works on Tuesdays.",
+        "What absurd domain name do you secretly want to own?",
+        "Tell me about the weirdest compliment you've ever received.",
+        "What's a childhood snack that should make a comeback?",
+        "If your life right now had a laugh track, when would it play?",
+        "Pitch the worst Shark Tank idea you can think of.",
+      ];
+
+      const geekedSuggestions = [
+        "Organize your Spotify playlists by color",
+        "Create a new emoji combo for your mood",
+        "Narrate your night like a wildlife documentary",
+        "Rate every snack in your pantry 1-10",
+        "Design a flag for your friend group",
+        "Write a haiku about whatever's on TV",
+        "Invent a new handshake (even if solo)",
+        "Browse Zillow listings you'll never buy",
+        "Sketch your dream studio layout",
+        "Make up lore for random objects nearby",
+      ];
+
+      const skillSuggestions = [
+        "Write a shell script that automates a boring task",
+        "Design a landing page hero in Figma",
+        "Deep dive an AI paper and recreate the summary",
+        "Practice 20 minutes of Spanish conversation",
+        "Model a data pipeline diagram",
+        "Shoot and edit a 30-second demo video",
+        "Draft a press release for your latest project",
+        "Refactor an old function for speed",
+        "Mock a sales pitch deck slide",
+        "Create a Notion database template",
+        "Prototype a mobile UI in pen + paper",
+        "Write a cold outreach email and personalize it",
+        "Build a Zapier automation",
+        "Sketch out a Supabase schema",
+        "Perform a breathing/voice warmup for presentations",
+      ];
+
+      let activeCategoryFilter = "all";
+      const efficiencyCategories = {
+        money: ["income", "expense", "investment", "goal", "goalLog", "todo"],
+        body: ["workout", "meal", "water"],
+        social: ["compliment", "kiss", "hookup", "friend"],
+        mind: ["skillLog", "habit", "researchLog", "journal", "joke"],
+        fun: ["funMemory", "vibeLog", "geekedLog"],
+        night: ["influenceIdea", "nightEmail", "viceDash"],
+        career: ["business", "resumeSkill", "resumeJob", "resumeIdea"],
+      };
+
+
+      function getTodayTopic() {
+        const today = new Date().toDateString();
+        const index = Math.abs(
+          today.split("").reduce((acc, char) => acc + char.charCodeAt(0), 0)
+        );
+        return dailyTopics[index % dailyTopics.length];
+      }
+
+      function getTodayVibe() {
+        const today = new Date().toDateString();
+        const index = Math.abs(
+          today.split("").reduce((acc, char) => acc + char.charCodeAt(0), 0) * 7
+        );
+        return dailyVibes[index % dailyVibes.length];
+      }
+
+      function persist() {
+        localStorage.setItem("levelup-data", JSON.stringify(state));
+      }
+
+      function showToast(message, duration = 3000) {
+        const existingToast = document.querySelector(".toast");
+        if (existingToast) existingToast.remove();
+
+        const toast = document.createElement("div");
+        toast.className = "toast";
+        toast.textContent = message;
+        document.body.appendChild(toast);
+
+        setTimeout(() => {
+          toast.style.animation = "slideIn 0.3s ease reverse";
+          setTimeout(() => toast.remove(), 300);
+        }, duration);
+      }
+
+      function renderLists() {
+        Object.entries(listIds).forEach(([key, id]) => {
+          const ul = document.getElementById(id);
+          if (!ul) return;
+          const entries = state[key] || [];
+
+          switch (key) {
+            case "goal":
+              ul.innerHTML = entries
+                .map(
+                  (item) =>
+                    `<li><span>${item.horizon}</span><span>${item.description}</span></li>`
+                )
+                .join("");
+              break;
+            case "influenceIdea":
+              ul.innerHTML = entries
+                .map(
+                  (item) =>
+                    `<li><span>${item.vices?.join(", ") || item.vice || "Vice"}</span><span>${item.description}</span></li>`
+                )
+                .join("");
+              break;
+            case "researchLog":
+              ul.innerHTML = entries
+                .map(
+                  (item) =>
+                    `<li><span>${item.topic || "Topic"}</span><span>${item.description}</span></li>`
+                )
+                .join("");
+              break;
+            case "vibeLog":
+              ul.innerHTML = entries
+                .map(
+                  (item) =>
+                    `<li><span>${item.vibe || "Vibe"}</span><span>${item.description || "Logged"}</span></li>`
+                )
+                .join("");
+              break;
+            case "joke":
+              ul.innerHTML = entries
+                .map((item) => `<li><span>${item.description}</span></li>`)
+                .join("");
+              break;
+            case "goalLog":
+              ul.innerHTML = entries
+                .map(
+                  (item) =>
+                    `<li><span>${item.title} • ${item.status}</span><span>${item.description}</span></li>`
+                )
+                .join("");
+              break;
+            case "business":
+              ul.innerHTML = entries
+                .map(
+                  (item) =>
+                    `<li>
+                      <span>${item.name}${item.sector ? ` (${item.sector})` : ""}</span>
+                      <span>${item.description}${item.contact ? ` · ${item.contact}` : ""}</span>
+                    </li>`
+                )
+                .join("");
+              break;
+            case "kiss":
+            case "hookup":
+            case "geekedLog":
+              ul.innerHTML = entries
+                .map((item) => `<li><span>${item.description}</span></li>`)
+                .join("");
+              break;
+            case "friend":
+              ul.innerHTML = entries
+                .map(
+                  (item) =>
+                    `<li><span>${item.name} • ${item.occupation || "?"}</span><span>${item.contact} · ${item.skills || "No skills logged"}</span></li>`
+                )
+                .join("");
+              break;
+            case "calorie":
+              ul.innerHTML = entries
+                .map(
+                  (item) =>
+                    `<li><span>${item.caption || "Meal"}</span><span>${item.estimate} kcal</span></li>`
+                )
+                .join("");
+              break;
+            case "nightEmail":
+              ul.innerHTML = entries
+                .map(
+                  (item, index) =>
+                    `<li><span>${item.subject}</span><span>${item.recipient}</span><button type="button" data-copy-email="${index}">Copy</button></li>`
+                )
+                .join("");
+              break;
+            case "resumeSkill":
+              ul.innerHTML = entries
+                .map((item) => `<li><span>${item.description}</span></li>`)
+                .join("");
+              break;
+            case "resumeJob":
+              ul.innerHTML = entries
+                .map(
+                  (item) =>
+                    `<li><span>${item.description}</span><span>${item.details || ""}</span></li>`
+                )
+                .join("");
+              break;
+            case "resumeIdea":
+              ul.innerHTML = entries
+                .map((item) => `<li><span>${item.description}</span></li>`)
+                .join("");
+              break;
+            case "skillLog":
+              ul.innerHTML = entries
+                .map(
+                  (item) =>
+                    `<li><span>${item.description}</span><span>${item.details || ""}</span></li>`
+                )
+                .join("");
+              break;
+            case "funMemory":
+              ul.innerHTML = entries
+                .map(
+                  (item) =>
+                    `<li><span>${item.description}</span><span>${item.belief || ""}</span></li>`
+                )
+                .join("");
+              break;
+            default:
+              ul.innerHTML = entries
+                .map(
+                  (item) =>
+                    `<li><span>${item.description}</span>${
+                      item.amount ? `<span>$${Number(item.amount).toFixed(2)}</span>` : ""
+                    }</li>`
+                )
+                .join("");
+          }
+        });
+      }
+
+      function updateSoberStatusDisplay() {
+        if (!soberStatusLabel) return;
+        if (!state.soberStatus) {
+          soberStatusLabel.textContent = "Unlogged";
+          return;
+        }
+        const { answer, answers = [], timestamp } = state.soberStatus;
+        const states =
+          answers.length > 0
+            ? answers
+            : answer
+            ? Array.isArray(answer)
+              ? answer
+              : [answer]
+            : [];
+        const time = timestamp
+          ? new Date(timestamp).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })
+          : "";
+        const label = states.length ? states.join(", ") : "Logged";
+        soberStatusLabel.textContent = time ? `${label} · ${time}` : label;
+      }
+
+      function updateDailyTopicDisplay() {
+        if (!dailyTopicEl) return;
+        dailyTopicEl.textContent = getTodayTopic();
+      }
+
+      function updateDailyVibeDisplay() {
+        if (!dailyVibeEl) return;
+        dailyVibeEl.textContent = getTodayVibe();
+      }
+
+      function showRandomJoke() {
+        if (!jokeOutput) return;
+        const random =
+          jokeBank[Math.floor(Math.random() * jokeBank.length)] ||
+          "Share the weirdest headline you saw today.";
+        jokeOutput.textContent = random;
+      }
+
+      function showSkillSuggestion() {
+        if (!skillSuggestionEl) return;
+        const random =
+          skillSuggestions[Math.floor(Math.random() * skillSuggestions.length)] ||
+          "Document one thing you learned today.";
+        skillSuggestionEl.textContent = random;
+      }
+
+      function populateModals() {
+        Object.entries(categorySections).forEach(([category, sectionIds]) => {
+          const modalContent = document.getElementById(`modal-content-${category}`);
+          if (!modalContent) return;
+          
+          const sections = sectionIds
+            .map((id) => document.getElementById(id))
+            .filter(Boolean);
+          
+          if (sections.length) {
+            // Copy sections HTML (IDs will be duplicated but that's OK - we query from document)
+            modalContent.innerHTML = sections.map((section) => section.outerHTML).join("");
+            
+            // Re-attach form handlers after populating content
+            setTimeout(() => {
+              attachFormHandlers();
+              renderLists();
+              renderHabits();
+              renderViceDashboards();
+              renderGeekedSuggestions();
+              renderWeeklyPlan();
+              updateMoneyProgress();
+              updateWaterProgress();
+              updateJournalStreak();
+              updateBudgetAllocation();
+              renderDayEfficiency();
+              updateSoberStatusDisplay();
+              updateDailyTopicDisplay();
+              updateDailyVibeDisplay();
+              showRandomJoke();
+              showSkillSuggestion();
+            }, 100);
+          }
+        });
+      }
+
+      function openCategoryModal(category) {
+        const modal = document.getElementById(`modal-${category}`);
+        if (!modal) {
+          console.error(`Modal not found: modal-${category}`);
+          return;
+        }
+        // Ensure content is populated
+        const modalContent = document.getElementById(`modal-content-${category}`);
+        if (modalContent && !modalContent.innerHTML.trim()) {
+          populateModals();
+        }
+        modal.classList.remove("hidden");
+        document.body.style.overflow = "hidden";
+      }
+      
+      // Make openCategoryModal available globally immediately
+      window.openCategoryModal = openCategoryModal;
+
+      function closeCategoryModal(category) {
+        const modal = document.getElementById(`modal-${category}`);
+        if (modal) {
+          modal.classList.add("hidden");
+          document.body.style.overflow = "";
+        }
+      }
+
+      // Modal handlers will be attached in initialization section
+
+      // Close modal on background click
+      document.querySelectorAll("#category-modals .modal-overlay").forEach((overlay) => {
+        overlay.addEventListener("click", (e) => {
+          if (e.target === overlay) {
+            overlay.classList.add("hidden");
+            document.body.style.overflow = "";
+          }
+        });
+      });
+
+      // Close modal on Escape key
+      document.addEventListener("keydown", (e) => {
+        if (e.key === "Escape") {
+          document.querySelectorAll("#category-modals .modal-overlay").forEach((overlay) => {
+            if (!overlay.classList.contains("hidden")) {
+              overlay.classList.add("hidden");
+              document.body.style.overflow = "";
+            }
+          });
+        }
+      });
+      
+      // Make closeCategoryModal available globally
+      window.closeCategoryModal = closeCategoryModal;
+
+      function renderWeeklyPlan() {
+        if (!weeklyPlanGrid) return;
+        const hours = state.weeklyHours || defaultWeeklyHours();
+        const cards = Object.entries(weeklyTargets)
+          .map(([activity, target]) => {
+            const actual = Number(hours[activity] || 0);
+            const percent = Math.min(100, (actual / target) * 100);
+            return `
+              <div class="weekly-card">
+                <div style="display:flex;justify-content:space-between;align-items:center;">
+                  <h4>${activity}</h4>
+                  <span>${actual.toFixed(1)} / ${target} hrs</span>
+                </div>
+                <div class="progress">
+                  <div class="progress-bar" style="width:${percent}%"></div>
+                </div>
+              </div>
+            `;
+          })
+          .join("");
+        const totalActual = Object.keys(weeklyTargets).reduce(
+          (sum, key) => sum + Number(hours[key] || 0),
+          0
+        );
+        const totalTarget = Object.values(weeklyTargets).reduce((sum, value) => sum + value, 0);
+        weeklyPlanGrid.innerHTML =
+          cards +
+          `
+            <div class="weekly-card">
+              <div style="display:flex;justify-content:space-between;align-items:center;">
+                <h4>Total</h4>
+                <span>${totalActual.toFixed(1)} / ${totalTarget.toFixed(1)} hrs</span>
+              </div>
+              <div class="progress">
+                <div class="progress-bar" style="width:${Math.min(
+                  100,
+                  (totalActual / totalTarget) * 100
+                )}%"></div>
+              </div>
+            </div>
+          `;
+        if (summaryHoursEl) {
+          summaryHoursEl.textContent = `${totalActual.toFixed(1)} / ${totalTarget.toFixed(1)} hrs`;
+        }
+
+        if (weeklyLogList) {
+          const logs = state.weeklyLog || [];
+          weeklyLogList.innerHTML = logs.length
+            ? logs
+                .map(
+                  (entry) =>
+                    `<li style="flex-direction:row;justify-content:space-between;"><span>${entry.activity}</span><span>${Number(entry.hours).toFixed(1)} hrs</span></li>`
+                )
+                .join("")
+            : `<li><span class="muted">No hours logged yet.</span></li>`;
+        }
+      }
+
+      function renderDayEfficiency() {
+        if (!efficiencyScoreEl) return;
+        const today = new Date().toDateString();
+        const categoryKeys = Object.entries(efficiencyCategories);
+        const completed = categoryKeys.filter(([category, keys]) => {
+          return keys.some((key) => {
+            const entries = Array.isArray(state[key]) ? state[key] : [];
+            return entries.some((item) => {
+              const created = item.created || item.timestamp;
+              if (!created) return false;
+              return new Date(created).toDateString() === today;
+            });
+          });
+        });
+        const efficiency =
+          categoryKeys.length > 0
+            ? Math.round((completed.length / categoryKeys.length) * 100)
+            : 0;
+        efficiencyScoreEl.textContent = `${efficiency}%`;
+        if (efficiencyFormulaEl) {
+          efficiencyFormulaEl.textContent = `Formula: categories touched today / ${categoryKeys.length}.`;
+        }
+        if (efficiencyMissingEl) {
+          const missing = categoryKeys
+            .filter(([category]) => !completed.find(([c]) => c === category))
+            .map(([category]) => category);
+          efficiencyMissingEl.textContent = missing.length
+            ? `Still open: ${missing.join(", ")}`
+            : "All categories touched — elite day.";
+        }
+      }
+
+      function habitVerdict(count = 0, target = 30) {
+        if (count >= target) return "AI verdict: Completed 🔥";
+        if (count >= target * 0.75) return "AI verdict: Nearly there";
+        return "AI verdict: Keep stacking reps";
+      }
+
+
+      function renderHabits() {
+        if (!habitListEl) return;
+        const habits = state.habit || [];
+        if (!habits.length) {
+          habitListEl.innerHTML = `<p class="muted">Add a habit to start tracking.</p>`;
+          return;
+        }
+        habitListEl.innerHTML = habits
+          .map(
+            (habit, index) => `
+              <div class="habit-card">
+                <strong>${habit.name}</strong>
+                <span>${habit.count || 0}/${habit.target || 30} days logged</span>
+                <span class="muted">${habitVerdict(habit.count, habit.target)}</span>
+                <button type="button" data-habit-complete="${index}">Mark done today</button>
+              </div>
+            `
+          )
+          .join("");
+      }
+
+      const viceList = [
+        "Alcohol",
+        "Weed",
+        "Gambling",
+        "Nicotine",
+        "Friends",
+        "Psychedelics",
+        "Other",
+      ];
+
+      function renderViceDashboards() {
+        if (!viceCardsEl) return;
+        const total = state.influenceIdea?.length || 0;
+        viceCardsEl.innerHTML = viceList
+          .map((vice) => {
+            const count = state.influenceIdea.filter(
+              (entry) => (entry.vice || "Other").toLowerCase() === vice.toLowerCase()
+            ).length;
+            const percent = total ? Math.round((count / total) * 100) : 0;
+            return `
+              <div class="budget-card">
+                <h4>${vice}</h4>
+                <p>${count} ideas · ${percent}% of total</p>
+              </div>
+            `;
+          })
+          .join("");
+      }
+
+      function renderGeekedSuggestions() {
+        if (!geekedContainer) return;
+        geekedContainer.innerHTML = geekedSuggestions
+          .map(
+            (idea) => `
+              <div class="habit-card">
+                <span>${idea}</span>
+                <button type="button" data-geeked-idea="${idea}">Mark done</button>
+              </div>
+            `
+          )
+          .join("");
+      }
+
+      function logGeekedIdea(idea) {
+        if (!idea) return;
+        state.geekedLog = state.geekedLog || [];
+        state.geekedLog.unshift({
+          description: idea,
+          created: new Date().toISOString(),
+        });
+        persist();
+        renderLists();
+        showToast("Geeked activity logged! 🔥", 2000);
+        
+        // Refresh modal content if modal is open
+        const openModal = document.querySelector("#category-modals .modal-overlay:not(.hidden)");
+        if (openModal) {
+          populateModals();
+        }
+      }
+
+      function handleHabitCompletion(index) {
+        if (!state.habit || !state.habit[index]) return;
+        const habit = state.habit[index];
+        habit.count = (habit.count || 0) + 1;
+        habit.history = habit.history || [];
+        habit.history.unshift(new Date().toISOString());
+        persist();
+        renderHabits();
+        showToast(`Habit "${habit.name}" logged!`, 2000);
+        
+        // Refresh modal content if modal is open
+        const openModal = document.querySelector("#category-modals .modal-overlay:not(.hidden)");
+        if (openModal) {
+          populateModals();
+        }
+      }
+
+      function copyNightEmail(index, button) {
+        if (!state.nightEmail || !state.nightEmail[index]) return;
+        const entry = state.nightEmail[index];
+        const payload = `To: ${entry.recipient}\nSubject: ${entry.subject}\n\n${entry.description}`;
+        if (navigator.clipboard?.writeText) {
+          navigator.clipboard.writeText(payload);
+        }
+        if (button) {
+          const original = button.textContent;
+          button.textContent = "Copied!";
+          setTimeout(() => (button.textContent = original), 1200);
+        }
+      }
+
+      function hashString(str) {
+        return str.split("").reduce((acc, char) => {
+          acc = (acc << 5) - acc + char.charCodeAt(0);
+          return acc & acc;
+        }, 0);
+      }
+
+      function estimateCalories(seed) {
+        const base = Math.abs(hashString(seed));
+        return 200 + (base % 700);
+      }
+
+      function showSoberModal() {
+        soberModal?.classList.remove("hidden");
+      }
+
+      function hideSoberModal() {
+        soberModal?.classList.add("hidden");
+      }
+
+      function attachSoberModalHandlers() {
+        if (!soberForm) return;
+        soberForm.addEventListener("submit", (event) => {
+          event.preventDefault();
+          const selections = Array.from(
+            soberForm.querySelectorAll('input[name="sober-state"]:checked')
+          ).map((input) => input.value);
+          const otherText = (soberOtherInput?.value || "").trim();
+          const normalized = selections
+            .map((value) => (value === "Other" && otherText ? otherText : value))
+            .filter(Boolean);
+
+          if (!normalized.length && !otherText) {
+            normalized.push("Unspecified");
+          }
+
+          state.soberStatus = {
+            answers: normalized.length ? normalized : ["Unspecified"],
+            timestamp: new Date().toISOString(),
+          };
+          persist();
+          updateSoberStatusDisplay();
+          hideSoberModal();
+        });
+      }
+
+
+      if (newJokeBtn) {
+        newJokeBtn.addEventListener("click", showRandomJoke);
+      }
+      if (skillNewBtn) {
+        skillNewBtn.addEventListener("click", showSkillSuggestion);
+      }
+      // Modal handlers already attached above
+      weeklyResetBtn?.addEventListener("click", () => {
+        state.weeklyHours = defaultWeeklyHours();
+        state.weeklyLog = [];
+        persist();
+        renderWeeklyPlan();
+        showToast("Week reset! Start fresh.", 2500);
+        
+        // Refresh modal content if modal is open
+        const openModal = document.querySelector("#category-modals .modal-overlay:not(.hidden)");
+        if (openModal) {
+          populateModals();
+        }
+      });
+
+      if (calorieForm) {
+        calorieForm.addEventListener("submit", (event) => {
+          event.preventDefault();
+          const file = caloriePhotoInput?.files?.[0];
+          if (!file) return;
+          const caption = calorieCaptionInput.value || file.name;
+          const estimate = estimateCalories(
+            `${caption}-${file.name}-${new Date().toISOString()}`
+          );
+          state.calorie = state.calorie || [];
+          state.calorie.unshift({
+            caption,
+            estimate,
+            created: new Date().toISOString(),
+          });
+          persist();
+          renderLists();
+          calorieResult.textContent = `Estimated ${estimate} kcal · verify before logging.`;
+          showToast(`Calorie estimate: ${estimate} kcal`, 2500);
+          
+          // Refresh modal content if modal is open
+          const openModal = document.querySelector("#category-modals .modal-overlay:not(.hidden)");
+          if (openModal) {
+            populateModals();
+          }
+          
+          calorieForm.reset();
+        });
+      }
+
+      document.addEventListener("click", (event) => {
+        const habitIndex = event.target.dataset?.habitComplete;
+        if (habitIndex !== undefined) {
+          handleHabitCompletion(Number(habitIndex));
+        }
+
+        const geekedIdea = event.target.dataset?.geekedIdea;
+        if (geekedIdea) {
+          logGeekedIdea(geekedIdea);
+          event.target.textContent = "Logged!";
+        }
+
+        const emailIndex = event.target.dataset?.copyEmail;
+        if (emailIndex !== undefined) {
+          copyNightEmail(Number(emailIndex), event.target);
+        }
+      });
+
+      function updateMoneyProgress() {
+        const income = state.income.reduce((sum, i) => sum + Number(i.amount || 0), 0);
+        const expense = state.expense.reduce(
+          (sum, i) => sum + Number(i.amount || 0),
+          0
+        );
+        const net = income - expense;
+        const goal = 5000;
+        const percent = Math.max(0, Math.min(100, (net / goal) * 100));
+        document.getElementById("money-progress").style.width = `${percent}%`;
+        document.getElementById("net-balance").textContent = `$${net.toFixed(2)}`;
+        updateBudgetAllocation(net);
+      }
+
+      function updateWaterProgress() {
+        const total = state.water.reduce((sum, entry) => sum + Number(entry.amount), 0);
+        const goal = 8;
+        const percent = Math.max(0, Math.min(100, (total / goal) * 100));
+        document.getElementById("water-progress").style.width = `${percent}%`;
+        document.getElementById("water-total").textContent = total;
+      }
+
+      function formatCurrency(value) {
+        return new Intl.NumberFormat("en-US", {
+          style: "currency",
+          currency: "USD",
+          maximumFractionDigits: 2,
+        }).format(value);
+      }
+
+      function updateBudgetAllocation(net = null) {
+        const balance = net ?? (state.income.reduce((sum, i) => sum + Number(i.amount || 0), 0) - state.expense.reduce((sum, i) => sum + Number(i.amount || 0), 0));
+        const required = Math.max(0, Number(state.required || 0));
+        const base = Math.max(0, balance - required);
+        const list = document.getElementById("budget-list");
+        if (!list) return;
+        const cards = budgetCategories
+          .map((bucket) => {
+            const amount = base * bucket.percent;
+            return `
+              <div class="budget-card">
+                <h4>${bucket.label}</h4>
+                <p>${(bucket.percent * 100).toFixed(0)}% · ${formatCurrency(amount)}</p>
+              </div>
+            `;
+          })
+          .join("");
+        const totalPercent = budgetCategories.reduce((sum, bucket) => sum + bucket.percent, 0);
+        const remainderPercent = Math.max(0, 1 - totalPercent);
+        const remainderCard =
+          remainderPercent > 0
+            ? `<div class="budget-card">
+                <h4>Unassigned</h4>
+                <p>${(remainderPercent * 100).toFixed(0)}% · ${formatCurrency(base * remainderPercent)}</p>
+              </div>`
+            : "";
+        list.innerHTML = cards + remainderCard;
+        document.getElementById("required-expenses-display").textContent = formatCurrency(required);
+      }
+
+      function updateJournalStreak() {
+        if (!state.journal.length) {
+          document.getElementById("journal-streak").textContent = 0;
+          return;
+        }
+        const days = state.journal
+          .map((entry) => new Date(entry.created).toDateString())
+          .reverse();
+        let streak = 1;
+        for (let i = 1; i < days.length; i++) {
+          const prev = new Date(days[i - 1]);
+          const current = new Date(days[i]);
+          const diff = (prev - current) / (1000 * 60 * 60 * 24);
+          if (diff === 1) streak++;
+          else break;
+        }
+        document.getElementById("journal-streak").textContent = streak;
+      }
+
+      function attachFormHandlers() {
+        document.querySelectorAll("form[data-target]").forEach((form) =>
+          form.addEventListener("submit", (event) => {
+            event.preventDefault();
+            const target = form.dataset.target;
+            const formData = new FormData(form);
+
+            if (!target) return; // handled elsewhere (like calorie form)
+
+            if (target === "required") {
+              state.required = Number(formData.get("amount") || 0);
+              persist();
+              updateMoneyProgress();
+              updateBudgetAllocation();
+              form.reset();
+              return;
+            }
+
+            if (target === "habit") {
+              const habitName = formData.get("name")?.trim();
+              if (habitName) {
+                state.habit = state.habit || [];
+                state.habit.push({
+                  name: habitName,
+                  count: 0,
+                  target: 30,
+                  history: [],
+                });
+                persist();
+                renderHabits();
+              }
+              form.reset();
+              return;
+            }
+
+            const entry = {
+              description: formData.get("description") || "",
+              amount: formData.get("amount") || null,
+              horizon: formData.get("horizon") || null,
+              created: new Date().toISOString(),
+            };
+
+            switch (target) {
+              case "goal":
+                entry.description = formData.get("description");
+                entry.horizon = formData.get("horizon");
+                break;
+              case "water":
+                entry.amount = Number(formData.get("amount"));
+                break;
+              case "influenceIdea": {
+                const selected = formData.getAll("vice-option");
+                const otherVice = (formData.get("otherVice") || "").trim();
+                const resolved = selected
+                  .map((value) => (value === "Other" ? otherVice || "Other" : value))
+                  .filter(Boolean);
+                entry.vices = resolved;
+                entry.vice = resolved.join(", ") || "Logged vice";
+                break;
+              }
+              case "researchLog":
+                entry.topic = getTodayTopic();
+                break;
+              case "vibeLog":
+                entry.vibe = getTodayVibe();
+                break;
+              case "funMemory":
+                entry.belief = formData.get("belief") || "Keep";
+                break;
+              case "goalLog":
+                entry.title = formData.get("title") || "Goal";
+                entry.status = formData.get("status") || "In progress";
+                break;
+              case "business":
+                entry.name = formData.get("name") || "Idea";
+                entry.sector = formData.get("sector") || "";
+                entry.contact = formData.get("contact") || "";
+                break;
+              case "friend":
+                entry.name = formData.get("name") || "Friend";
+                entry.contact = formData.get("contact") || "";
+                entry.skills = formData.get("skills") || "";
+                entry.occupation = formData.get("occupation") || "";
+                break;
+              case "nightEmail":
+                entry.recipient = formData.get("recipient") || "";
+                entry.subject = formData.get("subject") || "Thoughts from last night";
+                break;
+            case "resumeJob":
+              entry.details = formData.get("details") || "";
+              break;
+            case "skillLog":
+              entry.details = formData.get("details") || "";
+              break;
+            case "weeklyHour": {
+              const activity = formData.get("activity");
+              const hours = Number(formData.get("hours") || 0);
+              if (!activity || !hours) {
+                form.reset();
+                return;
+              }
+              state.weeklyHours = state.weeklyHours || defaultWeeklyHours();
+              state.weeklyHours[activity] =
+                Number(state.weeklyHours[activity] || 0) + hours;
+              state.weeklyLog = state.weeklyLog || [];
+              state.weeklyLog.unshift({
+                activity,
+                hours,
+                created: new Date().toISOString(),
+              });
+              if (state.weeklyLog.length > 20) state.weeklyLog.pop();
+              persist();
+              renderWeeklyPlan();
+              showToast(`Added ${hours.toFixed(1)}h to ${activity}!`, 2500);
+              
+              // Refresh modal content if modal is open
+              const openModal = document.querySelector("#category-modals .modal-overlay:not(.hidden)");
+              if (openModal) {
+                populateModals();
+              }
+              
+              form.reset();
+              return;
+            }
+              case "joke":
+              case "kiss":
+              case "hookup":
+              case "geekedLog":
+                // default description already set
+                break;
+              default:
+                break;
+            }
+
+            state[target] = state[target] || [];
+            state[target].unshift(entry);
+            persist();
+            renderLists();
+            renderViceDashboards();
+            if (target === "skillLog") showSkillSuggestion();
+            updateMoneyProgress();
+            updateWaterProgress();
+            updateJournalStreak();
+            updateBudgetAllocation();
+            renderDayEfficiency();
+            
+            // Refresh modal content if modal is open
+            const openModal = document.querySelector("#category-modals .modal-overlay:not(.hidden)");
+            if (openModal) {
+              populateModals();
+            }
+            
+            // Show success message
+            const messages = {
+              income: "Income logged!",
+              expense: "Expense recorded",
+              investment: "Investment saved",
+              workout: "Workout logged!",
+              meal: "Meal recorded",
+              water: "Water intake added",
+              compliment: "Touchpoint saved",
+              joke: "Talking point saved",
+              goal: "Goal added",
+              goalLog: "Goal progress updated",
+              habit: "Habit created",
+              business: "Business idea saved",
+              friend: "Friend added to rolodex",
+              funMemory: "Memory saved",
+              influenceIdea: "Idea captured",
+              researchLog: "Research logged",
+              vibeLog: "Vibe saved",
+              skillLog: "Skill practice logged",
+              resumeSkill: "Resume skill added",
+              resumeJob: "Resume job added",
+              resumeIdea: "Resume idea saved",
+              kiss: "Logged",
+              hookup: "Logged",
+              nightEmail: "Email saved",
+              geekedLog: "Geeked activity logged",
+            };
+            showToast(messages[target] || "Saved successfully!", 2500);
+            
+            form.reset();
+          })
+        );
+      }
+
+      renderLists();
+      renderHabits();
+      updateSoberStatusDisplay();
+      updateDailyTopicDisplay();
+      updateDailyVibeDisplay();
+      renderViceDashboards();
+      renderGeekedSuggestions();
+      showRandomJoke();
+      showSkillSuggestion();
+      renderWeeklyPlan();
+      populateModals();
+      updateMoneyProgress();
+      updateWaterProgress();
+      updateJournalStreak();
+      updateBudgetAllocation();
+      renderDayEfficiency();
+      attachFormHandlers();
+      attachSoberModalHandlers();
+      
+      // Set up modal button handlers - ensure functions are available
+      window.closeCategoryModal = closeCategoryModal;
+      
+      // Wait a tick to ensure DOM is ready, then attach handlers
+      setTimeout(() => {
+        const modalButtons = document.querySelectorAll("[data-open-modal]");
+        console.log("Found modal buttons:", modalButtons.length);
+        
+        modalButtons.forEach((btn) => {
+          // Remove any existing handlers
+          btn.onclick = null;
+          // Add new handler
+          btn.addEventListener("click", function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            const category = this.getAttribute("data-open-modal");
+            console.log("Button clicked! Category:", category, "Function available:", typeof openCategoryModal);
+            if (category && typeof openCategoryModal === 'function') {
+              try {
+                openCategoryModal(category);
+              } catch(err) {
+                console.error("Error opening modal:", err);
+              }
+            } else {
+              console.error("Cannot open modal - category:", category, "function:", typeof openCategoryModal);
+            }
+          }, false);
+        });
+        
+        console.log("Modal handlers attached to", modalButtons.length, "buttons");
+      }, 100);
+      
+      showSoberModal();
+    </script>
+  </body>
+</html>
+

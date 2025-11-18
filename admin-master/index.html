@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Policy Pro Master Admin Dashboard</title>
-    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="styles.css?v=2&t=20251113">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 </head>
@@ -59,89 +59,89 @@
                 <div class="sidebar-section">
                     <h3 class="section-title">Dashboard</h3>
                     <nav class="sidebar-nav">
-                        <a href="#dashboard" class="nav-item active" data-section="dashboard">
+                        <button type="button" class="nav-item active" data-section="dashboard">
                             <i class="fas fa-chart-pie"></i>
                             <span>Overview</span>
-                        </a>
-                        <a href="#analytics" class="nav-item" data-section="analytics">
+                        </button>
+                        <button type="button" class="nav-item" data-section="analytics">
                             <i class="fas fa-chart-line"></i>
                             <span>Analytics</span>
-                        </a>
+                        </button>
                     </nav>
                 </div>
 
                 <div class="sidebar-section">
                     <h3 class="section-title">Company Management</h3>
                     <nav class="sidebar-nav">
-                        <a href="#companies" class="nav-item" data-section="companies">
+                        <button type="button" class="nav-item" data-section="companies">
                             <i class="fas fa-building"></i>
                             <span>Companies</span>
                             <span class="nav-badge" id="companyBadge">0</span>
-                        </a>
-                        <a href="#users" class="nav-item" data-section="users">
+                        </button>
+                        <button type="button" class="nav-item" data-section="users">
                             <i class="fas fa-users"></i>
                             <span>All Users</span>
                             <span class="nav-badge" id="userBadge">0</span>
-                        </a>
-                        <a href="#access-codes" class="nav-item" data-section="access-codes">
+                        </button>
+                        <button type="button" class="nav-item" data-section="access-codes">
                             <i class="fas fa-key"></i>
                             <span>Access Codes</span>
                             <span class="nav-badge" id="accessCodeBadge">0</span>
-                        </a>
+                        </button>
                     </nav>
                 </div>
 
                 <div class="sidebar-section">
                     <h3 class="section-title">Policy Management</h3>
                     <nav class="sidebar-nav">
-                        <a href="#policies" class="nav-item" data-section="policies">
+                        <button type="button" class="nav-item" data-section="policies">
                             <i class="fas fa-file-alt"></i>
                             <span>All Policies</span>
                             <span class="nav-badge" id="policyBadge">0</span>
-                        </a>
+                        </button>
                     </nav>
                 </div>
 
                 <div class="sidebar-section">
                     <h3 class="section-title">Email Marketing</h3>
                     <nav class="sidebar-nav">
-                        <a href="#email-marketing" class="nav-item" data-section="email-marketing">
+                        <button type="button" class="nav-item" data-section="email-marketing">
                             <i class="fas fa-envelope"></i>
                             <span>Campaigns</span>
                             <span class="nav-badge" id="emailCampaignBadge">0</span>
-                        </a>
+                        </button>
                     </nav>
                 </div>
 
                 <div class="sidebar-section">
                     <h3 class="section-title">Tools & Reports</h3>
                     <nav class="sidebar-nav">
-                        <a href="#policy-upload" class="nav-item" data-section="policy-upload">
+                        <button type="button" class="nav-item" data-section="policy-upload">
                             <i class="fas fa-upload"></i>
                             <span>Upload Policies</span>
-                        </a>
-                        <a href="#reports" class="nav-item" data-section="reports">
+                        </button>
+                        <button type="button" class="nav-item" data-section="reports">
                             <i class="fas fa-file-download"></i>
                             <span>Export Data</span>
-                        </a>
-                        <a href="#settings" class="nav-item" data-section="settings">
+                        </button>
+                        <button type="button" class="nav-item" data-section="settings">
                             <i class="fas fa-cog"></i>
                             <span>Settings</span>
-                        </a>
+                        </button>
                     </nav>
                 </div>
 
                 <div class="sidebar-section">
                     <h3 class="section-title">Quick Links</h3>
                     <nav class="sidebar-nav">
-                        <a href="../index.html" class="nav-item external">
+                        <a href="../index.html" class="nav-item external" target="_blank">
                             <i class="fas fa-external-link-alt"></i>
                             <span>Main Policy Pro Site</span>
                         </a>
-                        <a href="#help" class="nav-item" data-section="help">
+                        <button type="button" class="nav-item" data-section="help">
                             <i class="fas fa-question-circle"></i>
                             <span>Help & Support</span>
-                        </a>
+                        </button>
                     </nav>
                 </div>
             </div>
@@ -151,137 +151,181 @@
         <main class="main-content">
             <!-- Dashboard Section -->
             <section id="dashboard" class="content-section active">
-                <div class="section-header">
-                    <div class="header-content">
-                        <h2>Dashboard Overview</h2>
-                        <p>Monitor your Policy Pro ecosystem at a glance</p>
+                <!-- Welcome Banner -->
+                <div class="welcome-banner">
+                    <div class="welcome-content">
+                        <h1>Welcome to Policy Pro Admin</h1>
+                        <p>Manage your entire Policy Pro ecosystem from one central dashboard</p>
                     </div>
-                    <div class="header-actions">
-                        <button class="btn btn-secondary" onclick="refreshDashboard()">
+                    <div class="welcome-actions">
+                        <button class="btn btn-primary btn-large" onclick="launchNewCompany()">
+                            <i class="fas fa-plus-circle"></i>
+                            Launch New Company
+                        </button>
+                        <button class="btn btn-secondary btn-large" onclick="refreshDashboard()">
                             <i class="fas fa-sync-alt"></i>
-                            Refresh Data
-                        </button>
-                        <button class="btn btn-primary" onclick="showSection('companies')">
-                            <i class="fas fa-plus"></i>
-                            Add Company
-                        </button>
-                        <button class="btn btn-secondary" onclick="forceSyncToMainSite()">
-                            <i class="fas fa-sync"></i>
-                            Sync to Main Site
+                            Refresh
                         </button>
                     </div>
                 </div>
 
-                <!-- Stats Grid -->
-                <div class="stats-grid">
-                    <div class="stat-card">
-                        <div class="stat-icon companies">
-                            <i class="fas fa-building"></i>
-                        </div>
-                        <div class="stat-content">
-                            <div class="stat-number" id="totalCompanies">0</div>
-                            <div class="stat-label">Total Companies</div>
-                            <div class="stat-change positive">
+                <!-- Stats Grid - Enhanced -->
+                <div class="stats-grid-enhanced">
+                    <div class="stat-card-enhanced companies-card" onclick="showSection('companies')">
+                        <div class="stat-header">
+                            <div class="stat-icon-enhanced companies">
+                                <i class="fas fa-building"></i>
+                            </div>
+                            <div class="stat-trend positive">
                                 <i class="fas fa-arrow-up"></i>
-                                <span>+2 this month</span>
+                                <span>+2</span>
                             </div>
+                        </div>
+                        <div class="stat-body">
+                            <div class="stat-number-large" id="totalCompanies">0</div>
+                            <div class="stat-label-large">Companies</div>
+                            <div class="stat-description">Total organizations</div>
+                        </div>
+                        <div class="stat-footer">
+                            <span class="stat-link">View all <i class="fas fa-arrow-right"></i></span>
                         </div>
                     </div>
 
-                    <div class="stat-card">
-                        <div class="stat-icon users">
-                            <i class="fas fa-users"></i>
-                        </div>
-                        <div class="stat-content">
-                            <div class="stat-number" id="totalUsers">0</div>
-                            <div class="stat-label">Active Users</div>
-                            <div class="stat-change positive">
+                    <div class="stat-card-enhanced users-card" onclick="showSection('users')">
+                        <div class="stat-header">
+                            <div class="stat-icon-enhanced users">
+                                <i class="fas fa-users"></i>
+                            </div>
+                            <div class="stat-trend positive">
                                 <i class="fas fa-arrow-up"></i>
-                                <span>+15 this week</span>
+                                <span>+15</span>
                             </div>
+                        </div>
+                        <div class="stat-body">
+                            <div class="stat-number-large" id="totalUsers">0</div>
+                            <div class="stat-label-large">Users</div>
+                            <div class="stat-description">Active accounts</div>
+                        </div>
+                        <div class="stat-footer">
+                            <span class="stat-link">View all <i class="fas fa-arrow-right"></i></span>
                         </div>
                     </div>
 
-                    <div class="stat-card">
-                        <div class="stat-icon policies">
-                            <i class="fas fa-file-alt"></i>
-                        </div>
-                        <div class="stat-content">
-                            <div class="stat-number" id="totalPolicies">0</div>
-                            <div class="stat-label">Total Policies</div>
-                            <div class="stat-change positive">
+                    <div class="stat-card-enhanced policies-card" onclick="showSection('policies')">
+                        <div class="stat-header">
+                            <div class="stat-icon-enhanced policies">
+                                <i class="fas fa-file-alt"></i>
+                            </div>
+                            <div class="stat-trend positive">
                                 <i class="fas fa-arrow-up"></i>
-                                <span>+12 this week</span>
+                                <span>+12</span>
                             </div>
+                        </div>
+                        <div class="stat-body">
+                            <div class="stat-number-large" id="totalPolicies">0</div>
+                            <div class="stat-label-large">Policies</div>
+                            <div class="stat-description">Total documents</div>
+                        </div>
+                        <div class="stat-footer">
+                            <span class="stat-link">View all <i class="fas fa-arrow-right"></i></span>
                         </div>
                     </div>
 
-                    <div class="stat-card">
-                        <div class="stat-icon active">
-                            <i class="fas fa-check-circle"></i>
-                        </div>
-                        <div class="stat-content">
-                            <div class="stat-number" id="activeCompanies">0</div>
-                            <div class="stat-label">Active Companies</div>
-                            <div class="stat-change neutral">
-                                <i class="fas fa-minus"></i>
-                                <span>No change</span>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Quick Actions -->
-                <div class="quick-actions-section">
-                    <h3>Quick Actions</h3>
-                    <div class="actions-grid">
-                        <button class="action-card" onclick="launchNewCompany()">
-                            <div class="action-icon">
-                                <i class="fas fa-rocket"></i>
-                            </div>
-                            <div class="action-content">
-                                <h4>Launch New Company</h4>
-                                <p>Onboard a new organization</p>
-                            </div>
-                        </button>
-
-                        <button class="action-card" onclick="showSection('access-codes')">
-                            <div class="action-icon">
+                    <div class="stat-card-enhanced access-codes-card" onclick="showSection('access-codes')">
+                        <div class="stat-header">
+                            <div class="stat-icon-enhanced access-codes">
                                 <i class="fas fa-key"></i>
                             </div>
-                            <div class="action-content">
-                                <h4>Create Access Code</h4>
-                                <p>Generate new access codes</p>
+                            <div class="stat-trend neutral">
+                                <i class="fas fa-minus"></i>
+                                <span>0</span>
+                            </div>
+                        </div>
+                        <div class="stat-body">
+                            <div class="stat-number-large" id="totalAccessCodes">0</div>
+                            <div class="stat-label-large">Access Codes</div>
+                            <div class="stat-description">Available codes</div>
+                        </div>
+                        <div class="stat-footer">
+                            <span class="stat-link">Manage codes <i class="fas fa-arrow-right"></i></span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Quick Actions - Redesigned -->
+                <div class="quick-actions-section-enhanced">
+                    <div class="section-title-bar">
+                        <h2>Quick Actions</h2>
+                        <p>Common tasks and shortcuts</p>
+                    </div>
+                    <div class="actions-grid-enhanced">
+                        <button class="action-card-enhanced primary-action" onclick="launchNewCompany()">
+                            <div class="action-icon-wrapper">
+                                <i class="fas fa-rocket"></i>
+                            </div>
+                            <div class="action-details">
+                                <h3>Launch New Company</h3>
+                                <p>Set up a new organization with access codes</p>
+                            </div>
+                            <div class="action-arrow">
+                                <i class="fas fa-chevron-right"></i>
                             </div>
                         </button>
 
-                        <button class="action-card" onclick="exportAllData()">
-                            <div class="action-icon">
+                        <button class="action-card-enhanced" onclick="showCreateCodeModal()">
+                            <div class="action-icon-wrapper">
+                                <i class="fas fa-key"></i>
+                            </div>
+                            <div class="action-details">
+                                <h3>Create Access Code</h3>
+                                <p>Generate new access codes for companies</p>
+                            </div>
+                            <div class="action-arrow">
+                                <i class="fas fa-chevron-right"></i>
+                            </div>
+                        </button>
+
+                        <button class="action-card-enhanced" onclick="exportAllData()">
+                            <div class="action-icon-wrapper">
                                 <i class="fas fa-download"></i>
                             </div>
-                            <div class="action-content">
-                                <h4>Export Data</h4>
-                                <p>Download reports and data</p>
+                            <div class="action-details">
+                                <h3>Export Data</h3>
+                                <p>Download reports and backup data</p>
+                            </div>
+                            <div class="action-arrow">
+                                <i class="fas fa-chevron-right"></i>
                             </div>
                         </button>
 
-                        <button class="action-card" onclick="openAIModal()">
-                            <div class="action-icon">
+                        <button class="action-card-enhanced" onclick="openAIModal()">
+                            <div class="action-icon-wrapper">
                                 <i class="fas fa-robot"></i>
                             </div>
-                            <div class="action-content">
-                                <h4>AI Policy Assistant</h4>
+                            <div class="action-details">
+                                <h3>AI Policy Assistant</h3>
                                 <p>Create policies with AI assistance</p>
+                            </div>
+                            <div class="action-arrow">
+                                <i class="fas fa-chevron-right"></i>
                             </div>
                         </button>
                     </div>
                 </div>
 
-                <!-- Recent Activity -->
-                <div class="recent-activity-section">
-                    <h3>Recent Activity</h3>
-                    <div class="activity-feed" id="activityFeed">
-                        <!-- Activity items will be loaded here -->
+                <!-- Recent Activity - Enhanced -->
+                <div class="recent-activity-section-enhanced">
+                    <div class="section-title-bar">
+                        <h2>Recent Activity</h2>
+                        <button class="btn-text" onclick="showSection('analytics')">
+                            View Analytics <i class="fas fa-arrow-right"></i>
+                        </button>
+                    </div>
+                    <div class="activity-feed-enhanced" id="activityFeed">
+                        <div class="activity-empty">
+                            <i class="fas fa-clock"></i>
+                            <p>No recent activity</p>
+                        </div>
                     </div>
                 </div>
             </section>
@@ -301,6 +345,10 @@
                         <button class="btn btn-primary" onclick="launchNewCompany()">
                             <i class="fas fa-plus"></i>
                             Add Company
+                        </button>
+                        <button class="btn btn-primary" onclick="showSection('users')">
+                            <i class="fas fa-users"></i>
+                            User Management
                         </button>
                     </div>
                 </div>
@@ -384,7 +432,9 @@
                         <thead>
                             <tr>
                                 <th><input type="checkbox" id="selectAllUsers" onchange="toggleAllUsers()"></th>
-                                <th>User</th>
+                                <th>Username</th>
+                                <th>Email</th>
+                                <th>Password</th>
                                 <th>Company</th>
                                 <th>Role</th>
                                 <th>Created</th>
@@ -1354,6 +1404,6 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="../supabase-config.js"></script>
-    <script src="script.js?v=11"></script>
+    <script src="script.js?v=14&t=20250202"></script>
 </body>
 </html>

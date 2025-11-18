@@ -1,0 +1,456 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>The Level Up App · Calendar</title>
+    <style>
+      :root {
+        font-family: "Sora", "Inter", system-ui, -apple-system, BlinkMacSystemFont,
+          Arial, sans-serif;
+        color-scheme: dark;
+        --bg: #030711;
+        --card: rgba(15, 23, 42, 0.78);
+        --text: #f8fafc;
+        --muted: #c7d2fe;
+        --accent: #4f46e5;
+        --border: rgba(148, 163, 184, 0.35);
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        min-height: 100vh;
+        background: radial-gradient(circle at top, rgba(79, 70, 229, 0.35), transparent 55%),
+          radial-gradient(circle at 20% 20%, rgba(16, 185, 129, 0.2), transparent 40%),
+          var(--bg);
+        color: var(--text);
+        padding: 2rem clamp(1rem, 4vw, 3rem) 3rem;
+      }
+      header {
+        text-align: center;
+        max-width: 960px;
+        margin: 0 auto 2rem;
+      }
+      header p {
+        color: var(--muted);
+      }
+      nav {
+        margin-top: 1.5rem;
+        display: flex;
+        justify-content: center;
+        gap: 1rem;
+        flex-wrap: wrap;
+      }
+      button,
+      select {
+        font-family: inherit;
+        border: none;
+        border-radius: 0.85rem;
+        padding: 0.65rem 1rem;
+        background: linear-gradient(120deg, #2563eb, #7c3aed);
+        color: white;
+        cursor: pointer;
+        box-shadow: 0 12px 25px rgba(79, 70, 229, 0.35);
+      }
+      a button {
+        text-decoration: none;
+      }
+      main {
+        max-width: 1100px;
+        margin: 0 auto;
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+        gap: 1.5rem;
+      }
+      .card {
+        background: var(--card);
+        border-radius: 1.25rem;
+        padding: 1.5rem;
+        border: 1px solid var(--border);
+        box-shadow: 0 25px 40px rgba(2, 6, 23, 0.4);
+        display: flex;
+        flex-direction: column;
+        gap: 1rem;
+      }
+      .calendar-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 1rem;
+        flex-wrap: wrap;
+      }
+      .calendar-nav button {
+        width: 52px;
+        height: 52px;
+        padding: 0;
+      }
+      .calendar-grid {
+        display: grid;
+        grid-template-columns: repeat(7, minmax(42px, 1fr));
+        gap: 0.35rem;
+        text-align: center;
+        font-size: 0.85rem;
+      }
+      .calendar-weekday {
+        font-weight: 600;
+        color: rgba(248, 250, 252, 0.8);
+        padding-bottom: 0.25rem;
+      }
+      .calendar-day {
+        border: 1px solid rgba(148, 163, 184, 0.2);
+        border-radius: 0.65rem;
+        background: rgba(15, 23, 42, 0.55);
+        padding: 0.75rem 0;
+        cursor: pointer;
+        transition: border-color 0.2s, background 0.2s;
+      }
+      .calendar-day.has-logs {
+        border-color: rgba(16, 185, 129, 0.6);
+      }
+      .calendar-day.is-selected {
+        border-color: rgba(59, 130, 246, 0.85);
+        background: rgba(99, 102, 241, 0.2);
+      }
+      .calendar-day.empty {
+        visibility: hidden;
+        pointer-events: none;
+      }
+      .log-list {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 0.65rem;
+      }
+      .log-list li {
+        border: 1px solid rgba(148, 163, 184, 0.25);
+        border-radius: 0.85rem;
+        padding: 0.85rem 1rem;
+        display: flex;
+        flex-direction: column;
+        gap: 0.35rem;
+        background: rgba(15, 23, 42, 0.6);
+      }
+      .log-label {
+        font-size: 0.85rem;
+        color: var(--muted);
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+      }
+      .filters {
+        display: flex;
+        gap: 0.75rem;
+        flex-wrap: wrap;
+        align-items: center;
+      }
+      select {
+        background: rgba(15, 23, 42, 0.8);
+        border: 1px solid var(--border);
+        color: var(--text);
+        box-shadow: none;
+        padding-right: 2.5rem;
+      }
+      @media (max-width: 640px) {
+        main {
+          grid-template-columns: 1fr;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <p class="tag">The Level Up App</p>
+      <h1>Calendar & timeline</h1>
+      <p>Review every log by day, filter by category, and spot streaks.</p>
+      <nav>
+        <a href="level-up.html"><button type="button">Back to dashboard</button></a>
+      </nav>
+    </header>
+
+    <main>
+      <section class="card">
+        <div class="calendar-header">
+          <div class="calendar-nav" style="display:flex;gap:0.75rem;">
+            <button type="button" id="calendar-prev">‹</button>
+            <button type="button" id="calendar-next">›</button>
+          </div>
+          <div style="text-align:right;">
+            <strong id="calendar-month"></strong>
+            <div class="filters">
+              <label for="category-filter" style="font-size:0.85rem;color:var(--muted);"
+                >Category</label
+              >
+              <select id="category-filter">
+                <option value="all">All entries</option>
+              </select>
+            </div>
+          </div>
+        </div>
+        <div id="calendar-grid" class="calendar-grid"></div>
+      </section>
+
+      <section class="card">
+        <div>
+          <p class="muted" style="margin:0;">Selected day</p>
+          <h2 id="selected-date">—</h2>
+        </div>
+        <ul id="log-list" class="log-list"></ul>
+      </section>
+    </main>
+
+    <script>
+      const store = JSON.parse(localStorage.getItem("levelup-data") || "{}");
+      const state = {
+        income: store.income || [],
+        expense: store.expense || [],
+        investment: store.investment || [],
+        todo: store.todo || [],
+        goal: store.goal || [],
+        goalLog: store.goalLog || [],
+        workout: store.workout || [],
+        meal: store.meal || [],
+        water: store.water || [],
+        compliment: store.compliment || [],
+        kiss: store.kiss || [],
+        hookup: store.hookup || [],
+        friend: store.friend || [],
+        funMemory: store.funMemory || [],
+        influenceIdea: store.influenceIdea || [],
+        researchLog: store.researchLog || [],
+        vibeLog: store.vibeLog || [],
+        joke: store.joke || [],
+        business: store.business || [],
+        calorie: store.calorie || [],
+        nightEmail: store.nightEmail || [],
+        geekedLog: store.geekedLog || [],
+        resumeSkill: store.resumeSkill || [],
+        resumeJob: store.resumeJob || [],
+        resumeIdea: store.resumeIdea || [],
+        skillLog: store.skillLog || [],
+        habit: store.habit || [],
+        journal: store.journal || [],
+      };
+
+      const calendarLabels = {
+        income: "Income",
+        expense: "Expense",
+        investment: "Investment",
+        todo: "To-do",
+        goal: "Goal",
+        goalLog: "Goal log",
+        workout: "Workout",
+        meal: "Meal",
+        water: "Water",
+        compliment: "Compliment",
+        kiss: "Kissed",
+        hookup: "Hookup",
+        friend: "Friend",
+        funMemory: "Memory",
+        influenceIdea: "Under influence",
+        researchLog: "Research",
+        vibeLog: "Vibe log",
+        joke: "Joke",
+        business: "Business idea",
+        calorie: "Calorie est.",
+        nightEmail: "Night email",
+        geekedLog: "Geeked log",
+        resumeSkill: "Resume skill",
+        resumeJob: "Resume job",
+        resumeIdea: "Resume idea",
+        skillLog: "Skill log",
+        habit: "Habit",
+        journal: "Journal",
+      };
+
+      const calendarMonthLabel = document.getElementById("calendar-month");
+      const calendarGrid = document.getElementById("calendar-grid");
+      const selectedDateLabel = document.getElementById("selected-date");
+      const logList = document.getElementById("log-list");
+      const categoryFilter = document.getElementById("category-filter");
+      const prevBtn = document.getElementById("calendar-prev");
+      const nextBtn = document.getElementById("calendar-next");
+
+      let calendarMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
+      let selectedDateKey = new Date().toISOString().slice(0, 10);
+      let activeCategory = "all";
+
+      function normalizeDateKey(date) {
+        return new Date(date).toISOString().slice(0, 10);
+      }
+
+      function summarizeEntry(key, item) {
+        const primary =
+          item.description ||
+          item.title ||
+          item.name ||
+          item.subject ||
+          item.caption ||
+          "Logged item";
+        const bits = [];
+        if (item.amount) bits.push(`$${Number(item.amount).toFixed(2)}`);
+        if (item.status && key === "goalLog") bits.push(item.status);
+        if (item.topic) bits.push(`Topic: ${item.topic}`);
+        if (item.vibe) bits.push(item.vibe);
+        if (item.vices?.length) bits.push(item.vices.join(", "));
+        else if (item.vice) bits.push(`Vice: ${item.vice}`);
+        if (item.belief) bits.push(item.belief);
+        if (item.recipient && key === "nightEmail") bits.push(item.recipient);
+        if (item.details) bits.push(item.details);
+        return bits.length ? `${primary} (${bits.join(" · ")})` : primary;
+      }
+
+      function gatherEntries() {
+        const entries = [];
+        Object.entries(state).forEach(([key, values]) => {
+          if (!Array.isArray(values)) return;
+          values.forEach((item) => {
+            const created = item.created || item.timestamp;
+            if (!created) return;
+            entries.push({
+              dateKey: normalizeDateKey(created),
+              label: calendarLabels[key] || key,
+              category: key,
+              text: summarizeEntry(key, item),
+              created,
+            });
+          });
+        });
+        return entries.sort((a, b) => new Date(b.created) - new Date(a.created));
+      }
+
+      function buildEntriesMap(entries) {
+        return entries.reduce((acc, entry) => {
+          acc[entry.dateKey] = acc[entry.dateKey] || [];
+          acc[entry.dateKey].push(entry);
+          return acc;
+        }, {});
+      }
+
+      function renderFilterOptions(entries) {
+        const unique = Array.from(new Set(entries.map((entry) => entry.label))).sort();
+        unique.forEach((label) => {
+          const option = document.createElement("option");
+          option.value = label;
+          option.textContent = label;
+          categoryFilter.appendChild(option);
+        });
+      }
+
+      function renderCalendar() {
+        const entries = gatherEntries();
+        const entriesByDate = buildEntriesMap(entries);
+        if (categoryFilter.options.length <= 1) renderFilterOptions(entries);
+
+        calendarMonthLabel.textContent = calendarMonth.toLocaleDateString(undefined, {
+          month: "long",
+          year: "numeric",
+        });
+
+        const firstDay = new Date(
+          calendarMonth.getFullYear(),
+          calendarMonth.getMonth(),
+          1
+        ).getDay();
+        const daysInMonth = new Date(
+          calendarMonth.getFullYear(),
+          calendarMonth.getMonth() + 1,
+          0
+        ).getDate();
+
+        const weekdayLabels = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+        let cells = weekdayLabels
+          .map((label) => `<div class="calendar-weekday">${label}</div>`)
+          .join("");
+
+        for (let i = 0; i < firstDay; i++) {
+          cells += `<div class="calendar-day empty"></div>`;
+        }
+
+        for (let day = 1; day <= daysInMonth; day++) {
+          const dateKey = normalizeDateKey(
+            new Date(calendarMonth.getFullYear(), calendarMonth.getMonth(), day)
+          );
+          const hasLogs = (entriesByDate[dateKey] || []).length;
+          const isSelected = dateKey === selectedDateKey;
+          const classes = [
+            "calendar-day",
+            hasLogs ? "has-logs" : "",
+            isSelected ? "is-selected" : "",
+          ]
+            .filter(Boolean)
+            .join(" ");
+          cells += `<button type="button" class="${classes}" data-date="${dateKey}">${day}</button>`;
+        }
+
+        calendarGrid.innerHTML = cells;
+        renderLogs(entriesByDate);
+      }
+
+      function renderLogs(entriesByDate = buildEntriesMap(gatherEntries())) {
+        const entries = (entriesByDate[selectedDateKey] || []).filter((entry) => {
+          if (activeCategory === "all") return true;
+          return entry.label === activeCategory;
+        });
+
+        const readable = new Date(selectedDateKey).toLocaleDateString(undefined, {
+          weekday: "long",
+          month: "short",
+          day: "numeric",
+        });
+        selectedDateLabel.textContent = readable;
+
+        if (!entries.length) {
+          logList.innerHTML = `<li><span class="muted">No entries logged for this filter.</span></li>`;
+          return;
+        }
+
+        logList.innerHTML = entries
+          .map(
+            (entry) => `
+              <li>
+                <span class="log-label">${entry.label}</span>
+                <span>${entry.text}</span>
+              </li>
+            `
+          )
+          .join("");
+      }
+
+      prevBtn.addEventListener("click", () => {
+        calendarMonth = new Date(
+          calendarMonth.getFullYear(),
+          calendarMonth.getMonth() - 1,
+          1
+        );
+        renderCalendar();
+      });
+
+      nextBtn.addEventListener("click", () => {
+        calendarMonth = new Date(
+          calendarMonth.getFullYear(),
+          calendarMonth.getMonth() + 1,
+          1
+        );
+        renderCalendar();
+      });
+
+      calendarGrid.addEventListener("click", (event) => {
+        const date = event.target.dataset?.date;
+        if (!date) return;
+        selectedDateKey = date;
+        renderCalendar();
+      });
+
+      categoryFilter.addEventListener("change", (event) => {
+        activeCategory = event.target.value;
+        renderCalendar();
+      });
+
+      renderCalendar();
+    </script>
+  </body>
+</html>
+

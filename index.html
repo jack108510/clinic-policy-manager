@@ -219,7 +219,6 @@
             <div class="nav-menu">
                 <a href="#home" class="nav-link" onclick="return requireLogin()"><i class="fas fa-home"></i> Home</a>
                 <a href="#policies" class="nav-link" onclick="return requireLogin()"><i class="fas fa-file-alt"></i> Policies</a>
-                <a href="#drafts" class="nav-link" onclick="return requireLogin()"><i class="fas fa-edit"></i> Drafts</a>
                 <a href="#" onclick="event.preventDefault(); openPolicyAdvisor(); return false;" class="nav-link"><i class="fas fa-robot"></i> Policy Advisor</a>
                 <span class="nav-divider"></span>
                 <a href="#" onclick="openPasswordModal()" class="nav-link admin-link"><i class="fas fa-tachometer-alt"></i> Admin</a>
@@ -363,18 +362,6 @@
             </div>
         </div>
     </section>
-    
-    <!-- Drafts Section -->
-    <section id="drafts" class="policies" style="background: #f8fafc;">
-        <div class="container">
-            <h2><i class="fas fa-edit"></i> Draft Policies</h2>
-            <p style="text-align: center; color: #666; margin-bottom: 30px;">Manage your work-in-progress policies</p>
-            <div id="draftList" class="draft-list" style="max-width: 900px; margin: 0 auto;">
-                <!-- Drafts will be displayed here -->
-            </div>
-        </div>
-    </section>
-
 
     <!-- Create Policy Modal -->
     <div id="createModal" class="modal" style="z-index: 3500;">
@@ -1643,38 +1630,100 @@
 
     <!-- Policy Advisor Modal -->
     <div id="policyAdvisorModal" class="modal">
-        <div class="modal-content" style="max-width: 800px;">
-            <div class="modal-header">
-                <h3><i class="fas fa-robot"></i> Policy Advisor</h3>
+        <div class="modal-content advisor-modal">
+            <div class="modal-header advisor-header">
+                <div class="advisor-header-content">
+                    <div class="advisor-avatar">
+                        <i class="fas fa-robot"></i>
+                    </div>
+                    <div>
+                        <h3>Policy Advisor</h3>
+                        <p class="advisor-subtitle">AI-powered guidance based on your policies</p>
+                    </div>
+                </div>
                 <span class="close" onclick="closePolicyAdvisor()">&times;</span>
             </div>
-            <div class="modal-body">
-                <p style="margin-bottom: 20px; color: #666;">
-                    Ask a question and we'll analyze your policies to provide guidance.
-                </p>
-                
-                <div class="form-group">
-                    <label for="advisorQuestion" style="font-weight: 600;">Your Question:</label>
-                    <textarea id="advisorQuestion" rows="4" 
-                              placeholder="e.g., What should I do if a staff member arrives late multiple times?"
-                              style="width: 100%; padding: 12px; border: 2px solid #ddd; border-radius: 6px;"></textarea>
+            <div class="modal-body advisor-body">
+                <!-- Welcome Screen -->
+                <div id="advisorWelcome" class="advisor-welcome">
+                    <div class="welcome-icon">
+                        <i class="fas fa-lightbulb"></i>
+                    </div>
+                    <h3>How can I help you today?</h3>
+                    <p>Ask me anything about your policies, procedures, or compliance questions.</p>
+                    
+                    <div class="example-questions">
+                        <h4>Example Questions:</h4>
+                        <div class="example-question-grid">
+                            <button class="example-question-btn" onclick="useExampleQuestion('What should I do if a staff member arrives late multiple times?')">
+                                <i class="fas fa-clock"></i>
+                                <span>Late arrival procedures</span>
+                            </button>
+                            <button class="example-question-btn" onclick="useExampleQuestion('What is our policy on handling controlled substances?')">
+                                <i class="fas fa-pills"></i>
+                                <span>Controlled substances</span>
+                            </button>
+                            <button class="example-question-btn" onclick="useExampleQuestion('How do we handle a workplace injury?')">
+                                <i class="fas fa-user-injured"></i>
+                                <span>Workplace injury</span>
+                            </button>
+                            <button class="example-question-btn" onclick="useExampleQuestion('What are our HIPAA compliance requirements?')">
+                                <i class="fas fa-shield-alt"></i>
+                                <span>HIPAA compliance</span>
+                            </button>
+                            <button class="example-question-btn" onclick="useExampleQuestion('What is the procedure for handling client complaints?')">
+                                <i class="fas fa-comments"></i>
+                                <span>Client complaints</span>
+                            </button>
+                            <button class="example-question-btn" onclick="useExampleQuestion('How should we respond to an emergency situation?')">
+                                <i class="fas fa-exclamation-triangle"></i>
+                                <span>Emergency response</span>
+                            </button>
+                        </div>
+                    </div>
                 </div>
 
-                <div id="advisorLoading" style="display: none; text-align: center; padding: 30px;">
-                    <i class="fas fa-spinner fa-spin" style="font-size: 32px; color: #667eea;"></i>
-                    <p style="margin-top: 15px; color: #666;">Analyzing your policies...</p>
+                <!-- Chat Interface -->
+                <div id="advisorChat" class="advisor-chat" style="display: none;">
+                    <div id="advisorChatMessages" class="advisor-messages">
+                        <!-- Messages will be added here -->
+                    </div>
+                    
+                    <!-- Loading Indicator -->
+                    <div id="advisorTyping" class="advisor-typing" style="display: none;">
+                        <div class="typing-indicator">
+                            <span></span>
+                            <span></span>
+                            <span></span>
+                        </div>
+                        <p>Policy Advisor is thinking...</p>
+                    </div>
                 </div>
 
-                <div id="advisorResponse" style="display: none; background: #f8f9fa; padding: 20px; border-radius: 6px; margin-top: 20px;">
-                    <h4 style="margin-top: 0; color: #333;">Recommendation:</h4>
-                    <div id="advisorResultText" style="color: #555; line-height: 1.8; white-space: pre-wrap;"></div>
-                </div>
-
-                <div class="form-actions" style="margin-top: 20px;">
-                    <button type="button" class="btn btn-secondary" onclick="closePolicyAdvisor()">Close</button>
-                    <button type="button" class="btn btn-primary" onclick="sendPolicyAdvisorRequest()">
-                        <i class="fas fa-search"></i> Get Recommendation
-                    </button>
+                <!-- Input Area -->
+                <div class="advisor-input-area">
+                    <div class="advisor-input-container">
+                        <textarea 
+                            id="advisorQuestion" 
+                            class="advisor-input" 
+                            rows="2"
+                            placeholder="Ask your question here..."
+                            onkeydown="handleAdvisorKeydown(event)"></textarea>
+                        <button 
+                            class="advisor-send-btn" 
+                            onclick="sendPolicyAdvisorRequest()"
+                            id="advisorSendBtn">
+                            <i class="fas fa-paper-plane"></i>
+                        </button>
+                    </div>
+                    <div class="advisor-actions">
+                        <button class="advisor-action-btn" onclick="clearAdvisorChat()">
+                            <i class="fas fa-trash"></i> Clear Chat
+                        </button>
+                        <button class="advisor-action-btn" onclick="showExampleQuestions()">
+                            <i class="fas fa-lightbulb"></i> Examples
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>

@@ -663,6 +663,14 @@ function showSection(sectionId) {
             if (typeof displayAccessCodes === 'function') {
                 displayAccessCodes();
             }
+        } else if (sectionId === 'policies') {
+            if (typeof refreshPolicies === 'function') {
+                refreshPolicies();
+            }
+        } else if (sectionId === 'settings') {
+            if (typeof loadPolicyGeneratorConfig === 'function') {
+                loadPolicyGeneratorConfig();
+            }
         }
         
         console.log(`✅ Section ${sectionId} loaded successfully`);
@@ -3365,50 +3373,414 @@ function clearAllUsers() {
 let chatState = {
     step: 'start',
     isGenerating: false,
-    currentPolicy: null
+    currentPolicy: null,
+    formData: null
 };
 
 function openAIModal() {
     console.log('🔧 Opening AI Modal in admin-master...');
+    
+    // Ensure config is loaded
+    if (!policyGeneratorConfig || !policyGeneratorConfig.organizations || policyGeneratorConfig.organizations.length === 0) {
+        loadPolicyGeneratorConfig();
+    }
     
     // Open AI modal
     document.getElementById('aiModal').style.display = 'block';
     document.getElementById('aiResult').style.display = 'none';
     document.getElementById('aiLoading').style.display = 'none';
     
-    // Show all policy configuration options and chat interface
-    const policyTypeSelection = document.querySelector('.policy-type-selection');
-    const policyOptionsSelection = document.querySelector('.policy-options-selection');
-    const chatContainer = document.querySelector('.chat-container');
+    // Reset form and populate with defaults
+    resetAIPolicyForm();
+    populateFormFields();
     
-    console.log('🔍 Elements found:');
-    console.log('policyTypeSelection:', policyTypeSelection);
-    console.log('policyOptionsSelection:', policyOptionsSelection);
-    console.log('chatContainer:', chatContainer);
-    
-    if (policyTypeSelection) {
-        policyTypeSelection.style.display = 'block';
-        console.log('✅ Policy type selection shown');
-    } else {
-        console.log('❌ Policy type selection not found');
-    }
-    
-    if (policyOptionsSelection) {
-        policyOptionsSelection.style.display = 'block';
-        console.log('✅ Policy options selection shown');
-    } else {
-        console.log('❌ Policy options selection not found');
-    }
-    
-    if (chatContainer) {
-        chatContainer.style.display = 'block';
-        console.log('✅ Chat container shown');
-    } else {
-        console.log('❌ Chat container not found');
-    }
+    // Show first tab
+    switchFormTab('basic');
     
     resetChat();
     console.log('🎉 AI Modal opened successfully');
+}
+
+function resetAIPolicyForm() {
+    document.getElementById('aiPolicyTitle').value = '';
+    document.getElementById('aiPolicyDescription').value = '';
+    document.getElementById('aiPolicyKeyPoints').value = '';
+    
+    // Set default effective date to today
+    const today = new Date().toISOString().split('T')[0];
+    document.getElementById('aiPolicyEffectiveDate').value = today;
+    document.getElementById('aiPolicyVersion').value = '1.0';
+    
+    // Clear all checkboxes
+    document.querySelectorAll('#aiFormSetup input[type="checkbox"]').forEach(cb => cb.checked = false);
+    document.querySelectorAll('#aiFormSetup input[type="radio"]').forEach(rb => rb.checked = false);
+}
+
+function populateFormFields() {
+    // Populate policy types
+    populateFormPolicyTypes();
+    // Populate organizations
+    populateFormOrganizations();
+    // Populate roles
+    populateFormRoles();
+    // Populate disciplinary actions
+    populateFormDisciplinaryActions();
+    // Populate audience
+    populateFormAudience();
+    // Populate compliance
+    populateFormCompliance();
+    
+    // Set default selections
+    const firstPolicyType = document.querySelector('#formPolicyTypes input[type="radio"]');
+    if (firstPolicyType) firstPolicyType.checked = true;
+    
+    const allOrgCheckbox = document.querySelector('#formOrganizations input[value="all"]');
+    if (allOrgCheckbox) allOrgCheckbox.checked = true;
+}
+
+function populateFormPolicyTypes() {
+    const container = document.getElementById('formPolicyTypes');
+    if (!container) return;
+    
+    const categories = policyGeneratorConfig.categories || [];
+    if (categories.length === 0) return;
+    
+    container.innerHTML = categories.map((cat, index) => `
+        <label class="toggle-item">
+            <input type="radio" name="formPolicyType" value="${cat.value || cat.name.toLowerCase().replace(/\s+/g, '-')}" ${index === 0 ? 'checked' : ''}>
+            <span class="toggle-label">${cat.name}</span>
+        </label>
+    `).join('');
+}
+
+function populateFormOrganizations() {
+    const container = document.getElementById('formOrganizations');
+    if (!container) return;
+    
+    const orgs = policyGeneratorConfig.organizations || [];
+    if (orgs.length === 0) return;
+    
+    container.innerHTML = orgs.map(org => `
+        <label class="toggle-item">
+            <input type="checkbox" class="form-org-checkbox" 
+                   value="${org.value || org.name.toLowerCase().replace(/\s+/g, '-')}" 
+                   ${org.value === 'all' ? 'onchange="toggleAllFormOrganizations()"' : ''}>
+            <span class="toggle-label">${org.name}</span>
+        </label>
+    `).join('');
+}
+
+function populateFormRoles() {
+    const container = document.getElementById('formResponsibilityToggles');
+    if (!container) return;
+    
+    const roles = policyGeneratorConfig.roles || [];
+    if (roles.length === 0) {
+        container.innerHTML = '<p style="color: #999; padding: 10px;">No roles configured. Add roles in Settings.</p>';
+        return;
+    }
+    
+    container.innerHTML = roles.map(role => `
+        <label class="toggle-item">
+            <input type="checkbox" value="${role.name}">
+            <span class="toggle-label">${role.name}</span>
+        </label>
+    `).join('');
+}
+
+function populateFormDisciplinaryActions() {
+    const container = document.getElementById('formDisciplinaryToggles');
+    if (!container) return;
+    
+    const actions = policyGeneratorConfig.disciplinaryActions || [];
+    if (actions.length === 0) {
+        container.innerHTML = '<p style="color: #999; padding: 10px;">No disciplinary actions configured. Add actions in Settings.</p>';
+        return;
+    }
+    
+    container.innerHTML = actions.map(action => `
+        <label class="toggle-item">
+            <input type="checkbox" value="${action.name}">
+            <span class="toggle-label">${action.name}</span>
+        </label>
+    `).join('');
+}
+
+function populateFormAudience() {
+    const container = document.getElementById('formAudienceToggles');
+    if (!container) return;
+    
+    const audience = policyGeneratorConfig.audience || [];
+    if (audience.length === 0) {
+        container.innerHTML = '<p style="color: #999; padding: 10px;">No audience options configured. Add options in Settings.</p>';
+        return;
+    }
+    
+    container.innerHTML = audience.map(aud => `
+        <label class="toggle-item">
+            <input type="checkbox" value="${aud.name}">
+            <span class="toggle-label">${aud.name}</span>
+        </label>
+    `).join('');
+}
+
+function populateFormCompliance() {
+    const container = document.getElementById('formComplianceToggles');
+    if (!container) return;
+    
+    const compliance = policyGeneratorConfig.compliance || [];
+    if (compliance.length === 0) {
+        container.innerHTML = '<p style="color: #999; padding: 10px;">No compliance requirements configured. Add requirements in Settings.</p>';
+        return;
+    }
+    
+    container.innerHTML = compliance.map(comp => `
+        <label class="toggle-item">
+            <input type="checkbox" value="${comp.name}">
+            <span class="toggle-label">${comp.name}</span>
+        </label>
+    `).join('');
+}
+
+function switchFormTab(tabName) {
+    // Hide all tab contents
+    document.querySelectorAll('.form-tab-content').forEach(content => {
+        content.classList.remove('active');
+    });
+    
+    // Remove active from all tabs
+    document.querySelectorAll('.form-tab').forEach(tab => {
+        tab.classList.remove('active');
+    });
+    
+    // Show selected tab content
+    const selectedContent = document.getElementById(`tab-${tabName}`);
+    if (selectedContent) {
+        selectedContent.classList.add('active');
+    }
+    
+    // Activate selected tab button
+    const selectedTab = document.querySelector(`.form-tab[data-tab="${tabName}"]`);
+    if (selectedTab) {
+        selectedTab.classList.add('active');
+    }
+}
+
+function toggleAllFormOrganizations() {
+    const allCheckbox = document.querySelector('#formOrganizations input[value="all"]');
+    const otherCheckboxes = document.querySelectorAll('#formOrganizations input.form-org-checkbox:not([value="all"])');
+    
+    if (allCheckbox && allCheckbox.checked) {
+        otherCheckboxes.forEach(cb => cb.checked = false);
+    }
+}
+
+function generatePolicyFromForm() {
+    // Collect form data
+    const title = document.getElementById('aiPolicyTitle').value.trim();
+    if (!title) {
+        alert('Please enter a policy title');
+        document.getElementById('aiPolicyTitle').focus();
+        return;
+    }
+    
+    const description = document.getElementById('aiPolicyDescription').value.trim();
+    const keyPoints = document.getElementById('aiPolicyKeyPoints').value.trim();
+    const effectiveDate = document.getElementById('aiPolicyEffectiveDate').value;
+    const version = document.getElementById('aiPolicyVersion').value || '1.0';
+    
+    // Get selected policy type
+    const policyTypeRadio = document.querySelector('#formPolicyTypes input[name="formPolicyType"]:checked');
+    const policyType = policyTypeRadio ? policyTypeRadio.value : 'admin';
+    
+    // Get selected organizations
+    const selectedOrgs = Array.from(document.querySelectorAll('#formOrganizations input:checked'))
+        .map(cb => cb.value);
+    const orgNames = selectedOrgs.map(org => getOrganizationName(org)).join(', ');
+    
+    // Get selected roles
+    const selectedRoles = Array.from(document.querySelectorAll('#formResponsibilityToggles input:checked'))
+        .map(cb => cb.value);
+    const roleNames = selectedRoles.join(', ');
+    
+    // Get selected disciplinary actions
+    const selectedActions = Array.from(document.querySelectorAll('#formDisciplinaryToggles input:checked'))
+        .map(cb => cb.value);
+    const actionNames = selectedActions.join(', ');
+    
+    // Get selected audience
+    const selectedAudience = Array.from(document.querySelectorAll('#formAudienceToggles input:checked'))
+        .map(cb => cb.value);
+    
+    // Get selected compliance
+    const selectedCompliance = Array.from(document.querySelectorAll('#formComplianceToggles input:checked'))
+        .map(cb => cb.value);
+    
+    // Build comprehensive prompt
+    let prompt = `Create a comprehensive policy titled "${title}"`;
+    
+    if (description) {
+        prompt += `\n\nDescription: ${description}`;
+    }
+    
+    if (keyPoints) {
+        prompt += `\n\nKey Requirements:\n${keyPoints}`;
+    }
+    
+    prompt += `\n\nPolicy Type: ${policyType}`;
+    prompt += `\nApplicable Organizations: ${orgNames || 'All Organizations'}`;
+    
+    if (roleNames) {
+        prompt += `\nResponsible Roles: ${roleNames}`;
+    }
+    
+    if (actionNames) {
+        prompt += `\nDisciplinary Actions: ${actionNames}`;
+    }
+    
+    if (selectedAudience.length > 0) {
+        prompt += `\nTarget Audience: ${selectedAudience.join(', ')}`;
+    }
+    
+    if (selectedCompliance.length > 0) {
+        prompt += `\nCompliance Requirements: ${selectedCompliance.join(', ')}`;
+    }
+    
+    // Store form data for later use
+    chatState.formData = {
+        title,
+        description,
+        keyPoints,
+        policyType,
+        organizations: selectedOrgs,
+        roles: selectedRoles,
+        disciplinaryActions: selectedActions,
+        audience: selectedAudience,
+        compliance: selectedCompliance,
+        effectiveDate,
+        version
+    };
+    
+    // Generate policy
+    generatePolicyFromPrompt(prompt);
+}
+
+function previewPolicyForm() {
+    const title = document.getElementById('aiPolicyTitle').value.trim() || '(Not set)';
+    const description = document.getElementById('aiPolicyDescription').value.trim() || '(Not set)';
+    const keyPoints = document.getElementById('aiPolicyKeyPoints').value.trim() || '(Not set)';
+    
+    const policyTypeRadio = document.querySelector('#formPolicyTypes input[name="formPolicyType"]:checked');
+    const policyType = policyTypeRadio ? policyTypeRadio.nextElementSibling.textContent : '(Not selected)';
+    
+    const selectedOrgs = Array.from(document.querySelectorAll('#formOrganizations input:checked'))
+        .map(cb => cb.nextElementSibling.textContent);
+    const orgNames = selectedOrgs.length > 0 ? selectedOrgs.join(', ') : '(None selected)';
+    
+    const selectedRoles = Array.from(document.querySelectorAll('#formResponsibilityToggles input:checked'))
+        .map(cb => cb.nextElementSibling.textContent);
+    const roleNames = selectedRoles.length > 0 ? selectedRoles.join(', ') : '(None selected)';
+    
+    const selectedActions = Array.from(document.querySelectorAll('#formDisciplinaryToggles input:checked'))
+        .map(cb => cb.nextElementSibling.textContent);
+    const actionNames = selectedActions.length > 0 ? selectedActions.join(', ') : '(None selected)';
+    
+    const preview = `
+        <h4>Policy Preview</h4>
+        <div class="preview-content">
+            <p><strong>Title:</strong> ${title}</p>
+            <p><strong>Type:</strong> ${policyType}</p>
+            <p><strong>Description:</strong> ${description}</p>
+            <p><strong>Key Points:</strong> ${keyPoints}</p>
+            <p><strong>Organizations:</strong> ${orgNames}</p>
+            <p><strong>Responsible Roles:</strong> ${roleNames}</p>
+            <p><strong>Disciplinary Actions:</strong> ${actionNames}</p>
+        </div>
+    `;
+    
+    alert(preview.replace(/<[^>]*>/g, '')); // Simple alert, could be improved with a modal
+}
+
+function updatePolicyPreview() {
+    // This could show a live preview as user types
+    // For now, it's a placeholder
+}
+
+// Attach functions to window
+if (typeof window !== 'undefined') {
+    window.switchFormTab = switchFormTab;
+    window.generatePolicyFromForm = generatePolicyFromForm;
+    window.previewPolicyForm = previewPolicyForm;
+    window.updatePolicyPreview = updatePolicyPreview;
+    window.toggleAllFormOrganizations = toggleAllFormOrganizations;
+}
+
+function populatePolicyTypes() {
+    const container = document.querySelector('.policy-type-toggles');
+    if (!container) return;
+    
+    const categories = policyGeneratorConfig.categories || [];
+    if (categories.length === 0) return;
+    
+    container.innerHTML = categories.map((cat, index) => `
+        <label class="toggle-item">
+            <input type="radio" name="policyType" value="${cat.value || cat.name.toLowerCase().replace(/\s+/g, '-')}" ${index === 0 ? 'checked' : ''}>
+            <span class="toggle-label">${cat.name}</span>
+        </label>
+    `).join('');
+}
+
+function populateOrganizations() {
+    const container = document.querySelector('.organization-toggles');
+    if (!container) return;
+    
+    const orgs = policyGeneratorConfig.organizations || [];
+    if (orgs.length === 0) return;
+    
+    container.innerHTML = orgs.map(org => `
+        <label class="toggle-item">
+            <input type="checkbox" id="org-${org.value || org.name.toLowerCase().replace(/\s+/g, '-')}" 
+                   value="${org.value || org.name.toLowerCase().replace(/\s+/g, '-')}" 
+                   ${org.value === 'all' ? 'onchange="toggleAllOrganizations()"' : ''}>
+            <span class="toggle-label">${org.name}</span>
+        </label>
+    `).join('');
+}
+
+function populateRoles() {
+    const container = document.getElementById('responsibilityToggles');
+    if (!container) return;
+    
+    const roles = policyGeneratorConfig.roles || [];
+    if (roles.length === 0) {
+        container.innerHTML = '<p style="color: #999; padding: 10px;">No roles configured. Add roles in Settings.</p>';
+        return;
+    }
+    
+    container.innerHTML = roles.map(role => `
+        <label class="toggle-item">
+            <input type="checkbox" value="${role.name}">
+            <span class="toggle-label">${role.name}</span>
+        </label>
+    `).join('');
+}
+
+function populateDisciplinaryActions() {
+    const container = document.getElementById('disciplinaryToggles');
+    if (!container) return;
+    
+    const actions = policyGeneratorConfig.disciplinaryActions || [];
+    if (actions.length === 0) {
+        container.innerHTML = '<p style="color: #999; padding: 10px;">No disciplinary actions configured. Add actions in Settings.</p>';
+        return;
+    }
+    
+    container.innerHTML = actions.map(action => `
+        <label class="toggle-item">
+            <input type="checkbox" value="${action.name}">
+            <span class="toggle-label">${action.name}</span>
+        </label>
+    `).join('');
 }
 if (typeof window !== 'undefined') window.openAIModal = openAIModal;
 
@@ -3422,7 +3794,8 @@ function resetChat() {
     chatState = {
         step: 'start',
         isGenerating: false,
-        currentPolicy: null
+        currentPolicy: null,
+        formData: chatState.formData // Preserve form data when resetting chat
     };
     
     const chatMessages = document.getElementById('chatMessages');
@@ -3640,6 +4013,15 @@ function getSelectedDisciplinaryActions() {
 }
 
 function getOrganizationName(orgValue) {
+    // Try to get from configuration first
+    if (policyGeneratorConfig && policyGeneratorConfig.organizations) {
+        const org = policyGeneratorConfig.organizations.find(o => 
+            o.value === orgValue || o.name.toLowerCase().replace(/\s+/g, '-') === orgValue
+        );
+        if (org) return org.name;
+    }
+    
+    // Fallback to default mapping
     const orgNames = {
         'all': 'All Organizations',
         'tudor-glen': 'Tudor Glen',
@@ -3651,13 +4033,26 @@ function getOrganizationName(orgValue) {
 }
 
 function createSimpleChatGPTPrompt(userPrompt, currentDate, policyType, organizationNames, roleNames, disciplinaryActionNames) {
+    // Try to get type label from configuration
+    let typeLabel = 'Policy';
+    if (policyGeneratorConfig && policyGeneratorConfig.categories) {
+        const category = policyGeneratorConfig.categories.find(cat => 
+            cat.value === policyType || cat.name.toLowerCase().replace(/\s+/g, '-') === policyType
+        );
+        if (category) {
+            typeLabel = category.name;
+        }
+    }
+    
+    // Fallback to default mapping
+    if (typeLabel === 'Policy') {
     const typeLabels = {
         'admin': 'Administrative Policy',
         'sog': 'Standard Operating Guidelines',
         'memo': 'Communication Memo'
     };
-    
-    const typeLabel = typeLabels[policyType] || 'Policy';
+        typeLabel = typeLabels[policyType] || 'Policy';
+    }
     
     return `Create a comprehensive ${typeLabel} for veterinary clinics with the following specifications:
 
@@ -4130,20 +4525,38 @@ function saveGeneratedPolicy() {
     }
     
     const policy = chatState.currentPolicy;
+    const formData = chatState.formData || {};
+    
+    // Generate policy code
+    const policyTypePrefix = {
+        'admin': 'ADM',
+        'sog': 'SOG',
+        'memo': 'MEM'
+    };
+    const prefix = policyTypePrefix[policy.type] || 'POL';
+    const timestamp = Date.now().toString().slice(-6);
+    const policyCode = `${prefix}-${timestamp}`;
+    
+    // Get organization names from form data or policy
+    let clinicNames = policy.clinicNames;
+    if (formData.organizations && formData.organizations.length > 0) {
+        clinicNames = formData.organizations.map(org => getOrganizationName(org)).join(', ');
+    }
     
     // Create a new policy object
     const newPolicy = {
         id: Date.now().toString(),
-        title: policy.title,
+        title: formData.title || policy.title,
         type: policy.type,
         content: policy.content,
-        clinicNames: policy.clinicNames,
-        effectiveDate: policy.effectiveDate,
-        version: policy.version,
+        clinicNames: clinicNames,
+        effectiveDate: formData.effectiveDate || policy.effectiveDate,
+        version: formData.version || policy.version || '1.0',
         created: new Date().toISOString(),
         lastModified: new Date().toISOString(),
         status: 'active',
-        prompt: policy.prompt
+        prompt: policy.prompt,
+        policyCode: policyCode
     };
     
     // Add to policies array
@@ -4151,8 +4564,14 @@ function saveGeneratedPolicy() {
     savePoliciesToStorage();
     updatePolicyBadge();
     
+    // Refresh the policies display
+    displayPolicies();
+    
     showNotification('Policy saved successfully!', 'success');
     closeAIModal();
+    
+    // Navigate to policies section to show the newly saved policy
+    showSection('policies');
 }
 
 // Email Marketing Functions
@@ -4351,6 +4770,7 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Initialize policy management
     loadPoliciesFromStorage();
+    displayPolicies();
     updatePolicyBadge();
     
     // Initialize email marketing
@@ -4387,4 +4807,318 @@ document.addEventListener('DOMContentLoaded', function() {
     } catch (e) {
         console.error('Error re-attaching functions:', e);
     }
+    
+    // Load and display configuration on settings page load
+    if (typeof loadPolicyGeneratorConfig === 'function') {
+        loadPolicyGeneratorConfig();
+    }
 });
+
+// ============================================
+// Policy Generator Configuration Management
+// ============================================
+
+let policyGeneratorConfig = {
+    organizations: [],
+    roles: [],
+    disciplinaryActions: [],
+    categories: [],
+    audience: [],
+    compliance: []
+};
+
+// Default configurations
+const defaultConfig = {
+    organizations: [
+        { id: '1', name: 'All Organizations', value: 'all', description: 'Applies to all organizations' },
+        { id: '2', name: 'Tudor Glen', value: 'tudor-glen', description: '' },
+        { id: '3', name: 'River Valley', value: 'river-valley', description: '' },
+        { id: '4', name: 'Rosslyn', value: 'rosslyn', description: '' },
+        { id: '5', name: 'UPC', value: 'upc', description: '' }
+    ],
+    roles: [
+        { id: '1', name: 'All Staff', description: 'Applies to all staff members' },
+        { id: '2', name: 'Veterinarians', description: 'Licensed veterinarians' },
+        { id: '3', name: 'Veterinary Technicians', description: 'Certified veterinary technicians' },
+        { id: '4', name: 'Practice Manager', description: 'Practice management staff' },
+        { id: '5', name: 'Reception Staff', description: 'Front desk and reception' }
+    ],
+    disciplinaryActions: [
+        { id: '1', name: 'Verbal Warning', description: 'First offense verbal warning' },
+        { id: '2', name: 'Written Warning', description: 'Formal written warning' },
+        { id: '3', name: 'Suspension', description: 'Temporary suspension from duties' },
+        { id: '4', name: 'Termination', description: 'Employment termination' },
+        { id: '5', name: 'As per company policy', description: 'Follow standard company disciplinary procedures' }
+    ],
+    categories: [
+        { id: '1', name: 'Admin Policy', value: 'admin', description: 'Administrative policies' },
+        { id: '2', name: 'Standard Operating Guidelines', value: 'sog', description: 'Standard operating procedures' },
+        { id: '3', name: 'Communication Memo', value: 'memo', description: 'Internal communications' }
+    ],
+    audience: [
+        { id: '1', name: 'All Staff', description: 'All employees' },
+        { id: '2', name: 'Clinical Staff', description: 'Veterinarians and technicians' },
+        { id: '3', name: 'Administrative Staff', description: 'Management and reception' },
+        { id: '4', name: 'New Hires', description: 'Newly hired employees' }
+    ],
+    compliance: [
+        { id: '1', name: 'OSHA Compliance', description: 'Occupational Safety and Health Administration' },
+        { id: '2', name: 'AVMA Guidelines', description: 'American Veterinary Medical Association' },
+        { id: '3', name: 'State Veterinary Board', description: 'State licensing board requirements' },
+        { id: '4', name: 'HIPAA Compliance', description: 'Health Insurance Portability and Accountability Act' }
+    ]
+};
+
+function loadPolicyGeneratorConfig() {
+    const saved = localStorage.getItem('policyGeneratorConfig');
+    if (saved) {
+        try {
+            policyGeneratorConfig = JSON.parse(saved);
+            // Merge with defaults to ensure all categories exist
+            Object.keys(defaultConfig).forEach(key => {
+                if (!policyGeneratorConfig[key] || policyGeneratorConfig[key].length === 0) {
+                    policyGeneratorConfig[key] = defaultConfig[key];
+                }
+            });
+        } catch (e) {
+            console.error('Error loading config:', e);
+            policyGeneratorConfig = JSON.parse(JSON.stringify(defaultConfig));
+        }
+    } else {
+        policyGeneratorConfig = JSON.parse(JSON.stringify(defaultConfig));
+    }
+    savePolicyGeneratorConfig();
+    displayAllConfigurations();
+}
+
+function savePolicyGeneratorConfig() {
+    localStorage.setItem('policyGeneratorConfig', JSON.stringify(policyGeneratorConfig));
+}
+
+function displayAllConfigurations() {
+    displayConfigItems('organizations', 'organizationsList');
+    displayConfigItems('roles', 'rolesList');
+    displayConfigItems('disciplinaryActions', 'disciplinaryList');
+    displayConfigItems('categories', 'categoriesList');
+    displayConfigItems('audience', 'audienceList');
+    displayConfigItems('compliance', 'complianceList');
+}
+
+function displayConfigItems(configType, listId) {
+    const list = document.getElementById(listId);
+    if (!list) return;
+    
+    const items = policyGeneratorConfig[configType] || [];
+    
+    if (items.length === 0) {
+        list.innerHTML = '<p class="no-config-items">No items configured. Click "Add" to create one.</p>';
+        return;
+    }
+    
+    list.innerHTML = items.map(item => `
+        <div class="config-item" data-id="${item.id}" data-type="${configType}">
+            <div class="config-item-content">
+                <div class="config-item-name">
+                    <strong>${item.name}</strong>
+                    ${item.value ? `<span class="config-item-value">(${item.value})</span>` : ''}
+                </div>
+                ${item.description ? `<div class="config-item-description">${item.description}</div>` : ''}
+            </div>
+            <div class="config-item-actions">
+                <button class="btn btn-sm btn-secondary" onclick="editConfigItem('${configType}', '${item.id}')">
+                    <i class="fas fa-edit"></i> Edit
+                </button>
+                <button class="btn btn-sm btn-danger" onclick="deleteConfigItem('${configType}', '${item.id}')">
+                    <i class="fas fa-trash"></i> Delete
+                </button>
+            </div>
+        </div>
+    `).join('');
+}
+
+function addConfigItem(type) {
+    const typeLabels = {
+        'organization': 'Organization',
+        'role': 'Responsible Role',
+        'disciplinary': 'Disciplinary Action',
+        'category': 'Policy Category',
+        'audience': 'Audience Option',
+        'compliance': 'Compliance Requirement'
+    };
+    
+    document.getElementById('configItemModalTitle').textContent = `Add ${typeLabels[type] || 'Item'}`;
+    document.getElementById('configItemType').value = type;
+    document.getElementById('configItemId').value = '';
+    document.getElementById('configItemName').value = '';
+    document.getElementById('configItemValue').value = '';
+    document.getElementById('configItemDescription').value = '';
+    
+    // Show value field for organizations and categories
+    const valueGroup = document.getElementById('configItemValueGroup');
+    if (type === 'organization' || type === 'category') {
+        valueGroup.style.display = 'block';
+    } else {
+        valueGroup.style.display = 'none';
+    }
+    
+    document.getElementById('configItemModal').style.display = 'block';
+}
+
+function editConfigItem(type, id) {
+    const typeMapping = {
+        'organization': 'organizations',
+        'role': 'roles',
+        'disciplinary': 'disciplinaryActions',
+        'category': 'categories',
+        'audience': 'audience',
+        'compliance': 'compliance'
+    };
+    
+    const configKey = typeMapping[type];
+    if (!configKey) return;
+    
+    const items = policyGeneratorConfig[configKey] || [];
+    const item = items.find(i => i.id === id);
+    if (!item) return;
+    
+    const typeLabels = {
+        'organization': 'Organization',
+        'role': 'Responsible Role',
+        'disciplinary': 'Disciplinary Action',
+        'category': 'Policy Category',
+        'audience': 'Audience Option',
+        'compliance': 'Compliance Requirement'
+    };
+    
+    document.getElementById('configItemModalTitle').textContent = `Edit ${typeLabels[type] || 'Item'}`;
+    document.getElementById('configItemType').value = type;
+    document.getElementById('configItemId').value = id;
+    document.getElementById('configItemName').value = item.name;
+    document.getElementById('configItemValue').value = item.value || '';
+    document.getElementById('configItemDescription').value = item.description || '';
+    
+    // Show value field for organizations and categories
+    const valueGroup = document.getElementById('configItemValueGroup');
+    if (type === 'organization' || type === 'category') {
+        valueGroup.style.display = 'block';
+    } else {
+        valueGroup.style.display = 'none';
+    }
+    
+    document.getElementById('configItemModal').style.display = 'block';
+}
+
+function saveConfigItem(event) {
+    event.preventDefault();
+    
+    const type = document.getElementById('configItemType').value;
+    const id = document.getElementById('configItemId').value;
+    const name = document.getElementById('configItemName').value.trim();
+    const value = document.getElementById('configItemValue').value.trim();
+    const description = document.getElementById('configItemDescription').value.trim();
+    
+    if (!name) {
+        alert('Name is required');
+        return;
+    }
+    
+    // Map type to config key
+    const typeMapping = {
+        'organization': 'organizations',
+        'role': 'roles',
+        'disciplinary': 'disciplinaryActions',
+        'category': 'categories',
+        'audience': 'audience',
+        'compliance': 'compliance'
+    };
+    
+    const configKey = typeMapping[type];
+    if (!configKey) {
+        alert('Invalid configuration type');
+        return;
+    }
+    
+    if (!policyGeneratorConfig[configKey]) {
+        policyGeneratorConfig[configKey] = [];
+    }
+    
+    if (id) {
+        // Edit existing
+        const index = policyGeneratorConfig[configKey].findIndex(item => item.id === id);
+        if (index !== -1) {
+            policyGeneratorConfig[configKey][index] = {
+                ...policyGeneratorConfig[configKey][index],
+                name,
+                value: value || undefined,
+                description: description || undefined
+            };
+        }
+    } else {
+        // Add new
+        const newId = Date.now().toString();
+        const newItem = {
+            id: newId,
+            name,
+            description: description || undefined
+        };
+        if (value) {
+            newItem.value = value;
+        }
+        policyGeneratorConfig[configKey].push(newItem);
+    }
+    
+    savePolicyGeneratorConfig();
+    displayConfigItems(configKey, getListIdForType(type));
+    closeConfigItemModal();
+    showNotification('Configuration saved successfully!', 'success');
+}
+
+function deleteConfigItem(type, id) {
+    if (!confirm('Are you sure you want to delete this item?')) {
+        return;
+    }
+    
+    const typeMapping = {
+        'organization': 'organizations',
+        'role': 'roles',
+        'disciplinary': 'disciplinaryActions',
+        'category': 'categories',
+        'audience': 'audience',
+        'compliance': 'compliance'
+    };
+    
+    const configKey = typeMapping[type];
+    if (!configKey) return;
+    
+    policyGeneratorConfig[configKey] = policyGeneratorConfig[configKey].filter(item => item.id !== id);
+    savePolicyGeneratorConfig();
+    displayConfigItems(configKey, getListIdForType(type));
+    showNotification('Item deleted successfully', 'success');
+}
+
+function getListIdForType(type) {
+    const mapping = {
+        'organization': 'organizationsList',
+        'role': 'rolesList',
+        'disciplinary': 'disciplinaryList',
+        'category': 'categoriesList',
+        'audience': 'audienceList',
+        'compliance': 'complianceList'
+    };
+    return mapping[type] || '';
+}
+
+function closeConfigItemModal() {
+    document.getElementById('configItemModal').style.display = 'none';
+    document.getElementById('configItemForm').reset();
+}
+
+// Attach functions to window
+if (typeof window !== 'undefined') {
+    window.addConfigItem = addConfigItem;
+    window.editConfigItem = editConfigItem;
+    window.deleteConfigItem = deleteConfigItem;
+    window.saveConfigItem = saveConfigItem;
+    window.closeConfigItemModal = closeConfigItemModal;
+    window.loadPolicyGeneratorConfig = loadPolicyGeneratorConfig;
+}

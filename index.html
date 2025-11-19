@@ -605,6 +605,9 @@
                     <button class="tab-btn" onclick="showSettingsTab('webhooks', event)">
                         <i class="fas fa-plug"></i> Webhooks
                     </button>
+                    <button class="tab-btn" onclick="showSettingsTab('aiGenerator', event)">
+                        <i class="fas fa-robot"></i> AI Policy Generator
+                    </button>
                 </div>
                 
                 <!-- Roles Tab -->
@@ -743,6 +746,81 @@
                         </form>
                     </div>
                 </div>
+
+                <!-- AI Policy Generator Configuration Tab -->
+                <div id="aiGeneratorTab" class="settings-tab">
+                    <div class="settings-section">
+                        <div style="margin-bottom: 25px;">
+                            <h3 style="margin: 0;">AI Policy Generator Configuration</h3>
+                            <p style="margin: 5px 0 0 0; color: #666;">Configure the options available in the AI Policy Generator wizard. These settings will be used when creating new policies.</p>
+                        </div>
+
+                        <!-- Policy Types Configuration -->
+                        <div class="config-group" style="margin-bottom: 30px; padding: 20px; background: #f8f9fa; border-radius: 8px;">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                                <h4 style="margin: 0; color: #333;"><i class="fas fa-tags"></i> Policy Types</h4>
+                                <button onclick="addAIConfigItem('policyType')" class="btn btn-sm btn-primary">
+                                    <i class="fas fa-plus"></i> Add Type
+                                </button>
+                            </div>
+                            <div id="aiPolicyTypesList" class="config-items-list">
+                                <!-- Policy types will be loaded here -->
+                            </div>
+                        </div>
+
+                        <!-- Policy Categories Configuration -->
+                        <div class="config-group" style="margin-bottom: 30px; padding: 20px; background: #f8f9fa; border-radius: 8px;">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                                <h4 style="margin: 0; color: #333;"><i class="fas fa-folder"></i> Policy Categories</h4>
+                                <button onclick="addAIConfigItem('category')" class="btn btn-sm btn-primary">
+                                    <i class="fas fa-plus"></i> Add Category
+                                </button>
+                            </div>
+                            <div id="aiCategoriesList" class="config-items-list">
+                                <!-- Categories will be loaded here -->
+                            </div>
+                        </div>
+
+                        <!-- Audience Options Configuration -->
+                        <div class="config-group" style="margin-bottom: 30px; padding: 20px; background: #f8f9fa; border-radius: 8px;">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                                <h4 style="margin: 0; color: #333;"><i class="fas fa-users"></i> Audience Options</h4>
+                                <button onclick="addAIConfigItem('audience')" class="btn btn-sm btn-primary">
+                                    <i class="fas fa-plus"></i> Add Audience
+                                </button>
+                            </div>
+                            <div id="aiAudienceList" class="config-items-list">
+                                <!-- Audience options will be loaded here -->
+                            </div>
+                        </div>
+
+                        <!-- Compliance Requirements Configuration -->
+                        <div class="config-group" style="margin-bottom: 30px; padding: 20px; background: #f8f9fa; border-radius: 8px;">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                                <h4 style="margin: 0; color: #333;"><i class="fas fa-shield-alt"></i> Compliance Requirements</h4>
+                                <button onclick="addAIConfigItem('compliance')" class="btn btn-sm btn-primary">
+                                    <i class="fas fa-plus"></i> Add Requirement
+                                </button>
+                            </div>
+                            <div id="aiComplianceList" class="config-items-list">
+                                <!-- Compliance requirements will be loaded here -->
+                            </div>
+                        </div>
+
+                        <!-- Urgency Levels Configuration -->
+                        <div class="config-group" style="margin-bottom: 30px; padding: 20px; background: #f8f9fa; border-radius: 8px;">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                                <h4 style="margin: 0; color: #333;"><i class="fas fa-clock"></i> Urgency Levels</h4>
+                                <button onclick="addAIConfigItem('urgency')" class="btn btn-sm btn-primary">
+                                    <i class="fas fa-plus"></i> Add Level
+                                </button>
+                            </div>
+                            <div id="aiUrgencyList" class="config-items-list">
+                                <!-- Urgency levels will be loaded here -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -750,15 +828,243 @@
 
     <!-- AI Policy Generator Modal -->
     <div id="aiModal" class="modal">
-        <div class="modal-content ai-generator-modal">
+        <div class="modal-content chat-modal">
             <div class="modal-header">
-                <div class="header-content">
-                    <h3><i class="fas fa-magic"></i> AI Policy Generator</h3>
-                    <p class="ai-subtitle">Create professional policies in minutes</p>
-                </div>
+                <h3><i class="fas fa-robot"></i> AI Policy Assistant</h3>
+                <p class="ai-subtitle">Create professional policies with AI assistance</p>
                 <span class="close" onclick="closeAIModal()">&times;</span>
             </div>
             <div class="modal-body">
+                <!-- Setup Form Container (shown when not configured) -->
+                <div class="ai-setup-container" id="aiSetupForm" style="display: none;">
+                    <div style="max-width: 900px; margin: 0 auto; padding: 20px;">
+                        <!-- Progress Steps -->
+                        <div class="setup-progress" style="margin-bottom: 40px;">
+                            <div class="setup-progress-bar" style="background: #e0e0e0; height: 4px; border-radius: 2px; position: relative; margin-bottom: 20px;">
+                                <div id="setupProgressFill" style="background: #6366f1; height: 100%; border-radius: 2px; transition: width 0.3s; width: 16.66%;"></div>
+                            </div>
+                            <div style="display: flex; justify-content: space-between; font-size: 0.85rem; color: #666;">
+                                <span id="setupStep1" class="setup-step active" style="color: #6366f1; font-weight: 600;">Policy Types</span>
+                                <span id="setupStep2" class="setup-step">Categories</span>
+                                <span id="setupStep3" class="setup-step">Audience</span>
+                                <span id="setupStep4" class="setup-step">Compliance</span>
+                                <span id="setupStep5" class="setup-step">Urgency</span>
+                                <span id="setupStep6" class="setup-step">Roles</span>
+                            </div>
+                        </div>
+                        
+                        <!-- Step 1: Policy Types -->
+                        <div id="setupStepContent1" class="setup-step-content">
+                            <div style="text-align: center; margin-bottom: 30px;">
+                                <div style="font-size: 48px; color: #6366f1; margin-bottom: 15px;">
+                                    <i class="fas fa-tags"></i>
+                                </div>
+                                <h2 style="margin: 0 0 10px 0; color: #333;">Policy Types</h2>
+                                <p style="color: #666; margin: 0;">Select the types of policies you want to generate</p>
+                            </div>
+                            
+                            <div style="background: #f8f9fa; padding: 30px; border-radius: 12px;">
+                                <h3 style="margin: 0 0 20px 0; color: #333; font-size: 1.1rem;">Recommended Options</h3>
+                                <div id="setupPolicyTypesRecommendations" class="setup-recommendations" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; margin-bottom: 25px;">
+                                    <!-- Will be populated by JS -->
+                                </div>
+                                
+                                <div style="margin-top: 30px; padding-top: 25px; border-top: 2px solid #e0e0e0;">
+                                    <h3 style="margin: 0 0 15px 0; color: #333; font-size: 1.1rem;">Add Custom Policy Types</h3>
+                                    <div style="display: flex; gap: 10px; margin-bottom: 15px;">
+                                        <input type="text" id="setupPolicyTypesCustom" class="form-control" 
+                                            placeholder="Enter custom policy type (e.g., Safety Protocol)" 
+                                            style="flex: 1;">
+                                        <button type="button" class="btn btn-outline" onclick="addCustomItem('policyTypes')">
+                                            <i class="fas fa-plus"></i> Add
+                                        </button>
+                                    </div>
+                                    <div id="setupPolicyTypesCustomList" class="setup-custom-list" style="display: flex; flex-wrap: wrap; gap: 10px;">
+                                        <!-- Custom items will appear here -->
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Step 2: Categories -->
+                        <div id="setupStepContent2" class="setup-step-content" style="display: none;">
+                            <div style="text-align: center; margin-bottom: 30px;">
+                                <div style="font-size: 48px; color: #10b981; margin-bottom: 15px;">
+                                    <i class="fas fa-folder"></i>
+                                </div>
+                                <h2 style="margin: 0 0 10px 0; color: #333;">Policy Categories</h2>
+                                <p style="color: #666; margin: 0;">Select the categories your policies will cover</p>
+                            </div>
+                            
+                            <div style="background: #f8f9fa; padding: 30px; border-radius: 12px;">
+                                <h3 style="margin: 0 0 20px 0; color: #333; font-size: 1.1rem;">Recommended Options</h3>
+                                <div id="setupCategoriesRecommendations" class="setup-recommendations" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; margin-bottom: 25px;">
+                                    <!-- Will be populated by JS -->
+                                </div>
+                                
+                                <div style="margin-top: 30px; padding-top: 25px; border-top: 2px solid #e0e0e0;">
+                                    <h3 style="margin: 0 0 15px 0; color: #333; font-size: 1.1rem;">Add Custom Categories</h3>
+                                    <div style="display: flex; gap: 10px; margin-bottom: 15px;">
+                                        <input type="text" id="setupCategoriesCustom" class="form-control" 
+                                            placeholder="Enter custom category (e.g., Quality Assurance)" 
+                                            style="flex: 1;">
+                                        <button type="button" class="btn btn-outline" onclick="addCustomItem('categories')">
+                                            <i class="fas fa-plus"></i> Add
+                                        </button>
+                                    </div>
+                                    <div id="setupCategoriesCustomList" class="setup-custom-list" style="display: flex; flex-wrap: wrap; gap: 10px;">
+                                        <!-- Custom items will appear here -->
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Step 3: Audience -->
+                        <div id="setupStepContent3" class="setup-step-content" style="display: none;">
+                            <div style="text-align: center; margin-bottom: 30px;">
+                                <div style="font-size: 48px; color: #f59e0b; margin-bottom: 15px;">
+                                    <i class="fas fa-users"></i>
+                                </div>
+                                <h2 style="margin: 0 0 10px 0; color: #333;">Audience Options</h2>
+                                <p style="color: #666; margin: 0;">Select who will be the audience for your policies</p>
+                            </div>
+                            
+                            <div style="background: #f8f9fa; padding: 30px; border-radius: 12px;">
+                                <h3 style="margin: 0 0 20px 0; color: #333; font-size: 1.1rem;">Recommended Options</h3>
+                                <div id="setupAudienceRecommendations" class="setup-recommendations" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; margin-bottom: 25px;">
+                                    <!-- Will be populated by JS -->
+                                </div>
+                                
+                                <div style="margin-top: 30px; padding-top: 25px; border-top: 2px solid #e0e0e0;">
+                                    <h3 style="margin: 0 0 15px 0; color: #333; font-size: 1.1rem;">Add Custom Audience</h3>
+                                    <div style="display: flex; gap: 10px; margin-bottom: 15px;">
+                                        <input type="text" id="setupAudienceCustom" class="form-control" 
+                                            placeholder="Enter custom audience (e.g., Management Team)" 
+                                            style="flex: 1;">
+                                        <button type="button" class="btn btn-outline" onclick="addCustomItem('audience')">
+                                            <i class="fas fa-plus"></i> Add
+                                        </button>
+                                    </div>
+                                    <div id="setupAudienceCustomList" class="setup-custom-list" style="display: flex; flex-wrap: wrap; gap: 10px;">
+                                        <!-- Custom items will appear here -->
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Step 4: Compliance -->
+                        <div id="setupStepContent4" class="setup-step-content" style="display: none;">
+                            <div style="text-align: center; margin-bottom: 30px;">
+                                <div style="font-size: 48px; color: #8b5cf6; margin-bottom: 15px;">
+                                    <i class="fas fa-shield-alt"></i>
+                                </div>
+                                <h2 style="margin: 0 0 10px 0; color: #333;">Compliance Requirements</h2>
+                                <p style="color: #666; margin: 0;">Select compliance requirements your policies need to meet</p>
+                            </div>
+                            
+                            <div style="background: #f8f9fa; padding: 30px; border-radius: 12px;">
+                                <h3 style="margin: 0 0 20px 0; color: #333; font-size: 1.1rem;">Recommended Options</h3>
+                                <div id="setupComplianceRecommendations" class="setup-recommendations" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; margin-bottom: 25px;">
+                                    <!-- Will be populated by JS -->
+                                </div>
+                                
+                                <div style="margin-top: 30px; padding-top: 25px; border-top: 2px solid #e0e0e0;">
+                                    <h3 style="margin: 0 0 15px 0; color: #333; font-size: 1.1rem;">Add Custom Compliance</h3>
+                                    <div style="display: flex; gap: 10px; margin-bottom: 15px;">
+                                        <input type="text" id="setupComplianceCustom" class="form-control" 
+                                            placeholder="Enter custom compliance (e.g., ISO 9001)" 
+                                            style="flex: 1;">
+                                        <button type="button" class="btn btn-outline" onclick="addCustomItem('compliance')">
+                                            <i class="fas fa-plus"></i> Add
+                                        </button>
+                                    </div>
+                                    <div id="setupComplianceCustomList" class="setup-custom-list" style="display: flex; flex-wrap: wrap; gap: 10px;">
+                                        <!-- Custom items will appear here -->
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Step 5: Urgency -->
+                        <div id="setupStepContent5" class="setup-step-content" style="display: none;">
+                            <div style="text-align: center; margin-bottom: 30px;">
+                                <div style="font-size: 48px; color: #ef4444; margin-bottom: 15px;">
+                                    <i class="fas fa-clock"></i>
+                                </div>
+                                <h2 style="margin: 0 0 10px 0; color: #333;">Urgency Levels</h2>
+                                <p style="color: #666; margin: 0;">Select the urgency levels for policy implementation</p>
+                            </div>
+                            
+                            <div style="background: #f8f9fa; padding: 30px; border-radius: 12px;">
+                                <h3 style="margin: 0 0 20px 0; color: #333; font-size: 1.1rem;">Recommended Options</h3>
+                                <div id="setupUrgencyRecommendations" class="setup-recommendations" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; margin-bottom: 25px;">
+                                    <!-- Will be populated by JS -->
+                                </div>
+                                
+                                <div style="margin-top: 30px; padding-top: 25px; border-top: 2px solid #e0e0e0;">
+                                    <h3 style="margin: 0 0 15px 0; color: #333; font-size: 1.1rem;">Add Custom Urgency Level</h3>
+                                    <div style="display: flex; gap: 10px; margin-bottom: 15px;">
+                                        <input type="text" id="setupUrgencyCustom" class="form-control" 
+                                            placeholder="Enter custom urgency (e.g., Critical)" 
+                                            style="flex: 1;">
+                                        <button type="button" class="btn btn-outline" onclick="addCustomItem('urgency')">
+                                            <i class="fas fa-plus"></i> Add
+                                        </button>
+                                    </div>
+                                    <div id="setupUrgencyCustomList" class="setup-custom-list" style="display: flex; flex-wrap: wrap; gap: 10px;">
+                                        <!-- Custom items will appear here -->
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Step 6: Roles -->
+                        <div id="setupStepContent6" class="setup-step-content" style="display: none;">
+                            <div style="text-align: center; margin-bottom: 30px;">
+                                <div style="font-size: 48px; color: #ec4899; margin-bottom: 15px;">
+                                    <i class="fas fa-user-tie"></i>
+                                </div>
+                                <h2 style="margin: 0 0 10px 0; color: #333;">Assign Roles to People</h2>
+                                <p style="color: #666; margin: 0;">Assign real people from your organization to roles</p>
+                            </div>
+                            
+                            <div style="background: #f8f9fa; padding: 30px; border-radius: 12px;">
+                                <div id="setupRolesContainer">
+                                    <!-- Roles will be populated by JS -->
+                                </div>
+                                
+                                <div style="margin-top: 25px; padding-top: 25px; border-top: 2px solid #e0e0e0;">
+                                    <h3 style="margin: 0 0 15px 0; color: #333; font-size: 1.1rem;">Add New Role</h3>
+                                    <div style="display: flex; gap: 10px;">
+                                        <input type="text" id="setupNewRoleName" class="form-control" 
+                                            placeholder="Enter role name (e.g., Policy Manager)" 
+                                            style="flex: 1;">
+                                        <button type="button" class="btn btn-outline" onclick="addNewRole()">
+                                            <i class="fas fa-plus"></i> Add Role
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Navigation Buttons -->
+                        <div style="display: flex; justify-content: space-between; margin-top: 30px; padding-top: 20px; border-top: 2px solid #e0e0e0;">
+                            <button type="button" class="btn btn-secondary" id="setupBackBtn" onclick="setupGoBack()" style="display: none; min-width: 120px;">
+                                <i class="fas fa-arrow-left"></i> Back
+                            </button>
+                            <button type="button" class="btn btn-secondary" onclick="closeAIModal()" style="min-width: 120px;">
+                                Cancel
+                            </button>
+                            <button type="button" class="btn btn-primary" id="setupNextBtn" onclick="setupGoNext()" style="min-width: 120px;">
+                                Next <i class="fas fa-arrow-right"></i>
+                            </button>
+                            <button type="button" class="btn btn-primary" id="setupSaveBtn" onclick="saveAISetup()" style="display: none; min-width: 120px;">
+                                <i class="fas fa-save"></i> Save & Continue
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                
                 <!-- Wizard Container -->
                 <div class="ai-wizard-container" id="aiWizard">
                     <!-- Progress Bar -->
@@ -780,6 +1086,17 @@
                     <!-- Options Container -->
                     <div class="wizard-options-container" id="wizardOptionsContainer">
                         <!-- Options will be dynamically inserted here -->
+                    </div>
+                    
+                    <!-- Recommendations Section -->
+                    <div id="wizardRecommendationsContainer" class="wizard-recommendations-container" style="display: none; margin-top: 30px; padding: 25px; background: #f8f9fa; border-radius: 12px; border: 2px solid #e5e7eb;">
+                        <h3 style="margin: 0 0 20px 0; color: #333; font-size: 1.1rem; display: flex; align-items: center; gap: 10px;">
+                            <i class="fas fa-star" style="color: #f59e0b;"></i>
+                            Recommended Options
+                        </h3>
+                        <div id="wizardRecommendations" class="wizard-recommendations" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px;">
+                            <!-- Recommendations will be dynamically inserted here -->
+                        </div>
                     </div>
                     
                     <!-- Text Input Container (for text questions) -->
@@ -806,67 +1123,24 @@
                     </div>
                 </div>
                 
-                <!-- Loading State -->
-                <div id="aiLoading" class="ai-loading-state" style="display: none;">
-                    <div class="loading-animation">
-                        <div class="spinner"></div>
-                        <div class="pulse-dots">
-                            <span></span>
-                            <span></span>
-                            <span></span>
-                        </div>
-                    </div>
-                    <h3>Generating Your Policy</h3>
-                    <p id="loadingMessage">Analyzing your requirements and creating a professional policy...</p>
-                    <div class="loading-steps">
-                        <div class="loading-step active" id="step1">
-                            <i class="fas fa-check-circle"></i>
-                            <span>Processing your inputs</span>
-                        </div>
-                        <div class="loading-step" id="step2">
-                            <i class="fas fa-circle"></i>
-                            <span>Researching best practices</span>
-                        </div>
-                        <div class="loading-step" id="step3">
-                            <i class="fas fa-circle"></i>
-                            <span>Generating content</span>
-                        </div>
-                        <div class="loading-step" id="step4">
-                            <i class="fas fa-circle"></i>
-                            <span>Finalizing policy</span>
-                        </div>
-                    </div>
+                <div id="aiLoading" class="ai-loading" style="display: none;">
+                    <div class="loading-spinner"></div>
+                    <p>Generating your policy with AI...</p>
                 </div>
                 
-                <!-- Result State -->
-                <div id="aiResult" class="ai-result-state" style="display: none;">
-                    <div class="result-header">
-                        <h3><i class="fas fa-check-circle"></i> Policy Generated Successfully</h3>
-                        <p>Review your policy below and make any necessary adjustments</p>
-                    </div>
-                    <div class="result-actions">
-                        <button class="btn btn-secondary" onclick="wizardEditPolicy()">
-                            <i class="fas fa-edit"></i> Edit Policy
+                <div id="aiResult" class="ai-result" style="display: none;">
+                    <h4>Generated Policy</h4>
+                    <div class="policy-preview" id="policyPreview"></div>
+                    <div class="policy-actions">
+                        <button onclick="saveGeneratedPolicy()" class="btn btn-primary">
+                            <i class="fas fa-save"></i> Save Policy
                         </button>
-                        <button class="btn btn-primary" onclick="wizardSavePolicy()">
-                            <i class="fas fa-save"></i> Save to Drafts
+                        <button onclick="downloadGeneratedPolicy()" class="btn btn-secondary">
+                            <i class="fas fa-download"></i> Download
                         </button>
-                        <button class="btn btn-success" onclick="wizardPublishPolicy()">
-                            <i class="fas fa-paper-plane"></i> Publish Now
+                        <button onclick="regeneratePolicy()" class="btn btn-outline">
+                            <i class="fas fa-redo"></i> Regenerate
                         </button>
-                    </div>
-                    <div class="result-content" id="aiGeneratedContent">
-                        <!-- Generated policy content will appear here -->
-                    </div>
-                    <div class="result-refinement">
-                        <h4>Need Changes?</h4>
-                        <p>Describe what you'd like to modify:</p>
-                        <div class="refinement-input">
-                            <textarea id="refinementInput" placeholder="Example: Make it more concise, add a section about emergency procedures, change the tone to be more formal..." rows="3"></textarea>
-                            <button class="btn btn-primary" onclick="wizardRefinePolicy()">
-                                <i class="fas fa-sync-alt"></i> Refine Policy
-                            </button>
-                        </div>
                     </div>
                 </div>
             </div>
@@ -1772,6 +2046,73 @@
     </footer>
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <!-- AI Config Item Modal -->
+    <div id="aiConfigItemModal" class="modal" style="z-index: 4000;">
+        <div class="modal-content" style="max-width: 600px;">
+            <div class="modal-header">
+                <h3 id="aiConfigItemModalTitle"><i class="fas fa-cog"></i> Add Configuration Item</h3>
+                <span class="close" onclick="closeAIConfigItemModal()">&times;</span>
+            </div>
+            <div class="modal-body">
+                <form id="aiConfigItemForm" onsubmit="saveAIConfigItem(event)">
+                    <input type="hidden" id="aiConfigItemType" value="">
+                    <input type="hidden" id="aiConfigItemId" value="">
+                    
+                    <div class="form-group">
+                        <label for="aiConfigItemLabel">
+                            <i class="fas fa-tag"></i> Label <span style="color: red;">*</span>
+                        </label>
+                        <input type="text" id="aiConfigItemLabel" placeholder="e.g., Admin Policy, Clinical Staff" required
+                               style="width: 100%; padding: 12px; border: 2px solid #ddd; border-radius: 6px; font-size: 15px;">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="aiConfigItemValue">
+                            <i class="fas fa-code"></i> Value/Code
+                        </label>
+                        <input type="text" id="aiConfigItemValue" placeholder="Internal value (optional)"
+                               style="width: 100%; padding: 12px; border: 2px solid #ddd; border-radius: 6px; font-size: 15px;">
+                        <small style="color: #666; display: block; margin-top: 5px;">Used internally. If empty, will be generated from label.</small>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="aiConfigItemDescription">
+                            <i class="fas fa-info-circle"></i> Description
+                        </label>
+                        <textarea id="aiConfigItemDescription" placeholder="Brief description of this option..." 
+                                  rows="3" style="width: 100%; padding: 12px; border: 2px solid #ddd; border-radius: 6px; font-size: 15px; resize: vertical;"></textarea>
+                    </div>
+                    
+                    <div class="form-group" id="aiConfigItemIconGroup" style="display: none;">
+                        <label for="aiConfigItemIcon">
+                            <i class="fas fa-icons"></i> Icon (Font Awesome class)
+                        </label>
+                        <input type="text" id="aiConfigItemIcon" placeholder="fa-file-alt"
+                               style="width: 100%; padding: 12px; border: 2px solid #ddd; border-radius: 6px; font-size: 15px;">
+                        <small style="color: #666; display: block; margin-top: 5px;">Font Awesome icon class (e.g., fa-file-alt, fa-users)</small>
+                    </div>
+                    
+                    <div class="form-group" id="aiConfigItemColorGroup" style="display: none;">
+                        <label for="aiConfigItemColor">
+                            <i class="fas fa-palette"></i> Color
+                        </label>
+                        <input type="color" id="aiConfigItemColor" value="#6366f1"
+                               style="width: 100%; padding: 12px; border: 2px solid #ddd; border-radius: 6px; font-size: 15px; height: 50px;">
+                    </div>
+                    
+                    <div class="modal-footer" style="display: flex; gap: 10px; justify-content: flex-end; margin-top: 25px;">
+                        <button type="button" class="btn btn-secondary" onclick="closeAIConfigItemModal()">
+                            <i class="fas fa-times"></i> Cancel
+                        </button>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-check"></i> Save
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
     <script src="supabase-config.js?v=4&t=20250202"></script>
     <script src="script.js?v=191"></script>
 </body>

@@ -5176,3 +5176,46 @@ body:not(.user-logged-in) .navbar {
     color: #9ca3af;
     font-size: 14px;
 }
+
+/* Setup Wizard Styles */
+.setup-recommendation-item {
+    transition: all 0.2s ease;
+}
+
+.setup-recommendation-item:hover {
+    border-color: #6366f1 !important;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(99, 102, 241, 0.15);
+}
+
+.setup-recommendation-item:has(input:checked) {
+    background: linear-gradient(135deg, #6366f1, #8b5cf6) !important;
+    border-color: #6366f1 !important;
+    color: white !important;
+}
+
+.setup-recommendation-item:has(input:checked) strong {
+    color: white !important;
+}
+
+.setup-recommendation-item:has(input:checked) i {
+    color: white !important;
+}
+
+.setup-custom-tag {
+    transition: all 0.2s ease;
+}
+
+.setup-custom-tag:hover {
+    transform: scale(1.05);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.setup-role-card {
+    transition: all 0.2s ease;
+}
+
+.setup-role-card:hover {
+    border-color: #6366f1 !important;
+    box-shadow: 0 4px 12px rgba(99, 102, 241, 0.1);
+}

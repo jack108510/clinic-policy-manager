@@ -765,6 +765,94 @@
                         </button>
                     </div>
                 </div>
+
+                <!-- Policy Generator Configuration -->
+                <div class="section-header" style="margin-top: 40px;">
+                    <div class="header-content">
+                        <h2>AI Policy Generator Configuration</h2>
+                        <p>Configure all options available in the AI Policy Generator</p>
+                    </div>
+                </div>
+
+                <div class="config-sections">
+                    <!-- Organizations Configuration -->
+                    <div class="config-section-card">
+                        <div class="config-section-header">
+                            <h3><i class="fas fa-building"></i> Organizations</h3>
+                            <button class="btn btn-sm btn-primary" onclick="addConfigItem('organization')">
+                                <i class="fas fa-plus"></i> Add Organization
+                            </button>
+                        </div>
+                        <div class="config-items-list" id="organizationsList">
+                            <!-- Organizations will be loaded here -->
+                        </div>
+                    </div>
+
+                    <!-- Roles Configuration -->
+                    <div class="config-section-card">
+                        <div class="config-section-header">
+                            <h3><i class="fas fa-user-tie"></i> Responsible Roles</h3>
+                            <button class="btn btn-sm btn-primary" onclick="addConfigItem('role')">
+                                <i class="fas fa-plus"></i> Add Role
+                            </button>
+                        </div>
+                        <div class="config-items-list" id="rolesList">
+                            <!-- Roles will be loaded here -->
+                        </div>
+                    </div>
+
+                    <!-- Disciplinary Actions Configuration -->
+                    <div class="config-section-card">
+                        <div class="config-section-header">
+                            <h3><i class="fas fa-exclamation-triangle"></i> Disciplinary Actions (Consequences)</h3>
+                            <button class="btn btn-sm btn-primary" onclick="addConfigItem('disciplinary')">
+                                <i class="fas fa-plus"></i> Add Action
+                            </button>
+                        </div>
+                        <div class="config-items-list" id="disciplinaryList">
+                            <!-- Disciplinary actions will be loaded here -->
+                        </div>
+                    </div>
+
+                    <!-- Policy Categories Configuration -->
+                    <div class="config-section-card">
+                        <div class="config-section-header">
+                            <h3><i class="fas fa-tags"></i> Policy Categories/Types</h3>
+                            <button class="btn btn-sm btn-primary" onclick="addConfigItem('category')">
+                                <i class="fas fa-plus"></i> Add Category
+                            </button>
+                        </div>
+                        <div class="config-items-list" id="categoriesList">
+                            <!-- Categories will be loaded here -->
+                        </div>
+                    </div>
+
+                    <!-- Audience Configuration -->
+                    <div class="config-section-card">
+                        <div class="config-section-header">
+                            <h3><i class="fas fa-users"></i> Audience Options</h3>
+                            <button class="btn btn-sm btn-primary" onclick="addConfigItem('audience')">
+                                <i class="fas fa-plus"></i> Add Audience
+                            </button>
+                        </div>
+                        <div class="config-items-list" id="audienceList">
+                            <!-- Audience options will be loaded here -->
+                        </div>
+                    </div>
+
+                    <!-- Compliance Requirements Configuration -->
+                    <div class="config-section-card">
+                        <div class="config-section-header">
+                            <h3><i class="fas fa-shield-alt"></i> Compliance Requirements</h3>
+                            <button class="btn btn-sm btn-primary" onclick="addConfigItem('compliance')">
+                                <i class="fas fa-plus"></i> Add Requirement
+                            </button>
+                        </div>
+                        <div class="config-items-list" id="complianceList">
+                            <!-- Compliance requirements will be loaded here -->
+                        </div>
+                    </div>
+                </div>
             </section>
 
             <section id="profile" class="content-section">
@@ -1270,110 +1358,183 @@
                 <span class="close" onclick="closeAIModal()">&times;</span>
             </div>
             <div class="modal-body">
-                <div class="policy-type-selection">
-                    <h4>Select Policy Type:</h4>
-                    <div class="policy-type-toggles">
-                        <label class="toggle-item">
-                            <input type="radio" name="policyType" value="admin" checked>
-                            <span class="toggle-label">Admin Policy</span>
-                        </label>
-                        <label class="toggle-item">
-                            <input type="radio" name="policyType" value="sog">
-                            <span class="toggle-label">Standard Operating Guidelines</span>
-                        </label>
-                        <label class="toggle-item">
-                            <input type="radio" name="policyType" value="memo">
-                            <span class="toggle-label">Communication Memo</span>
-                        </label>
+                <!-- Form-Based Setup Section -->
+                <div class="ai-form-setup" id="aiFormSetup">
+                    <div class="form-tabs">
+                        <button class="form-tab active" onclick="switchFormTab('basic')" data-tab="basic">
+                            <i class="fas fa-info-circle"></i> Basic Info
+                        </button>
+                        <button class="form-tab" onclick="switchFormTab('details')" data-tab="details">
+                            <i class="fas fa-file-alt"></i> Details
+                        </button>
+                        <button class="form-tab" onclick="switchFormTab('settings')" data-tab="settings">
+                            <i class="fas fa-cog"></i> Settings
+                        </button>
+                        <button class="form-tab" onclick="switchFormTab('chat')" data-tab="chat">
+                            <i class="fas fa-comments"></i> Chat
+                        </button>
                     </div>
-                </div>
-                
-                <div class="policy-options-selection">
-                    <h4>Policy Options:</h4>
-                    <div class="policy-options-grid">
-                        <div class="option-group">
-                            <h5>Applicable Organizations:</h5>
-                            <div class="organization-toggles">
-                                <label class="toggle-item">
-                                    <input type="checkbox" id="org-all" onchange="toggleAllOrganizations()">
-                                    <span class="toggle-label">All Organizations</span>
-                                </label>
-                                <label class="toggle-item">
-                                    <input type="checkbox" id="org-tudor-glen" value="tudor-glen">
-                                    <span class="toggle-label">Tudor Glen</span>
-                                </label>
-                                <label class="toggle-item">
-                                    <input type="checkbox" id="org-river-valley" value="river-valley">
-                                    <span class="toggle-label">River Valley</span>
-                                </label>
-                                <label class="toggle-item">
-                                    <input type="checkbox" id="org-rosslyn" value="rosslyn">
-                                    <span class="toggle-label">Rosslyn</span>
-                                </label>
-                                <label class="toggle-item">
-                                    <input type="checkbox" id="org-upc" value="upc">
-                                    <span class="toggle-label">UPC</span>
-                                </label>
+
+                    <!-- Basic Info Tab -->
+                    <div class="form-tab-content active" id="tab-basic">
+                        <div class="form-section">
+                            <h4><i class="fas fa-tag"></i> Policy Type</h4>
+                            <div class="policy-type-toggles" id="formPolicyTypes">
+                                <!-- Populated from config -->
                             </div>
                         </div>
-                        
-                        <div class="option-group">
-                            <h5>Responsible Roles:</h5>
-                            <div class="responsibility-toggles" id="responsibilityToggles">
-                                <!-- Roles will be populated from settings -->
+
+                        <div class="form-section">
+                            <div class="form-group">
+                                <label for="aiPolicyTitle">
+                                    Policy Title <span class="required">*</span>
+                                    <span class="help-text">e.g., "Patient Safety Protocol" or "Hand Hygiene Procedures"</span>
+                                </label>
+                                <input type="text" id="aiPolicyTitle" class="form-control" 
+                                       placeholder="Enter a descriptive title for your policy"
+                                       oninput="updatePolicyPreview()">
                             </div>
-                        </div>
-                        
-                        <div class="option-group">
-                            <h5>Disciplinary Actions:</h5>
-                            <div class="disciplinary-toggles" id="disciplinaryToggles">
-                                <!-- Disciplinary actions will be populated from settings -->
+
+                            <div class="form-group">
+                                <label for="aiPolicyDescription">
+                                    Policy Description
+                                    <span class="help-text">Brief overview of what this policy covers</span>
+                                </label>
+                                <textarea id="aiPolicyDescription" class="form-control" rows="3" 
+                                          placeholder="Describe the purpose and scope of this policy..."
+                                          oninput="updatePolicyPreview()"></textarea>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="aiPolicyKeyPoints">
+                                    Key Requirements/Points
+                                    <span class="help-text">List the main requirements or points this policy should address (one per line)</span>
+                                </label>
+                                <textarea id="aiPolicyKeyPoints" class="form-control" rows="4" 
+                                          placeholder="• Patient safety measures&#10;• Staff responsibilities&#10;• Compliance requirements"
+                                          oninput="updatePolicyPreview()"></textarea>
                             </div>
                         </div>
                     </div>
-                </div>
-                
-                <div class="chat-container">
-                    <div class="chat-messages" id="chatMessages">
-                        <div class="message ai-message">
-                            <div class="message-avatar">
-                                <i class="fas fa-robot"></i>
+
+                    <!-- Details Tab -->
+                    <div class="form-tab-content" id="tab-details">
+                        <div class="form-section">
+                            <div class="form-group">
+                                <label for="aiPolicyAudience">
+                                    Target Audience
+                                    <span class="help-text">Who should read and follow this policy?</span>
+                                </label>
+                                <div class="audience-toggles" id="formAudienceToggles">
+                                    <!-- Populated from config -->
+                                </div>
                             </div>
-                            <div class="message-content">
-                                <p><strong>Hello! I'm your AI Policy Assistant powered by ChatGPT.</strong></p>
-                                <p>I can create comprehensive, professional healthcare policies for your veterinary clinics. Configure your policy settings above, then describe what you need.</p>
-                                <p><strong>Configure your policy:</strong></p>
-                                <ul>
-                                    <li><strong>Policy Type:</strong> Select Admin Policy, SOG, or Communication Memo</li>
-                                    <li><strong>Organizations:</strong> Choose which clinics this applies to</li>
-                                    <li><strong>Responsible Roles:</strong> Who will implement this policy</li>
-                                    <li><strong>Disciplinary Actions:</strong> What happens if policy is violated</li>
-                                </ul>
-                                <p><strong>Then describe what policy you need:</strong></p>
-                                <ul>
-                                    <li>"Create a patient safety protocol policy"</li>
-                                    <li>"Generate hand hygiene procedures"</li>
-                                    <li>"Write emergency response procedures"</li>
-                                </ul>
-                                <p><strong>What policy would you like me to create?</strong></p>
+
+                            <div class="form-group">
+                                <label for="aiPolicyCompliance">
+                                    Compliance Requirements
+                                    <span class="help-text">Select applicable compliance standards</span>
+                                </label>
+                                <div class="compliance-toggles" id="formComplianceToggles">
+                                    <!-- Populated from config -->
+                                </div>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="aiPolicyEffectiveDate">
+                                    Effective Date
+                                </label>
+                                <input type="date" id="aiPolicyEffectiveDate" class="form-control" 
+                                       value="" onchange="updatePolicyPreview()">
+                            </div>
+
+                            <div class="form-group">
+                                <label for="aiPolicyVersion">
+                                    Version
+                                </label>
+                                <input type="text" id="aiPolicyVersion" class="form-control" 
+                                       value="1.0" placeholder="1.0" onchange="updatePolicyPreview()">
                             </div>
                         </div>
                     </div>
-                    <div class="chat-input-container">
-                        <div class="chat-input">
-                            <input type="text" id="chatInput" placeholder="Type your message here..." onkeypress="handleChatKeyPress(event)">
-                            <button onclick="sendChatMessage()" class="btn btn-primary">
-                                <i class="fas fa-paper-plane"></i>
-                            </button>
+
+                    <!-- Settings Tab -->
+                    <div class="form-tab-content" id="tab-settings">
+                        <div class="form-section">
+                            <div class="form-group">
+                                <label>
+                                    Applicable Organizations
+                                </label>
+                                <div class="organization-toggles" id="formOrganizations">
+                                    <!-- Populated from config -->
+                                </div>
+                            </div>
+
+                            <div class="form-group">
+                                <label>
+                                    Responsible Roles
+                                </label>
+                                <div class="responsibility-toggles" id="formResponsibilityToggles">
+                                    <!-- Populated from config -->
+                                </div>
+                            </div>
+
+                            <div class="form-group">
+                                <label>
+                                    Disciplinary Actions
+                                </label>
+                                <div class="disciplinary-toggles" id="formDisciplinaryToggles">
+                                    <!-- Populated from config -->
+                                </div>
+                            </div>
                         </div>
-                        <div class="chat-actions">
-                            <button onclick="resetChat()" class="btn btn-sm btn-secondary">
-                                <i class="fas fa-refresh"></i> Start Over
-                            </button>
-                            <button onclick="generatePolicyFromChat()" class="btn btn-sm btn-success" id="generatePolicyBtn" style="display: none;">
-                                <i class="fas fa-magic"></i> Generate Policy
-                            </button>
+                    </div>
+
+                    <!-- Chat Tab -->
+                    <div class="form-tab-content" id="tab-chat">
+                        <div class="chat-container">
+                            <div class="chat-messages" id="chatMessages">
+                                <div class="message ai-message">
+                                    <div class="message-avatar">
+                                        <i class="fas fa-robot"></i>
+                                    </div>
+                                    <div class="message-content">
+                                        <p><strong>Hello! I'm your AI Policy Assistant powered by ChatGPT.</strong></p>
+                                        <p>Fill out the form in the tabs above, or chat with me to refine your policy. I can help you:</p>
+                                        <ul>
+                                            <li>Clarify policy requirements</li>
+                                            <li>Suggest improvements</li>
+                                            <li>Answer questions about policy structure</li>
+                                            <li>Refine the generated policy</li>
+                                        </ul>
+                                        <p><strong>What would you like to know or discuss?</strong></p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="chat-input-container">
+                                <div class="chat-input">
+                                    <input type="text" id="chatInput" placeholder="Ask a question or provide additional details..." onkeypress="handleChatKeyPress(event)">
+                                    <button onclick="sendChatMessage()" class="btn btn-primary">
+                                        <i class="fas fa-paper-plane"></i>
+                                    </button>
+                                </div>
+                                <div class="chat-actions">
+                                    <button onclick="resetChat()" class="btn btn-sm btn-secondary">
+                                        <i class="fas fa-refresh"></i> Clear Chat
+                                    </button>
+                                </div>
+                            </div>
                         </div>
+                    </div>
+
+                    <!-- Generate Button -->
+                    <div class="form-actions-bar">
+                        <button onclick="generatePolicyFromForm()" class="btn btn-primary btn-large" id="generateFromFormBtn">
+                            <i class="fas fa-magic"></i> Generate Policy with AI
+                        </button>
+                        <button onclick="previewPolicyForm()" class="btn btn-secondary">
+                            <i class="fas fa-eye"></i> Preview Settings
+                        </button>
                     </div>
                 </div>
                 
@@ -1397,6 +1558,45 @@
                         </button>
                     </div>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Configuration Item Modal -->
+    <div id="configItemModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="configItemModalTitle">Add Configuration Item</h3>
+                <button class="modal-close" onclick="closeConfigItemModal()">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <form id="configItemForm" onsubmit="saveConfigItem(event)">
+                    <input type="hidden" id="configItemType" value="">
+                    <input type="hidden" id="configItemId" value="">
+                    
+                    <div class="form-group">
+                        <label for="configItemName">Name</label>
+                        <input type="text" id="configItemName" class="form-control" required placeholder="Enter name">
+                    </div>
+                    
+                    <div class="form-group" id="configItemValueGroup" style="display: none;">
+                        <label for="configItemValue">Value/Code</label>
+                        <input type="text" id="configItemValue" class="form-control" placeholder="Enter value or code (optional)">
+                        <small>Used internally for organization codes, category values, etc.</small>
+                    </div>
+                    
+                    <div class="form-group" id="configItemDescriptionGroup">
+                        <label for="configItemDescription">Description</label>
+                        <textarea id="configItemDescription" class="form-control" rows="3" placeholder="Enter description (optional)"></textarea>
+                    </div>
+                    
+                    <div class="form-actions">
+                        <button type="button" class="btn btn-secondary" onclick="closeConfigItemModal()">Cancel</button>
+                        <button type="submit" class="btn btn-primary">Save</button>
+                    </div>
+                </form>
             </div>
         </div>
     </div>

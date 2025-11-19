@@ -48,23 +48,10 @@ let conversationHistory = []; // Store full conversation history for AI context
 // AI Wizard state - initialized early to avoid temporal dead zone issues
 let aiWizardState = {};
 let aiWizardCurrentStep = 0;
+let aiWizardRecommendations = {}; // Store selected recommendations
 
 // AI Wizard Questions - initialized early to avoid temporal dead zone issues
 let wizardQuestions = [
-    {
-        id: 'policyType',
-        title: 'What type of policy do you need?',
-        subtitle: 'Select the document type that best fits your needs',
-        type: 'choice',
-        options: [
-            { value: 'admin', label: 'Admin Policy', description: 'Administrative procedures and governance', icon: 'fa-file-alt', color: '#6366f1' },
-            { value: 'sog', label: 'Standard Operating Guidelines', description: 'Operational procedures and workflows', icon: 'fa-clipboard-list', color: '#10b981' },
-            { value: 'protocol', label: 'Protocol', description: 'Detailed step-by-step procedures', icon: 'fa-tasks', color: '#f59e0b' },
-            { value: 'memo', label: 'Communication Memo', description: 'Internal announcements and updates', icon: 'fa-envelope', color: '#ec4899' },
-            { value: 'training', label: 'Training Document', description: 'Educational materials and guides', icon: 'fa-graduation-cap', color: '#8b5cf6' },
-            { value: 'governance', label: 'Governance Policy', description: 'Corporate governance and compliance', icon: 'fa-shield-alt', color: '#64748b' }
-        ]
-    },
     {
         id: 'policyCategory',
         title: 'What category does this policy cover?',
@@ -5111,14 +5098,7 @@ function deleteDraft(draftId) {
     showNotification('Draft deleted successfully!', 'success');
 }
 
-function regeneratePolicy() {
-    // Close current result and regenerate
-    aiResult.style.display = 'none';
-    aiForm.style.display = 'block';
-    
-    // Generate new policy with same inputs
-    generateAIPolicy();
-}
+// Old regeneratePolicy function removed - replaced with new one below
 // Enhanced AI Policy Generation with Better Formatting
 function formatPolicyContent(content, type) {
     // Helper function to safely get content or show fallback
@@ -7122,11 +7102,7 @@ function closeCreateModal() {
 }
 
 // ChatGPT-Style Policy Creation System
-let chatState = {
-    step: 'start',
-    isGenerating: false,
-    currentPolicy: null
-};
+// chatState is declared later in the file (line 7324) with formData property
 
 function populateRolesAndDisciplinaryActions() {
     // Load from admin settings or use defaults
@@ -7241,6 +7217,27 @@ function populateRolesAndDisciplinaryActions() {
 // wizardQuestions is now initialized at the top of the file (line 53)
 
 // AI Policy Generator - Main Functions
+// Check if AI generator is configured
+function isAIGeneratorConfigured() {
+    // Check if config exists in localStorage (this means user has saved it)
+    const saved = localStorage.getItem('aiGeneratorConfig');
+    if (!saved) {
+        return false;
+    }
+    
+    try {
+        const config = JSON.parse(saved);
+        // Check if config has been customized (has items in key categories)
+        // If it's just empty arrays, it's not configured
+        const hasConfig = config.policyTypes && config.policyTypes.length > 0 &&
+                         config.categories && config.categories.length > 0 &&
+                         config.audience && config.audience.length > 0;
+        return hasConfig;
+    } catch (e) {
+        return false;
+    }
+}
+
 function openAIModal() {
     // Track if admin dashboard was open
     const adminModal = document.getElementById('adminModal');
@@ -7258,19 +7255,47 @@ function openAIModal() {
     }
     aiModal.style.display = 'block';
     
-    // Hide result and loading, show wizard
-    document.getElementById('aiResult').style.display = 'none';
-    document.getElementById('aiLoading').style.display = 'none';
-    document.getElementById('aiWizard').style.display = 'block';
+    // Hide result and loading
+    const aiResult = document.getElementById('aiResult');
+    const aiLoading = document.getElementById('aiLoading');
+    const aiWizard = document.getElementById('aiWizard');
+    const aiSetupForm = document.getElementById('aiSetupForm');
     
-    // Initialize wizard
-    initWizard();
+    if (aiResult) aiResult.style.display = 'none';
+    if (aiLoading) aiLoading.style.display = 'none';
+    
+    // Check if configuration exists
+    if (!isAIGeneratorConfigured()) {
+        // Show setup form
+        if (aiSetupForm) {
+            aiSetupForm.style.display = 'block';
+            // Initialize setup wizard
+            if (typeof initSetupWizard === 'function') {
+                initSetupWizard();
+            }
+        }
+        if (aiWizard) aiWizard.style.display = 'none';
+    } else {
+        // Show wizard
+        if (aiSetupForm) aiSetupForm.style.display = 'none';
+        if (aiWizard) aiWizard.style.display = 'block';
+        
+        // Initialize wizard
+        if (typeof initWizard === 'function') {
+            initWizard();
+        }
+    }
 }
 
 function closeAIModal() {
     const aiModal = document.getElementById('aiModal');
     if (aiModal) {
         aiModal.style.display = 'none';
+    }
+    
+    // Reset form if function exists
+    if (typeof resetAIPolicyForm === 'function') {
+        resetAIPolicyForm();
     }
     
     resetWizard();
@@ -7283,20 +7308,1530 @@ function closeAIModal() {
     }
 }
 
+// Form-Based AI Policy Generator Functions
+// These functions support the new tabbed form interface
+
+// Initialize policy generator config (will use defaults if not configured)
+let policyGeneratorConfig = {
+    organizations: [
+        { id: '1', name: 'All Organizations', value: 'all', description: 'Applies to all organizations' }
+    ],
+    roles: [
+        { id: '1', name: 'All Staff', description: 'Applies to all staff members' }
+    ],
+    disciplinaryActions: [
+        { id: '1', name: 'As per company policy', description: 'Follow standard company disciplinary procedures' }
+    ],
+    categories: [
+        { id: '1', name: 'Admin Policy', value: 'admin', description: 'Administrative policies' },
+        { id: '2', name: 'Standard Operating Guidelines', value: 'sog', description: 'Standard operating procedures' },
+        { id: '3', name: 'Communication Memo', value: 'memo', description: 'Internal communications' }
+    ],
+    audience: [
+        { id: '1', name: 'All Staff', description: 'All employees' }
+    ],
+    compliance: []
+};
+
+let chatState = {
+    step: 'start',
+    isGenerating: false,
+    currentPolicy: null,
+    formData: null
+};
+
+function resetAIPolicyForm() {
+    const titleEl = document.getElementById('aiPolicyTitle');
+    const descEl = document.getElementById('aiPolicyDescription');
+    const keyPointsEl = document.getElementById('aiPolicyKeyPoints');
+    const dateEl = document.getElementById('aiPolicyEffectiveDate');
+    const versionEl = document.getElementById('aiPolicyVersion');
+    
+    if (titleEl) titleEl.value = '';
+    if (descEl) descEl.value = '';
+    if (keyPointsEl) keyPointsEl.value = '';
+    if (versionEl) versionEl.value = '1.0';
+    
+    // Set default effective date to today
+    if (dateEl) {
+        const today = new Date().toISOString().split('T')[0];
+        dateEl.value = today;
+    }
+    
+    // Clear all checkboxes
+    const formSetup = document.getElementById('aiFormSetup');
+    if (formSetup) {
+        formSetup.querySelectorAll('input[type="checkbox"]').forEach(cb => cb.checked = false);
+        formSetup.querySelectorAll('input[type="radio"]').forEach(rb => rb.checked = false);
+    }
+}
+
+function populateFormFields() {
+    populateFormPolicyTypes();
+    populateFormOrganizations();
+    populateFormRoles();
+    populateFormDisciplinaryActions();
+    populateFormAudience();
+    populateFormCompliance();
+    
+    // Set default selections
+    const firstPolicyType = document.querySelector('#formPolicyTypes input[type="radio"]');
+    if (firstPolicyType) firstPolicyType.checked = true;
+    
+    const allOrgCheckbox = document.querySelector('#formOrganizations input[value="all"]');
+    if (allOrgCheckbox) allOrgCheckbox.checked = true;
+}
+
+function populateFormPolicyTypes() {
+    const container = document.getElementById('formPolicyTypes');
+    if (!container) return;
+    
+    const categories = policyGeneratorConfig.categories || [];
+    if (categories.length === 0) {
+        container.innerHTML = '<p style="color: #999; padding: 10px;">No policy types configured.</p>';
+        return;
+    }
+    
+    container.innerHTML = categories.map((cat, index) => `
+        <label class="toggle-item">
+            <input type="radio" name="formPolicyType" value="${cat.value || cat.name.toLowerCase().replace(/\s+/g, '-')}" ${index === 0 ? 'checked' : ''}>
+            <span class="toggle-label">${cat.name}</span>
+        </label>
+    `).join('');
+}
+
+function populateFormOrganizations() {
+    const container = document.getElementById('formOrganizations');
+    if (!container) return;
+    
+    const orgs = policyGeneratorConfig.organizations || [];
+    if (orgs.length === 0) {
+        container.innerHTML = '<p style="color: #999; padding: 10px;">No organizations configured.</p>';
+        return;
+    }
+    
+    container.innerHTML = orgs.map(org => `
+        <label class="toggle-item">
+            <input type="checkbox" class="form-org-checkbox" 
+                   value="${org.value || org.name.toLowerCase().replace(/\s+/g, '-')}" 
+                   ${org.value === 'all' ? 'onchange="toggleAllFormOrganizations()"' : ''}>
+            <span class="toggle-label">${org.name}</span>
+        </label>
+    `).join('');
+}
+
+function populateFormRoles() {
+    const container = document.getElementById('formResponsibilityToggles');
+    if (!container) return;
+    
+    const roles = policyGeneratorConfig.roles || [];
+    if (roles.length === 0) {
+        container.innerHTML = '<p style="color: #999; padding: 10px;">No roles configured.</p>';
+        return;
+    }
+    
+    container.innerHTML = roles.map(role => `
+        <label class="toggle-item">
+            <input type="checkbox" value="${role.name}">
+            <span class="toggle-label">${role.name}</span>
+        </label>
+    `).join('');
+}
+
+function populateFormDisciplinaryActions() {
+    const container = document.getElementById('formDisciplinaryToggles');
+    if (!container) return;
+    
+    const actions = policyGeneratorConfig.disciplinaryActions || [];
+    if (actions.length === 0) {
+        container.innerHTML = '<p style="color: #999; padding: 10px;">No disciplinary actions configured.</p>';
+        return;
+    }
+    
+    container.innerHTML = actions.map(action => `
+        <label class="toggle-item">
+            <input type="checkbox" value="${action.name}">
+            <span class="toggle-label">${action.name}</span>
+        </label>
+    `).join('');
+}
+
+function populateFormAudience() {
+    const container = document.getElementById('formAudienceToggles');
+    if (!container) return;
+    
+    const audience = policyGeneratorConfig.audience || [];
+    if (audience.length === 0) {
+        container.innerHTML = '<p style="color: #999; padding: 10px;">No audience options configured.</p>';
+        return;
+    }
+    
+    container.innerHTML = audience.map(aud => `
+        <label class="toggle-item">
+            <input type="checkbox" value="${aud.name}">
+            <span class="toggle-label">${aud.name}</span>
+        </label>
+    `).join('');
+}
+
+function populateFormCompliance() {
+    const container = document.getElementById('formComplianceToggles');
+    if (!container) return;
+    
+    const compliance = policyGeneratorConfig.compliance || [];
+    if (compliance.length === 0) {
+        container.innerHTML = '<p style="color: #999; padding: 10px;">No compliance requirements configured.</p>';
+        return;
+    }
+    
+    container.innerHTML = compliance.map(comp => `
+        <label class="toggle-item">
+            <input type="checkbox" value="${comp.name}">
+            <span class="toggle-label">${comp.name}</span>
+        </label>
+    `).join('');
+}
+
+function switchFormTab(tabName) {
+    // Hide all tab contents
+    document.querySelectorAll('.form-tab-content').forEach(content => {
+        content.classList.remove('active');
+    });
+    
+    // Remove active from all tabs
+    document.querySelectorAll('.form-tab').forEach(tab => {
+        tab.classList.remove('active');
+    });
+    
+    // Show selected tab content
+    const selectedContent = document.getElementById(`tab-${tabName}`);
+    if (selectedContent) {
+        selectedContent.classList.add('active');
+    }
+    
+    // Activate selected tab button
+    const selectedTab = document.querySelector(`.form-tab[data-tab="${tabName}"]`);
+    if (selectedTab) {
+        selectedTab.classList.add('active');
+    }
+}
+
+function toggleAllFormOrganizations() {
+    const allCheckbox = document.querySelector('#formOrganizations input[value="all"]');
+    const otherCheckboxes = document.querySelectorAll('#formOrganizations input.form-org-checkbox:not([value="all"])');
+    
+    if (allCheckbox && allCheckbox.checked) {
+        otherCheckboxes.forEach(cb => cb.checked = false);
+    }
+}
+
+function generatePolicyFromForm() {
+    // Collect form data
+    const titleEl = document.getElementById('aiPolicyTitle');
+    const title = titleEl ? titleEl.value.trim() : '';
+    
+    if (!title) {
+        alert('Please enter a policy title');
+        if (titleEl) titleEl.focus();
+        return;
+    }
+    
+    const description = document.getElementById('aiPolicyDescription')?.value.trim() || '';
+    const keyPoints = document.getElementById('aiPolicyKeyPoints')?.value.trim() || '';
+    const effectiveDate = document.getElementById('aiPolicyEffectiveDate')?.value || '';
+    const version = document.getElementById('aiPolicyVersion')?.value || '1.0';
+    
+    // Get selected policy type
+    const policyTypeRadio = document.querySelector('#formPolicyTypes input[name="formPolicyType"]:checked');
+    const policyType = policyTypeRadio ? policyTypeRadio.value : 'admin';
+    
+    // Get selected organizations
+    const selectedOrgs = Array.from(document.querySelectorAll('#formOrganizations input:checked'))
+        .map(cb => cb.value);
+    
+    // Get selected roles
+    const selectedRoles = Array.from(document.querySelectorAll('#formResponsibilityToggles input:checked'))
+        .map(cb => cb.value);
+    
+    // Get selected disciplinary actions
+    const selectedActions = Array.from(document.querySelectorAll('#formDisciplinaryToggles input:checked'))
+        .map(cb => cb.value);
+    
+    // Get selected audience
+    const selectedAudience = Array.from(document.querySelectorAll('#formAudienceToggles input:checked'))
+        .map(cb => cb.value);
+    
+    // Get selected compliance
+    const selectedCompliance = Array.from(document.querySelectorAll('#formComplianceToggles input:checked'))
+        .map(cb => cb.value);
+    
+    // Build comprehensive prompt
+    let prompt = `Create a comprehensive policy titled "${title}"`;
+    
+    if (description) {
+        prompt += `\n\nDescription: ${description}`;
+    }
+    
+    if (keyPoints) {
+        prompt += `\n\nKey Requirements:\n${keyPoints}`;
+    }
+    
+    prompt += `\n\nPolicy Type: ${policyType}`;
+    
+    if (selectedOrgs.length > 0) {
+        const orgNames = selectedOrgs.join(', ');
+        prompt += `\nApplicable Organizations: ${orgNames}`;
+    }
+    
+    if (selectedRoles.length > 0) {
+        prompt += `\nResponsible Roles: ${selectedRoles.join(', ')}`;
+    }
+    
+    if (selectedActions.length > 0) {
+        prompt += `\nDisciplinary Actions: ${selectedActions.join(', ')}`;
+    }
+    
+    if (selectedAudience.length > 0) {
+        prompt += `\nTarget Audience: ${selectedAudience.join(', ')}`;
+    }
+    
+    if (selectedCompliance.length > 0) {
+        prompt += `\nCompliance Requirements: ${selectedCompliance.join(', ')}`;
+    }
+    
+    // Store form data
+    chatState.formData = {
+        title,
+        description,
+        keyPoints,
+        policyType,
+        organizations: selectedOrgs,
+        roles: selectedRoles,
+        disciplinaryActions: selectedActions,
+        audience: selectedAudience,
+        compliance: selectedCompliance,
+        effectiveDate,
+        version
+    };
+    
+    // Hide form, show loading
+    const aiFormSetup = document.getElementById('aiFormSetup');
+    const aiLoading = document.getElementById('aiLoading');
+    const aiResult = document.getElementById('aiResult');
+    
+    if (aiFormSetup) aiFormSetup.style.display = 'none';
+    if (aiLoading) aiLoading.style.display = 'block';
+    if (aiResult) aiResult.style.display = 'none';
+    
+    // Try to use existing wizard function if available
+    if (typeof wizardGeneratePolicy === 'function') {
+        // Store the prompt in wizard state if it exists
+        if (typeof aiWizardState !== 'undefined') {
+            aiWizardState.userPrompt = prompt;
+        }
+        wizardGeneratePolicy();
+    } else {
+        // Fallback: Use ChatGPT API directly
+        generatePolicyWithChatGPT(prompt);
+    }
+}
+
+async function generatePolicyWithChatGPT(prompt) {
+    try {
+        // Get API key
+        const apiKey = localStorage.getItem('globalOpenAIApiKey') || localStorage.getItem('openAIApiKey');
+        if (!apiKey) {
+            alert('OpenAI API key not found. Please configure it in Settings.');
+            document.getElementById('aiFormSetup').style.display = 'block';
+            document.getElementById('aiLoading').style.display = 'none';
+            return;
+        }
+        
+        // Call ChatGPT API
+        const response = await fetch('https://api.openai.com/v1/chat/completions', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${apiKey}`
+            },
+            body: JSON.stringify({
+                model: 'gpt-3.5-turbo',
+                messages: [
+                    {
+                        role: 'system',
+                        content: 'You are a professional policy writer specializing in veterinary clinic operations and healthcare compliance.'
+                    },
+                    {
+                        role: 'user',
+                        content: prompt
+                    }
+                ],
+                max_tokens: 2000,
+                temperature: 0.7
+            })
+        });
+        
+        if (!response.ok) {
+            throw new Error(`API error: ${response.statusText}`);
+        }
+        
+        const data = await response.json();
+        const generatedContent = data.choices[0].message.content;
+        
+        // Display result
+        const aiLoading = document.getElementById('aiLoading');
+        const aiResult = document.getElementById('aiResult');
+        const policyPreview = document.getElementById('policyPreview');
+        
+        if (aiLoading) aiLoading.style.display = 'none';
+        if (aiResult) aiResult.style.display = 'block';
+        if (policyPreview) {
+            policyPreview.innerHTML = `<div class="policy-content">${generatedContent.replace(/\n/g, '<br>')}</div>`;
+        }
+        
+        // Store in chatState
+        chatState.currentPolicy = {
+            title: chatState.formData.title,
+            type: chatState.formData.policyType,
+            content: generatedContent,
+            clinicNames: (chatState.formData.organizations && chatState.formData.organizations.length > 0) 
+                ? chatState.formData.organizations.join(', ') 
+                : 'All Organizations',
+            effectiveDate: chatState.formData.effectiveDate,
+            version: chatState.formData.version
+        };
+        
+    } catch (error) {
+        console.error('Error generating policy:', error);
+        alert('Error generating policy: ' + error.message);
+        document.getElementById('aiFormSetup').style.display = 'block';
+        document.getElementById('aiLoading').style.display = 'none';
+    }
+}
+
+function previewPolicyForm() {
+    const title = document.getElementById('aiPolicyTitle')?.value.trim() || '(Not set)';
+    const description = document.getElementById('aiPolicyDescription')?.value.trim() || '(Not set)';
+    const keyPoints = document.getElementById('aiPolicyKeyPoints')?.value.trim() || '(Not set)';
+    
+    const policyTypeRadio = document.querySelector('#formPolicyTypes input[name="formPolicyType"]:checked');
+    const policyType = policyTypeRadio ? policyTypeRadio.nextElementSibling.textContent : '(Not selected)';
+    
+    const selectedOrgs = Array.from(document.querySelectorAll('#formOrganizations input:checked'))
+        .map(cb => cb.nextElementSibling.textContent);
+    const orgNames = selectedOrgs.length > 0 ? selectedOrgs.join(', ') : '(None selected)';
+    
+    const preview = `Policy Preview:\n\nTitle: ${title}\nType: ${policyType}\nDescription: ${description}\nKey Points: ${keyPoints}\nOrganizations: ${orgNames}`;
+    alert(preview);
+}
+
+function updatePolicyPreview() {
+    // Placeholder for live preview updates
+}
+
+function resetChat() {
+    chatState = {
+        step: 'start',
+        isGenerating: false,
+        currentPolicy: null,
+        formData: chatState.formData // Preserve form data
+    };
+    
+    const chatMessages = document.getElementById('chatMessages');
+    if (chatMessages) {
+        chatMessages.innerHTML = `
+            <div class="message ai-message">
+                <div class="message-avatar">
+                    <i class="fas fa-robot"></i>
+                </div>
+                <div class="message-content">
+                    <p><strong>Hello! I'm your AI Policy Assistant powered by ChatGPT.</strong></p>
+                    <p>Fill out the form in the tabs above, or chat with me to refine your policy.</p>
+                </div>
+            </div>
+        `;
+    }
+}
+
+function handleChatKeyPress(event) {
+    if (event.key === 'Enter') {
+        sendChatMessage();
+    }
+}
+
+function sendChatMessage() {
+    const input = document.getElementById('chatInput');
+    if (!input) return;
+    
+    const message = input.value.trim();
+    if (!message) return;
+    
+    // Add user message to chat
+    const chatMessages = document.getElementById('chatMessages');
+    if (chatMessages) {
+        const userMessage = document.createElement('div');
+        userMessage.className = 'message user-message';
+        userMessage.innerHTML = `
+            <div class="message-content">
+                <p>${message}</p>
+            </div>
+        `;
+        chatMessages.appendChild(userMessage);
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+    }
+    
+    input.value = '';
+    
+    // For now, just acknowledge (could integrate with ChatGPT API)
+    setTimeout(() => {
+        if (chatMessages) {
+            const aiMessage = document.createElement('div');
+            aiMessage.className = 'message ai-message';
+            aiMessage.innerHTML = `
+                <div class="message-avatar">
+                    <i class="fas fa-robot"></i>
+                </div>
+                <div class="message-content">
+                    <p>Thank you for your input. You can use the form above to generate your policy, or continue chatting for more assistance.</p>
+                </div>
+            `;
+            chatMessages.appendChild(aiMessage);
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+    }, 500);
+}
+
+// Policy result functions
+function saveGeneratedPolicy() {
+    const preview = document.getElementById('policyPreview');
+    if (!preview || !preview.textContent) {
+        alert('No policy to save. Please generate a policy first.');
+        return;
+    }
+    
+    // Get form data if available
+    const formData = chatState.formData || {};
+    const title = formData.title || document.getElementById('aiPolicyTitle')?.value || 'Untitled Policy';
+    
+    // Create policy object
+    const policy = {
+        id: Date.now().toString(),
+        title: title,
+        type: formData.policyType || 'admin',
+        content: preview.innerHTML || preview.textContent,
+        clinicNames: formData.organizations ? formData.organizations.join(', ') : 'All Organizations',
+        effectiveDate: formData.effectiveDate || new Date().toISOString().split('T')[0],
+        version: formData.version || '1.0',
+        created: new Date().toISOString(),
+        lastModified: new Date().toISOString(),
+        status: 'draft'
+    };
+    
+    // Save to localStorage (policies array)
+    if (typeof policies !== 'undefined') {
+        policies.push(policy);
+        if (typeof savePoliciesToStorage === 'function') {
+            savePoliciesToStorage();
+        } else {
+            localStorage.setItem('policies', JSON.stringify(policies));
+        }
+    } else {
+        // Fallback: save directly to localStorage
+        let savedPolicies = JSON.parse(localStorage.getItem('policies') || '[]');
+        savedPolicies.push(policy);
+        localStorage.setItem('policies', JSON.stringify(savedPolicies));
+    }
+    
+    alert('Policy saved successfully!');
+    closeAIModal();
+}
+
+function downloadGeneratedPolicy() {
+    const preview = document.getElementById('policyPreview');
+    if (!preview) {
+        alert('No policy to download. Please generate a policy first.');
+        return;
+    }
+    
+    const formData = chatState.formData || {};
+    const title = formData.title || document.getElementById('aiPolicyTitle')?.value || 'Untitled Policy';
+    
+    // Get text content
+    const content = preview.textContent || preview.innerText || '';
+    
+    // Create downloadable content
+    const textContent = `${title}\n\n${'='.repeat(50)}\n\n${content}`;
+    
+    // Create blob and download
+    const blob = new Blob([textContent], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${title.replace(/[^a-z0-9]/gi, '_').toLowerCase()}.txt`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+}
+
+function regeneratePolicy() {
+    // Hide result, show form
+    const aiResult = document.getElementById('aiResult');
+    const aiFormSetup = document.getElementById('aiFormSetup');
+    
+    if (aiResult) aiResult.style.display = 'none';
+    if (aiFormSetup) aiFormSetup.style.display = 'block';
+    
+    // Switch to basic tab
+    switchFormTab('basic');
+    
+    // Keep form data but allow regeneration
+    // User can modify and regenerate
+}
+
+// Attach functions to window
+if (typeof window !== 'undefined') {
+    window.switchFormTab = switchFormTab;
+    window.generatePolicyFromForm = generatePolicyFromForm;
+    window.previewPolicyForm = previewPolicyForm;
+    window.updatePolicyPreview = updatePolicyPreview;
+    window.toggleAllFormOrganizations = toggleAllFormOrganizations;
+    window.resetChat = resetChat;
+    window.handleChatKeyPress = handleChatKeyPress;
+    window.sendChatMessage = sendChatMessage;
+    window.saveGeneratedPolicy = saveGeneratedPolicy;
+    window.downloadGeneratedPolicy = downloadGeneratedPolicy;
+    window.regeneratePolicy = regeneratePolicy;
+    window.openAIModal = openAIModal;
+    window.closeAIModal = closeAIModal;
+    window.generatePolicyWithChatGPT = generatePolicyWithChatGPT;
+}
+
 function resetWizard() {
     aiWizardState = {};
     aiWizardCurrentStep = 0;
+    aiWizardRecommendations = {};
+}
+
+// ============================================
+// AI Policy Generator Configuration Management
+// ============================================
+
+// AI Generator Configuration Storage
+let aiGeneratorConfig = {
+    policyTypes: [],
+    categories: [],
+    audience: [],
+    compliance: [],
+    urgency: []
+};
+
+// Default AI Generator Configuration
+const defaultAIGeneratorConfig = {
+    policyTypes: [
+        { id: '1', value: 'admin', label: 'Admin Policy', description: 'Administrative procedures and governance', icon: 'fa-file-alt', color: '#6366f1' },
+        { id: '2', value: 'sog', label: 'Standard Operating Guidelines', description: 'Operational procedures and workflows', icon: 'fa-clipboard-list', color: '#10b981' },
+        { id: '3', value: 'protocol', label: 'Protocol', description: 'Detailed step-by-step procedures', icon: 'fa-tasks', color: '#f59e0b' },
+        { id: '4', value: 'memo', label: 'Communication Memo', description: 'Internal announcements and updates', icon: 'fa-envelope', color: '#ec4899' },
+        { id: '5', value: 'training', label: 'Training Document', description: 'Educational materials and guides', icon: 'fa-graduation-cap', color: '#8b5cf6' },
+        { id: '6', value: 'governance', label: 'Governance Policy', description: 'Corporate governance and compliance', icon: 'fa-shield-alt', color: '#64748b' }
+    ],
+    categories: [
+        { id: '1', value: 'clinical_safety', label: 'Clinical & Patient Safety', description: 'Medication safety, infection control, anesthesia protocols', icon: 'fa-heartbeat', color: '#10b981' },
+        { id: '2', value: 'emergency_response', label: 'Emergency Response', description: 'Disaster plans, evacuation procedures, crisis management', icon: 'fa-exclamation-triangle', color: '#ef4444' },
+        { id: '3', value: 'operations', label: 'Operations & Workflow', description: 'Scheduling, logistics, client experience', icon: 'fa-cogs', color: '#6366f1' },
+        { id: '4', value: 'data_security', label: 'Data & Security', description: 'Cybersecurity, documentation, privacy compliance', icon: 'fa-lock', color: '#8b5cf6' },
+        { id: '5', value: 'hr_people', label: 'HR & People', description: 'Hiring, training, performance management', icon: 'fa-users', color: '#f59e0b' },
+        { id: '6', value: 'custom', label: 'Custom Topic', description: 'Something specific to your organization', icon: 'fa-lightbulb', color: '#ec4899' }
+    ],
+    audience: [
+        { id: '1', value: 'clinical_team', label: 'Clinical Team', description: 'Veterinarians, technicians, medical staff', icon: 'fa-user-md', color: '#10b981' },
+        { id: '2', value: 'front_desk', label: 'Client Services', description: 'Reception, CSRs, client communications', icon: 'fa-headset', color: '#6366f1' },
+        { id: '3', value: 'leadership', label: 'Leadership & Management', description: 'Directors, supervisors, administrators', icon: 'fa-user-tie', color: '#8b5cf6' },
+        { id: '4', value: 'all_staff', label: 'All Staff', description: 'Everyone in the organization', icon: 'fa-users', color: '#f59e0b' }
+    ],
+    compliance: [
+        { id: '1', value: 'hipaa', label: 'HIPAA / PHI', description: 'Privacy and protected health information', icon: 'fa-shield-alt', color: '#6366f1' },
+        { id: '2', value: 'osha', label: 'OSHA / Safety', description: 'Workplace safety and hazard control', icon: 'fa-hard-hat', color: '#f59e0b' },
+        { id: '3', value: 'accreditation', label: 'AAHA / Accreditation', description: 'Industry best practices and standards', icon: 'fa-certificate', color: '#10b981' },
+        { id: '4', value: 'none', label: 'No Specific Requirement', description: 'General best practices only', icon: 'fa-check-circle', color: '#64748b' }
+    ],
+    urgency: [
+        { id: '1', value: 'immediate', label: 'Immediate', description: 'Urgent - needs immediate implementation', icon: 'fa-bolt', color: '#ef4444' },
+        { id: '2', value: 'soon', label: 'Soon', description: 'Within the next few weeks', icon: 'fa-clock', color: '#f59e0b' },
+        { id: '3', value: 'planned', label: 'Planned', description: 'Part of routine planning or annual updates', icon: 'fa-calendar', color: '#10b981' }
+    ]
+};
+
+function loadAIGeneratorConfig() {
+    const saved = localStorage.getItem('aiGeneratorConfig');
+    if (saved) {
+        try {
+            aiGeneratorConfig = JSON.parse(saved);
+            // Merge with defaults to ensure all categories exist
+            Object.keys(defaultAIGeneratorConfig).forEach(key => {
+                if (!aiGeneratorConfig[key] || aiGeneratorConfig[key].length === 0) {
+                    aiGeneratorConfig[key] = defaultAIGeneratorConfig[key];
+                }
+            });
+        } catch (e) {
+            console.error('Error loading AI config:', e);
+            aiGeneratorConfig = JSON.parse(JSON.stringify(defaultAIGeneratorConfig));
+        }
+    } else {
+        aiGeneratorConfig = JSON.parse(JSON.stringify(defaultAIGeneratorConfig));
+    }
+    saveAIGeneratorConfig();
+    updateWizardQuestionsFromConfig();
+}
+
+function saveAIGeneratorConfig() {
+    localStorage.setItem('aiGeneratorConfig', JSON.stringify(aiGeneratorConfig));
+}
+
+// Setup wizard state
+let setupWizardCurrentStep = 1;
+let setupWizardData = {
+    policyTypes: [],
+    categories: [],
+    audience: [],
+    compliance: [],
+    urgency: [],
+    roles: []
+};
+
+// Setup wizard recommendations
+const setupRecommendations = {
+    policyTypes: [
+        { label: 'Admin Policy', icon: 'fa-file-alt', color: '#6366f1' },
+        { label: 'Standard Operating Guidelines', icon: 'fa-clipboard-list', color: '#10b981' },
+        { label: 'Protocol', icon: 'fa-tasks', color: '#f59e0b' },
+        { label: 'Communication Memo', icon: 'fa-envelope', color: '#ec4899' },
+        { label: 'Training Document', icon: 'fa-graduation-cap', color: '#8b5cf6' },
+        { label: 'Governance Policy', icon: 'fa-shield-alt', color: '#64748b' }
+    ],
+    categories: [
+        { label: 'Clinical & Patient Safety', icon: 'fa-heartbeat', color: '#10b981' },
+        { label: 'Emergency Response', icon: 'fa-exclamation-triangle', color: '#ef4444' },
+        { label: 'Operations & Workflow', icon: 'fa-cogs', color: '#6366f1' },
+        { label: 'Data & Security', icon: 'fa-lock', color: '#8b5cf6' },
+        { label: 'HR & People', icon: 'fa-users', color: '#f59e0b' },
+        { label: 'Custom Topic', icon: 'fa-lightbulb', color: '#ec4899' }
+    ],
+    audience: [
+        { label: 'Clinical Team', icon: 'fa-user-md', color: '#10b981' },
+        { label: 'Client Services', icon: 'fa-headset', color: '#6366f1' },
+        { label: 'Leadership & Management', icon: 'fa-user-tie', color: '#8b5cf6' },
+        { label: 'All Staff', icon: 'fa-users', color: '#f59e0b' }
+    ],
+    compliance: [
+        { label: 'HIPAA / PHI', icon: 'fa-shield-alt', color: '#6366f1' },
+        { label: 'OSHA / Safety', icon: 'fa-hard-hat', color: '#f59e0b' },
+        { label: 'AAHA / Accreditation', icon: 'fa-certificate', color: '#10b981' },
+        { label: 'No Specific Requirement', icon: 'fa-check-circle', color: '#64748b' }
+    ],
+    urgency: [
+        { label: 'Immediate', icon: 'fa-bolt', color: '#ef4444' },
+        { label: 'Soon', icon: 'fa-clock', color: '#f59e0b' },
+        { label: 'Planned', icon: 'fa-calendar', color: '#10b981' }
+    ]
+};
+
+// Initialize setup wizard
+function initSetupWizard() {
+    setupWizardCurrentStep = 1;
+    setupWizardData = {
+        policyTypes: [],
+        categories: [],
+        audience: [],
+        compliance: [],
+        urgency: [],
+        roles: []
+    };
+    
+    // Populate recommendations
+    populateSetupRecommendations();
+    
+    // Load existing users for roles
+    loadUsersForRoles();
+    
+    // Show first step
+    showSetupStep(1);
+}
+
+// Populate recommendations for all steps
+function populateSetupRecommendations() {
+    Object.keys(setupRecommendations).forEach(key => {
+        const container = document.getElementById(`setup${key.charAt(0).toUpperCase() + key.slice(1)}Recommendations`);
+        if (!container) return;
+        
+        const recommendations = setupRecommendations[key];
+        container.innerHTML = recommendations.map(rec => `
+            <label class="setup-recommendation-item" style="display: flex; align-items: center; padding: 15px; background: white; border: 2px solid #e0e0e0; border-radius: 8px; cursor: pointer; transition: all 0.2s;">
+                <input type="checkbox" class="setup-recommendation-checkbox" data-type="${key}" data-label="${rec.label}" 
+                    style="margin-right: 12px; width: 20px; height: 20px; cursor: pointer;">
+                <div style="flex: 1;">
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <i class="fas ${rec.icon}" style="color: ${rec.color}; font-size: 20px;"></i>
+                        <strong style="color: #333;">${rec.label}</strong>
+                    </div>
+                </div>
+            </label>
+        `).join('');
+        
+        // Add click handlers
+        container.querySelectorAll('.setup-recommendation-item').forEach(item => {
+            item.addEventListener('click', function(e) {
+                if (e.target.type !== 'checkbox') {
+                    const checkbox = this.querySelector('input[type="checkbox"]');
+                    checkbox.checked = !checkbox.checked;
+                    updateSetupDataFromCheckbox(checkbox);
+                }
+            });
+        });
+        
+        container.querySelectorAll('.setup-recommendation-checkbox').forEach(checkbox => {
+            checkbox.addEventListener('change', function() {
+                updateSetupDataFromCheckbox(this);
+            });
+        });
+    });
+}
+
+// Update setup data from checkbox
+function updateSetupDataFromCheckbox(checkbox) {
+    const type = checkbox.dataset.type;
+    const label = checkbox.dataset.label;
+    const rec = setupRecommendations[type].find(r => r.label === label);
+    
+    if (!rec) return;
+    
+    const value = label.toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '');
+    const item = {
+        id: String(Date.now() + Math.random()),
+        value: value,
+        label: label,
+        description: `${label} configuration`,
+        icon: rec.icon,
+        color: rec.color
+    };
+    
+    if (checkbox.checked) {
+        if (!setupWizardData[type].find(i => i.label === label)) {
+            setupWizardData[type].push(item);
+        }
+    } else {
+        setupWizardData[type] = setupWizardData[type].filter(i => i.label !== label);
+    }
+}
+
+// Add custom item
+function addCustomItem(type) {
+    const input = document.getElementById(`setup${type.charAt(0).toUpperCase() + type.slice(1)}Custom`);
+    if (!input) return;
+    
+    const label = input.value.trim();
+    if (!label) return;
+    
+    // Check if already exists
+    if (setupWizardData[type].find(i => i.label === label)) {
+        alert('This item already exists!');
+        return;
+    }
+    
+    const value = label.toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '');
+    const defaultIcons = {
+        policyTypes: ['fa-file-alt', 'fa-clipboard-list', 'fa-tasks', 'fa-envelope', 'fa-graduation-cap', 'fa-shield-alt'],
+        categories: ['fa-heartbeat', 'fa-exclamation-triangle', 'fa-cogs', 'fa-lock', 'fa-users', 'fa-lightbulb'],
+        audience: ['fa-user-md', 'fa-headset', 'fa-user-tie', 'fa-users'],
+        compliance: ['fa-shield-alt', 'fa-hard-hat', 'fa-certificate', 'fa-check-circle'],
+        urgency: ['fa-bolt', 'fa-clock', 'fa-calendar']
+    };
+    const defaultColors = {
+        policyTypes: ['#6366f1', '#10b981', '#f59e0b', '#ec4899', '#8b5cf6', '#64748b'],
+        categories: ['#10b981', '#ef4444', '#6366f1', '#8b5cf6', '#f59e0b', '#ec4899'],
+        audience: ['#10b981', '#6366f1', '#8b5cf6', '#f59e0b'],
+        compliance: ['#6366f1', '#f59e0b', '#10b981', '#64748b'],
+        urgency: ['#ef4444', '#f59e0b', '#10b981']
+    };
+    
+    const icons = defaultIcons[type] || ['fa-circle'];
+    const colors = defaultColors[type] || ['#6366f1'];
+    const index = setupWizardData[type].length;
+    
+    const item = {
+        id: String(Date.now() + Math.random()),
+        value: value,
+        label: label,
+        description: `${label} configuration`,
+        icon: icons[index % icons.length],
+        color: colors[index % colors.length]
+    };
+    
+    setupWizardData[type].push(item);
+    input.value = '';
+    
+    // Update UI
+    updateCustomItemsList(type);
+}
+
+// Update custom items list
+function updateCustomItemsList(type) {
+    const container = document.getElementById(`setup${type.charAt(0).toUpperCase() + type.slice(1)}CustomList`);
+    if (!container) return;
+    
+    const customItems = setupWizardData[type].filter(item => 
+        !setupRecommendations[type].find(rec => rec.label === item.label)
+    );
+    
+    if (customItems.length === 0) {
+        container.innerHTML = '';
+        return;
+    }
+    
+    container.innerHTML = customItems.map(item => `
+        <div class="setup-custom-tag" style="display: inline-flex; align-items: center; gap: 8px; padding: 8px 15px; background: ${item.color}20; border: 2px solid ${item.color}; border-radius: 20px; color: ${item.color};">
+            <i class="fas ${item.icon}"></i>
+            <span style="font-weight: 600;">${item.label}</span>
+            <button type="button" onclick="removeCustomItem('${type}', '${item.id}')" 
+                style="background: none; border: none; color: ${item.color}; cursor: pointer; padding: 0; margin-left: 5px; font-size: 16px;">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+    `).join('');
+}
+
+// Remove custom item
+function removeCustomItem(type, id) {
+    setupWizardData[type] = setupWizardData[type].filter(item => item.id !== id);
+    updateCustomItemsList(type);
+}
+
+// Show setup step
+function showSetupStep(step) {
+    setupWizardCurrentStep = step;
+    
+    // Hide all steps
+    for (let i = 1; i <= 6; i++) {
+        const content = document.getElementById(`setupStepContent${i}`);
+        const stepLabel = document.getElementById(`setupStep${i}`);
+        if (content) content.style.display = 'none';
+        if (stepLabel) {
+            stepLabel.classList.remove('active');
+            stepLabel.style.color = '#666';
+            stepLabel.style.fontWeight = 'normal';
+        }
+    }
+    
+    // Show current step
+    const currentContent = document.getElementById(`setupStepContent${step}`);
+    const currentLabel = document.getElementById(`setupStep${step}`);
+    if (currentContent) currentContent.style.display = 'block';
+    if (currentLabel) {
+        currentLabel.classList.add('active');
+        currentLabel.style.color = '#6366f1';
+        currentLabel.style.fontWeight = '600';
+    }
+    
+    // Update progress bar
+    const progress = (step / 6) * 100;
+    const progressFill = document.getElementById('setupProgressFill');
+    if (progressFill) progressFill.style.width = `${progress}%`;
+    
+    // Update navigation buttons
+    const backBtn = document.getElementById('setupBackBtn');
+    const nextBtn = document.getElementById('setupNextBtn');
+    const saveBtn = document.getElementById('setupSaveBtn');
+    
+    if (backBtn) backBtn.style.display = step > 1 ? 'block' : 'none';
+    if (nextBtn) nextBtn.style.display = step < 6 ? 'block' : 'none';
+    if (saveBtn) saveBtn.style.display = step === 6 ? 'block' : 'none';
+    
+    // Update custom items lists
+    if (step <= 5) {
+        const types = ['policyTypes', 'categories', 'audience', 'compliance', 'urgency'];
+        updateCustomItemsList(types[step - 1]);
+    }
+    
+    // Special handling for roles step
+    if (step === 6) {
+        renderRolesStep();
+    }
+}
+
+// Setup navigation
+function setupGoNext() {
+    if (setupWizardCurrentStep < 6) {
+        showSetupStep(setupWizardCurrentStep + 1);
+    }
+}
+
+function setupGoBack() {
+    if (setupWizardCurrentStep > 1) {
+        showSetupStep(setupWizardCurrentStep - 1);
+    }
+}
+
+// Load users for roles
+async function loadUsersForRoles() {
+    try {
+        let users = [];
+        
+        // Try to get users from Supabase
+        if (typeof SupabaseDB !== 'undefined' && SupabaseDB.getUsers) {
+            try {
+                users = await SupabaseDB.getUsers();
+            } catch (e) {
+                console.log('Could not load users from Supabase, trying localStorage');
+            }
+        }
+        
+        // Fallback to localStorage
+        if (!users || users.length === 0) {
+            const masterUsers = JSON.parse(localStorage.getItem('masterUsers') || '[]');
+            const currentCompany = rememberDevicePreference ? 
+                loadFromLocalStorage('currentCompany', null) : 
+                loadFromSessionStorage('currentCompany', null);
+            
+            if (currentCompany) {
+                users = masterUsers.filter(u => u.company === currentCompany.name || u.company === currentCompany);
+            } else {
+                users = masterUsers;
+            }
+        }
+        
+        // Store for roles step
+        window.setupWizardUsers = users || [];
+    } catch (e) {
+        console.error('Error loading users:', e);
+        window.setupWizardUsers = [];
+    }
+}
+
+// Render roles step
+function renderRolesStep() {
+    const container = document.getElementById('setupRolesContainer');
+    if (!container) return;
+    
+    const users = window.setupWizardUsers || [];
+    const defaultRoles = [
+        { name: 'Policy Manager', description: 'Oversees policy creation and updates' },
+        { name: 'Compliance Officer', description: 'Ensures policies meet compliance requirements' },
+        { name: 'HR Manager', description: 'Manages HR-related policies' },
+        { name: 'Clinical Director', description: 'Oversees clinical policies' }
+    ];
+    
+    // Initialize roles if empty
+    if (setupWizardData.roles.length === 0) {
+        setupWizardData.roles = defaultRoles.map((role, index) => ({
+            id: String(index + 1),
+            name: role.name,
+            description: role.description,
+            assignedUsers: []
+        }));
+    }
+    
+    container.innerHTML = setupWizardData.roles.map(role => `
+        <div class="setup-role-card" style="margin-bottom: 20px; padding: 20px; background: white; border: 2px solid #e0e0e0; border-radius: 12px;">
+            <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 15px;">
+                <div style="flex: 1;">
+                    <h4 style="margin: 0 0 5px 0; color: #333; font-size: 1.1rem;">${role.name}</h4>
+                    <p style="margin: 0; color: #666; font-size: 0.9rem;">${role.description || ''}</p>
+                </div>
+                <button type="button" onclick="removeRole('${role.id}')" 
+                    style="background: none; border: none; color: #ef4444; cursor: pointer; padding: 5px 10px; font-size: 18px;">
+                    <i class="fas fa-trash"></i>
+                </button>
+            </div>
+            <div>
+                <label style="display: block; margin-bottom: 8px; font-weight: 600; color: #333; font-size: 0.9rem;">Assign People:</label>
+                <select multiple class="form-control" id="roleUsers_${role.id}" 
+                    style="min-height: 100px; padding: 10px; border: 1px solid #ddd; border-radius: 6px; width: 100%;">
+                    ${users.map(user => `
+                        <option value="${user.id || user.username}" 
+                            ${role.assignedUsers && role.assignedUsers.includes(user.id || user.username) ? 'selected' : ''}>
+                            ${user.fullName || user.username || user.name} ${user.email ? `(${user.email})` : ''}
+                        </option>
+                    `).join('')}
+                </select>
+                ${users.length === 0 ? '<p style="color: #999; font-size: 0.85rem; margin-top: 5px;">No users found. Add users in the Admin panel first.</p>' : ''}
+            </div>
+        </div>
+    `).join('');
+}
+
+// Add new role
+function addNewRole() {
+    const input = document.getElementById('setupNewRoleName');
+    if (!input) return;
+    
+    const name = input.value.trim();
+    if (!name) {
+        alert('Please enter a role name');
+        return;
+    }
+    
+    // Check if already exists
+    if (setupWizardData.roles.find(r => r.name === name)) {
+        alert('This role already exists!');
+        return;
+    }
+    
+    setupWizardData.roles.push({
+        id: String(Date.now() + Math.random()),
+        name: name,
+        description: '',
+        assignedUsers: []
+    });
+    
+    input.value = '';
+    renderRolesStep();
+}
+
+// Remove role
+function removeRole(id) {
+    if (confirm('Are you sure you want to remove this role?')) {
+        setupWizardData.roles = setupWizardData.roles.filter(r => r.id !== id);
+        renderRolesStep();
+    }
+}
+
+// Save AI setup form data
+function saveAISetup(event) {
+    if (event) {
+        event.preventDefault();
+    }
+    
+    // Collect role assignments
+    setupWizardData.roles.forEach(role => {
+        const select = document.getElementById(`roleUsers_${role.id}`);
+        if (select) {
+            role.assignedUsers = Array.from(select.selectedOptions).map(opt => opt.value);
+        }
+    });
+    
+    // Update aiGeneratorConfig
+    aiGeneratorConfig.policyTypes = setupWizardData.policyTypes;
+    aiGeneratorConfig.categories = setupWizardData.categories;
+    aiGeneratorConfig.audience = setupWizardData.audience;
+    aiGeneratorConfig.compliance = setupWizardData.compliance;
+    aiGeneratorConfig.urgency = setupWizardData.urgency;
+    
+    // Save roles separately
+    if (!aiGeneratorConfig.roles) {
+        aiGeneratorConfig.roles = [];
+    }
+    aiGeneratorConfig.roles = setupWizardData.roles;
+    
+    // Save to localStorage
+    saveAIGeneratorConfig();
+    
+    // Update wizard questions
+    if (typeof updateWizardQuestionsFromConfig === 'function') {
+        updateWizardQuestionsFromConfig();
+    }
+    
+    // Hide setup form and show wizard
+    const aiSetupForm = document.getElementById('aiSetupForm');
+    const aiWizard = document.getElementById('aiWizard');
+    
+    if (aiSetupForm) aiSetupForm.style.display = 'none';
+    if (aiWizard) {
+        aiWizard.style.display = 'block';
+        // Initialize wizard
+        if (typeof initWizard === 'function') {
+            initWizard();
+        }
+    }
+    
+    // Show success message
+    if (typeof showNotification === 'function') {
+        showNotification('AI Policy Generator configured successfully!', 'success');
+    } else {
+        alert('AI Policy Generator configured successfully!');
+    }
+}
+
+function updateWizardQuestionsFromConfig() {
+    // Update wizardQuestions array with configured values
+    if (wizardQuestions && wizardQuestions.length > 0) {
+        // Update policy type question
+        // Update category question
+        const categoryQuestion = wizardQuestions.find(q => q.id === 'policyCategory');
+        if (categoryQuestion && aiGeneratorConfig.categories) {
+            categoryQuestion.options = aiGeneratorConfig.categories.map(item => ({
+                value: item.value,
+                label: item.label,
+                description: item.description,
+                icon: item.icon,
+                color: item.color
+            }));
+        }
+        
+        // Update audience question
+        const audienceQuestion = wizardQuestions.find(q => q.id === 'audience');
+        if (audienceQuestion && aiGeneratorConfig.audience) {
+            audienceQuestion.options = aiGeneratorConfig.audience.map(item => ({
+                value: item.value,
+                label: item.label,
+                description: item.description,
+                icon: item.icon,
+                color: item.color
+            }));
+        }
+        
+        // Update compliance question
+        const complianceQuestion = wizardQuestions.find(q => q.id === 'compliance');
+        if (complianceQuestion && aiGeneratorConfig.compliance) {
+            complianceQuestion.options = aiGeneratorConfig.compliance.map(item => ({
+                value: item.value,
+                label: item.label,
+                description: item.description,
+                icon: item.icon,
+                color: item.color
+            }));
+        }
+        
+        // Update urgency question
+        const urgencyQuestion = wizardQuestions.find(q => q.id === 'urgency');
+        if (urgencyQuestion && aiGeneratorConfig.urgency) {
+            urgencyQuestion.options = aiGeneratorConfig.urgency.map(item => ({
+                value: item.value,
+                label: item.label,
+                description: item.description,
+                icon: item.icon,
+                color: item.color
+            }));
+        }
+    }
+}
+
+function displayAIConfigItems() {
+    displayAIConfigList('policyTypes', 'aiPolicyTypesList');
+    displayAIConfigList('categories', 'aiCategoriesList');
+    displayAIConfigList('audience', 'aiAudienceList');
+    displayAIConfigList('compliance', 'aiComplianceList');
+    displayAIConfigList('urgency', 'aiUrgencyList');
+}
+
+function displayAIConfigList(configType, listId) {
+    const list = document.getElementById(listId);
+    if (!list) return;
+    
+    const items = aiGeneratorConfig[configType] || [];
+    
+    if (items.length === 0) {
+        list.innerHTML = '<p style="color: #999; padding: 20px; text-align: center; font-style: italic;">No items configured. Click "Add" to create one.</p>';
+        return;
+    }
+    
+    list.innerHTML = items.map(item => `
+        <div class="config-item-card" style="display: flex; justify-content: space-between; align-items: center; padding: 16px; background: white; border: 1px solid #e0e0e0; border-radius: 8px; margin-bottom: 12px;">
+            <div style="flex: 1;">
+                <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 6px;">
+                    ${item.icon ? `<i class="fas ${item.icon}" style="color: ${item.color || '#6366f1'}; font-size: 18px;"></i>` : ''}
+                    <strong style="color: #333; font-size: 15px;">${item.label}</strong>
+                    ${item.value ? `<span style="color: #999; font-size: 12px;">(${item.value})</span>` : ''}
+                </div>
+                ${item.description ? `<p style="color: #666; font-size: 13px; margin: 4px 0 0 0;">${item.description}</p>` : ''}
+            </div>
+            <div style="display: flex; gap: 8px;">
+                <button class="btn btn-sm btn-secondary" onclick="editAIConfigItem('${configType}', '${item.id}')" style="padding: 6px 12px; font-size: 13px;">
+                    <i class="fas fa-edit"></i> Edit
+                </button>
+                <button class="btn btn-sm btn-danger" onclick="deleteAIConfigItem('${configType}', '${item.id}')" style="padding: 6px 12px; font-size: 13px;">
+                    <i class="fas fa-trash"></i> Delete
+                </button>
+            </div>
+        </div>
+    `).join('');
+}
+
+function addAIConfigItem(type) {
+    const typeLabels = {
+        'policyType': 'Policy Type',
+        'category': 'Policy Category',
+        'audience': 'Audience Option',
+        'compliance': 'Compliance Requirement',
+        'urgency': 'Urgency Level'
+    };
+    
+    document.getElementById('aiConfigItemModalTitle').innerHTML = `<i class="fas fa-plus"></i> Add ${typeLabels[type] || 'Item'}`;
+    document.getElementById('aiConfigItemType').value = type;
+    document.getElementById('aiConfigItemId').value = '';
+    document.getElementById('aiConfigItemLabel').value = '';
+    document.getElementById('aiConfigItemValue').value = '';
+    document.getElementById('aiConfigItemDescription').value = '';
+    document.getElementById('aiConfigItemIcon').value = '';
+    document.getElementById('aiConfigItemColor').value = '#6366f1';
+    
+    // Show icon and color fields for policy types and categories
+    const iconGroup = document.getElementById('aiConfigItemIconGroup');
+    const colorGroup = document.getElementById('aiConfigItemColorGroup');
+    if (type === 'policyType' || type === 'category') {
+        if (iconGroup) iconGroup.style.display = 'block';
+        if (colorGroup) colorGroup.style.display = 'block';
+    } else {
+        if (iconGroup) iconGroup.style.display = 'none';
+        if (colorGroup) colorGroup.style.display = 'none';
+    }
+    
+    document.getElementById('aiConfigItemModal').style.display = 'block';
+}
+
+function editAIConfigItem(type, id) {
+    const typeMapping = {
+        'policyType': 'policyTypes',
+        'category': 'categories',
+        'audience': 'audience',
+        'compliance': 'compliance',
+        'urgency': 'urgency'
+    };
+    
+    const configKey = typeMapping[type];
+    if (!configKey) return;
+    
+    const items = aiGeneratorConfig[configKey] || [];
+    const item = items.find(i => i.id === id);
+    if (!item) return;
+    
+    const typeLabels = {
+        'policyType': 'Policy Type',
+        'category': 'Policy Category',
+        'audience': 'Audience Option',
+        'compliance': 'Compliance Requirement',
+        'urgency': 'Urgency Level'
+    };
+    
+    document.getElementById('aiConfigItemModalTitle').innerHTML = `<i class="fas fa-edit"></i> Edit ${typeLabels[type] || 'Item'}`;
+    document.getElementById('aiConfigItemType').value = type;
+    document.getElementById('aiConfigItemId').value = id;
+    document.getElementById('aiConfigItemLabel').value = item.label || '';
+    document.getElementById('aiConfigItemValue').value = item.value || '';
+    document.getElementById('aiConfigItemDescription').value = item.description || '';
+    document.getElementById('aiConfigItemIcon').value = item.icon || '';
+    document.getElementById('aiConfigItemColor').value = item.color || '#6366f1';
+    
+    // Show icon and color fields for policy types and categories
+    const iconGroup = document.getElementById('aiConfigItemIconGroup');
+    const colorGroup = document.getElementById('aiConfigItemColorGroup');
+    if (type === 'policyType' || type === 'category') {
+        if (iconGroup) iconGroup.style.display = 'block';
+        if (colorGroup) colorGroup.style.display = 'block';
+    } else {
+        if (iconGroup) iconGroup.style.display = 'none';
+        if (colorGroup) colorGroup.style.display = 'none';
+    }
+    
+    document.getElementById('aiConfigItemModal').style.display = 'block';
+}
+
+function saveAIConfigItem(event) {
+    event.preventDefault();
+    
+    const type = document.getElementById('aiConfigItemType').value;
+    const id = document.getElementById('aiConfigItemId').value;
+    const label = document.getElementById('aiConfigItemLabel').value.trim();
+    const value = document.getElementById('aiConfigItemValue').value.trim();
+    const description = document.getElementById('aiConfigItemDescription').value.trim();
+    const icon = document.getElementById('aiConfigItemIcon').value.trim();
+    const color = document.getElementById('aiConfigItemColor').value;
+    
+    if (!label) {
+        alert('Label is required');
+        return;
+    }
+    
+    // Map type to config key
+    const typeMapping = {
+        'policyType': 'policyTypes',
+        'category': 'categories',
+        'audience': 'audience',
+        'compliance': 'compliance',
+        'urgency': 'urgency'
+    };
+    
+    const configKey = typeMapping[type];
+    if (!configKey) {
+        alert('Invalid configuration type');
+        return;
+    }
+    
+    if (!aiGeneratorConfig[configKey]) {
+        aiGeneratorConfig[configKey] = [];
+    }
+    
+    // Generate value from label if not provided
+    const finalValue = value || label.toLowerCase().replace(/\s+/g, '_');
+    
+    if (id) {
+        // Edit existing
+        const index = aiGeneratorConfig[configKey].findIndex(item => item.id === id);
+        if (index !== -1) {
+            aiGeneratorConfig[configKey][index] = {
+                ...aiGeneratorConfig[configKey][index],
+                label,
+                value: finalValue,
+                description: description || undefined,
+                icon: icon || undefined,
+                color: color || undefined
+            };
+        }
+    } else {
+        // Add new
+        const newId = Date.now().toString();
+        const newItem = {
+            id: newId,
+            label,
+            value: finalValue,
+            description: description || undefined
+        };
+        if (icon) newItem.icon = icon;
+        if (color) newItem.color = color;
+        aiGeneratorConfig[configKey].push(newItem);
+    }
+    
+    saveAIGeneratorConfig();
+    updateWizardQuestionsFromConfig();
+    displayAIConfigList(configKey, getAIConfigListId(type));
+    closeAIConfigItemModal();
+    
+    if (typeof showNotification === 'function') {
+        showNotification('Configuration saved successfully!', 'success');
+    } else {
+        alert('Configuration saved successfully!');
+    }
+}
+
+function deleteAIConfigItem(type, id) {
+    if (!confirm('Are you sure you want to delete this item?')) {
+        return;
+    }
+    
+    const typeMapping = {
+        'policyType': 'policyTypes',
+        'category': 'categories',
+        'audience': 'audience',
+        'compliance': 'compliance',
+        'urgency': 'urgency'
+    };
+    
+    const configKey = typeMapping[type];
+    if (!configKey) return;
+    
+    aiGeneratorConfig[configKey] = aiGeneratorConfig[configKey].filter(item => item.id !== id);
+    saveAIGeneratorConfig();
+    updateWizardQuestionsFromConfig();
+    displayAIConfigList(configKey, getAIConfigListId(type));
+    
+    if (typeof showNotification === 'function') {
+        showNotification('Item deleted successfully', 'success');
+    } else {
+        alert('Item deleted successfully');
+    }
+}
+
+function getAIConfigListId(type) {
+    const mapping = {
+        'policyType': 'aiPolicyTypesList',
+        'category': 'aiCategoriesList',
+        'audience': 'aiAudienceList',
+        'compliance': 'aiComplianceList',
+        'urgency': 'aiUrgencyList'
+    };
+    return mapping[type] || '';
+}
+
+function closeAIConfigItemModal() {
+    document.getElementById('aiConfigItemModal').style.display = 'none';
+    document.getElementById('aiConfigItemForm').reset();
+}
+
+// Load AI config when settings tab is shown
+function showSettingsTab(tabName, event) {
+    if (event) event.preventDefault();
+    
+    // Hide all tabs
+    document.querySelectorAll('.settings-tab').forEach(tab => {
+        tab.classList.remove('active');
+    });
+    
+    // Remove active from all tab buttons
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+        btn.classList.remove('active');
+    });
+    
+    // Show selected tab
+    const selectedTab = document.getElementById(tabName + 'Tab');
+    if (selectedTab) {
+        selectedTab.classList.add('active');
+    }
+    
+    // Activate selected tab button
+    if (event && event.target) {
+        event.target.classList.add('active');
+    }
+    
+    // Load AI config if AI Generator tab is selected
+    if (tabName === 'aiGenerator') {
+        if (!aiGeneratorConfig || !aiGeneratorConfig.policyTypes || aiGeneratorConfig.policyTypes.length === 0) {
+            loadAIGeneratorConfig();
+        }
+        displayAIConfigItems();
+    }
+}
+
+// Attach functions to window
+if (typeof window !== 'undefined') {
+    window.addAIConfigItem = addAIConfigItem;
+    window.editAIConfigItem = editAIConfigItem;
+    window.deleteAIConfigItem = deleteAIConfigItem;
+    window.saveAIConfigItem = saveAIConfigItem;
+    window.closeAIConfigItemModal = closeAIConfigItemModal;
+    window.loadAIGeneratorConfig = loadAIGeneratorConfig;
+    window.displayAIConfigItems = displayAIConfigItems;
+    
+    // Override showSettingsTab if it exists, or add it
+    if (typeof showSettingsTab === 'function') {
+        // Store original function
+        const originalShowSettingsTab = window.showSettingsTab;
+        window.showSettingsTab = function(tabName, event) {
+            if (tabName === 'aiGenerator') {
+                if (!aiGeneratorConfig || !aiGeneratorConfig.policyTypes || aiGeneratorConfig.policyTypes.length === 0) {
+                    loadAIGeneratorConfig();
+                }
+                displayAIConfigItems();
+            }
+            if (originalShowSettingsTab) {
+                originalShowSettingsTab(tabName, event);
+            } else {
+                showSettingsTab(tabName, event);
+            }
+        };
+    } else {
+        window.showSettingsTab = showSettingsTab;
+    }
+}
+
+// Load AI config on page load
+if (typeof document !== 'undefined') {
+    document.addEventListener('DOMContentLoaded', function() {
+        loadAIGeneratorConfig();
+    });
 }
 
 function initWizard() {
     aiWizardState = {};
     aiWizardCurrentStep = 0;
+    aiWizardRecommendations = {};
     
     // Ensure containers are visible
     const optionsContainer = document.getElementById('wizardOptionsContainer');
     const textContainer = document.getElementById('wizardTextContainer');
+    const recommendationsContainer = document.getElementById('wizardRecommendationsContainer');
     if (optionsContainer) optionsContainer.style.display = 'grid';
     if (textContainer) textContainer.style.display = 'none';
+    if (recommendationsContainer) recommendationsContainer.style.display = 'none';
     
     renderWizardStep();
 }
@@ -7488,10 +9023,170 @@ function renderChoiceOptions(question, container) {
         console.error('❌ CRITICAL: No children appended to container!');
         alert('ERROR: Buttons were not created. Check console for details.');
     }
+    
+    // Render recommendations if available
+    renderRecommendations(question);
+}
+
+function renderRecommendations(question) {
+    const recommendationsContainer = document.getElementById('wizardRecommendationsContainer');
+    const recommendationsInner = document.getElementById('wizardRecommendations');
+    
+    if (!recommendationsContainer || !recommendationsInner) return;
+    
+    // Initialize recommendations array for this question if not exists
+    if (!aiWizardRecommendations[question.id]) {
+        aiWizardRecommendations[question.id] = [];
+    }
+    
+    // Always show policy types as recommendations (since we removed that question)
+    const policyTypes = aiGeneratorConfig.policyTypes || [];
+    
+    // Get recommendations from aiGeneratorConfig for the current question
+    const configMap = {
+        'policyCategory': 'categories',
+        'audience': 'audience',
+        'compliance': 'compliance',
+        'urgency': 'urgency'
+    };
+    
+    const configKey = configMap[question.id];
+    const questionRecommendations = configKey && aiGeneratorConfig[configKey] ? aiGeneratorConfig[configKey] : [];
+    
+    // Combine policy types and question-specific recommendations
+    const allRecommendations = [];
+    
+    // Add policy types as recommendations for all questions
+    if (policyTypes.length > 0) {
+        allRecommendations.push(...policyTypes.map(pt => ({
+            ...pt,
+            isPolicyType: true
+        })));
+    }
+    
+    // Add question-specific recommendations
+    if (questionRecommendations.length > 0) {
+        allRecommendations.push(...questionRecommendations);
+    }
+    
+    // Show ALL recommendations as toggleable options
+    if (allRecommendations.length === 0) {
+        recommendationsContainer.style.display = 'none';
+        return;
+    }
+    
+    // Show recommendations container
+    recommendationsContainer.style.display = 'block';
+    
+    // Initialize policy types recommendations if not exists
+    if (!aiWizardRecommendations['policyTypes']) {
+        aiWizardRecommendations['policyTypes'] = [];
+    }
+    
+    // Render recommendations as toggleable items
+    recommendationsInner.innerHTML = allRecommendations.map(rec => {
+        // Use policyTypes key for policy type recommendations, question.id for others
+        const checkKey = rec.isPolicyType ? 'policyTypes' : question.id;
+        const isChecked = aiWizardRecommendations[checkKey].includes(rec.value);
+        return `
+            <label class="wizard-recommendation-item" style="display: flex; align-items: center; padding: 15px; background: white; border: 2px solid ${isChecked ? '#6366f1' : '#e0e0e0'}; border-radius: 8px; cursor: pointer; transition: all 0.2s; ${isChecked ? 'background: linear-gradient(135deg, #6366f1, #8b5cf6); color: white;' : ''}">
+                <input type="checkbox" class="wizard-recommendation-checkbox" 
+                    data-question="${checkKey}" 
+                    data-value="${rec.value}"
+                    data-color="${rec.color || '#6366f1'}"
+                    data-is-policy-type="${rec.isPolicyType ? 'true' : 'false'}"
+                    ${isChecked ? 'checked' : ''}
+                    style="margin-right: 12px; width: 20px; height: 20px; cursor: pointer;">
+                <div style="flex: 1; display: flex; align-items: center; gap: 10px;">
+                    ${rec.icon ? `<i class="fas ${rec.icon}" style="color: ${isChecked ? 'white' : rec.color || '#6366f1'}; font-size: 20px;"></i>` : ''}
+                    <div>
+                        <strong style="color: ${isChecked ? 'white' : '#333'};">${rec.label}</strong>
+                        ${rec.description ? `<div style="font-size: 0.85rem; color: ${isChecked ? 'rgba(255,255,255,0.9)' : '#666'}; margin-top: 4px;">${rec.description}</div>` : ''}
+                    </div>
+                </div>
+            </label>
+        `;
+    }).join('');
+    
+    // Add event listeners
+    recommendationsInner.querySelectorAll('.wizard-recommendation-item').forEach(item => {
+        item.addEventListener('click', function(e) {
+            if (e.target.type !== 'checkbox') {
+                const checkbox = this.querySelector('input[type="checkbox"]');
+                checkbox.checked = !checkbox.checked;
+                updateRecommendation(question.id, checkbox);
+            }
+        });
+    });
+    
+    recommendationsInner.querySelectorAll('.wizard-recommendation-checkbox').forEach(checkbox => {
+        checkbox.addEventListener('change', function() {
+            updateRecommendation(question.id, this);
+        });
+    });
+}
+
+function updateRecommendation(questionId, checkbox) {
+    const value = checkbox.dataset.value;
+    const isChecked = checkbox.checked;
+    // Use the data-question from checkbox which may be 'policyTypes' or the actual question id
+    const storageKey = checkbox.dataset.question || questionId;
+    
+    if (!aiWizardRecommendations[storageKey]) {
+        aiWizardRecommendations[storageKey] = [];
+    }
+    
+    if (isChecked) {
+        if (!aiWizardRecommendations[storageKey].includes(value)) {
+            aiWizardRecommendations[storageKey].push(value);
+        }
+    } else {
+        aiWizardRecommendations[storageKey] = aiWizardRecommendations[storageKey].filter(v => v !== value);
+    }
+    
+    // Update visual state
+    const item = checkbox.closest('.wizard-recommendation-item');
+    if (item) {
+        if (isChecked) {
+            item.style.borderColor = '#6366f1';
+            item.style.background = 'linear-gradient(135deg, #6366f1, #8b5cf6)';
+            item.style.color = 'white';
+            item.querySelectorAll('strong, div').forEach(el => {
+                if (el.tagName === 'STRONG') {
+                    el.style.color = 'white';
+                } else if (el.tagName === 'DIV' && el.style) {
+                    el.style.color = 'rgba(255,255,255,0.9)';
+                }
+            });
+            item.querySelectorAll('i').forEach(icon => {
+                icon.style.color = 'white';
+            });
+        } else {
+            item.style.borderColor = '#e0e0e0';
+            item.style.background = 'white';
+            item.style.color = '';
+            item.querySelectorAll('strong, div').forEach(el => {
+                if (el.tagName === 'STRONG') {
+                    el.style.color = '#333';
+                } else if (el.tagName === 'DIV' && el.style) {
+                    el.style.color = '#666';
+                }
+            });
+            const icon = item.querySelector('i');
+            if (icon) {
+                const originalColor = checkbox.dataset.color || '#6366f1';
+                icon.style.color = originalColor;
+            }
+        }
+    }
 }
 
 function renderTextInput(question, container) {
     if (!container) return;
+    
+    // Hide recommendations for text questions
+    const recommendationsContainer = document.getElementById('wizardRecommendationsContainer');
+    if (recommendationsContainer) recommendationsContainer.style.display = 'none';
     
     const textInput = document.getElementById('wizardTextInput');
     const helperText = document.getElementById('wizardHelperText');
@@ -7608,10 +9303,11 @@ function wizardGeneratePolicy() {
     
     // Prepare policy data
     const policyData = {
-        type: aiWizardState.policyType || 'admin',
+        type: 'admin', // Default type since policyType question was removed
         clinicNames: currentCompany || 'All Organizations',
         prompt: prompt,
-        generatedBy: 'AI Generator'
+        generatedBy: 'AI Generator',
+        recommendations: aiWizardRecommendations // Include selected recommendations
     };
     
     // Send to webhook
@@ -7634,16 +9330,38 @@ function buildWizardPrompt() {
         return option ? option.label : value;
     };
     
+    // Get recommendation labels
+    const getRecommendationLabels = (questionId) => {
+        const recs = aiWizardRecommendations[questionId] || [];
+        if (recs.length === 0) return 'None selected';
+        const question = wizardQuestions.find(q => q.id === questionId);
+        const configMap = {
+            'policyCategory': 'categories',
+            'audience': 'audience',
+            'compliance': 'compliance',
+            'urgency': 'urgency'
+        };
+        const configKey = configMap[questionId];
+        if (!configKey || !aiGeneratorConfig[configKey]) return recs.join(', ');
+        return recs.map(value => {
+            const item = aiGeneratorConfig[configKey].find(item => item.value === value);
+            return item ? item.label : value;
+        }).join(', ');
+    };
+    
     const parts = [
         `POLICY GENERATION REQUEST`,
         `Company: ${currentCompany || 'Unknown Company'}`,
         `Requested by: ${currentUser?.username || 'Unknown User'}`,
         ``,
-        `Document Type: ${getOptionLabel('policyType', aiWizardState.policyType)}`,
         `Category: ${getOptionLabel('policyCategory', aiWizardState.policyCategory)}`,
+        `Category Recommendations: ${getRecommendationLabels('policyCategory')}`,
         `Audience: ${getOptionLabel('audience', aiWizardState.audience)}`,
+        `Audience Recommendations: ${getRecommendationLabels('audience')}`,
         `Urgency: ${getOptionLabel('urgency', aiWizardState.urgency)}`,
+        `Urgency Recommendations: ${getRecommendationLabels('urgency')}`,
         `Compliance: ${getOptionLabel('compliance', aiWizardState.compliance)}`,
+        `Compliance Recommendations: ${getRecommendationLabels('compliance')}`,
         ``,
         `Additional Details:`,
         aiWizardState.details || 'No additional details provided.'
@@ -7986,10 +9704,11 @@ function wizardRefinePolicy() {
     const refinementPrompt = `${originalPrompt}\n\nREFINEMENT REQUEST:\n${refinementText}`;
     
     const policyData = {
-        type: aiWizardState.policyType || 'admin',
+        type: 'admin', // Default type since policyType question was removed
         clinicNames: currentCompany || 'All Organizations',
         prompt: refinementPrompt,
-        generatedBy: 'AI Generator'
+        generatedBy: 'AI Generator',
+        recommendations: aiWizardRecommendations // Include selected recommendations
     };
     
     sendPolicyGenerationWebhook(policyData)

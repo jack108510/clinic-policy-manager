@@ -1,0 +1,1198 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Inventory Ordering Platform</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="supabase-config.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: #f5f5f5;
+            color: #333;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        /* Header */
+        header {
+            background: white;
+            border-bottom: 1px solid #e0e0e0;
+            padding: 1rem 0;
+            margin-bottom: 2rem;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        header .container {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        h1 {
+            font-size: 1.5rem;
+            color: #2563eb;
+        }
+
+        .user-info {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .btn {
+            padding: 0.5rem 1rem;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.875rem;
+            font-weight: 500;
+            transition: all 0.2s;
+        }
+
+        .btn-primary {
+            background: #2563eb;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #1d4ed8;
+        }
+
+        .btn-secondary {
+            background: #6b7280;
+            color: white;
+        }
+
+        .btn-secondary:hover {
+            background: #4b5563;
+        }
+
+        .btn-success {
+            background: #10b981;
+            color: white;
+        }
+
+        .btn-success:hover {
+            background: #059669;
+        }
+
+        .btn-danger {
+            background: #ef4444;
+            color: white;
+        }
+
+        .btn-danger:hover {
+            background: #dc2626;
+        }
+
+        /* Login Page */
+        .login-container {
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .login-box {
+            background: white;
+            padding: 2rem;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            width: 100%;
+            max-width: 400px;
+        }
+
+        .login-box h2 {
+            margin-bottom: 1.5rem;
+            text-align: center;
+        }
+
+        .form-group {
+            margin-bottom: 1rem;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+        }
+
+        .form-group input {
+            width: 100%;
+            padding: 0.75rem;
+            border: 1px solid #d1d5db;
+            border-radius: 6px;
+            font-size: 1rem;
+        }
+
+        .form-group input:focus {
+            outline: none;
+            border-color: #2563eb;
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+        }
+
+        .error-message {
+            background: #fee2e2;
+            color: #991b1b;
+            padding: 0.75rem;
+            border-radius: 6px;
+            margin-bottom: 1rem;
+        }
+
+        /* Main Content */
+        .main-content {
+            display: grid;
+            grid-template-columns: 1fr 350px;
+            gap: 2rem;
+        }
+
+        @media (max-width: 1024px) {
+            .main-content {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .card {
+            background: white;
+            border-radius: 8px;
+            padding: 1.5rem;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+
+        /* Search */
+        .search-bar {
+            margin-bottom: 1.5rem;
+        }
+
+        .search-bar input {
+            width: 100%;
+            padding: 0.75rem;
+            border: 1px solid #d1d5db;
+            border-radius: 6px;
+            font-size: 1rem;
+        }
+
+        .filter-group {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .filter-group select {
+            flex: 1;
+            padding: 0.75rem;
+            border: 1px solid #d1d5db;
+            border-radius: 6px;
+        }
+
+        /* Product Grid */
+        .product-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 1.5rem;
+        }
+
+        .product-card {
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            padding: 1rem;
+            transition: box-shadow 0.2s;
+        }
+
+        .product-card:hover {
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+
+        .product-card h3 {
+            font-size: 1rem;
+            margin-bottom: 0.5rem;
+            color: #111827;
+        }
+
+        .product-card .item-number {
+            font-family: monospace;
+            font-size: 0.875rem;
+            color: #6b7280;
+            margin-bottom: 0.5rem;
+        }
+
+        .product-card .size {
+            font-size: 0.875rem;
+            color: #6b7280;
+            margin-bottom: 0.75rem;
+        }
+
+        .product-card .category {
+            display: inline-block;
+            background: #f3f4f6;
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            margin-bottom: 0.75rem;
+        }
+
+        .quantity-controls {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-top: 1rem;
+            padding-top: 1rem;
+            border-top: 1px solid #e5e7eb;
+        }
+
+        .quantity-buttons {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .quantity-buttons button {
+            width: 32px;
+            height: 32px;
+            border: 1px solid #d1d5db;
+            background: white;
+            border-radius: 4px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .quantity-buttons button:hover {
+            background: #f9fafb;
+        }
+
+        .quantity-buttons span {
+            min-width: 40px;
+            text-align: center;
+            font-weight: 500;
+        }
+
+        /* Cart */
+        .cart {
+            position: sticky;
+            top: 20px;
+            max-height: calc(100vh - 40px);
+            overflow-y: auto;
+        }
+
+        .cart-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+            padding-bottom: 1rem;
+            border-bottom: 1px solid #e5e7eb;
+        }
+
+        .cart-item {
+            padding: 1rem 0;
+            border-bottom: 1px solid #e5e7eb;
+        }
+
+        .cart-item:last-child {
+            border-bottom: none;
+        }
+
+        .cart-item h4 {
+            font-size: 0.875rem;
+            margin-bottom: 0.25rem;
+        }
+
+        .cart-item .item-number {
+            font-size: 0.75rem;
+            color: #6b7280;
+            margin-bottom: 0.5rem;
+        }
+
+        .cart-item-controls {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-top: 0.5rem;
+        }
+
+        .cart-footer {
+            margin-top: 1rem;
+            padding-top: 1rem;
+            border-top: 1px solid #e5e7eb;
+        }
+
+        /* Manager Dashboard */
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: 300px 1fr;
+            gap: 2rem;
+        }
+
+        .cart-list {
+            max-height: calc(100vh - 200px);
+            overflow-y: auto;
+        }
+
+        .cart-list-item {
+            padding: 1rem;
+            border-bottom: 1px solid #e5e7eb;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .cart-list-item:hover {
+            background: #f9fafb;
+        }
+
+        .cart-list-item.selected {
+            background: #dbeafe;
+            border-left: 4px solid #2563eb;
+        }
+
+        .cart-details {
+            max-height: calc(100vh - 200px);
+            overflow-y: auto;
+        }
+
+        .cart-item-detail {
+            border: 1px solid #e5e7eb;
+            border-radius: 6px;
+            padding: 1rem;
+            margin-bottom: 1rem;
+        }
+
+        .cart-item-detail h4 {
+            margin-bottom: 0.5rem;
+        }
+
+        .status-badge {
+            display: inline-block;
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            font-weight: 500;
+        }
+
+        .status-pending {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .status-approved {
+            background: #d1fae5;
+            color: #065f46;
+        }
+
+        .status-denied {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        .action-buttons {
+            display: flex;
+            gap: 0.5rem;
+            margin-top: 0.75rem;
+        }
+
+        .action-buttons input {
+            width: 60px;
+            padding: 0.25rem;
+            border: 1px solid #d1d5db;
+            border-radius: 4px;
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 2rem;
+        }
+
+        .spinner {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #2563eb;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <!-- Login Screen -->
+    <div id="loginScreen" class="login-container">
+        <div class="login-box">
+            <h2>Inventory Ordering Platform</h2>
+            <div id="loginError" class="error-message hidden"></div>
+            <form id="loginForm">
+                <div class="form-group">
+                    <label for="email">Email</label>
+                    <input type="email" id="email" required>
+                </div>
+                <div class="form-group">
+                    <label for="password">Password</label>
+                    <input type="password" id="password" required>
+                </div>
+                <button type="submit" class="btn btn-primary" style="width: 100%;">Sign In</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Main App -->
+    <div id="mainApp" class="hidden">
+        <header>
+            <div class="container">
+                <h1 id="pageTitle">Inventory Ordering</h1>
+                <div class="user-info">
+                    <span id="userName"></span>
+                    <button class="btn btn-secondary" onclick="handleSignOut()">Sign Out</button>
+                </div>
+            </div>
+        </header>
+
+        <!-- Staff View -->
+        <div id="staffView" class="container hidden">
+            <div class="main-content">
+                <div>
+                    <div class="card">
+                        <div class="search-bar">
+                            <input type="text" id="productSearch" placeholder="Search by product name or item #...">
+                        </div>
+                        <div class="filter-group">
+                            <select id="categoryFilter">
+                                <option value="">All Categories</option>
+                            </select>
+                        </div>
+                        <div id="productGrid" class="product-grid"></div>
+                    </div>
+                </div>
+                <div>
+                    <div class="card cart">
+                        <div class="cart-header">
+                            <h2>Cart</h2>
+                            <span id="cartItemCount">0 items</span>
+                        </div>
+                        <div id="cartItems"></div>
+                        <div class="cart-footer">
+                            <button class="btn btn-primary" style="width: 100%;" onclick="submitCart()">Submit for Approval</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Manager View -->
+        <div id="managerView" class="container hidden">
+            <div class="dashboard-grid">
+                <div class="card">
+                    <h2 style="margin-bottom: 1rem;">Submitted Carts</h2>
+                    <div id="cartList" class="cart-list"></div>
+                </div>
+                <div class="card">
+                    <div id="cartDetails"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Global state
+        let currentUser = null;
+        let userProfile = null;
+        let currentCart = null;
+        let cartItems = [];
+        let products = [];
+        let categories = [];
+        let selectedCart = null;
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', async () => {
+            await waitForSupabase();
+            checkAuth();
+            setupEventListeners();
+        });
+
+        async function waitForSupabase() {
+            let attempts = 0;
+            while (typeof supabase === 'undefined' && attempts < 50) {
+                await new Promise(resolve => setTimeout(resolve, 100));
+                attempts++;
+            }
+            if (typeof supabase === 'undefined') {
+                console.error('Supabase not loaded');
+            }
+        }
+
+        async function checkAuth() {
+            if (!window.supabaseClient) {
+                initSupabase();
+                await new Promise(resolve => setTimeout(resolve, 500));
+            }
+
+            const { data: { user } } = await window.supabaseClient.auth.getUser();
+            if (user) {
+                await loadUserProfile(user);
+                showMainApp();
+            } else {
+                showLogin();
+            }
+        }
+
+        async function loadUserProfile(user) {
+            currentUser = user;
+            const { data: profile } = await window.supabaseClient
+                .from('profiles')
+                .select('*')
+                .eq('id', user.id)
+                .single();
+            userProfile = profile;
+        }
+
+        function setupEventListeners() {
+            document.getElementById('loginForm').addEventListener('submit', handleLogin);
+            document.getElementById('productSearch').addEventListener('input', filterProducts);
+            document.getElementById('categoryFilter').addEventListener('change', filterProducts);
+        }
+
+        async function handleLogin(e) {
+            e.preventDefault();
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            const errorDiv = document.getElementById('loginError');
+
+            try {
+                const { data, error } = await window.supabaseClient.auth.signInWithPassword({
+                    email,
+                    password
+                });
+
+                if (error) {
+                    // Handle email not confirmed
+                    if (error.message.includes('Email not confirmed') || error.message.includes('email_not_confirmed')) {
+                        errorDiv.innerHTML = '⚠️ Email confirmation required. Please:<br>1. Check your email for a confirmation link, OR<br>2. Go to Supabase Dashboard > Authentication > Settings and disable "Enable email confirmations" for development.';
+                        errorDiv.classList.remove('hidden');
+                        // Try to resend confirmation
+                        await window.supabaseClient.auth.resend({
+                            type: 'signup',
+                            email: email
+                        });
+                        return;
+                    } else {
+                        throw error;
+                    }
+                }
+
+                await loadUserProfile(data.user);
+                showMainApp();
+            } catch (error) {
+                errorDiv.textContent = error.message;
+                errorDiv.classList.remove('hidden');
+            }
+        }
+
+        async function resendConfirmation(email) {
+            const { error } = await window.supabaseClient.auth.resend({
+                type: 'signup',
+                email: email
+            });
+            if (error) {
+                alert('Error resending confirmation: ' + error.message);
+            } else {
+                alert('Confirmation email sent! Check your inbox.');
+            }
+        }
+
+        async function handleSignOut() {
+            await window.supabaseClient.auth.signOut();
+            showLogin();
+        }
+
+        function showLogin() {
+            document.getElementById('loginScreen').classList.remove('hidden');
+            document.getElementById('mainApp').classList.add('hidden');
+        }
+
+        async function showMainApp() {
+            document.getElementById('loginScreen').classList.add('hidden');
+            document.getElementById('mainApp').classList.remove('hidden');
+
+            document.getElementById('userName').textContent = userProfile?.full_name || currentUser?.email || 'User';
+
+            if (userProfile?.role === 'manager') {
+                document.getElementById('pageTitle').textContent = 'Manager Dashboard';
+                document.getElementById('staffView').classList.add('hidden');
+                document.getElementById('managerView').classList.remove('hidden');
+                await loadManagerDashboard();
+            } else {
+                document.getElementById('pageTitle').textContent = 'Inventory Ordering';
+                document.getElementById('staffView').classList.remove('hidden');
+                document.getElementById('managerView').classList.add('hidden');
+                await loadProducts();
+                await loadCart();
+            }
+        }
+
+        // Product Management
+        async function loadProducts() {
+            const { data, error } = await window.supabaseClient
+                .from('products')
+                .select('*')
+                .order('name');
+
+            if (error) {
+                console.error('Error loading products:', error);
+                return;
+            }
+
+            products = data || [];
+            categories = [...new Set(products.map(p => p.category).filter(Boolean))].sort();
+
+            const categorySelect = document.getElementById('categoryFilter');
+            categories.forEach(cat => {
+                const option = document.createElement('option');
+                option.value = cat;
+                option.textContent = cat;
+                categorySelect.appendChild(option);
+            });
+
+            renderProducts(products);
+        }
+
+        function filterProducts() {
+            const query = document.getElementById('productSearch').value.toLowerCase();
+            const category = document.getElementById('categoryFilter').value;
+
+            let filtered = products;
+
+            if (category) {
+                filtered = filtered.filter(p => p.category === category);
+            }
+
+            if (query) {
+                filtered = filtered.filter(p => {
+                    const nameMatch = p.name?.toLowerCase().includes(query);
+                    const itemMatch = p.wddc_item_number?.includes(query);
+                    return nameMatch || itemMatch;
+                });
+            }
+
+            renderProducts(filtered);
+        }
+
+        function renderProducts(productsToShow) {
+            const grid = document.getElementById('productGrid');
+            grid.innerHTML = '';
+
+            if (productsToShow.length === 0) {
+                grid.innerHTML = '<p style="text-align: center; color: #6b7280;">No products found</p>';
+                return;
+            }
+
+            productsToShow.forEach(product => {
+                const card = document.createElement('div');
+                card.className = 'product-card';
+                card.innerHTML = `
+                    <h3>${product.name || 'Unknown'}</h3>
+                    <div class="item-number">Item #: ${product.wddc_item_number}</div>
+                    ${product.size ? `<div class="size">Size: ${product.size}</div>` : ''}
+                    ${product.category ? `<span class="category">${product.category}</span>` : ''}
+                    <div class="quantity-controls">
+                        <div class="quantity-buttons">
+                            <button onclick="adjustQuantity('${product.id}', -1)">-</button>
+                            <span id="qty-${product.id}">0</span>
+                            <button onclick="adjustQuantity('${product.id}', 1)">+</button>
+                        </div>
+                        <button class="btn btn-primary" onclick="addToCart('${product.id}')">Add to Cart</button>
+                    </div>
+                `;
+                grid.appendChild(card);
+            });
+        }
+
+        const quantities = {};
+
+        function adjustQuantity(productId, delta) {
+            quantities[productId] = Math.max(0, (quantities[productId] || 0) + delta);
+            document.getElementById(`qty-${productId}`).textContent = quantities[productId] || 0;
+        }
+
+        async function addToCart(productId) {
+            const quantity = quantities[productId] || 1;
+            if (quantity <= 0) return;
+
+            if (!currentCart) {
+                await createCart();
+            }
+
+            const product = products.find(p => p.id === productId);
+            if (!product) return;
+
+            // Check if already in cart
+            const existingItem = cartItems.find(item => item.product_id === productId);
+
+            if (existingItem) {
+                const { data } = await window.supabaseClient
+                    .from('cart_items')
+                    .update({ quantity: existingItem.quantity + quantity })
+                    .eq('id', existingItem.id)
+                    .select()
+                    .single();
+                if (data) {
+                    cartItems = cartItems.map(item => item.id === existingItem.id ? data : item);
+                }
+            } else {
+                const { data } = await window.supabaseClient
+                    .from('cart_items')
+                    .insert([{
+                        cart_id: currentCart.id,
+                        product_id: productId,
+                        quantity,
+                        requested_quantity: quantity
+                    }])
+                    .select()
+                    .single();
+
+                if (data) {
+                    cartItems.push(data);
+                }
+            }
+
+            quantities[productId] = 0;
+            document.getElementById(`qty-${productId}`).textContent = '0';
+            await loadCart();
+        }
+
+        async function createCart() {
+            const { data: profile } = await window.supabaseClient
+                .from('profiles')
+                .select('clinic')
+                .eq('id', currentUser.id)
+                .single();
+
+            const { data } = await window.supabaseClient
+                .from('carts')
+                .insert([{
+                    user_id: currentUser.id,
+                    clinic: profile?.clinic || 'Unknown',
+                    status: 'draft'
+                }])
+                .select()
+                .single();
+
+            currentCart = data;
+            return data;
+        }
+
+        async function loadCart() {
+            if (!currentUser) return;
+
+            // Get or create draft cart
+            let { data: cart } = await window.supabaseClient
+                .from('carts')
+                .select('*')
+                .eq('user_id', currentUser.id)
+                .eq('status', 'draft')
+                .single();
+
+            if (!cart) {
+                cart = await createCart();
+            }
+
+            currentCart = cart;
+
+            // Load cart items
+            const { data: items } = await window.supabaseClient
+                .from('cart_items')
+                .select(`
+                    *,
+                    products (*)
+                `)
+                .eq('cart_id', cart.id);
+
+            cartItems = items || [];
+            renderCart();
+        }
+
+        function renderCart() {
+            const container = document.getElementById('cartItems');
+            const count = cartItems.reduce((sum, item) => sum + item.quantity, 0);
+            document.getElementById('cartItemCount').textContent = `${count} ${count === 1 ? 'item' : 'items'}`;
+
+            if (cartItems.length === 0) {
+                container.innerHTML = '<p style="text-align: center; color: #6b7280; padding: 2rem;">Your cart is empty</p>';
+                return;
+            }
+
+            container.innerHTML = cartItems.map(item => `
+                <div class="cart-item">
+                    <h4>${item.products?.name || 'Unknown'}</h4>
+                    <div class="item-number">Item #: ${item.products?.wddc_item_number}</div>
+                    <div class="cart-item-controls">
+                        <div class="quantity-buttons">
+                            <button onclick="updateCartItemQuantity('${item.id}', ${item.quantity - 1})">-</button>
+                            <span>${item.quantity}</span>
+                            <button onclick="updateCartItemQuantity('${item.id}', ${item.quantity + 1})">+</button>
+                        </div>
+                        <button class="btn btn-danger" style="padding: 0.25rem 0.5rem; font-size: 0.75rem;" onclick="removeCartItem('${item.id}')">Remove</button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        async function updateCartItemQuantity(itemId, quantity) {
+            if (quantity <= 0) {
+                await removeCartItem(itemId);
+                return;
+            }
+
+            const { data } = await window.supabaseClient
+                .from('cart_items')
+                .update({ quantity })
+                .eq('id', itemId)
+                .select()
+                .single();
+
+            if (data) {
+                cartItems = cartItems.map(item => item.id === itemId ? data : item);
+                renderCart();
+            }
+        }
+
+        async function removeCartItem(itemId) {
+            await window.supabaseClient
+                .from('cart_items')
+                .delete()
+                .eq('id', itemId);
+
+            cartItems = cartItems.filter(item => item.id !== itemId);
+            renderCart();
+        }
+
+        async function submitCart() {
+            if (!currentCart || cartItems.length === 0) return;
+
+            const { error } = await window.supabaseClient
+                .from('carts')
+                .update({
+                    status: 'submitted',
+                    submitted_at: new Date().toISOString()
+                })
+                .eq('id', currentCart.id);
+
+            if (error) {
+                alert('Error submitting cart: ' + error.message);
+                return;
+            }
+
+            await window.supabaseClient
+                .from('approvals')
+                .insert([{
+                    cart_id: currentCart.id,
+                    action: 'submitted',
+                    performed_by: currentUser.id
+                }]);
+
+            alert('Cart submitted for approval!');
+            currentCart = null;
+            cartItems = [];
+            await loadCart();
+        }
+
+        // Manager Dashboard
+        async function loadManagerDashboard() {
+            await loadSubmittedCarts();
+        }
+
+        async function loadSubmittedCarts() {
+            const { data } = await window.supabaseClient
+                .from('carts')
+                .select(`
+                    *,
+                    profiles:user_id (
+                        id,
+                        full_name,
+                        email,
+                        clinic
+                    )
+                `)
+                .in('status', ['submitted', 'returned'])
+                .order('submitted_at', { ascending: false });
+
+            renderCartList(data || []);
+        }
+
+        function renderCartList(carts) {
+            const container = document.getElementById('cartList');
+            if (carts.length === 0) {
+                container.innerHTML = '<p style="text-align: center; color: #6b7280; padding: 1rem;">No submitted carts</p>';
+                return;
+            }
+
+            container.innerHTML = carts.map(cart => `
+                <div class="cart-list-item ${selectedCart?.id === cart.id ? 'selected' : ''}" onclick="selectCart('${cart.id}')">
+                    <div style="font-weight: 500;">${cart.profiles?.full_name || cart.profiles?.email || 'Unknown'}</div>
+                    <div style="font-size: 0.875rem; color: #6b7280; margin-top: 0.25rem;">${cart.clinic || 'Unknown Clinic'}</div>
+                    <div style="font-size: 0.75rem; color: #9ca3af; margin-top: 0.25rem;">
+                        ${cart.submitted_at ? new Date(cart.submitted_at).toLocaleDateString() : ''}
+                    </div>
+                    <span class="status-badge status-${cart.status}" style="margin-top: 0.5rem; display: inline-block;">
+                        ${cart.status}
+                    </span>
+                </div>
+            `).join('');
+        }
+
+        async function selectCart(cartId) {
+            const { data: cart } = await window.supabaseClient
+                .from('carts')
+                .select(`
+                    *,
+                    profiles:user_id (
+                        id,
+                        full_name,
+                        email,
+                        clinic
+                    )
+                `)
+                .eq('id', cartId)
+                .single();
+
+            selectedCart = cart;
+
+            const { data: items } = await window.supabaseClient
+                .from('cart_items')
+                .select(`
+                    *,
+                    products (*)
+                `)
+                .eq('cart_id', cartId)
+                .order('created_at');
+
+            renderCartDetails(cart, items || []);
+            loadSubmittedCarts(); // Refresh list to show selected state
+        }
+
+        function renderCartDetails(cart, items) {
+            const container = document.getElementById('cartDetails');
+            container.innerHTML = `
+                <h2 style="margin-bottom: 1rem;">Cart Details</h2>
+                <p style="color: #6b7280; margin-bottom: 1rem;">
+                    Submitted by ${cart.profiles?.full_name || cart.profiles?.email || 'Unknown'}
+                </p>
+                <div id="cartItemsDetails"></div>
+                ${cart.status !== 'approved' ? `
+                    <div style="margin-top: 1.5rem; padding-top: 1.5rem; border-top: 1px solid #e5e7eb; display: flex; gap: 1rem;">
+                        <button class="btn btn-success" onclick="approveCart()">Approve Cart</button>
+                        <button class="btn btn-secondary" onclick="returnCart()">Return for Revisions</button>
+                    </div>
+                ` : `
+                    <div style="margin-top: 1.5rem;">
+                        <button class="btn btn-primary" onclick="exportOrder()">Export Order</button>
+                    </div>
+                `}
+            `;
+
+            const itemsContainer = document.getElementById('cartItemsDetails');
+            if (items.length === 0) {
+                itemsContainer.innerHTML = '<p style="text-align: center; color: #6b7280; padding: 2rem;">No items</p>';
+                return;
+            }
+
+            itemsContainer.innerHTML = items.map(item => `
+                <div class="cart-item-detail">
+                    <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 0.5rem;">
+                        <div>
+                            <h4>${item.products?.name || 'Unknown'}</h4>
+                            <div style="font-size: 0.875rem; color: #6b7280;">Item #: ${item.products?.wddc_item_number}</div>
+                        </div>
+                        <span class="status-badge status-${item.status}">${item.status}</span>
+                    </div>
+                    <div style="font-size: 0.875rem; color: #6b7280; margin-bottom: 0.75rem;">
+                        Requested: <strong>${item.requested_quantity}</strong>
+                        ${item.approved_quantity !== null ? ` | Approved: <strong>${item.approved_quantity}</strong>` : ''}
+                    </div>
+                    ${item.status === 'pending' ? `
+                        <div class="action-buttons">
+                            <input type="number" id="qty-${item.id}" value="${item.quantity}" min="0">
+                            <button class="btn btn-success" onclick="approveItem('${item.id}')">Approve</button>
+                            <button class="btn btn-danger" onclick="denyItem('${item.id}')">Deny</button>
+                        </div>
+                    ` : ''}
+                </div>
+            `).join('');
+        }
+
+        async function approveItem(itemId) {
+            const qtyInput = document.getElementById(`qty-${itemId}`);
+            const quantity = parseInt(qtyInput.value) || 0;
+
+            if (quantity <= 0) {
+                alert('Quantity must be greater than 0');
+                return;
+            }
+
+            await window.supabaseClient
+                .from('cart_items')
+                .update({
+                    status: 'approved',
+                    approved_quantity: quantity,
+                    quantity: quantity
+                })
+                .eq('id', itemId);
+
+            await window.supabaseClient
+                .from('approvals')
+                .insert([{
+                    cart_id: selectedCart.id,
+                    cart_item_id: itemId,
+                    action: 'approved',
+                    performed_by: currentUser.id,
+                    new_quantity: quantity
+                }]);
+
+            await selectCart(selectedCart.id);
+        }
+
+        async function denyItem(itemId) {
+            await window.supabaseClient
+                .from('cart_items')
+                .update({ status: 'denied' })
+                .eq('id', itemId);
+
+            await window.supabaseClient
+                .from('approvals')
+                .insert([{
+                    cart_id: selectedCart.id,
+                    cart_item_id: itemId,
+                    action: 'denied',
+                    performed_by: currentUser.id
+                }]);
+
+            await selectCart(selectedCart.id);
+        }
+
+        async function approveCart() {
+            const { data: items } = await window.supabaseClient
+                .from('cart_items')
+                .select('*')
+                .eq('cart_id', selectedCart.id);
+
+            const pendingItems = items.filter(item => item.status === 'pending');
+            if (pendingItems.length > 0) {
+                alert('Please approve or deny all items first');
+                return;
+            }
+
+            await window.supabaseClient
+                .from('carts')
+                .update({ status: 'approved' })
+                .eq('id', selectedCart.id);
+
+            await window.supabaseClient
+                .from('approvals')
+                .insert([{
+                    cart_id: selectedCart.id,
+                    action: 'approved',
+                    performed_by: currentUser.id,
+                    notes: 'Cart approved for ordering'
+                }]);
+
+            alert('Cart approved!');
+            selectedCart = null;
+            await loadSubmittedCarts();
+            document.getElementById('cartDetails').innerHTML = '<p style="text-align: center; color: #6b7280; padding: 2rem;">Select a cart to view details</p>';
+        }
+
+        async function returnCart() {
+            await window.supabaseClient
+                .from('carts')
+                .update({ status: 'returned' })
+                .eq('id', selectedCart.id);
+
+            await window.supabaseClient
+                .from('approvals')
+                .insert([{
+                    cart_id: selectedCart.id,
+                    action: 'returned',
+                    performed_by: currentUser.id,
+                    notes: 'Cart returned to staff for revisions'
+                }]);
+
+            alert('Cart returned to staff');
+            selectedCart = null;
+            await loadSubmittedCarts();
+            document.getElementById('cartDetails').innerHTML = '<p style="text-align: center; color: #6b7280; padding: 2rem;">Select a cart to view details</p>';
+        }
+
+        async function exportOrder() {
+            // Simple CSV export (Excel export would require a library)
+            const { data: items } = await window.supabaseClient
+                .from('cart_items')
+                .select(`
+                    *,
+                    products (*)
+                `)
+                .eq('cart_id', selectedCart.id)
+                .eq('status', 'approved');
+
+            if (!items || items.length === 0) {
+                alert('No approved items to export');
+                return;
+            }
+
+            // Group by supplier
+            const bySupplier = {};
+            items.forEach(item => {
+                const supplier = item.products?.supplier || 'WDDC';
+                if (!bySupplier[supplier]) {
+                    bySupplier[supplier] = [];
+                }
+                bySupplier[supplier].push(item);
+            });
+
+            // Create CSV
+            let csv = 'Order Summary\n';
+            csv += `Cart ID,${selectedCart.id}\n`;
+            csv += `Clinic,${selectedCart.clinic || 'Unknown'}\n`;
+            csv += `Submitted,${selectedCart.submitted_at ? new Date(selectedCart.submitted_at).toLocaleString() : ''}\n\n`;
+
+            Object.keys(bySupplier).forEach(supplier => {
+                csv += `\nSupplier: ${supplier}\n`;
+                csv += 'Item #,Product Name,Size,Quantity,Category\n';
+                bySupplier[supplier].forEach(item => {
+                    csv += `"${item.products?.wddc_item_number || ''}","${item.products?.name || ''}","${item.products?.size || ''}",${item.approved_quantity || item.quantity},"${item.products?.category || ''}"\n`;
+                });
+            });
+
+            // Download
+            const blob = new Blob([csv], { type: 'text/csv' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `order-${selectedCart.id}.csv`;
+            document.body.appendChild(a);
+            a.click();
+            window.URL.revokeObjectURL(url);
+            document.body.removeChild(a);
+        }
+    </script>
+</body>
+</html>
+

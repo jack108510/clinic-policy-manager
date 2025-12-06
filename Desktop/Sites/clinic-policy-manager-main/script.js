@@ -1,0 +1,18209 @@
+// Initialize current policies as empty array
+let currentPolicies = loadFromLocalStorage('currentPolicies', []);
+let draftPolicies = loadFromLocalStorage('draftPolicies', []);
+let notifications = loadFromLocalStorage('notifications', []);
+
+// Settings Data - Load from localStorage or use empty defaults
+let roles = loadFromLocalStorage('roles', []);
+let disciplinaryActions = loadFromLocalStorage('disciplinaryActions', []);
+
+// Company-specific organizations - only load what's actually in settings
+let organizations = loadFromLocalStorage('organizations', {});
+
+// User Management Data - Load from Supabase
+async function loadMasterAdminData() {
+    try {
+        // Check if SupabaseDB is available
+        if (typeof SupabaseDB === 'undefined') {
+            console.warn('SupabaseDB not available yet, returning empty data');
+            return {
+                companies: [],
+                users: [],
+                accessCodes: []
+            };
+        }
+        
+        // Load data from Supabase
+        const [users, companies, accessCodes] = await Promise.all([
+            SupabaseDB.getUsers(),
+            SupabaseDB.getCompanies(),
+            SupabaseDB.getAccessCodes()
+        ]);
+        
+        return {
+            companies: companies || [],
+            users: users || [],
+            accessCodes: accessCodes || []
+        };
+    } catch (error) {
+        console.error('Error loading master admin data from Supabase:', error);
+        // Return empty structure on error
+        return {
+            companies: [],
+            users: [],
+            accessCodes: []
+        };
+    }
+}
+
+// Initialize with master admin data if available - but don't block on it
+let masterData = null;
+if (typeof SupabaseDB !== 'undefined') {
+    masterData = loadMasterAdminData();
+} else {
+    // Wait for SupabaseDB to load
+    if (typeof window !== 'undefined') {
+        window.addEventListener('load', function() {
+            if (typeof SupabaseDB !== 'undefined') {
+                masterData = loadMasterAdminData();
+            }
+        });
+    }
+}
+let users = [];
+let policies = [];
+let conversationHistory = []; // Store full conversation history for AI context
+
+// AI Wizard state - initialized early to avoid temporal dead zone issues
+let aiWizardState = {};
+let aiWizardCurrentStep = 0;
+let aiWizardRecommendations = {}; // Store selected recommendations
+
+// Initialize variables early to avoid TDZ issues
+let currentUser = null;
+let currentCompany = null;
+let rememberDevicePreferenceRaw = localStorage.getItem('rememberDevice');
+let rememberDevicePreference = rememberDevicePreferenceRaw === null ? true : rememberDevicePreferenceRaw === 'true';
+
+// Function to get organizations question options from settings
+function getOrganizationsQuestionOptions() {
+    const options = [
+        { value: 'all', label: 'All Organizations', description: 'Applies to all organizations', icon: 'fa-globe', color: '#6366f1' }
+    ];
+    
+    // Get organizations from settings for current company (handle case where currentCompany might not be set yet)
+    // getCompanyOrganizations will reload from localStorage to ensure we have the latest data
+    const companyName = (typeof currentCompany !== 'undefined' && currentCompany) ? currentCompany : null;
+    const companyOrgs = getCompanyOrganizations(companyName);
+    
+    // Also update the global organizations object in case getCompanyOrganizations updated it
+    const latestOrgs = loadFromLocalStorage('organizations', {});
+    if (latestOrgs && typeof latestOrgs === 'object') {
+        organizations = latestOrgs;
+    }
+    
+    // Only add organizations that actually exist in settings
+    if (companyOrgs && companyOrgs.length > 0) {
+        const colors = ['#10b981', '#f59e0b', '#ec4899', '#8b5cf6', '#6366f1', '#ef4444', '#64748b'];
+        companyOrgs.forEach((org, index) => {
+            // Validate that org is a string and not empty
+            if (org && typeof org === 'string' && org.trim().length > 0) {
+                const value = org.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+                options.push({
+                    value: value,
+                    label: org,
+                    description: `${org} location`,
+                    icon: 'fa-building',
+                    color: colors[index % colors.length]
+                });
+            }
+        });
+    }
+    
+    // If no organizations found in settings, only show "All Organizations"
+    return options;
+}
+
+// Function to update organizations question when settings change
+function updateOrganizationsQuestion() {
+    const orgQuestion = wizardQuestions.find(q => q.id === 'organizations');
+    if (orgQuestion) {
+        orgQuestion.options = getOrganizationsQuestionOptions();
+    }
+}
+
+// AI Wizard Questions - initialized early to avoid temporal dead zone issues
+let wizardQuestions = [
+    {
+        id: 'policyType',
+        title: 'What type of policy do you want to create?',
+        subtitle: 'Select the policy type that best fits your needs',
+        type: 'choice',
+        options: [
+            { value: 'admin', label: 'Admin Policy', description: 'Administrative procedures and governance', icon: 'fa-file-alt', color: '#6366f1' },
+            { value: 'sog', label: 'Standard Operating Guidelines', description: 'Operational procedures and workflows', icon: 'fa-clipboard-list', color: '#10b981' },
+            { value: 'protocol', label: 'Protocol', description: 'Detailed step-by-step procedures', icon: 'fa-tasks', color: '#f59e0b' },
+            { value: 'memo', label: 'Communication Memo', description: 'Internal announcements and updates', icon: 'fa-envelope', color: '#ec4899' },
+            { value: 'training', label: 'Training Document', description: 'Educational materials and guides', icon: 'fa-graduation-cap', color: '#8b5cf6' },
+            { value: 'governance', label: 'Governance Policy', description: 'Corporate governance and compliance', icon: 'fa-shield-alt', color: '#64748b' }
+        ]
+    },
+    {
+        id: 'policyCategory',
+        title: 'What category does this policy cover?',
+        subtitle: 'Choose the primary focus area',
+        type: 'choice',
+        options: [
+            { value: 'quality_assurance', label: 'Quality Assurance & Standards', description: 'Quality control, performance standards, best practices', icon: 'fa-award', color: '#10b981' },
+            { value: 'emergency_response', label: 'Emergency Response', description: 'Disaster plans, evacuation procedures, crisis management', icon: 'fa-exclamation-triangle', color: '#ef4444' },
+            { value: 'operations', label: 'Operations & Workflow', description: 'Scheduling, logistics, client experience', icon: 'fa-cogs', color: '#6366f1' },
+            { value: 'data_security', label: 'Data & Security', description: 'Cybersecurity, documentation, privacy compliance', icon: 'fa-lock', color: '#8b5cf6' },
+            { value: 'hr_people', label: 'HR & People', description: 'Hiring, training, performance management', icon: 'fa-users', color: '#f59e0b' },
+            { value: 'custom', label: 'Custom Topic', description: 'Something specific to your organization', icon: 'fa-lightbulb', color: '#ec4899' }
+        ]
+    },
+    {
+        id: 'audience',
+        title: 'Who is the primary audience?',
+        subtitle: 'Select who needs to follow this policy',
+        type: 'choice',
+        options: [
+            { value: 'operations_team', label: 'Operations Team', description: 'Operations staff, specialists, professional team members', icon: 'fa-user-md', color: '#10b981' },
+            { value: 'front_desk', label: 'Client Services', description: 'Reception, CSRs, client communications', icon: 'fa-headset', color: '#6366f1' },
+            { value: 'leadership', label: 'Leadership & Management', description: 'Directors, supervisors, administrators', icon: 'fa-user-tie', color: '#8b5cf6' },
+            { value: 'all_staff', label: 'All Staff', description: 'Everyone in the organization', icon: 'fa-users', color: '#f59e0b' }
+        ]
+    },
+    {
+        id: 'urgency',
+        title: 'What\'s the urgency level?',
+        subtitle: 'This helps us set the appropriate tone and timeline',
+        type: 'choice',
+        options: [
+            { value: 'immediate', label: 'Immediate', description: 'Urgent - needs immediate implementation', icon: 'fa-bolt', color: '#ef4444' },
+            { value: 'soon', label: 'Soon', description: 'Within the next few weeks', icon: 'fa-clock', color: '#f59e0b' },
+            { value: 'planned', label: 'Planned', description: 'Part of routine planning or annual updates', icon: 'fa-calendar', color: '#10b981' }
+        ]
+    },
+    {
+        id: 'compliance',
+        title: 'Any compliance requirements?',
+        subtitle: 'Select applicable regulations or standards',
+        type: 'choice',
+        options: [
+            { value: 'hipaa', label: 'HIPAA / PHI', description: 'Privacy and protected health information', icon: 'fa-shield-alt', color: '#6366f1' },
+            { value: 'osha', label: 'OSHA / Safety', description: 'Workplace safety and hazard control', icon: 'fa-hard-hat', color: '#f59e0b' },
+            { value: 'accreditation', label: 'Industry Accreditation', description: 'Industry best practices and standards', icon: 'fa-certificate', color: '#10b981' },
+            { value: 'none', label: 'No Specific Requirement', description: 'General best practices only', icon: 'fa-check-circle', color: '#64748b' }
+        ]
+    },
+    {
+        id: 'organizations',
+        title: 'Select applicable organizations',
+        subtitle: 'Choose which organizations this policy applies to',
+        type: 'choice',
+        options: getOrganizationsQuestionOptions() // Dynamically loaded from settings
+    }
+];
+
+// Load user and company data after variables are declared
+(function() {
+    const shouldRemember = rememberDevicePreference;
+    const storedUser = shouldRemember ? loadFromLocalStorage('currentUser', null) : loadFromSessionStorage('currentUser', null);
+    const storedCompany = shouldRemember ? loadFromLocalStorage('currentCompany', null) : loadFromSessionStorage('currentCompany', null);
+    
+    // Only set currentUser if we have valid user data
+    // A valid user should have at least an id or username
+    if (storedUser && (storedUser.id || storedUser.username)) {
+        currentUser = storedUser;
+        currentCompany = storedCompany;
+    } else {
+        // Clear any invalid/stale data
+        currentUser = null;
+        currentCompany = null;
+        // Also clear from storage if it's invalid
+        if (shouldRemember) {
+            localStorage.removeItem('currentUser');
+            localStorage.removeItem('currentCompany');
+        } else {
+            if (typeof sessionStorage !== 'undefined') {
+                sessionStorage.removeItem('currentUser');
+                sessionStorage.removeItem('currentCompany');
+            }
+        }
+    }
+})();
+
+const WEBHOOK_DEFAULTS = {
+    advisor: '',
+    generator: '',
+    summarizer: '',
+    email: ''
+};
+
+const WEBHOOK_FALLBACKS = {
+    advisor: 'http://localhost:5678/webhook/6aa55f96-04a0-4d04-b99f-1b4da027dce6',
+    generator: 'http://localhost:5678/webhook-test/1500ea24-9794-47d8-8589-e604e58860f2',
+    summarizer: 'http://localhost:5678/webhook/b501e849-7a23-49d6-9502-66fb14b5a77e',
+    email: 'http://localhost:5678/webhook/d523361e-1e04-4c16-a86e-bbb1d7729fcb'
+};
+
+const WEBHOOK_STORAGE_KEY = 'companyWebhookSettings';
+let currentWebhookSettings = { ...WEBHOOK_DEFAULTS };
+
+// Auth portal helpers
+function openAuthPortal(portalId) {
+    const portal = document.getElementById(portalId);
+    if (!portal) {
+        console.error(`Portal ${portalId} not found`);
+        return null;
+    }
+    
+    portal.style.display = 'flex';
+    requestAnimationFrame(() => portal.classList.add('show'));
+    document.body.classList.add('auth-open');
+    return portal;
+}
+
+function closeAuthPortal(portalId) {
+    const portal = document.getElementById(portalId);
+    if (!portal) return;
+    
+    portal.classList.remove('show');
+        setTimeout(() => {
+        portal.style.display = 'none';
+        if (!isAnyAuthPortalOpen()) {
+            document.body.classList.remove('auth-open');
+        }
+    }, 200);
+}
+
+function isAnyAuthPortalOpen() {
+    return ['loginPortal', 'createAccountPortal'].some(id => {
+        const portal = document.getElementById(id);
+        return portal && portal.classList.contains('show');
+    });
+}
+
+function showSignupModal() {
+    showCreateAccountPortal();
+}
+
+function showCreateAccountPortal() {
+    console.log('Opening create account portal');
+    closeAuthPortal('loginPortal');
+    const portal = openAuthPortal('createAccountPortal');
+    if (portal) {
+        const field = document.getElementById('signupFullName') || document.getElementById('signupUsername');
+        if (field) field.focus();
+    }
+}
+
+function showLoginModal() {
+    console.log('Opening login portal');
+    closeAuthPortal('createAccountPortal');
+    const portal = openAuthPortal('loginPortal');
+    if (portal) {
+        const field = document.getElementById('loginUsername');
+        if (field) field.focus();
+        const rememberField = document.getElementById('rememberDevice');
+        if (rememberField) {
+            // Safe access to rememberDevicePreference
+            const shouldRemember = typeof rememberDevicePreference !== 'undefined' ? rememberDevicePreference : true;
+            rememberField.checked = shouldRemember;
+        }
+    }
+}
+
+function startDemo() {
+    console.log('🎮 Starting demo...');
+    
+    const demoCompany = 'Demo Company';
+    const demoUser = {
+        id: 'demo-user-1',
+        username: 'demo',
+        password: 'demo123',
+        email: 'demo@policypro.com',
+        fullName: 'Demo User',
+        company: demoCompany,
+        role: 'admin',
+        created: new Date().toISOString().split('T')[0]
+    };
+    
+    // Initialize demo company if it doesn't exist
+    const masterCompanies = JSON.parse(localStorage.getItem('masterCompanies') || '[]');
+    let demoCompanyData = masterCompanies.find(c => c.name === demoCompany);
+    
+    if (!demoCompanyData) {
+        demoCompanyData = {
+            id: 'demo-company-1',
+            name: demoCompany,
+            industry: 'Technology',
+            plan: 'pro',
+            adminPassword: 'demo123',
+            created: new Date().toISOString().split('T')[0],
+            users: 1,
+            policies: 3,
+            status: 'active'
+        };
+        masterCompanies.push(demoCompanyData);
+        localStorage.setItem('masterCompanies', JSON.stringify(masterCompanies));
+    }
+    
+    // Ensure demo user exists in master users for fallback auth
+    const masterUsers = JSON.parse(localStorage.getItem('masterUsers') || '[]');
+    const existingDemoUser = masterUsers.find(u => u.username === 'demo' && u.company === demoCompany);
+    if (!existingDemoUser) {
+        masterUsers.push(demoUser);
+        localStorage.setItem('masterUsers', JSON.stringify(masterUsers));
+    }
+    
+    // Create sample policies for demo
+    const demoPolicies = [
+        {
+            id: 'demo-policy-1',
+            title: 'Data Security Policy',
+            type: 'admin',
+            clinics: ['All Organizations'],
+            clinicNames: 'All Organizations',
+            description: 'This policy establishes guidelines for data security and protection of sensitive information.',
+            content: 'Purpose: To ensure the secure handling of data.\n\nProcedures: All data must be encrypted.\n\nCompliance: Required monthly reviews.',
+            company: demoCompany,
+            created: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+            lastModified: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+            status: 'active',
+            categoryId: null,
+            policyCode: 'ADMIN.1.1.2025'
+        },
+        {
+            id: 'demo-policy-2',
+            title: 'Employee Code of Conduct',
+            type: 'admin',
+            clinics: ['All Organizations'],
+            clinicNames: 'All Organizations',
+            description: 'Guidelines for professional behavior and ethical conduct.',
+            content: 'Purpose: Maintain professional standards.\n\nGuidelines: Respect, integrity, accountability.',
+            company: demoCompany,
+            created: new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+            lastModified: new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+            status: 'active',
+            categoryId: null,
+            policyCode: 'ADMIN.1.2.2025'
+        },
+        {
+            id: 'demo-policy-3',
+            title: 'Remote Work Guidelines',
+            type: 'sog',
+            clinics: ['All Organizations'],
+            clinicNames: 'All Organizations',
+            description: 'Standard operating guidelines for remote work arrangements.',
+            content: 'Purpose: Establish remote work protocols.\n\nProcedures: Check-in times, communication requirements, productivity expectations.',
+            company: demoCompany,
+            created: new Date(Date.now() - 21 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+            lastModified: new Date(Date.now() - 21 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+            status: 'active',
+            categoryId: null,
+            policyCode: 'SOG.1.1.2025'
+        }
+    ];
+    localStorage.setItem(`policies_${demoCompany}`, JSON.stringify(demoPolicies));
+    
+    // Ensure organizations include demo company
+    const organizations = JSON.parse(localStorage.getItem('organizations') || '{}');
+    if (!organizations[demoCompany]) {
+        organizations[demoCompany] = [demoCompany];
+        localStorage.setItem('organizations', JSON.stringify(organizations));
+    }
+    
+    // Log in as demo user
+    currentUser = demoUser;
+    currentCompany = demoCompany;
+    persistAuthUser(currentUser, currentCompany, true);
+    refreshCurrentWebhookSettings();
+    
+    document.body.classList.add('user-logged-in');
+    if (typeof updateUserInterface === 'function') {
+        updateUserInterface();
+    }
+    if (typeof loadPoliciesFromStorage === 'function') {
+        loadPoliciesFromStorage();
+    }
+    
+    const landingPage = document.getElementById('landingPage');
+    if (landingPage) {
+        landingPage.style.display = 'none';
+    }
+    
+    if (typeof showNotification === 'function') {
+        showNotification('🎮 Demo mode activated! Explore Policy Pro with sample data.', 'success');
+    } else if (typeof showAlert === 'function') {
+        showAlert('Welcome to Policy Pro Demo! Explore all features.', 'success');
+    }
+    
+    window.scrollTo(0, 0);
+    
+    setTimeout(() => {
+        const modal = document.getElementById('tourModal');
+        const overlay = document.getElementById('tourOverlay');
+        console.log('Tour modal found:', !!modal);
+        console.log('Tour overlay found:', !!overlay);
+        
+        if (typeof startTour === 'function') {
+            console.log('Calling startTour()...');
+            startTour();
+        } else {
+            console.error('❌ startTour function not found!');
+        }
+    }, 1000);
+    
+    console.log('✅ Demo started');
+}
+
+// Attach to window and globalThis for immediate accessibility
+if (typeof window !== 'undefined') {
+    window.showSignupModal = showSignupModal;
+    window.showLoginModal = showLoginModal;
+    window.showCreateAccountPortal = showCreateAccountPortal;
+    window.startDemo = startDemo;
+    window.openAuthPortal = openAuthPortal;
+    window.closeAuthPortal = closeAuthPortal;
+}
+
+if (typeof globalThis !== 'undefined') {
+    globalThis.showSignupModal = showSignupModal;
+    globalThis.showLoginModal = showLoginModal;
+    globalThis.showCreateAccountPortal = showCreateAccountPortal;
+    globalThis.startDemo = startDemo;
+    globalThis.openAuthPortal = openAuthPortal;
+    globalThis.closeAuthPortal = closeAuthPortal;
+}
+
+// Function to expose auth functions after they're defined
+function exposeAuthFunctions() {
+    if (typeof window !== 'undefined') {
+        if (typeof loginUser === 'function') {
+            window.loginUser = loginUser;
+        }
+        if (typeof signupUser === 'function') {
+            window.signupUser = signupUser;
+        }
+        if (typeof closeLoginModal === 'function') {
+            window.closeLoginModal = closeLoginModal;
+        }
+        if (typeof closeSignupModal === 'function') {
+            window.closeSignupModal = closeSignupModal;
+        }
+    }
+    
+    if (typeof globalThis !== 'undefined') {
+        if (typeof loginUser === 'function') {
+            globalThis.loginUser = loginUser;
+        }
+        if (typeof signupUser === 'function') {
+            globalThis.signupUser = signupUser;
+        }
+        if (typeof closeLoginModal === 'function') {
+            globalThis.closeLoginModal = closeLoginModal;
+        }
+        if (typeof closeSignupModal === 'function') {
+            globalThis.closeSignupModal = closeSignupModal;
+        }
+    }
+}
+
+// Add event listeners as fallback for buttons (in case onclick doesn't work)
+if (typeof document !== 'undefined') {
+    // Wait for DOM to be ready
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', attachButtonListeners);
+    } else {
+        attachButtonListeners();
+    }
+}
+
+function attachButtonListeners() {
+    // Attach listeners to landing page buttons as fallback
+    // Find buttons by onclick attribute or by text content
+    const allButtons = document.querySelectorAll('button, a');
+    allButtons.forEach(btn => {
+        if (btn.dataset.listenerAttached) return; // Already attached
+        
+        const onclick = btn.getAttribute('onclick') || '';
+        const text = btn.textContent.trim();
+        
+        // Try Demo button
+        if ((onclick.includes('startDemo') || text.includes('Try Demo')) && !btn.dataset.listenerAttached) {
+            btn.addEventListener('click', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                console.log('Try Demo button clicked');
+                if (typeof startDemo === 'function') {
+                    startDemo();
+                } else if (typeof window.startDemo === 'function') {
+                    window.startDemo();
+                } else {
+                    console.error('startDemo function not available');
+                    alert('Demo function not available. Please refresh the page.');
+                }
+            });
+            btn.dataset.listenerAttached = 'true';
+        }
+        
+        // Login button
+        if ((onclick.includes('showLoginModal') || (text.includes('Log In') && !text.includes('Create'))) && !btn.dataset.listenerAttached) {
+            btn.addEventListener('click', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                console.log('Login button clicked');
+                if (typeof showLoginModal === 'function') {
+                    showLoginModal();
+                } else if (typeof window.showLoginModal === 'function') {
+                    window.showLoginModal();
+                } else {
+                    console.error('showLoginModal function not available');
+                    alert('Login function not available. Please refresh the page.');
+                }
+            });
+            btn.dataset.listenerAttached = 'true';
+        }
+        
+        // Create Account button (but NOT the form submit button)
+        // Only attach to buttons that open the portal, not form submit buttons
+        const isFormSubmitButton = btn.type === 'submit' || btn.closest('form');
+        if ((onclick.includes('showCreateAccountPortal') || (text.includes('Create Account') && !isFormSubmitButton)) && !btn.dataset.listenerAttached) {
+            btn.addEventListener('click', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                console.log('Create Account button clicked (opening portal)');
+                if (typeof showCreateAccountPortal === 'function') {
+                    showCreateAccountPortal();
+                } else if (typeof window.showCreateAccountPortal === 'function') {
+                    window.showCreateAccountPortal();
+                } else {
+                    console.error('showCreateAccountPortal function not available');
+                    alert('Create Account function not available. Please refresh the page.');
+                }
+            });
+            btn.dataset.listenerAttached = 'true';
+        }
+    });
+    
+    console.log('Button listeners attached');
+}
+
+// Load users from masterData when available (async)
+if (masterData) {
+    if (masterData.then) {
+        // It's a promise
+        masterData.then(data => {
+            if (data && data.users) {
+                users = data.users;
+                // Filter users for current company if logged in
+                if (currentCompany) {
+                    users = users.filter(user => user.company === currentCompany);
+                }
+            }
+        }).catch(err => {
+            console.error('Error loading master data:', err);
+        });
+    } else if (masterData.users) {
+        // It's already resolved data
+    users = masterData.users;
+    // Filter users for current company if logged in
+    if (currentCompany) {
+        users = users.filter(user => user.company === currentCompany);
+        }
+    }
+} else {
+    // Fallback to default data
+    users = loadFromLocalStorage('users', [
+        { id: 1, username: 'admin', email: 'admin@csi.com', company: 'CSI', role: 'admin', accessCode: '123', created: new Date().toISOString().split('T')[0] }
+    ]);
+}
+
+// Listen for master data updates from admin dashboard
+window.addEventListener('masterDataUpdated', function(event) {
+    const updatedData = event.detail;
+    console.log('📡 Master data updated event received:', updatedData);
+    
+    // Update local data with new master data
+    if (updatedData.users && Array.isArray(updatedData.users)) {
+        console.log('🔄 Updating users:', updatedData.users.length);
+    users = updatedData.users;
+        
+        // Filter to current company if logged in
+    if (currentCompany) {
+            const companyUsers = users.filter(user => user.company === currentCompany);
+            console.log('👥 Company users:', companyUsers.length);
+    }
+    
+        // Save updated data to both user lists
+    saveToLocalStorage('users', users);
+        localStorage.setItem('masterUsers', JSON.stringify(updatedData.users));
+    }
+    
+    // Update companies
+    if (updatedData.companies && Array.isArray(updatedData.companies)) {
+        console.log('🏢 Updating companies:', updatedData.companies.length);
+        const companies = updatedData.companies;
+        localStorage.setItem('masterCompanies', JSON.stringify(companies));
+    }
+    
+    // Update access codes
+    if (updatedData.accessCodes && Array.isArray(updatedData.accessCodes)) {
+        console.log('🔑 Updating access codes:', updatedData.accessCodes.length);
+        localStorage.setItem('masterAccessCodes', JSON.stringify(updatedData.accessCodes));
+    }
+    
+    // Update organizations
+    if (updatedData.organizations) {
+        console.log('🏛️ Updating organizations');
+        localStorage.setItem('organizations', JSON.stringify(updatedData.organizations));
+        // Reload organizations if in settings
+        if (typeof displayOrganizations === 'function') {
+            displayOrganizations();
+        }
+    }
+    
+    // Update categories
+    if (updatedData.categories) {
+        console.log('📁 Updating categories:', updatedData.categories.length);
+        localStorage.setItem('categories', JSON.stringify(updatedData.categories));
+        // Reload categories if in settings
+        if (typeof loadCategories === 'function') {
+            loadCategories();
+        }
+    }
+    
+    // Update roles
+    if (updatedData.roles) {
+        console.log('👤 Updating roles:', updatedData.roles.length);
+        localStorage.setItem('roles', JSON.stringify(updatedData.roles));
+    }
+    
+    // Update disciplinary actions
+    if (updatedData.disciplinaryActions) {
+        console.log('⚖️ Updating disciplinary actions:', updatedData.disciplinaryActions.length);
+        localStorage.setItem('disciplinaryActions', JSON.stringify(updatedData.disciplinaryActions));
+    }
+    
+    // Refresh UI if needed
+    if (typeof updateUserInterface === 'function') {
+        updateUserInterface();
+    }
+    
+    console.log('✅ Master data sync complete');
+    refreshCurrentWebhookSettings();
+    const webhooksTab = document.getElementById('webhooksTab');
+    if (webhooksTab && webhooksTab.classList.contains('active')) {
+        loadWebhookUrls();
+    }
+});
+
+// ChatGPT API Key Management
+function getChatGPTAPIKey() {
+    // Get API key from company configuration in master admin data
+    const masterData = loadMasterAdminData();
+    if (masterData && masterData.companies) {
+        const company = masterData.companies.find(c => c.name === currentCompany);
+        if (company && company.apiKey) {
+            return company.apiKey;
+        }
+    }
+    
+    // Fallback to localStorage for backward compatibility
+    let apiKey = localStorage.getItem('chatgpt_api_key');
+    
+    // If not found, try to get from environment variable (for development)
+    if (!apiKey && typeof process !== 'undefined' && process.env) {
+        apiKey = process.env.OPENAI_API_KEY;
+    }
+    
+    return apiKey;
+}
+
+function setChatGPTAPIKey(apiKey) {
+    localStorage.setItem('chatgpt_api_key', apiKey);
+}
+
+function clearChatGPTAPIKey() {
+    localStorage.removeItem('chatgpt_api_key');
+}
+
+// Local Storage Functions
+function saveToLocalStorage(key, data) {
+    try {
+        localStorage.setItem(key, JSON.stringify(data));
+    } catch (error) {
+        console.error('Error saving to localStorage:', error);
+    }
+}
+
+function loadFromLocalStorage(key, defaultValue = []) {
+    try {
+        const data = localStorage.getItem(key);
+        return data ? JSON.parse(data) : defaultValue;
+    } catch (error) {
+        console.error('Error loading from localStorage:', error);
+        return defaultValue;
+    }
+}
+
+function saveToSessionStorage(key, data) {
+    try {
+        if (typeof sessionStorage === 'undefined') return;
+        sessionStorage.setItem(key, JSON.stringify(data));
+    } catch (error) {
+        console.error('Error saving to sessionStorage:', error);
+    }
+}
+
+function loadFromSessionStorage(key, defaultValue = null) {
+    try {
+        if (typeof sessionStorage === 'undefined') return defaultValue;
+        const data = sessionStorage.getItem(key);
+        return data ? JSON.parse(data) : defaultValue;
+    } catch (error) {
+        console.error('Error loading from sessionStorage:', error);
+        return defaultValue;
+    }
+}
+
+function updateRememberDevicePreference(remember) {
+    rememberDevicePreference = !!remember;
+    localStorage.setItem('rememberDevice', rememberDevicePreference ? 'true' : 'false');
+}
+
+function persistAuthUser(user, company, preferenceOverride) {
+    if (typeof preferenceOverride === 'boolean') {
+        updateRememberDevicePreference(preferenceOverride);
+    }
+    
+    if (!user) {
+        clearAuthPersistence();
+        return;
+    }
+    
+    if (rememberDevicePreference) {
+        saveToLocalStorage('currentUser', user);
+        saveToLocalStorage('currentCompany', company);
+        try {
+            if (typeof sessionStorage !== 'undefined') {
+                sessionStorage.removeItem('currentUser');
+                sessionStorage.removeItem('currentCompany');
+            }
+        } catch (error) {
+            console.warn('Unable to clear sessionStorage auth cache:', error);
+        }
+    } else {
+        saveToSessionStorage('currentUser', user);
+        saveToSessionStorage('currentCompany', company);
+        localStorage.removeItem('currentUser');
+        localStorage.removeItem('currentCompany');
+    }
+}
+
+function clearAuthPersistence() {
+    try {
+        if (typeof sessionStorage !== 'undefined') {
+            sessionStorage.removeItem('currentUser');
+            sessionStorage.removeItem('currentCompany');
+        }
+    } catch (error) {
+        console.warn('Unable to clear sessionStorage auth data:', error);
+    }
+    
+    localStorage.removeItem('currentUser');
+    localStorage.removeItem('currentCompany');
+}
+
+function getCompanyRecordByName(name) {
+    if (!name) return null;
+    try {
+        const companies = JSON.parse(localStorage.getItem('masterCompanies') || '[]');
+        return companies.find(company => company.name === name) || null;
+    } catch (error) {
+        console.error('Error parsing master companies from localStorage:', error);
+        return null;
+    }
+}
+
+function filterEmptyWebhookValues(values = {}) {
+    const filtered = {};
+    Object.entries(values).forEach(([key, value]) => {
+        if (typeof value === 'string' && value.trim() !== '') {
+            filtered[key] = value.trim();
+        }
+    });
+    return filtered;
+}
+
+function refreshCurrentWebhookSettings() {
+    const companyName = currentCompany || 'Default Company';
+    const storedMap = loadFromLocalStorage(WEBHOOK_STORAGE_KEY, {});
+    const companyRecord = getCompanyRecordByName(companyName);
+    const companyValues = companyRecord ? filterEmptyWebhookValues({
+        advisor: companyRecord.webhook_advisor_url,
+        generator: companyRecord.webhook_generator_url,
+        summarizer: companyRecord.webhook_summarizer_url,
+        email: companyRecord.webhook_email_url
+    }) : {};
+    
+    const storedValues = filterEmptyWebhookValues(storedMap[companyName] || {});
+    currentWebhookSettings = {
+        ...WEBHOOK_DEFAULTS,
+        ...companyValues,
+        ...storedValues
+    };
+    
+    storedMap[companyName] = currentWebhookSettings;
+    saveToLocalStorage(WEBHOOK_STORAGE_KEY, storedMap);
+}
+
+async function saveCompanyWebhookSettings(settings) {
+    const companyName = currentCompany || 'Default Company';
+    const sanitized = {
+        advisor: settings.advisor?.trim() || '',
+        generator: settings.generator?.trim() || '',
+        summarizer: settings.summarizer?.trim() || '',
+        email: settings.email?.trim() || ''
+    };
+    
+    const storedMap = loadFromLocalStorage(WEBHOOK_STORAGE_KEY, {});
+    storedMap[companyName] = sanitized;
+    saveToLocalStorage(WEBHOOK_STORAGE_KEY, storedMap);
+    currentWebhookSettings = { ...WEBHOOK_DEFAULTS, ...sanitized };
+    
+    const companies = JSON.parse(localStorage.getItem('masterCompanies') || '[]');
+    const companyIndex = companies.findIndex(c => c.name === companyName);
+    if (companyIndex !== -1) {
+        companies[companyIndex] = {
+            ...companies[companyIndex],
+            webhook_advisor_url: sanitized.advisor || null,
+            webhook_generator_url: sanitized.generator || null,
+            webhook_summarizer_url: sanitized.summarizer || null,
+            webhook_email_url: sanitized.email || null
+        };
+        localStorage.setItem('masterCompanies', JSON.stringify(companies));
+        
+        const companyId = companies[companyIndex].id;
+        if (companyId && SupabaseDB && typeof SupabaseDB.updateCompany === 'function') {
+            try {
+                await SupabaseDB.updateCompany(companyId, {
+                    webhook_advisor_url: sanitized.advisor || null,
+                    webhook_generator_url: sanitized.generator || null,
+                    webhook_summarizer_url: sanitized.summarizer || null,
+                    webhook_email_url: sanitized.email || null
+                });
+            } catch (error) {
+                console.error('Error updating company webhooks in Supabase:', error);
+                throw error;
+            }
+        }
+    }
+    
+    return sanitized;
+}
+
+function getWebhookUrl(type) {
+    const setting = currentWebhookSettings?.[type];
+    if (setting && setting.trim()) {
+        return setting.trim();
+    }
+    return WEBHOOK_FALLBACKS[type] || '';
+}
+
+refreshCurrentWebhookSettings();
+
+// DOM Elements
+const policiesGrid = document.getElementById('policiesGrid');
+const policySearch = document.getElementById('policySearch');
+const filterButtons = document.querySelectorAll('.filter-btn');
+const totalPoliciesElement = document.getElementById('totalPolicies');
+const recentUpdatesElement = document.getElementById('recentUpdates');
+const createModal = document.getElementById('createModal');
+const policyForm = document.getElementById('policyForm');
+const aiModal = document.getElementById('aiModal');
+const aiForm = document.getElementById('aiForm');
+const aiLoading = document.getElementById('aiLoading');
+const aiResult = document.getElementById('aiResult');
+const aiGeneratedContent = document.getElementById('aiGeneratedContent');
+const draftList = document.getElementById('draftList');
+const draftCountElement = document.getElementById('draftCount');
+
+// Initialize the application
+document.addEventListener('DOMContentLoaded', async function() {
+    console.log('Initializing application...');
+    
+    // Get landing page element
+    const landingPage = document.getElementById('landingPage');
+    
+    // Check if user is actually logged in (validate the user data strictly)
+    // A valid user must be an object with a non-empty username
+    let hasValidUser = currentUser && 
+                         typeof currentUser === 'object' &&
+                         currentUser.username && 
+                         typeof currentUser.username === 'string' &&
+                         currentUser.username.trim().length > 0;
+    
+    // If we have a stored user, validate against Supabase
+    if (hasValidUser && currentUser.id) {
+        try {
+            console.log('Validating user against Supabase...');
+            const allUsers = await SupabaseDB.getUsers();
+            const validatedUser = allUsers.find(u => 
+                (u.id === currentUser.id) || 
+                (u.email === currentUser.email) || 
+                (u.username === currentUser.username)
+            );
+            
+            if (validatedUser) {
+                // Update currentUser with latest data from Supabase
+                currentUser = validatedUser;
+                console.log('✅ User validated against Supabase:', currentUser.username);
+                hasValidUser = true;
+            } else {
+                console.log('❌ User not found in Supabase, clearing session');
+                currentUser = null;
+                currentCompany = null;
+                localStorage.removeItem('currentUser');
+                sessionStorage.removeItem('currentUser');
+                hasValidUser = false;
+            }
+        } catch (error) {
+            console.warn('Error validating user against Supabase, using cached user:', error);
+            // Continue with cached user if Supabase check fails
+        }
+    }
+    
+    console.log('Checking user login status:', {
+        hasCurrentUser: !!currentUser,
+        userType: typeof currentUser,
+        username: currentUser ? currentUser.username : 'none',
+        hasValidUser: hasValidUser
+    });
+    
+    if (hasValidUser) {
+        // User is logged in - hide landing page
+        console.log('User is logged in, hiding landing page', currentUser.username);
+        document.body.classList.add('user-logged-in');
+        if (landingPage) {
+            landingPage.style.display = 'none';
+        }
+    } else {
+        // User is not logged in - show landing page with demo
+        console.log('User is not logged in, showing landing page');
+        
+        // Clear any stale user data
+        if (currentUser) {
+            console.log('Clearing invalid/stale user data');
+            currentUser = null;
+            currentCompany = null;
+            // Clear from storage
+            const shouldRemember = rememberDevicePreference;
+            if (shouldRemember) {
+                localStorage.removeItem('currentUser');
+                localStorage.removeItem('currentCompany');
+            } else {
+                if (typeof sessionStorage !== 'undefined') {
+                    sessionStorage.removeItem('currentUser');
+                    sessionStorage.removeItem('currentCompany');
+                }
+            }
+        }
+        
+        // Remove user-logged-in class if it exists
+        document.body.classList.remove('user-logged-in');
+        
+        // Force show landing page
+        if (landingPage) {
+            landingPage.style.display = 'block';
+            landingPage.style.visibility = 'visible';
+            landingPage.style.opacity = '1';
+            landingPage.removeAttribute('hidden');
+            landingPage.classList.remove('hidden');
+        }
+        
+        // Also ensure via CSS after a brief delay
+        setTimeout(function() {
+            if (landingPage && !currentUser) {
+                landingPage.style.display = 'block';
+                landingPage.style.visibility = 'visible';
+                document.body.classList.remove('user-logged-in');
+            }
+        }, 100);
+    }
+    
+    // Initialize data displays
+    if (typeof displayPolicies === 'function') {
+    displayPolicies(currentPolicies);
+    }
+    if (typeof updateStats === 'function') {
+    updateStats();
+    }
+    displayDrafts();
+    displayRoles();
+    displayDisciplinaryActions();
+    displayUsers();
+    setupEventListeners();
+    addLoginChecksToAllElements();
+    updateUserInterface();
+    
+    // Mobile menu toggle
+    const navToggle = document.querySelector('.nav-toggle');
+    const navMenu = document.querySelector('.nav-menu');
+    
+    if (navToggle && navMenu) {
+        navToggle.addEventListener('click', function() {
+            navMenu.classList.toggle('active');
+        });
+    }
+    
+    // Listen for master data updates
+    window.addEventListener('masterDataUpdated', function(event) {
+        console.log('Master data updated event received:', event.detail);
+        // Update local users data if needed
+        if (event.detail && event.detail.users) {
+            users = event.detail.users;
+            saveToLocalStorage('users', users);
+        }
+    });
+    
+    // Listen for company policies updates (from other admins)
+    window.addEventListener('companyPoliciesUpdated', function(event) {
+        console.log('Company policies updated event received:', event.detail);
+        if (event.detail && event.detail.company === currentCompany && event.detail.policies) {
+            console.log('Reloading policies from other admin:', event.detail.policies.length);
+            loadPoliciesFromStorage();
+            showNotification('Policies updated by another admin', 'info');
+        }
+    });
+    
+    // Poll for policy updates from other admins (every 2 seconds)
+    let lastPolicyUpdate = currentCompany ? localStorage.getItem(`policies_${currentCompany}_updated`) : null;
+    setInterval(function() {
+        if (currentUser && currentCompany) {
+            const currentUpdate = localStorage.getItem(`policies_${currentCompany}_updated`);
+            if (currentUpdate && currentUpdate !== lastPolicyUpdate) {
+                console.log('Detected policy update, reloading...');
+                lastPolicyUpdate = currentUpdate;
+                loadPoliciesFromStorage();
+                showNotification('Policies have been updated', 'info');
+            }
+        }
+    }, 2000);
+    
+    // Reload policies when window regains focus (in case another tab made changes)
+    window.addEventListener('focus', function() {
+        if (currentUser && currentCompany) {
+            loadPoliciesFromStorage();
+        }
+    });
+    
+    // Load policies from storage if user is logged in
+    if (currentUser && currentCompany) {
+        console.log('Loading policies from storage for company:', currentCompany);
+        loadPoliciesFromStorage();
+    }
+    
+    // Check user status
+    if (currentUser) {
+            console.log('User already logged in:', currentUser.username);
+            // Load policies from storage when user is already logged in
+            if (currentCompany) {
+                loadPoliciesFromStorage();
+            }
+        }
+        
+    // Watch for create modal opening and populate organizations
+    const createModal = document.getElementById('createModal');
+    if (createModal) {
+        const observer = new MutationObserver(function(mutations) {
+            mutations.forEach(function(mutation) {
+                if (mutation.type === 'attributes' && mutation.attributeName === 'style') {
+                    const display = window.getComputedStyle(createModal).display;
+                    if (display === 'block') {
+                        console.log('🔍 Create modal opened, populating organizations...');
+                        populateOrganizationsDropdown();
+                    }
+                }
+            });
+        });
+        
+        observer.observe(createModal, {
+            attributes: true,
+            attributeFilter: ['style']
+        });
+        }
+});
+
+// Check if user is logged in before allowing access to features
+function requireLogin() {
+    console.log('requireLogin called, currentUser:', currentUser);
+    if (!currentUser) {
+        console.log('User not logged in, showing login modal');
+        showLoginModal();
+        return false;
+    }
+    console.log('User is logged in, allowing access');
+    return true;
+}
+
+// Event Listeners
+function setupEventListeners() {
+    // Search functionality
+    if (policySearch) {
+        policySearch.addEventListener('input', function() {
+            if (!requireLogin()) return;
+            const searchTerm = this.value.toLowerCase();
+            const filteredPolicies = currentPolicies.filter(policy => {
+                const title = (policy.title || '').toLowerCase();
+                const description = (policy.description || '').toLowerCase();
+                const content = (policy.content || '').toLowerCase();
+                const type = (policy.type || '').toLowerCase();
+                const policyCode = (policy.policyCode || '').toLowerCase();
+                
+                return title.includes(searchTerm) || 
+                       description.includes(searchTerm) || 
+                       content.includes(searchTerm) ||
+                       type.includes(searchTerm) ||
+                       policyCode.includes(searchTerm);
+            });
+            displayPolicies(filteredPolicies);
+        });
+    }
+
+    // Filter buttons
+    if (filterButtons && filterButtons.length > 0) {
+    filterButtons.forEach(button => {
+            if (button) {
+        button.addEventListener('click', function() {
+            if (!requireLogin()) return;
+            
+            // Remove active class from all buttons
+                    filterButtons.forEach(btn => {
+                        if (btn) btn.classList.remove('active');
+                    });
+            // Add active class to clicked button
+            this.classList.add('active');
+            
+            const filter = this.getAttribute('data-filter');
+            filterPolicies(filter);
+        });
+            }
+    });
+    }
+
+    // Form submission
+    const policyForm = document.getElementById('policyForm');
+    if (policyForm) {
+    policyForm.addEventListener('submit', function(e) {
+        e.preventDefault();
+        createNewPolicy();
+    });
+    }
+    
+    // Listen for policy type changes to update policy code
+    const policyTypeSelect = document.getElementById('policyType');
+    if (policyTypeSelect) {
+        policyTypeSelect.addEventListener('change', function() {
+            console.log('🔄 Policy type changed, updating code...');
+            updateManualPolicyCode();
+        });
+    }
+    
+    // Listen for category changes to update policy code
+    const categorySelect = document.getElementById('manualPolicyCategory');
+    if (categorySelect) {
+        categorySelect.addEventListener('change', function() {
+            console.log('🔄 Category changed, updating code...');
+            updateManualPolicyCode();
+        });
+    }
+
+    // AI Form submission
+    if (aiForm) {
+    aiForm.addEventListener('submit', function(e) {
+        e.preventDefault();
+        generateAIPolicy();
+    });
+    }
+
+    setupSignupFormListeners();
+
+    // Password form submission
+    const passwordForm = document.getElementById('passwordForm');
+    console.log('Password form found:', passwordForm);
+    if (passwordForm) {
+        passwordForm.addEventListener('submit', function(e) {
+            console.log('Password form submit event triggered!');
+            e.preventDefault();
+            checkAdminPassword(e);
+        });
+        
+        // Check if admin button exists and log its onclick handler
+        const adminButton = passwordForm.querySelector('button[type="button"]');
+        if (adminButton) {
+            console.log('Admin button found:', adminButton);
+            console.log('Admin button onclick handler:', adminButton.onclick);
+        }
+    } else {
+        console.error('Password form not found!');
+    }
+    
+    // Event delegation for policy view buttons (dynamically added)
+    document.addEventListener('click', function(e) {
+        if (e.target.closest('.policy-view-btn')) {
+            const button = e.target.closest('.policy-view-btn');
+            const policyId = button.getAttribute('data-policy-id');
+            console.log('Policy view button clicked with ID:', policyId);
+            e.preventDefault();
+            viewPolicy(policyId);
+        }
+    });
+
+    // Smooth scrolling for navigation links
+    document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+        anchor.addEventListener('click', function (e) {
+            e.preventDefault();
+            const href = this.getAttribute('href');
+            if (!href || href === '#' || href === '#home') {
+                return; // Skip invalid or home links
+            }
+            const target = document.querySelector(href);
+            if (target) {
+                target.scrollIntoView({
+                    behavior: 'smooth',
+                    block: 'start'
+                });
+            }
+        });
+    });
+}
+
+// Add login requirement to all interactive elements
+function addLoginChecksToAllElements() {
+    // Add click listeners to all buttons that should require login
+    const allButtons = document.querySelectorAll('button, .btn, a[href^="#"]');
+    
+    allButtons.forEach(element => {
+        // Skip elements that are login/signup related or already have requireLogin
+        const onclick = element.getAttribute('onclick') || '';
+        const href = element.getAttribute('href') || '';
+        
+        if (onclick.includes('showLoginModal') || 
+            onclick.includes('showSignupModal') || 
+            onclick.includes('showCreateAccountPortal') ||
+            onclick.includes('signupUser') ||
+            onclick.includes('loginUser') ||
+            onclick.includes('closeLoginModal') || 
+            onclick.includes('closeSignupModal') ||
+            onclick.includes('requireLogin') ||
+            href.includes('admin-master') ||
+            element.type === 'submit' ||
+            element.closest('.auth-portal') ||
+            element.closest('#landingPage')) {
+            return;
+        }
+        
+        // Add click listener for login check
+        element.addEventListener('click', function(event) {
+            if (!requireLogin()) {
+                event.preventDefault();
+                event.stopPropagation();
+                return false;
+            }
+        });
+    });
+    
+    console.log('Login checks added to all interactive elements');
+}
+
+// Display Policies
+function displayPolicies(policiesToDisplay = policies) {
+    // Get policiesGrid dynamically to avoid initialization issues
+    const policiesGridEl = document.getElementById('policiesGrid');
+    if (!policiesGridEl) {
+        console.warn('Policies grid element not found - may not be on policies page');
+        return;
+    }
+    
+    if (!policiesToDisplay || policiesToDisplay.length === 0) {
+        policiesGridEl.innerHTML = '<div class="no-policies">No policies found matching your criteria.</div>';
+        return;
+    }
+
+    policiesGridEl.innerHTML = policiesToDisplay.map(policy => {
+        // Get policy type label
+        const typeLabel = getTypeLabel(policy.type);
+        const typeClass = policy.type || 'admin';
+        
+        // Get organizations
+        const organizations = policy.clinicNames || policy.organizations || policy.clinics || 'All Organizations';
+        
+        // Get dates
+        const createdDate = policy.created ? formatDate(policy.created) : 'N/A';
+        const updatedDate = policy.updated ? formatDate(policy.updated) : (policy.lastModified ? formatDate(policy.lastModified) : 'N/A');
+        
+        // Get policy code
+        const policyCode = policy.policyCode || '';
+        
+        // Create simple thumbnail initials
+        const titleText = (policy.title || 'Untitled Policy').trim();
+        const initials = titleText
+            .split(/\s+/)
+            .slice(0, 2)
+            .map(w => w.charAt(0))
+            .join('')
+            .toUpperCase();
+        
+        return `
+            <div class="policy-item" data-type="${policy.type}" data-policy-code="${policyCode.toLowerCase()}" onclick="viewPolicy('${policy.id}')">
+                <div class="policy-card-header">
+                    <div class="policy-thumb ${typeClass}">${initials}</div>
+                    <div class="policy-card-title">
+                        <h3 class="policy-title">${policy.title || 'Untitled Policy'}</h3>
+                        <div class="policy-meta-row">
+                            <span class="policy-type-badge ${typeClass}">${typeLabel}</span>
+                            ${policyCode ? `<span class="policy-code-badge">${policyCode}</span>` : ''}
+                        </div>
+                </div>
+            </div>
+            <div class="policy-organizations">
+                    <i class="fas fa-building"></i> ${organizations}
+            </div>
+                <div class="policy-dates">
+                    <div class="policy-date-item"><i class="fas fa-calendar-plus"></i> Created: ${createdDate}</div>
+                    ${updatedDate !== 'N/A' ? `<div class="policy-date-item"><i class=\"fas fa-calendar-check\"></i> Updated: ${updatedDate}</div>` : ''}
+            </div>
+            </div>
+        `;
+    }).join('');
+}
+
+// Filter Policies
+function filterPolicies(filter) {
+    let filteredPolicies;
+    
+    if (filter === 'all') {
+        filteredPolicies = currentPolicies;
+    } else {
+        filteredPolicies = currentPolicies.filter(policy => policy.type === filter);
+    }
+    
+    displayPolicies(filteredPolicies);
+}
+
+// Create New Policy
+async function createNewPolicy() {
+    // Get selected organizations from the dropdown
+    const clinicSelect = document.getElementById('clinicApplicability');
+    let selectedClinics = [];
+    let clinicNames = 'All Organizations';
+    
+    if (clinicSelect) {
+        const selectedOptions = Array.from(clinicSelect.selectedOptions);
+        selectedClinics = selectedOptions.map(option => option.value);
+        clinicNames = selectedOptions.map(option => option.textContent).join(', ');
+        
+        // If no organizations selected, default to all
+        if (selectedClinics.length === 0 || selectedClinics.includes('')) {
+            selectedClinics = ['all-organizations'];
+            clinicNames = 'All Organizations';
+        }
+    } else {
+        // Fallback: Get organizations from settings for the current company
+        const companyOrgs = organizations[currentCompany] || [];
+        if (companyOrgs.length > 0) {
+            selectedClinics = companyOrgs;
+            clinicNames = companyOrgs.join(', ');
+        }
+    }
+    
+    // Get form values with defaults if empty
+    const titleInput = document.getElementById('policyTitle');
+    const typeInput = document.getElementById('policyType');
+    
+    const title = (titleInput?.value || '').trim() || 'Untitled Policy';
+    const type = (typeInput?.value || '').trim() || 'admin';
+    
+    // Dynamically collect all fields from the dynamic form fields container
+    const dynamicFieldsContainer = document.getElementById('dynamicManualFormFields');
+    let allFormData = {};
+    
+    if (dynamicFieldsContainer) {
+        // Get all inputs, textareas, and selects from dynamic fields
+        const allInputs = dynamicFieldsContainer.querySelectorAll('input, textarea, select');
+        allInputs.forEach(field => {
+            const fieldId = field.id;
+            const fieldName = fieldId || field.name || '';
+            if (fieldName) {
+                if (field.type === 'date') {
+                    allFormData[fieldName] = field.value || '';
+                } else if (field.tagName === 'TEXTAREA') {
+                    allFormData[fieldName] = field.value || '';
+                } else if (field.tagName === 'SELECT') {
+                    allFormData[fieldName] = field.value || '';
+                } else {
+                    allFormData[fieldName] = field.value || '';
+                }
+            }
+        });
+    }
+    
+    // Build description from dynamic fields (prefer purpose or first content field)
+    const description = allFormData.purpose || allFormData.objective || allFormData.subject || 
+                       allFormData.message || Object.values(allFormData).find(v => v && v.trim()) || '';
+    
+    // Get selected category
+    const categoryId = document.getElementById('manualPolicyCategory')?.value || null;
+    const tempId = 'policy_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+    
+    // Generate policy code if category is selected
+    const policyCode = categoryId ? generatePolicyCode(categoryId, tempId, type) : null;
+
+    // Create policy object with all collected data
+    const newPolicy = {
+        id: tempId,
+        title: title,
+        type: type || 'admin',
+        clinics: selectedClinics,
+        clinicNames: clinicNames,
+        description: description,
+        content: JSON.stringify(allFormData), // Store all form data as JSON for later use
+        company: currentCompany || 'Default Company', // Assign to current company
+        created: new Date().toISOString().split('T')[0],
+        updated: new Date().toISOString().split('T')[0],
+        categoryId: categoryId,
+        policyCode: policyCode
+    };
+
+    // Save to localStorage instead of just in-memory array
+    const companyPolicies = loadCompanyPolicies();
+    companyPolicies.push(newPolicy);
+    localStorage.setItem(`policies_${currentCompany}`, JSON.stringify(companyPolicies));
+    
+    // Update in-memory array
+    currentPolicies.unshift(newPolicy);
+    displayPolicies(currentPolicies);
+    updateStats();
+    closeCreateModal();
+    
+    // Reset form
+    policyForm.reset();
+    
+    // Send webhook notification
+    try {
+        await sendPolicyPublishWebhook(newPolicy);
+        console.log('✅ Policy publish webhook sent successfully');
+    } catch (error) {
+        console.error('⚠️ Failed to send policy publish webhook:', error);
+        // Don't block policy creation if webhook fails
+    }
+    
+    // Show success message
+    showNotification('Policy created successfully!', 'success');
+    
+    // Add notification to notification center
+    addNotification(`New policy "${formData.title}" has been created`, 'success');
+}
+
+// Modal Functions
+// Duplicate openCreateModal function removed - using the more complete version defined later
+
+// Duplicate closeCreateModal function removed - using the more complete version defined later
+
+// Close modal when clicking outside
+window.addEventListener('click', function(e) {
+    if (e.target === createModal) {
+        closeCreateModal();
+    }
+    if (e.target === aiModal) {
+        closeAIModal();
+    }
+});
+
+// Update Statistics
+function updateStats() {
+    // Ensure arrays exist to prevent undefined errors
+    const policies = currentPolicies || [];
+    const drafts = draftPolicies || [];
+    const userList = users || [];
+    
+    // Update main stats if elements exist
+    if (totalPoliciesElement) {
+        totalPoliciesElement.textContent = policies.length;
+    }
+    
+    // Count recent updates (last 7 days)
+    const recentDate = new Date();
+    recentDate.setDate(recentDate.getDate() - 7);
+    const recentUpdates = policies.filter(policy => 
+        policy && policy.updated && new Date(policy.updated) >= recentDate
+    ).length;
+    
+    if (recentUpdatesElement) {
+        recentUpdatesElement.textContent = recentUpdates;
+    }
+    
+    if (draftCountElement) {
+        draftCountElement.textContent = drafts.length;
+    }
+    
+    // Update admin stats
+    const adminTotalPolicies = document.getElementById('adminTotalPolicies');
+    const adminDraftCount = document.getElementById('adminDraftCount');
+    const adminUserCount = document.getElementById('adminUserCount');
+    const adminCompanyCount = document.getElementById('adminCompanyCount');
+    
+    if (adminTotalPolicies) adminTotalPolicies.textContent = policies.length;
+    if (adminDraftCount) adminDraftCount.textContent = drafts.length;
+    if (adminUserCount) adminUserCount.textContent = userList.length;
+    if (adminCompanyCount) {
+        const uniqueCompanies = [...new Set(userList.map(user => user && user.company ? user.company : null).filter(Boolean))];
+        adminCompanyCount.textContent = uniqueCompanies.length;
+    }
+}
+
+// Helper Functions
+function getTypeLabel(type) {
+    const labels = {
+        'admin': 'Admin Policy',
+        'sog': 'Standard Operating Guidelines',
+        'protocol': 'Protocol',
+        'memo': 'Communication Memo',
+        'memos': 'Communication Memos',
+        'training': 'Training Document',
+        'governance': 'Governance Policy'
+    };
+    return labels[type] || type;
+}
+
+function getOrganizationNames(organizationCodes) {
+    const organizationNames = {
+        'tudor-glen': 'Tudor Glen',
+        'river-valley': 'River Valley',
+        'rosslyn': 'Rosslyn',
+        'upc': 'UPC'
+    };
+    return organizationCodes.map(code => organizationNames[code] || code);
+}
+
+function getCompanyOrganizations(company) {
+    // Reload from localStorage to ensure we have the latest data from settings
+    const loadedOrgs = loadFromLocalStorage('organizations', {});
+    if (loadedOrgs && typeof loadedOrgs === 'object' && Object.keys(loadedOrgs).length > 0) {
+        // Update the global organizations object with fresh data from settings
+        organizations = loadedOrgs;
+    }
+    
+    // Only return organizations that are actually in settings
+    // No fallback to hardcoded organizations
+    if (company && organizations[company] && Array.isArray(organizations[company])) {
+        return organizations[company];
+    }
+    // Check Default Company as fallback, but still no hardcoded defaults
+    if (organizations['Default Company'] && Array.isArray(organizations['Default Company'])) {
+        return organizations['Default Company'];
+    }
+    // Return empty array if no organizations found in settings
+    return [];
+}
+
+function addOrganizationToCompany(company, organizationName) {
+    if (!organizations[company]) {
+        organizations[company] = [];
+    }
+    if (!organizations[company].includes(organizationName)) {
+        organizations[company].push(organizationName);
+        saveToLocalStorage('organizations', organizations);
+    }
+}
+
+function addOrganization() {
+    // Try modal inputs first, fallback to old inputs
+    const orgNameInput = document.getElementById('modalOrgName');
+    const orgAddressInput = document.getElementById('modalOrgAddress');
+    const orgPhoneInput = document.getElementById('modalOrgPhone');
+    const orgEmailInput = document.getElementById('modalOrgEmail');
+    
+    const orgName = orgNameInput ? orgNameInput.value.trim() : (document.getElementById('newOrganizationName')?.value.trim() || '');
+    const orgAddress = orgAddressInput ? orgAddressInput.value.trim() : (document.getElementById('newOrganizationAddress')?.value.trim() || '');
+    const orgPhone = orgPhoneInput ? orgPhoneInput.value.trim() : (document.getElementById('newOrganizationPhone')?.value.trim() || '');
+    const orgEmail = orgEmailInput ? orgEmailInput.value.trim() : (document.getElementById('newOrganizationEmail')?.value.trim() || '');
+    
+    if (!orgName) {
+        showNotification('Please enter an organization name', 'error');
+        return;
+    }
+    
+    // Add to current company
+    addOrganizationToCompany(currentCompany, orgName);
+    
+    // Close modal
+    closeAddOrganizationModal();
+    
+    // Show success message
+    showNotification(`Organization "${orgName}" added successfully!`, 'success');
+    
+    // Refresh organizations display
+    displayOrganizations();
+}
+function displayOrganizations() {
+    const organizationsList = document.getElementById('organizationsList');
+    if (!organizationsList) {
+        console.log('organizationsList not found');
+        return;
+    }
+    
+    // Reload organizations from localStorage to get latest
+    const orgData = localStorage.getItem('organizations');
+    if (orgData) {
+        const loadedOrgs = JSON.parse(orgData);
+        organizations = loadedOrgs;
+    }
+    
+    // Get organizations for current company
+    const companyOrgs = organizations[currentCompany] || [];
+    
+    console.log('Displaying organizations for company:', currentCompany);
+    console.log('Organizations found:', companyOrgs);
+    
+    if (companyOrgs.length === 0) {
+        organizationsList.innerHTML = '<p class="no-items">No organizations added yet. Add organizations above.</p>';
+        return;
+    }
+    
+    // Display organizations
+    organizationsList.innerHTML = companyOrgs.map((org, index) => `
+        <div class="item-card">
+            <div class="item-info">
+                <h4>${org}</h4>
+            </div>
+            <div class="item-actions">
+                <button onclick="deleteOrganization(${index}, '${org}')" class="btn btn-sm btn-danger">
+                    <i class="fas fa-trash"></i> Delete
+                </button>
+            </div>
+        </div>
+    `).join('');
+}
+
+function deleteOrganization(index, orgName) {
+    if (!confirm(`Are you sure you want to delete "${orgName}"?`)) {
+        return;
+    }
+    
+    const companyOrgs = organizations[currentCompany];
+    if (companyOrgs && companyOrgs.length > index) {
+        companyOrgs.splice(index, 1);
+        saveToLocalStorage('organizations', organizations);
+        displayOrganizations();
+        showNotification(`Organization "${orgName}" deleted successfully`, 'success');
+    }
+}
+
+function openUploadModal() {
+    document.getElementById('uploadModal').style.display = 'block';
+    
+    // Setup file input handler
+    const fileInput = document.getElementById('fileInput');
+    if (fileInput) {
+        fileInput.onchange = handleFileUpload;
+    }
+    
+    // Setup drag and drop
+    const uploadArea = document.getElementById('uploadArea');
+    if (uploadArea) {
+        uploadArea.ondragover = (e) => e.preventDefault();
+        uploadArea.ondrop = handleFileDrop;
+    }
+}
+
+function closeUploadModal() {
+    document.getElementById('uploadModal').style.display = 'none';
+    clearUploadArea();
+    
+    // Keep admin dashboard open if it was open
+    const adminModal = document.getElementById('adminModal');
+    if (adminModal && adminModal.style.display !== 'none') {
+        console.log('Admin dashboard is open, keeping it visible');
+        // Already open, do nothing
+        return;
+    }
+}
+
+function handleFileUpload(event) {
+    console.log('handleFileUpload called', event);
+    const files = event.target.files;
+    console.log('Files selected:', files);
+    if (files && files.length > 0) {
+        console.log('Processing files:', files.length, 'files');
+        processFiles(files);
+    } else {
+        console.log('No files selected');
+    }
+}
+
+function handleFileDrop(event) {
+    event.preventDefault();
+    const files = event.dataTransfer.files;
+    
+    // Update file input for consistency
+    const fileInput = document.getElementById('fileInput');
+    if (fileInput) {
+        fileInput.files = files;
+    }
+    
+    processFiles(files);
+}
+
+async function processFiles(files) {
+    console.log('processFiles called with:', files);
+    if (!files || files.length === 0) {
+        console.log('No files provided to processFiles');
+        return;
+    }
+    
+    console.log('Processing', files.length, 'files');
+    
+    // Show loading overlay
+    showN8nLoadingOverlay(files.length);
+    
+    // Show uploaded files
+    const uploadedFiles = document.getElementById('uploadedFiles');
+    const fileList = document.getElementById('fileList');
+    
+    console.log('Upload elements found:', { uploadedFiles, fileList });
+    
+    if (uploadedFiles && fileList) {
+        uploadedFiles.style.display = 'block';
+        fileList.innerHTML = '';
+        
+        const fileCards = [];
+        Array.from(files).forEach((file, index) => {
+            const fileCard = document.createElement('div');
+            fileCard.className = 'file-card';
+            fileCard.innerHTML = `
+                <div class="file-info">
+                    <i class="fas fa-file-pdf"></i>
+                    <div>
+                        <strong>${file.name}</strong>
+                        <p>${formatFileSize(file.size)}</p>
+                    </div>
+                </div>
+                <div class="file-status">
+                    <span class="status-badge pending" id="status-${index}">Uploading...</span>
+                </div>
+            `;
+            fileList.appendChild(fileCard);
+            fileCards.push({ element: fileCard, index, statusElement: document.getElementById(`status-${index}`) });
+        });
+        
+        // Send each file to webhook
+        let completedCount = 0;
+        let hasError = false;
+        const uploadResults = []; // Store results from n8n
+        
+        try {
+            for (const fileCard of fileCards) {
+                const file = files[fileCard.index];
+                updateN8nLoadingProgress(completedCount, files.length, file.name);
+                const result = await sendFileToWebhook(file, fileCard.statusElement);
+                console.log('Received result from webhook:', result);
+                // Always add result, even if empty (we'll handle empty responses in display)
+                uploadResults.push({
+                    file: file,
+                    data: result
+                });
+                console.log('Added to uploadResults. Total results:', uploadResults.length);
+                completedCount++;
+                updateN8nLoadingProgress(completedCount, files.length, file.name);
+            }
+        } catch (error) {
+            console.error('Error during file upload process:', error);
+            hasError = true;
+        } finally {
+            // Hide loading overlay after all files are uploaded (success or error)
+            hideN8nLoadingOverlay();
+        }
+        
+        // Show results after all files are uploaded (always show, even if response was empty)
+        console.log('Upload complete. hasError:', hasError, 'uploadResults.length:', uploadResults.length);
+        if (!hasError && uploadResults.length > 0) {
+            console.log('Displaying upload results:', uploadResults);
+            displayUploadResults(uploadResults);
+        } else if (!hasError) {
+            console.log('No upload results, showing processing status');
+            showProcessingStatus();
+        } else {
+            console.log('Upload had errors');
+        }
+    }
+}
+
+async function sendFileToWebhook(file, statusElement) {
+    console.log('sendFileToWebhook called with file:', file.name, 'statusElement:', statusElement);
+    const webhookUrl = getWebhookUrl('summarizer');
+    
+    if (!webhookUrl) {
+        showNotification('No Summarizer webhook configured. Please set one under Settings ➜ Webhooks.', 'error');
+        return null;
+    }
+    
+    try {
+        // Create FormData for binary file upload (multipart/form-data)
+        const formData = new FormData();
+        formData.append('file', file); // Binary file data
+        formData.append('filename', file.name);
+        formData.append('size', file.size.toString());
+        formData.append('type', file.type);
+        formData.append('company', currentCompany || 'Unknown');
+        formData.append('username', currentUser?.username || 'Unknown');
+        formData.append('timestamp', new Date().toISOString());
+        
+        console.log('Sending file to webhook as FormData:', file.name, 'Size:', file.size, 'Type:', file.type, 'URL:', webhookUrl);
+        
+        // POST request with FormData (multipart/form-data)
+        // Browser automatically sets Content-Type with boundary - don't set it manually!
+        const response = await fetch(webhookUrl, {
+            method: 'POST',
+            body: formData
+        });
+        
+        console.log('Waiting for webhook response...');
+        console.log('Response status:', response.status, 'OK:', response.ok);
+        
+        if (response.ok) {
+            const responseText = await response.text();
+            console.log('File uploaded successfully:', responseText);
+            
+            let responseData = null;
+            
+            // Check if response is empty or whitespace
+            if (responseText && responseText.trim()) {
+                try {
+                    // Try to parse as JSON (n8n should return structured data)
+                    responseData = JSON.parse(responseText);
+                } catch (e) {
+                    // If not JSON, treat as plain text
+                    responseData = responseText;
+                }
+            } else {
+                // Empty response - create a basic structure so we can still show results
+                console.log('Empty response from webhook, creating default structure');
+                const cleanFileName = file.name.replace(/\.[^/.]+$/, '').replace(/[()]/g, '').trim();
+                responseData = {
+                    markdown: `## Purpose\n\nThis document (${file.name}) has been uploaded and processed.\n\n## Content\n\nThe file has been successfully received and is ready for review. Please add the policy content below.\n\n## Scope\n\nAll applicable organizations.\n\n## Policy Statement\n\nTo be completed.\n\n## Procedure\n\nTo be completed.`,
+                    policy_title: cleanFileName || 'Untitled Policy',
+                    policy_type: 'admin',
+                    company: currentCompany || 'Unknown',
+                    effective_date: new Date().toISOString().split('T')[0],
+                    applies_to: 'All Organizations',
+                    author: currentUser?.fullName || currentUser?.username || 'Unknown',
+                    version: '1.0'
+                };
+                console.log('Created default responseData:', responseData);
+            }
+            
+            if (statusElement) {
+                statusElement.textContent = 'Uploaded ✓';
+                statusElement.className = 'status-badge success';
+            }
+            
+            // Return the response data so it can be processed
+            console.log('Returning responseData:', responseData);
+            return responseData;
+        } else {
+            const errorText = await response.text();
+            console.error('Upload failed with status:', response.status, 'Response:', errorText);
+            throw new Error(`Upload failed with status: ${response.status}`);
+        }
+    } catch (error) {
+        console.error('Webhook upload error:', error);
+        console.error('Error details:', error.message, error.stack);
+        
+        if (statusElement) {
+            statusElement.textContent = 'Failed ✗';
+            statusElement.className = 'status-badge error';
+        }
+        
+        // Handle CORS error specifically
+        let errorMessage = error.message;
+        if (error.message.includes('Failed to fetch') || error.message.includes('CORS')) {
+            errorMessage = 'Unable to reach webhook server. Please ensure the webhook server is running at http://localhost:5678 and CORS is configured.';
+        }
+        
+        showNotification(`Failed to upload ${file.name}: ${errorMessage}`, 'error');
+    }
+}
+
+function fileToBase64(file) {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.readAsDataURL(file);
+        reader.onload = () => {
+            // Remove data URL prefix (e.g., "data:application/pdf;base64,")
+            const base64 = reader.result.split(',')[1];
+            resolve(base64);
+        };
+        reader.onerror = error => reject(error);
+    });
+}
+
+// n8n Loading Overlay Functions
+function showN8nLoadingOverlay(totalFiles) {
+    const overlay = document.getElementById('n8nLoadingOverlay');
+    const loadingTitle = document.getElementById('loadingTitle');
+    const loadingMessage = document.getElementById('loadingMessage');
+    const loadingProgressBar = document.getElementById('loadingProgressBar');
+    const loadingFileName = document.getElementById('loadingFileName');
+    
+    if (overlay) {
+        overlay.style.display = 'flex';
+        
+        if (loadingTitle) {
+            loadingTitle.textContent = totalFiles === 1 ? 'Processing Document...' : `Processing ${totalFiles} Files...`;
+        }
+        
+        if (loadingMessage) {
+            loadingMessage.textContent = 'Uploading files and extracting data. Please wait...';
+        }
+        
+        if (loadingProgressBar) {
+            loadingProgressBar.style.width = '0%';
+        }
+        
+        if (loadingFileName) {
+            loadingFileName.textContent = '';
+        }
+    }
+}
+
+function updateN8nLoadingProgress(completed, total, fileName) {
+    const loadingProgressBar = document.getElementById('loadingProgressBar');
+    const loadingFileName = document.getElementById('loadingFileName');
+    const loadingMessage = document.getElementById('loadingMessage');
+    
+    if (loadingProgressBar) {
+        const percentage = total > 0 ? (completed / total) * 100 : 0;
+        loadingProgressBar.style.width = percentage + '%';
+    }
+    
+    if (loadingFileName && fileName) {
+        loadingFileName.textContent = `Processing: ${fileName}`;
+    }
+    
+    if (loadingMessage) {
+        if (completed < total) {
+            loadingMessage.textContent = `Uploading file ${completed + 1} of ${total}...`;
+        } else {
+            loadingMessage.textContent = 'Finalizing upload...';
+        }
+    }
+}
+
+function hideN8nLoadingOverlay() {
+    const overlay = document.getElementById('n8nLoadingOverlay');
+    if (overlay) {
+        overlay.style.display = 'none';
+    }
+}
+
+function displayUploadResults(uploadResults) {
+    console.log('displayUploadResults called with:', uploadResults);
+    
+    // Ensure upload modal stays open
+    const uploadModal = document.getElementById('uploadModal');
+    if (uploadModal) {
+        uploadModal.style.display = 'block';
+        console.log('Ensuring upload modal is visible');
+    }
+    
+    const uploadedFiles = document.getElementById('uploadedFiles');
+    const analysisResults = document.getElementById('analysisResults');
+    const analysisContent = document.getElementById('analysisContent');
+    
+    console.log('Elements found:', {
+        uploadModal: !!uploadModal,
+        uploadedFiles: !!uploadedFiles,
+        analysisResults: !!analysisResults,
+        analysisContent: !!analysisContent
+    });
+    
+    if (!analysisResults || !analysisContent) {
+        console.error('Missing required elements for displayUploadResults');
+        return;
+    }
+    
+    // Hide uploaded files list and show analysis results
+    if (uploadedFiles) {
+        uploadedFiles.style.display = 'none';
+    }
+    analysisResults.style.display = 'block';
+    
+    // Clear previous results but preserve structure
+    analysisContent.innerHTML = '';
+    
+    console.log('Analysis results section made visible');
+    console.log(`Processing ${uploadResults.length} upload results, each will get its own card`);
+    
+    // Process each upload result separately - each gets its own card
+    uploadResults.forEach((result, index) => {
+        console.log(`Processing result ${index}:`, result);
+        const file = result.file;
+        const data = result.data;
+        
+        console.log('File:', file.name);
+        console.log('Data type:', typeof data);
+        console.log('Data content:', data);
+        
+        // Parse the response - check if it's the same format as AI generator
+        let policyData = null;
+        let markdown = null;
+        
+        console.log('Parsing data. Type:', typeof data, 'IsArray:', Array.isArray(data));
+        
+        // Handle different response formats from n8n
+        if (Array.isArray(data) && data.length > 0) {
+            // Check for AI generator format (data[0].markdown)
+            if (data[0].markdown) {
+                policyData = data[0];
+                markdown = policyData.markdown;
+                console.log('Found markdown in data[0].markdown');
+            }
+            // Check for n8n message format (data[0].message.content)
+            else if (data[0].message && data[0].message.content) {
+                markdown = data[0].message.content;
+                policyData = {
+                    policy_title: data[0].message.title || file.name.replace(/\.[^/.]+$/, '').replace(/[()]/g, '').trim(),
+                    policy_type: data[0].message.type || 'admin',
+                    company: data[0].message.company || currentCompany || 'Unknown',
+                    effective_date: data[0].message.effective_date || data[0].message.effectiveDate || new Date().toISOString().split('T')[0],
+                    applies_to: data[0].message.applies_to || data[0].message.appliesTo || data[0].message.organizations || 'All Organizations',
+                    author: data[0].message.author || currentUser?.fullName || currentUser?.username || 'Unknown',
+                    version: data[0].message.version || '1.0'
+                };
+                console.log('Found content in data[0].message.content');
+            }
+            // Array but no recognized structure - try first element
+            else {
+                console.log('Array format not recognized, trying first element');
+                const firstItem = data[0];
+                markdown = firstItem.markdown || firstItem.content || firstItem.text || JSON.stringify(firstItem, null, 2);
+                policyData = {
+                    policy_title: firstItem.title || firstItem.policy_title || file.name.replace(/\.[^/.]+$/, '').replace(/[()]/g, '').trim(),
+                    policy_type: firstItem.type || firstItem.policy_type || 'admin',
+                    company: firstItem.company || currentCompany || 'Unknown',
+                    effective_date: firstItem.effective_date || firstItem.effectiveDate || new Date().toISOString().split('T')[0],
+                    applies_to: firstItem.applies_to || firstItem.appliesTo || firstItem.organizations || 'All Organizations',
+                    author: firstItem.author || currentUser?.fullName || currentUser?.username || 'Unknown',
+                    version: firstItem.version || '1.0'
+                };
+            }
+        } else if (data.markdown) {
+            // Single object with markdown
+            policyData = data;
+            markdown = data.markdown;
+            console.log('Found markdown in data.markdown');
+        } else if (typeof data === 'string') {
+            // Plain markdown string
+            markdown = data;
+            policyData = {
+                policy_title: file.name.replace(/\.[^/.]+$/, '').replace(/[()]/g, '').trim(),
+                policy_type: 'admin',
+                company: currentCompany || 'Unknown',
+                effective_date: new Date().toISOString().split('T')[0],
+                applies_to: 'All Organizations',
+                author: currentUser?.fullName || currentUser?.username || 'Unknown',
+                version: '1.0'
+            };
+            console.log('Data is string, treating as markdown');
+        } else if (typeof data === 'object') {
+            // Try to extract markdown from various possible structures
+            markdown = data.markdown || data.content || data.text || data.message?.content || JSON.stringify(data, null, 2);
+            policyData = {
+                policy_title: data.title || data.policy_title || file.name.replace(/\.[^/.]+$/, '').replace(/[()]/g, '').trim(),
+                policy_type: data.type || data.policy_type || 'admin',
+                company: data.company || currentCompany || 'Unknown',
+                effective_date: data.effective_date || data.effectiveDate || new Date().toISOString().split('T')[0],
+                applies_to: data.applies_to || data.appliesTo || data.organizations || 'All Organizations',
+                author: data.author || currentUser?.fullName || currentUser?.username || 'Unknown',
+                version: data.version || '1.0'
+            };
+            console.log('Extracted from object structure');
+        }
+        
+        if (!markdown) {
+            console.error('No markdown found in data:', data);
+            // Fallback: show raw data
+            analysisContent.innerHTML += `
+                <div class="analysis-item" style="margin-bottom: 30px; padding: 20px; background: white; border-radius: 12px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                    <h4 style="margin: 0 0 15px 0; color: #333;">
+                        <i class="fas fa-file-alt"></i> ${file.name}
+                    </h4>
+                    <pre style="background: #f5f5f5; padding: 15px; border-radius: 6px; overflow-x: auto;">${JSON.stringify(data, null, 2)}</pre>
+                </div>
+            `;
+            console.log('Showing raw data fallback');
+            return;
+        }
+        
+        console.log('Markdown found, length:', markdown.length);
+        console.log('Markdown preview:', markdown.substring(0, 200) + '...');
+        console.log('Policy data:', policyData);
+        
+        // Parse markdown into sections
+        console.log('Parsing markdown into sections...');
+        const sections = parseWebhookPolicyMarkdown(markdown);
+        console.log('Parsed sections:', Object.keys(sections));
+        console.log('Sections object:', sections);
+        
+        // Create structured display similar to AI generator
+        const policyType = policyData.policy_type || 'admin';
+        const typeClass = policyType === 'admin' ? 'admin' : policyType === 'sog' ? 'sog' : 'memo';
+        const typeLabel = policyType === 'admin' ? 'Admin Policy' : policyType === 'sog' ? 'SOG' : 'Communication Memo';
+        
+        console.log('Generating editable sections HTML...');
+        const editableSectionsHtml = generateEditablePolicySections(sections);
+        console.log('Editable sections HTML length:', editableSectionsHtml.length);
+        console.log('Editable sections HTML preview:', editableSectionsHtml.substring(0, 200) + '...');
+        
+        const resultCard = document.createElement('div');
+        resultCard.className = 'upload-policy-result';
+        resultCard.id = `uploadPolicyCard-${index}`;
+        resultCard.style.cssText = 'margin-bottom: 40px; padding: 25px; background: white; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); border: 2px solid #e5e7eb; position: relative;';
+        
+        // Add a visual separator/header for each uploaded file
+        const fileNumber = index + 1;
+        const totalFiles = uploadResults.length;
+        
+        resultCard.innerHTML = `
+            <div style="position: absolute; top: -12px; left: 20px; background: #667eea; color: white; padding: 4px 12px; border-radius: 20px; font-size: 0.75rem; font-weight: 700; z-index: 10;">
+                Document ${fileNumber} of ${totalFiles}
+            </div>
+            <div style="margin-top: 10px; margin-bottom: 15px; padding: 10px; background: #f0f0f0; border-radius: 6px; font-size: 0.85rem; color: #666;">
+                <i class="fas fa-file-alt"></i> <strong>Source File:</strong> ${file.name}
+            </div>
+            <div class="policy-preview professional" style="max-width: 100%;">
+                <div class="policy-header" style="margin-bottom: 20px; padding-bottom: 15px; border-bottom: 2px solid #e5e7eb;">
+                    <div class="form-group" style="margin-bottom: 15px;">
+                        <label for="uploadPolicyTitle-${index}" style="display: block; margin-bottom: 5px; font-weight: 600; color: #333;">
+                            <i class="fas fa-heading"></i> Policy Title <span style="color: red;">*</span>
+                        </label>
+                        <input type="text" id="uploadPolicyTitle-${index}" value="${policyData.policy_title || file.name.replace(/\.[^/.]+$/, '')}" required
+                               style="width: 100%; padding: 12px; border: 2px solid #ddd; border-radius: 6px; font-size: 1.1rem; font-weight: 600;"
+                               placeholder="Enter policy title..." />
+                        <small style="color: #666; display: block; margin-top: 5px;">This title is required to save the policy</small>
+                    </div>
+                    <span class="policy-type-badge ${typeClass}" style="display: inline-block; padding: 6px 12px; background: ${typeClass === 'admin' ? '#e3f2fd' : typeClass === 'sog' ? '#fff3e0' : typeClass === 'protocol' ? '#d1fae5' : typeClass === 'memo' ? '#f3e5f5' : typeClass === 'training' ? '#fce7f3' : typeClass === 'governance' ? '#e0e7ff' : '#f3e5f5'}; color: ${typeClass === 'admin' ? '#1976d2' : typeClass === 'sog' ? '#f57c00' : typeClass === 'protocol' ? '#059669' : typeClass === 'memo' ? '#7b1fa2' : typeClass === 'training' ? '#be185d' : typeClass === 'governance' ? '#4f46e5' : '#7b1fa2'}; border-radius: 20px; font-size: 12px; font-weight: 600;">
+                        ${typeLabel}
+                    </span>
+                </div>
+                
+                <div class="policy-meta" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 20px; padding: 15px; background: #f8f9fa; border-radius: 8px;">
+                    <div class="meta-item" style="font-size: 14px;"><strong>Company:</strong> ${policyData.company || currentCompany || 'Unknown'}</div>
+                    <div class="meta-item" style="font-size: 14px;"><strong>Effective Date:</strong> ${policyData.effective_date || new Date().toISOString().split('T')[0]}</div>
+                    <div class="meta-item" style="font-size: 14px;"><strong>Applies To:</strong> ${policyData.applies_to || 'All Organizations'}</div>
+                    <div class="meta-item" style="font-size: 14px;"><strong>Author:</strong> ${policyData.author || currentUser?.fullName || 'Unknown'}</div>
+                    <div class="meta-item" style="font-size: 14px;"><strong>Version:</strong> ${policyData.version || '1.0'}</div>
+                </div>
+                
+                <div class="policy-content-display" style="max-height: 600px; overflow-y: auto; margin-bottom: 20px;">
+                    ${editableSectionsHtml}
+                </div>
+                
+                <div class="form-group" style="margin-top: 20px; margin-bottom: 20px;">
+                    <label for="uploadPolicyCategory-${index}" style="display: block; margin-bottom: 5px; font-weight: 600; color: #333;">
+                        <i class="fas fa-tags"></i> Select Category (for policy code generation)
+                    </label>
+                    <select id="uploadPolicyCategory-${index}" onchange="updateUploadPolicyCode(${index})" style="width: 100%; padding: 12px; border: 2px solid #ddd; border-radius: 6px; font-size: 1rem;">
+                        <option value="">No Category (optional)</option>
+                    </select>
+                    <small style="color: #666; display: block; margin-top: 5px;">Policy code will be generated in format: Type.Category#.Policy#.Year (e.g., ADMIN.1.2.2025)</small>
+                    <div id="uploadPolicyCodeDisplay-${index}" style="display: none; margin-top: 10px; padding: 10px; background: #f0f8ff; border-radius: 6px;">
+                        <strong>Policy Code:</strong> <span id="uploadPolicyCodeText-${index}"></span>
+                    </div>
+                </div>
+                
+                <div class="upload-result-actions" style="margin-top: 20px; padding-top: 20px; border-top: 2px solid #e5e7eb; display: flex; gap: 10px; justify-content: flex-end;">
+                    <button class="btn btn-success" onclick="saveUploadedPolicy(${index}, '${policyType}')">
+                        <i class="fas fa-save"></i> Save Policy
+                    </button>
+                    <button class="btn btn-secondary" onclick="closeUploadModal()">
+                        <i class="fas fa-times"></i> Close
+                    </button>
+                </div>
+            </div>
+            
+            <!-- AI Edit Section - appears after policy is fully processed -->
+            <div class="ai-edit-section" id="aiEditSection-${index}" style="margin-top: 30px; padding: 20px; background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%); border-radius: 8px; border: 2px solid #667eea; box-shadow: 0 2px 8px rgba(102, 126, 234, 0.1);">
+                <label style="display: block; margin-bottom: 12px; font-weight: 700; color: #333; font-size: 1.1rem;">
+                    <i class="fas fa-robot" style="color: #667eea;"></i> Ask AI to Edit This Policy
+                </label>
+                <p style="margin: 0 0 12px 0; color: #666; font-size: 0.9rem;">
+                    Request changes to the policy content, structure, or language. The AI will update the policy sections accordingly.
+                </p>
+                <div style="display: flex; gap: 10px; align-items: center;">
+                    <input type="text" id="aiEditInput-${index}" placeholder="E.g., Make it more detailed, add compliance section, simplify language, expand the procedures section..." 
+                           style="flex: 1; padding: 12px 15px; border: 2px solid #ddd; border-radius: 6px; font-size: 0.95rem; transition: border-color 0.3s;"
+                           onkeypress="if(event.key === 'Enter') sendAIEditRequest(${index})"
+                           onfocus="this.style.borderColor='#667eea'"
+                           onblur="this.style.borderColor='#ddd'">
+                    <button class="btn btn-primary" onclick="sendAIEditRequest(${index})" 
+                            style="white-space: nowrap; padding: 12px 20px; background: #667eea; border: none; border-radius: 6px; color: white; font-weight: 600; cursor: pointer; transition: background 0.3s;"
+                            onmouseover="this.style.background='#5568d3'"
+                            onmouseout="this.style.background='#667eea'">
+                        <i class="fas fa-paper-plane"></i> Send to AI
+                    </button>
+                </div>
+                <div id="aiEditStatus-${index}" style="margin-top: 12px; display: none; padding: 10px; border-radius: 6px;"></div>
+            </div>
+        `;
+        
+        try {
+            analysisContent.appendChild(resultCard);
+            console.log(`Result card ${index} appended to analysisContent`);
+            console.log(`analysisContent now has ${analysisContent.children.length} children`);
+            console.log(`analysisContent.innerHTML length: ${analysisContent.innerHTML.length}`);
+            
+            // Verify AI edit section was included
+            const aiEditSection = document.getElementById(`aiEditSection-${index}`);
+            if (aiEditSection) {
+                console.log(`✅ AI edit section found for index ${index}`);
+            } else {
+                console.warn(`⚠️ AI edit section NOT found for index ${index}`);
+            }
+        } catch (error) {
+            console.error(`Error appending result card ${index}:`, error);
+        }
+        
+        // Populate category dropdown after HTML is rendered
+        setTimeout(() => {
+            populateUploadCategoryDropdown(index);
+            console.log(`Category dropdown ${index} populated`);
+            
+            // Double-check AI edit section is visible after rendering
+            const aiEditSection = document.getElementById(`aiEditSection-${index}`);
+            if (aiEditSection) {
+                console.log(`✅ AI edit section verified visible for index ${index}`);
+                aiEditSection.style.display = 'block'; // Force display
+            }
+        }, 100);
+    });
+    
+    // Store the upload results for saving
+    window.currentUploadResults = uploadResults;
+    
+    // Show and populate the global AI edit section
+    const globalAIEditSection = document.getElementById('globalAIEditSection');
+    const globalAIPolicyIndex = document.getElementById('globalAIPolicyIndex');
+    
+    if (globalAIEditSection && globalAIPolicyIndex && uploadResults.length > 0) {
+        globalAIEditSection.style.display = 'block';
+        
+        // Clear existing options (except the first one)
+        globalAIPolicyIndex.innerHTML = '<option value="">Select Policy...</option>';
+        
+        // Populate with all uploaded policies
+        uploadResults.forEach((result, idx) => {
+            const fileName = result.file?.name || `Policy ${idx + 1}`;
+            const cleanFileName = fileName.replace(/\.[^/.]+$/, '');
+            const option = document.createElement('option');
+            option.value = idx;
+            option.textContent = `${idx + 1}. ${cleanFileName}`;
+            globalAIPolicyIndex.appendChild(option);
+        });
+        
+        console.log(`✅ Global AI edit section populated with ${uploadResults.length} policies`);
+    } else if (uploadResults.length === 1) {
+        // Hide global section if only one file - use individual card's AI section instead
+        if (globalAIEditSection) {
+            globalAIEditSection.style.display = 'none';
+        }
+    }
+    
+    console.log('displayUploadResults completed. Total cards:', uploadResults.length);
+    console.log('analysisContent final state:', {
+        display: analysisResults.style.display,
+        innerHTMLLength: analysisContent.innerHTML.length,
+        childrenCount: analysisContent.children.length
+    });
+    
+    // Force a scroll to the results if modal is visible
+    if (uploadModal && uploadModal.style.display !== 'none') {
+        setTimeout(() => {
+            analysisResults.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }, 300);
+    }
+}
+
+function populateUploadCategoryDropdown(index) {
+    loadCategories();
+    const select = document.getElementById(`uploadPolicyCategory-${index}`);
+    if (!select) return;
+    
+    select.innerHTML = '<option value="">No Category (optional)</option>';
+    categories.forEach(category => {
+        const option = document.createElement('option');
+        option.value = category.id;
+        option.textContent = `${category.number} - ${category.name}`;
+        select.appendChild(option);
+    });
+}
+
+function updateUploadPolicyCode(index) {
+    const categoryId = document.getElementById(`uploadPolicyCategory-${index}`)?.value;
+    const codeDisplay = document.getElementById(`uploadPolicyCodeDisplay-${index}`);
+    const codeText = document.getElementById(`uploadPolicyCodeText-${index}`);
+    
+    // Get policy type from the stored upload result
+    const uploadResults = window.currentUploadResults;
+    if (!uploadResults || !uploadResults[index]) return;
+    
+    const result = uploadResults[index];
+    const policyType = result.data?.policy_type || result.data?.type || 'admin';
+    
+    if (categoryId && codeDisplay && codeText) {
+        loadCategories();
+        const category = categories.find(cat => cat.id === parseInt(categoryId) || cat.id === categoryId);
+        if (category) {
+            const policies = loadCompanyPolicies();
+            const categoryPolicies = policies.filter(p => (p.categoryId === parseInt(categoryId) || p.categoryId === categoryId) && p.policyCode && p.type === policyType);
+            const policyNumber = categoryPolicies.length + 1;
+            const currentYear = new Date().getFullYear();
+            
+            const typeCodes = {
+                'admin': 'ADMIN',
+                'sog': 'SOG',
+                'memo': 'MEMO',
+                'protocol': 'PROTO',
+                'proto': 'PROTO',
+                'training': 'TRAIN',
+                'governance': 'GOV'
+            };
+            const typeCode = typeCodes[policyType?.toLowerCase()] || 'ADMIN';
+            
+            const code = `${typeCode}.${category.number}.${policyNumber}.${currentYear}`;
+            
+            codeText.textContent = code;
+            codeDisplay.style.display = 'block';
+        }
+    } else if (codeDisplay) {
+        codeDisplay.style.display = 'none';
+    }
+}
+function saveUploadedPolicy(index, policyType) {
+    const uploadResults = window.currentUploadResults;
+    
+    if (!uploadResults || !uploadResults[index]) {
+        showNotification('No policy data to save', 'error');
+        return;
+    }
+    
+    // Get the policy title from the input field
+    const titleInput = document.getElementById(`uploadPolicyTitle-${index}`);
+    if (!titleInput) {
+        showNotification('Title input field not found', 'error');
+        return;
+    }
+    
+    const policyTitle = titleInput.value.trim();
+    if (!policyTitle) {
+        showNotification('Please enter a policy title before saving', 'error');
+        titleInput.focus();
+        titleInput.style.borderColor = '#ef4444';
+        return;
+    }
+    
+    // Get selected category
+    const categoryId = document.getElementById(`uploadPolicyCategory-${index}`)?.value || null;
+    
+    // Get the result data
+    const result = uploadResults[index];
+    const data = result.data;
+    
+    // Parse the policy data
+    let policyData = null;
+    let markdown = null;
+    
+    if (Array.isArray(data) && data.length > 0 && data[0].markdown) {
+        policyData = data[0];
+        markdown = policyData.markdown;
+    } else if (data.markdown) {
+        policyData = data;
+        markdown = data.markdown;
+    } else if (typeof data === 'string') {
+        markdown = data;
+        policyData = {
+            policy_type: policyType,
+            company: currentCompany || 'Unknown',
+            effective_date: new Date().toISOString().split('T')[0],
+            applies_to: 'All Organizations',
+            author: currentUser?.fullName || currentUser?.username || 'Unknown',
+            version: '1.0'
+        };
+    } else if (typeof data === 'object') {
+        markdown = data.markdown || data.content || data.text || '';
+        policyData = {
+            policy_title: data.title || data.policy_title || policyTitle,
+            policy_type: data.type || data.policy_type || policyType,
+            company: data.company || currentCompany || 'Unknown',
+            effective_date: data.effective_date || data.effectiveDate || new Date().toISOString().split('T')[0],
+            applies_to: data.applies_to || data.appliesTo || data.organizations || 'All Organizations',
+            author: data.author || currentUser?.fullName || currentUser?.username || 'Unknown',
+            version: data.version || '1.0'
+        };
+    }
+    
+    // Create policy object
+    const tempId = 'policy_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+    
+    // Generate policy code if category is selected
+    const policyCode = categoryId ? generatePolicyCode(categoryId, tempId, policyType) : null;
+    
+    const newPolicy = {
+        id: tempId,
+        title: policyTitle,
+        type: policyType,
+        clinics: policyData.applies_to || 'All Organizations',
+        clinicNames: policyData.applies_to || 'All Organizations',
+        content: markdown || '',
+        description: policyTitle,
+        effectiveDate: policyData.effective_date || new Date().toISOString().split('T')[0],
+        version: policyData.version || '1.0',
+        approvedBy: policyData.approved_by || policyData.author || 'Administrator',
+        company: currentCompany,
+        created: new Date().toISOString().split('T')[0],
+        lastModified: new Date().toISOString().split('T')[0],
+        generatedBy: 'File Upload',
+        categoryId: categoryId,
+        policyCode: policyCode
+    };
+    
+    // Save the policy
+    if (!currentCompany) {
+        showNotification('Please log in first', 'error');
+        return;
+    }
+    
+    const companyPolicies = loadCompanyPolicies();
+    companyPolicies.push(newPolicy);
+    localStorage.setItem(`policies_${currentCompany}`, JSON.stringify(companyPolicies));
+    
+    showNotification('Policy saved successfully!', 'success');
+    
+    // Add notification to notification center
+    const uploadedPolicyTitle = policyTitle || policyData.policy_title || 'Uploaded Policy';
+    addNotification(`New policy "${uploadedPolicyTitle}" has been uploaded and saved`, 'success');
+    
+    // Refresh policies display if available
+    if (typeof loadPoliciesFromStorage === 'function') {
+        loadPoliciesFromStorage();
+        displayPolicies(companyPolicies);
+    }
+    
+    // Close upload modal
+    closeUploadModal();
+}
+
+function showProcessingStatus() {
+    const processingStatus = document.getElementById('processingStatus');
+    const uploadedFiles = document.getElementById('uploadedFiles');
+    const analysisResults = document.getElementById('analysisResults');
+    
+    if (processingStatus) {
+        processingStatus.style.display = 'block';
+    }
+    if (uploadedFiles) {
+        uploadedFiles.style.display = 'none';
+    }
+    if (analysisResults) {
+        analysisResults.style.display = 'none';
+    }
+    
+    // Simulate processing
+    setTimeout(() => {
+        if (processingStatus) processingStatus.style.display = 'none';
+        if (uploadedFiles) uploadedFiles.style.display = 'block';
+        if (analysisResults) analysisResults.style.display = 'block';
+        
+        const analysisContent = document.getElementById('analysisContent');
+        if (analysisContent) {
+            analysisContent.innerHTML = `
+                <div class="analysis-item success">
+                    <i class="fas fa-check-circle"></i>
+                    <div>
+                        <strong>Documents processed successfully</strong>
+                        <p>AI analysis complete. You can now view and manage these policies in the policy management section.</p>
+                    </div>
+                </div>
+            `;
+        }
+        
+        showNotification('Documents uploaded and processed successfully', 'success');
+    }, 2000);
+}
+
+async function sendAIEditRequest(index) {
+    // Check if using global input (from bottom section) or individual input
+    const globalInput = document.getElementById('globalAIEditInput');
+    const globalIndexSelect = document.getElementById('globalAIPolicyIndex');
+    const individualInput = document.getElementById(`aiEditInput-${index}`);
+    
+    let editInput, editPrompt, statusDiv;
+    
+    // If using global section, use that index and input
+    if (globalIndexSelect && globalIndexSelect.value !== '' && parseInt(globalIndexSelect.value) === index) {
+        editInput = globalInput;
+        editPrompt = globalInput?.value.trim();
+        statusDiv = document.getElementById('globalAIEditStatus');
+    } else if (individualInput && individualInput.value.trim()) {
+        // Use individual input from the policy card
+        editInput = individualInput;
+        editPrompt = individualInput.value.trim();
+        statusDiv = document.getElementById(`aiEditStatus-${index}`);
+    } else if (globalInput && globalInput.value.trim() && globalIndexSelect && globalIndexSelect.value !== '') {
+        // Use global input but override index with selected one
+        const selectedIndex = parseInt(globalIndexSelect.value);
+        if (selectedIndex !== index) {
+            // Call with the correct index
+            return sendAIEditRequest(selectedIndex);
+        }
+        editInput = globalInput;
+        editPrompt = globalInput.value.trim();
+        statusDiv = document.getElementById('globalAIEditStatus');
+    } else {
+        showNotification('Please enter an edit request', 'error');
+        return;
+    }
+    
+    if (!editPrompt) {
+        showNotification('Please enter an edit request', 'error');
+        return;
+    }
+    
+    if (!statusDiv) {
+        // Fallback to global status if individual not found
+        statusDiv = document.getElementById('globalAIEditStatus') || document.getElementById(`aiEditStatus-${index}`);
+        if (!statusDiv) {
+            console.error(`Status div not found for index ${index}`);
+            return;
+        }
+    }
+    
+    // Get the uploaded policy data
+    const uploadResults = window.currentUploadResults;
+    if (!uploadResults || !uploadResults[index]) {
+        showNotification('Policy data not found', 'error');
+        return;
+    }
+    
+    const result = uploadResults[index];
+    const data = result.data;
+    
+    // Extract current policy content from the card
+    const resultCard = document.getElementById(`uploadPolicyCard-${index}`);
+    let currentPolicyText = '';
+    
+    // First try to get the full markdown from stored data
+    if (data.markdown) {
+        currentPolicyText = data.markdown;
+    } else if (resultCard) {
+        // Fallback: Extract text from all policy sections in the card
+        const sections = resultCard.querySelectorAll('.policy-section');
+        if (sections.length > 0) {
+            currentPolicyText = Array.from(sections).map(section => {
+                const title = section.querySelector('h5')?.textContent || '';
+                const content = section.querySelector('.policy-content')?.textContent || section.querySelector('.editable-content')?.textContent || '';
+                return `${title}\n${content}`;
+            }).join('\n\n');
+        }
+        
+        // Also try to get title and metadata
+        const titleInput = document.getElementById(`uploadPolicyTitle-${index}`);
+        if (titleInput && titleInput.value) {
+            currentPolicyText = `Title: ${titleInput.value}\n\n${currentPolicyText}`;
+        }
+    }
+    
+    // Limit to reasonable size for webhook (but try to preserve more content)
+    if (currentPolicyText.length > 3000) {
+        currentPolicyText = currentPolicyText.substring(0, 3000) + '...';
+    }
+    
+    // Show loading state
+    statusDiv.style.display = 'block';
+    statusDiv.innerHTML = '<div style="color: #667eea;"><i class="fas fa-spinner fa-spin"></i> AI is processing your edit request...</div>';
+    if (editInput) editInput.disabled = true;
+    
+    try {
+        // Get webhook URL (same as AI generator)
+        const webhookUrl = getWebhookUrl('generator');
+        if (!webhookUrl) {
+            throw new Error('No generator webhook configured.');
+        }
+        
+        // Prepare the edit request data - send more content for better context
+        const editData = {
+            conversationHistory: JSON.stringify([{ role: 'user', content: editPrompt }]),
+            currentPolicyText: currentPolicyText.substring(0, 2000), // Increased from 500 to 2000 for better context
+            newPrompt: editPrompt,
+            company: currentCompany || 'Unknown',
+            username: currentUser?.username || 'Unknown',
+            tool: 'upload-edit'
+        };
+        
+        // Use GET method with URL parameters (same as follow-up prompt)
+        const params = new URLSearchParams(editData);
+        const response = await fetch(`${webhookUrl}?${params.toString()}`);
+        
+        if (response.ok) {
+            const webhookResponse = await response.text();
+            console.log('AI edit webhook response:', webhookResponse);
+            
+            // Parse the response
+            let responseData = null;
+            try {
+                responseData = JSON.parse(webhookResponse);
+            } catch (e) {
+                responseData = webhookResponse;
+            }
+            
+            // If we got a policy response, update the card
+            if (responseData && Array.isArray(responseData) && responseData.length > 0 && responseData[0].markdown) {
+                const updatedPolicy = responseData[0];
+                
+                // Update the stored result data
+                uploadResults[index].data = updatedPolicy;
+                
+                // Parse and regenerate the card with updated content
+                const sections = parseWebhookPolicyMarkdown(updatedPolicy.markdown);
+                const editableSectionsHtml = generateEditablePolicySections(sections);
+                
+                // Update the policy content in the card
+                const policyContentDisplay = resultCard?.querySelector('.policy-content-display');
+                if (policyContentDisplay) {
+                    policyContentDisplay.innerHTML = editableSectionsHtml;
+                }
+                
+                // Also update the title if it changed
+                const titleInput = document.getElementById(`uploadPolicyTitle-${index}`);
+                if (titleInput && updatedPolicy.policy_title) {
+                    titleInput.value = updatedPolicy.policy_title;
+                }
+                
+                // Use different status messages for global vs individual
+                const isGlobal = statusDiv.id === 'globalAIEditStatus';
+                if (isGlobal) {
+                    statusDiv.innerHTML = '<div style="color: #10b981; padding: 12px; background: #d1fae5; border-radius: 6px;"><i class="fas fa-check-circle"></i> <strong>Policy updated successfully!</strong> Scroll up to see the changes.</div>';
+                    statusDiv.style.display = 'block';
+                } else {
+                    statusDiv.innerHTML = '<div style="color: #10b981; padding: 12px; background: #d1fae5; border-radius: 6px;"><i class="fas fa-check-circle"></i> <strong>Policy updated successfully!</strong> The policy sections have been refreshed with your requested changes.</div>';
+                    statusDiv.style.display = 'block';
+                }
+                showNotification('Policy updated successfully!', 'success');
+                
+                // Scroll to the updated content
+                setTimeout(() => {
+                    if (policyContentDisplay) {
+                        policyContentDisplay.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                    }
+                }, 300);
+                
+                // Clear the input
+                if (editInput) {
+                    editInput.value = '';
+                    editInput.disabled = false;
+                }
+            } else {
+                statusDiv.innerHTML = '<div style="color: #ef4444;"><i class="fas fa-exclamation-circle"></i> Unexpected response format from AI</div>';
+                if (editInput) editInput.disabled = false;
+            }
+        } else {
+            throw new Error(`Webhook failed with status: ${response.status}`);
+        }
+    } catch (error) {
+        console.error('AI edit request error:', error);
+        statusDiv.innerHTML = `<div style="color: #ef4444;"><i class="fas fa-exclamation-circle"></i> Error: ${error.message}</div>`;
+        if (editInput) editInput.disabled = false;
+        showNotification('Failed to process edit request', 'error');
+    }
+}
+
+function clearUploadArea() {
+    const fileInput = document.getElementById('fileInput');
+    if (fileInput) {
+        fileInput.value = '';
+    }
+    
+    const fileList = document.getElementById('fileList');
+    if (fileList) {
+        fileList.innerHTML = '';
+    }
+    
+    const uploadedFiles = document.getElementById('uploadedFiles');
+    if (uploadedFiles) {
+        uploadedFiles.style.display = 'none';
+    }
+    
+    const processingStatus = document.getElementById('processingStatus');
+    if (processingStatus) {
+        processingStatus.style.display = 'none';
+    }
+    
+    const analysisResults = document.getElementById('analysisResults');
+    if (analysisResults) {
+        analysisResults.style.display = 'none';
+    }
+    
+    // Hide and clear the global AI edit section
+    const globalAIEditSection = document.getElementById('globalAIEditSection');
+    if (globalAIEditSection) {
+        globalAIEditSection.style.display = 'none';
+    }
+    
+    const globalAIPolicyIndex = document.getElementById('globalAIPolicyIndex');
+    if (globalAIPolicyIndex) {
+        globalAIPolicyIndex.innerHTML = '<option value="">Select Policy...</option>';
+    }
+    
+    const globalAIEditInput = document.getElementById('globalAIEditInput');
+    if (globalAIEditInput) {
+        globalAIEditInput.value = '';
+    }
+    
+    const globalAIEditStatus = document.getElementById('globalAIEditStatus');
+    if (globalAIEditStatus) {
+        globalAIEditStatus.style.display = 'none';
+        globalAIEditStatus.innerHTML = '';
+    }
+}
+
+function formatFileSize(bytes) {
+    if (bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return Math.round(bytes / Math.pow(k, i)) + ' ' + sizes[i];
+}
+
+function formatDate(dateString) {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric'
+    });
+}
+
+function showNotification(message, type = 'info') {
+    // Create notification element
+    const notification = document.createElement('div');
+    notification.className = `notification notification-${type}`;
+    notification.textContent = message;
+    
+    // Style the notification
+    notification.style.cssText = `
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        background: ${type === 'success' ? '#10b981' : '#3b82f6'};
+        color: white;
+        padding: 15px 20px;
+        border-radius: 8px;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        z-index: 3000;
+        animation: slideIn 0.3s ease-out;
+    `;
+    
+    // Add to page
+    document.body.appendChild(notification);
+    
+    // Remove after 3 seconds
+    setTimeout(() => {
+        notification.style.animation = 'slideOut 0.3s ease-in';
+        setTimeout(() => {
+            if (notification.parentNode) {
+                notification.parentNode.removeChild(notification);
+            }
+        }, 300);
+    }, 3000);
+}
+
+// Add CSS animations for notifications
+const style = document.createElement('style');
+style.textContent = `
+    @keyframes slideIn {
+        from {
+            transform: translateX(100%);
+            opacity: 0;
+        }
+        to {
+            transform: translateX(0);
+            opacity: 1;
+        }
+    }
+    
+    @keyframes slideOut {
+        from {
+            transform: translateX(0);
+            opacity: 1;
+        }
+        to {
+            transform: translateX(100%);
+            opacity: 0;
+        }
+    }
+    
+    .no-policies {
+        text-align: center;
+        padding: 40px;
+        color: #6b7280;
+        font-size: 1.1rem;
+        grid-column: 1 / -1;
+    }
+`;
+document.head.appendChild(style);
+
+// AI Policy Generation Functions
+// Duplicate openAIModal function removed - using the more complete version defined later
+
+// Duplicate closeAIModal function removed - using the more complete version defined later
+
+function generateAIPolicy() {
+    const topic = document.getElementById('aiPolicyTopic').value;
+    const type = document.getElementById('aiPolicyType').value;
+    const clinics = Array.from(document.getElementById('aiClinicApplicability').selectedOptions).map(option => option.value);
+    const keyPoints = document.getElementById('aiKeyPoints').value;
+    const previousDocuments = document.getElementById('aiPreviousDocuments').value;
+    const requirements = document.getElementById('aiAdditionalRequirements').value;
+
+    // Show loading with research simulation
+    aiForm.style.display = 'none';
+    aiLoading.style.display = 'block';
+    aiResult.style.display = 'none';
+    
+    // Update loading message to show research progress
+    const loadingMessages = [
+        "AI is researching industry best practices...",
+        "Analyzing industry standards...",
+        "Reviewing industry guidelines and best practices...",
+        "Incorporating key points and descriptions...",
+        "Reviewing previous documents and references...",
+        "Incorporating CSI-specific requirements...",
+        "Generating comprehensive policy content..."
+    ];
+    
+    let messageIndex = 0;
+    const messageInterval = setInterval(() => {
+        const loadingText = document.querySelector('.ai-loading p');
+        if (loadingText && messageIndex < loadingMessages.length) {
+            loadingText.textContent = loadingMessages[messageIndex];
+            messageIndex++;
+        }
+    }, 400);
+
+    // Simulate AI research and generation (in a real app, this would call an AI API)
+    setTimeout(() => {
+        clearInterval(messageInterval);
+        const generatedPolicy = generatePolicyContent(topic, type, clinics, requirements, keyPoints, previousDocuments);
+        displayAIPolicy(generatedPolicy);
+    }, 2800);
+}
+
+function generatePolicyContent(topic, type, clinics, requirements, keyPoints = '', previousDocuments = '') {
+    const clinicNames = getClinicNames(clinics).join(', ');
+    const typeLabel = getTypeLabel(type);
+    const currentDate = new Date().toISOString().split('T')[0];
+    
+    // Generate comprehensive, topic-specific policy content with proper CSI headers
+    const policyContent = generateCSIPolicyWithHeaders(topic, type, requirements, currentDate, keyPoints, previousDocuments);
+    
+    return {
+        ...policyContent,
+        type: type,
+        clinics: clinics,
+        additionalRequirements: requirements,
+        keyPoints: keyPoints,
+        previousDocuments: previousDocuments,
+        clinicNames: clinicNames,
+        typeLabel: typeLabel
+    };
+}
+
+// NEW: Generate policies with proper CSI headers and filled content
+function generateCSIPolicyWithHeaders(topic, type, requirements, currentDate, keyPoints = '', previousDocuments = '') {
+    if (type === 'admin') {
+        return {
+            title: `${topic} Admin Policy`,
+            // LEVEL 1 - ADMIN POLICY HEADERS
+            effectiveDate: currentDate,
+            lastReviewed: currentDate,
+            approvedBy: "Operations Director",
+            version: "1.0",
+            purpose: generatePurpose(topic, type, keyPoints, previousDocuments),
+            scope: generateScope(topic, type, requirements),
+            policyStatement: generatePolicyStatement(topic, type),
+            definitions: generateDefinitions(topic, type),
+            procedure: generateProcedure(topic, type),
+            roles: generateRoles(topic, type),
+            compliance: generateCompliance(topic, type),
+            relatedDocuments: generateRelatedDocuments(topic, type, previousDocuments),
+            reviewApproval: generateReviewApproval(topic, type, currentDate)
+        };
+    } else if (type === 'sog') {
+        return {
+            title: `${topic} Standard Operating Guidelines`,
+            // LEVEL 2 - STANDARD OPERATING GUIDELINE HEADERS
+            effectiveDate: currentDate,
+            author: "Operations Staff",
+            approvedBy: "Operations Director",
+            version: "1.0",
+            objective: generateObjective(topic, type),
+            principles: generatePrinciples(topic, type),
+            procedure: generateProcedure(topic, type),
+            definitions: generateDefinitions(topic, type),
+            examples: generateExamples(topic, type),
+            roles: generateRoles(topic, type),
+            escalation: generateEscalation(topic, type),
+            review: generateReview(topic, type, currentDate)
+        };
+    } else {
+        return {
+            title: `${topic} Communication Memo`,
+            // LEVEL 3 - COMMUNICATION MEMO HEADERS
+            date: currentDate,
+            from: "CSI Management",
+            to: "All Staff",
+            subject: topic,
+            message: generateMessage(topic, type),
+            effectivePeriod: generateEffectivePeriod(topic, type, currentDate),
+            nextSteps: generateNextSteps(topic, type),
+            contact: generateContact(topic, type)
+        };
+    }
+}
+
+// Content generation functions for each CSI header field
+function generatePurpose(topic, type, keyPoints = '', previousDocuments = '') {
+    const purposes = {
+        'fire evacuation': 'This policy establishes comprehensive fire evacuation procedures to ensure the safety of all staff, patients, and clients in the event of a fire emergency. This policy incorporates NFPA (National Fire Protection Association) guidelines and local fire safety regulations.',
+        'hand hygiene': 'This policy establishes standardized hand hygiene protocols to prevent the transmission of infectious diseases and maintain a safe, sterile environment for patient care.',
+        'safety': 'This policy establishes comprehensive safety protocols to ensure the highest quality of service and prevent adverse events in our facilities.',
+        'data security': 'This policy establishes data security and privacy protection measures to ensure compliance with HIPAA regulations and protect sensitive patient and client information.',
+        'emergency response': 'This policy establishes comprehensive emergency response procedures to ensure rapid, effective response to medical emergencies, natural disasters, and other critical situations.',
+        'inventory management': 'This policy establishes standardized inventory management procedures to ensure safe, accurate, and compliant handling of all materials and supplies in our facilities.',
+        'infection control': 'This policy establishes comprehensive infection control protocols to prevent the spread of infectious diseases and maintain a safe environment for patients, staff, and clients.',
+        'appointment management': 'This policy establishes standardized appointment scheduling and management procedures to ensure efficient, organized, and client-friendly service delivery.',
+        'documentation': 'This policy establishes comprehensive documentation standards to ensure accurate, complete, and compliant medical records and administrative documentation.'
+    };
+    
+    let basePurpose = '';
+    const topicLower = topic.toLowerCase();
+    for (const key in purposes) {
+        if (topicLower.includes(key)) {
+            basePurpose = purposes[key];
+            break;
+        }
+    }
+    
+    if (!basePurpose) {
+        basePurpose = `This policy establishes comprehensive guidelines for ${topic.toLowerCase()} to ensure consistent, safe, and effective operations across all clinic locations.`;
+    }
+    
+    // Incorporate key points if provided
+    if (keyPoints && keyPoints.trim()) {
+        basePurpose += ` Key considerations include: ${keyPoints}.`;
+    }
+    
+    return basePurpose;
+}
+
+function generateScope(topic, type, requirements) {
+    const scopeText = `This policy applies to all CSI clinic locations (Tudor Glen, River Valley, Rosslyn, UPC) and covers all staff members, contractors, clients, and patients.`;
+    
+    if (requirements && requirements.trim()) {
+        return `${scopeText} ${requirements}`;
+    }
+    
+    return scopeText;
+}
+
+function generatePolicyStatement(topic, type) {
+    return `CSI clinics will maintain the highest standards of ${topic.toLowerCase()} procedures. All staff must be trained and prepared to execute these protocols in accordance with industry best practices and regulatory requirements.`;
+}
+
+function generateDefinitions(topic, type) {
+    const definitions = {
+        'fire evacuation': 'FIRE ALARM: Audible and visual warning system that activates upon detection of smoke or fire. EVACUATION ROUTE: Designated pathway for safe exit from the building during emergency. ASSEMBLY POINT: Designated safe location outside the building where staff and occupants gather after evacuation. FIRE WARDEN: Designated staff member responsible for coordinating evacuation procedures.',
+        'hand hygiene': 'HAND HYGIENE: The process of cleaning hands to remove dirt, debris, and microorganisms. ANTISEPTIC: Chemical agent that kills or inhibits the growth of microorganisms. CONTAMINATION: The presence of harmful microorganisms on surfaces or objects.',
+        'patient safety': 'ADVERSE EVENT: An unintended injury or complication resulting from medical care. NEAR MISS: An event that could have resulted in patient harm but was prevented. QUALITY ASSURANCE: Systematic activities to ensure that patient care meets established standards.',
+        'data security': 'PHI (Protected Health Information): Individually identifiable health information that is protected under HIPAA. ENCRYPTION: Process of converting data into a secure format. BREACH: Unauthorized access, use, or disclosure of protected health information.',
+        'emergency response': 'EMERGENCY: A serious, unexpected situation requiring immediate action. CRISIS: A time of intense difficulty or danger. EMERGENCY COORDINATOR: Designated staff member responsible for coordinating emergency response efforts.',
+        'medication management': 'CONTROLLED SUBSTANCE: Medication regulated by the DEA due to potential for abuse. PRESCRIPTION: Written authorization for medication dispensing. DRUG INTERACTION: When one medication affects the action of another medication.',
+        'infection control': 'PATHOGEN: Microorganism that can cause disease. DISINFECTION: Process of killing most microorganisms on surfaces. STERILIZATION: Process of killing all microorganisms including spores.',
+        'appointment management': 'SCHEDULING: Process of arranging appointments and managing clinic calendar. NO-SHOW: Patient who fails to arrive for scheduled appointment. DOUBLE-BOOKING: Scheduling two appointments at the same time slot.',
+        'documentation': 'MEDICAL RECORD: Comprehensive documentation of patient care. CHARTING: Process of recording patient information and care provided. AUDIT TRAIL: Record of all access and modifications to patient records.'
+    };
+    
+    const topicLower = topic.toLowerCase();
+    for (const key in definitions) {
+        if (topicLower.includes(key)) {
+            return definitions[key];
+        }
+    }
+    
+    return `${topic.toUpperCase()}: Key terms and definitions related to this policy will be established by the clinical team and updated as needed.`;
+}
+
+function generateProcedure(topic, type) {
+    const procedures = {
+        'fire evacuation': `FIRE EVACUATION PROCEDURES:
+
+1. IMMEDIATE RESPONSE (0-30 seconds):
+   - Upon hearing fire alarm or seeing fire/smoke, immediately activate manual fire alarm if not already activated
+   - Call 911 from a safe location and provide exact address and nature of emergency
+   - Announce "FIRE EMERGENCY - EVACUATE NOW" throughout the facility
+   - Begin immediate evacuation of all personnel and patients
+
+2. EVACUATION PROTOCOL (30 seconds - 5 minutes):
+   - Fire Wardens take control of evacuation procedures
+   - Direct all occupants to nearest safe exit route
+   - Check all rooms and areas to ensure complete evacuation
+   - Assist mobility-impaired individuals and patients
+   - Close all doors behind you to slow fire spread
+   - Do not use elevators - use stairs only
+
+3. PATIENT EVACUATION PRIORITIES:
+   - Critical patients: Evacuate first with medical equipment if possible
+   - Non-critical patients: Evacuate using carriers or leashes
+   - If patient evacuation is impossible, secure animals in carriers and evacuate
+   - Document any patients left behind and their location
+
+4. ASSEMBLY AND ACCOUNTABILITY:
+   - Proceed to designated assembly point (parking lot area)
+   - Fire Wardens conduct headcount of all staff and occupants
+   - Account for all patients and document any missing
+   - Do not re-enter building until cleared by fire department
+   - Maintain distance from building (minimum 100 feet)
+
+5. POST-EVACUATION PROTOCOL:
+   - Notify emergency contacts and management
+   - Provide information to fire department upon arrival
+   - Document incident details and any injuries
+   - Coordinate with emergency services for patient care needs
+   - Follow fire department instructions for re-entry`,
+        'hand hygiene': `HAND HYGIENE PROCEDURES:
+
+1. HANDWASHING PROTOCOL:
+   - Wet hands with clean, running water
+   - Apply soap and lather for at least 20 seconds
+   - Scrub all surfaces including backs of hands, between fingers, and under nails
+   - Rinse thoroughly with clean water
+   - Dry with clean towel or air dryer
+
+2. HAND SANITIZER USE:
+   - Apply alcohol-based hand sanitizer to palm of one hand
+   - Rub hands together covering all surfaces
+   - Continue rubbing until hands are dry (approximately 20 seconds)
+   - Use only when hands are not visibly soiled
+
+3. TIMING REQUIREMENTS:
+   - Before and after patient contact
+   - Before and after handling medical equipment
+   - After contact with contaminated surfaces
+   - Before eating or drinking
+   - After using restroom facilities
+
+4. SPECIAL CONSIDERATIONS:
+   - Use antimicrobial soap for surgical procedures
+   - Remove jewelry before handwashing
+   - Keep fingernails short and clean
+   - Report any skin irritation or cuts immediately`,
+        'patient safety': `PATIENT SAFETY PROCEDURES:
+
+1. PATIENT IDENTIFICATION:
+   - Verify patient identity using at least two identifiers
+   - Check patient name and date of birth
+   - Confirm owner/client information
+   - Use identification bands when available
+
+2. MEDICATION SAFETY:
+   - Verify medication name, dose, and route
+   - Check for allergies and drug interactions
+   - Use proper medication administration techniques
+   - Document all medications administered
+
+3. PROCEDURE SAFETY:
+   - Follow standard operating procedures
+   - Use appropriate personal protective equipment
+   - Maintain sterile technique when required
+   - Monitor patient throughout procedure
+
+4. COMMUNICATION:
+   - Use clear, concise communication
+   - Repeat back critical information
+   - Document all care provided
+   - Report any concerns immediately`,
+        'data security': `DATA SECURITY PROCEDURES:
+
+1. ACCESS CONTROL:
+   - Use unique usernames and strong passwords
+   - Log out of systems when not in use
+   - Do not share login credentials
+   - Report any unauthorized access attempts
+
+2. DATA PROTECTION:
+   - Encrypt sensitive data in transit and at rest
+   - Use secure networks for data transmission
+   - Implement regular data backups
+   - Maintain audit trails of data access
+
+3. PHYSICAL SECURITY:
+   - Secure workstations when unattended
+   - Lock filing cabinets containing patient records
+   - Dispose of sensitive documents properly
+   - Restrict access to server rooms and data centers
+
+4. INCIDENT RESPONSE:
+   - Report security incidents immediately
+   - Document all security events
+   - Follow breach notification procedures
+   - Coordinate with IT security team`,
+        'emergency response': `EMERGENCY RESPONSE PROCEDURES:
+
+1. MEDICAL EMERGENCIES:
+   - Immediate assessment of patient condition
+   - Call 911 for life-threatening emergencies
+   - Begin appropriate emergency medical care
+   - Notify supervisor immediately
+   - Document all emergency interventions
+   - Contact client/owner as soon as possible
+
+2. FIRE EMERGENCIES:
+   - Activate fire alarm system
+   - Evacuate all personnel and patients
+   - Call 911 from safe location
+   - Account for all staff and patients
+   - Follow established evacuation routes
+   - Do not re-enter building until cleared by fire department
+3. SEVERE WEATHER:
+   - Monitor weather alerts and warnings
+   - Secure outdoor equipment and supplies
+   - Move patients to safe interior locations
+   - Close clinic if severe weather warning issued
+   - Maintain emergency supplies and equipment
+
+4. POWER OUTAGES:
+   - Switch to emergency power if available
+   - Prioritize critical patient care equipment
+   - Use battery-powered lighting and equipment
+   - Contact utility company for updates
+   - Implement manual record-keeping procedures
+
+5. SECURITY INCIDENTS:
+   - Secure all staff and patients
+   - Contact law enforcement if necessary
+   - Document incident details
+   - Follow lockdown procedures if required
+   - Provide support to affected staff and clients`
+    };
+    
+    const topicLower = topic.toLowerCase();
+    for (const key in procedures) {
+        if (topicLower.includes(key)) {
+            return procedures[key];
+        }
+    }
+    
+    return `${topic.toUpperCase()} PROCEDURES:
+
+1. INITIAL ASSESSMENT:
+   - Evaluate current practices and identify areas for improvement
+   - Assess staff knowledge and training needs
+   - Review existing protocols and procedures
+   - Identify potential risks and safety concerns
+   - Establish baseline metrics for performance
+
+2. IMPLEMENTATION PROTOCOLS:
+   - Develop standardized procedures for ${topic.toLowerCase()}
+   - Provide comprehensive staff training
+   - Establish monitoring and quality assurance measures
+   - Create documentation and reporting systems
+   - Implement continuous improvement processes
+
+3. STAFF RESPONSIBILITIES:
+   - Follow established protocols and procedures
+   - Participate in training and competency assessments
+   - Report any issues or concerns immediately
+   - Maintain accurate documentation
+   - Support continuous improvement efforts
+
+4. QUALITY ASSURANCE:
+   - Regular monitoring of compliance and outcomes
+   - Performance metrics tracking and analysis
+   - Client and staff feedback collection
+   - Regular policy review and updates
+   - Benchmarking against industry standards
+
+5. CONTINUOUS IMPROVEMENT:
+   - Regular evaluation of policy effectiveness
+   - Identification of improvement opportunities
+   - Implementation of best practices
+   - Staff education and training updates
+   - Integration with overall quality management systems`;
+}
+
+function generateRoles(topic, type) {
+    const roles = {
+        'fire evacuation': `FIRE EVACUATION RESPONSIBILITIES:
+
+FIRE WARDENS (Designated staff):
+- Coordinate evacuation procedures
+- Ensure complete evacuation of assigned areas
+- Conduct headcount at assembly point
+- Communicate with emergency services
+- Maintain evacuation records
+
+ALL STAFF:
+- Follow evacuation procedures immediately
+- Assist with patient evacuation
+- Close doors behind them during evacuation
+- Report to assembly point for accountability
+- Assist mobility-impaired individuals
+
+CLINIC MANAGER:
+- Ensure fire safety equipment is maintained
+- Coordinate with fire department
+- Provide post-incident support
+- Review and update evacuation procedures
+- Conduct regular fire drills
+
+EMERGENCY COORDINATOR:
+- Activate emergency response procedures
+- Communicate with emergency services
+- Coordinate staff assignments
+- Maintain emergency contact information`,
+        'hand hygiene': `HAND HYGIENE RESPONSIBILITIES:
+
+ALL STAFF:
+- Follow hand hygiene protocols at all times
+- Use appropriate hand hygiene products
+- Report any hand hygiene violations
+- Participate in hand hygiene training
+- Maintain clean, dry hands
+
+SUPERVISORS:
+- Monitor hand hygiene compliance
+- Provide training and education
+- Ensure adequate supplies are available
+- Address non-compliance issues
+- Support quality improvement initiatives
+
+CLINIC MANAGER:
+- Ensure adequate hand hygiene supplies
+- Support staff training and development
+- Monitor overall compliance rates
+- Address systemic barriers to compliance
+- Integrate hand hygiene with overall quality management`,
+        'patient safety': `PATIENT SAFETY RESPONSIBILITIES:
+
+ALL STAFF:
+- Follow patient safety protocols
+- Report any safety concerns immediately
+- Participate in safety training
+- Maintain accurate documentation
+- Support continuous improvement efforts
+
+OPERATIONS STAFF:
+- Ensure safe medication administration
+- Follow proper procedure protocols
+- Communicate effectively with team
+- Monitor patient condition closely
+- Document all care provided
+
+CLINIC MANAGER:
+- Ensure adequate resources for patient safety
+- Support staff training and development
+- Monitor overall safety outcomes
+- Address systemic safety issues
+- Integrate safety with overall clinic operations`,
+        'data security': `DATA SECURITY RESPONSIBILITIES:
+
+ALL STAFF:
+- Follow data security protocols
+- Use secure login credentials
+- Report security incidents immediately
+- Protect patient and client information
+- Participate in security training
+
+IT STAFF:
+- Maintain secure systems and networks
+- Monitor for security threats
+- Provide security training and support
+- Implement security updates and patches
+- Coordinate incident response
+
+CLINIC MANAGER:
+- Ensure adequate security resources
+- Support security training and awareness
+- Monitor overall security posture
+- Address systemic security issues
+- Integrate security with overall operations`
+    };
+    
+    const topicLower = topic.toLowerCase();
+    for (const key in roles) {
+        if (topicLower.includes(key)) {
+            return roles[key];
+        }
+    }
+    
+    return `${topic.toUpperCase()} RESPONSIBILITIES:
+
+ALL STAFF:
+- Follow established protocols and procedures
+- Participate in training and competency assessments
+- Report any issues or concerns promptly
+- Maintain accurate documentation
+- Support continuous improvement efforts
+
+SUPERVISORS:
+- Ensure staff compliance with protocols
+- Provide training and support to staff
+- Monitor performance and outcomes
+- Address compliance issues promptly
+- Support quality improvement initiatives
+
+CLINIC MANAGER:
+- Ensure adequate resources for policy implementation
+- Support staff training and development
+- Monitor overall policy effectiveness
+- Address systemic issues and barriers
+- Integrate policy with overall clinic operations`;
+}
+
+function generateCompliance(topic, type) {
+    const compliance = {
+        'fire evacuation': `FIRE SAFETY COMPLIANCE:
+
+TRAINING REQUIREMENTS:
+- Annual fire safety training for all staff (4 hours)
+- Quarterly fire drill exercises
+- Fire Warden certification training
+- Documentation of all training completion
+
+EQUIPMENT MAINTENANCE:
+- Monthly fire alarm system testing
+- Quarterly fire extinguisher inspections
+- Annual sprinkler system maintenance
+- Regular evacuation route inspections
+
+MONITORING AND AUDITS:
+- Monthly fire safety equipment checks
+- Quarterly evacuation drill evaluations
+- Annual fire safety compliance audits
+- Continuous improvement based on drill outcomes`,
+        'hand hygiene': `HAND HYGIENE COMPLIANCE:
+
+TRAINING REQUIREMENTS:
+- Annual hand hygiene training for all staff
+- Competency assessments and updates
+- Role-specific training for different positions
+- Documentation of all training completion
+
+MONITORING:
+- Regular compliance audits and observations
+- Performance metrics tracking and reporting
+- Client and staff satisfaction monitoring
+- Incident reporting and investigation
+
+ENFORCEMENT:
+- Progressive discipline for non-compliance
+- Recognition programs for excellent performance
+- Regular policy reviews and updates
+- Integration with performance evaluations`,
+        'patient safety': `PATIENT SAFETY COMPLIANCE:
+
+TRAINING REQUIREMENTS:
+- Annual patient safety training for all staff
+- Competency assessments and updates
+- Role-specific training for different positions
+- Documentation of all training completion
+
+MONITORING:
+- Regular safety audits and observations
+- Performance metrics tracking and reporting
+- Client and staff satisfaction monitoring
+- Incident reporting and investigation
+
+ENFORCEMENT:
+- Progressive discipline for non-compliance
+- Recognition programs for excellent performance
+- Regular policy reviews and updates
+- Integration with performance evaluations`,
+        'data security': `DATA SECURITY COMPLIANCE:
+
+TRAINING REQUIREMENTS:
+- Annual data security training for all staff
+- Competency assessments and updates
+- Role-specific training for different positions
+- Documentation of all training completion
+
+MONITORING:
+- Regular security audits and assessments
+- Performance metrics tracking and reporting
+- Incident reporting and investigation
+- Compliance monitoring and reporting
+
+ENFORCEMENT:
+- Progressive discipline for non-compliance
+- Recognition programs for excellent performance
+- Regular policy reviews and updates
+- Integration with performance evaluations`
+    };
+    
+    const topicLower = topic.toLowerCase();
+    for (const key in compliance) {
+        if (topicLower.includes(key)) {
+            return compliance[key];
+        }
+    }
+    
+    return `${topic.toUpperCase()} COMPLIANCE:
+
+TRAINING:
+- Initial training for all staff on policy requirements
+- Annual competency assessments and updates
+- Role-specific training for different staff positions
+- Documentation of all training completion
+- Ongoing education and skill development
+
+MONITORING:
+- Regular audits of policy compliance
+- Performance metrics tracking and reporting
+- Client and staff satisfaction monitoring
+- Incident reporting and investigation
+- Quality assurance activities
+
+ENFORCEMENT:
+- Progressive discipline for non-compliance
+- Recognition programs for excellent performance
+- Regular policy reviews and updates
+- Integration with performance evaluations
+- Continuous improvement planning`;
+}
+
+function generateRelatedDocuments(topic, type, previousDocuments = '') {
+    const documents = {
+        'fire evacuation': 'NFPA 101: Life Safety Code, Local Fire Department Regulations, CSI Emergency Response Plan, CSI Patient Safety Protocols, OSHA Fire Safety Standards',
+        'hand hygiene': 'OSHA Workplace Safety Standards, Industry Hygiene Guidelines, CSI Infection Control Policy, CSI Safety Protocols, Industry Best Practices',
+        'safety': 'OSHA Workplace Safety Standards, Industry Safety Guidelines, CSI Quality Assurance Program, CSI Incident Reporting Procedures, Industry Practice Standards',
+        'data security': 'Privacy and Security Rules, Industry Data Security Guidelines, CSI Privacy Policy, CSI Incident Response Plan, Cybersecurity Best Practices',
+        'emergency response': 'CSI Emergency Response Plan, Local Emergency Services Contacts, CSI Safety Protocols, OSHA Emergency Response Standards, Industry Emergency Guidelines',
+        'inventory management': 'Regulatory Compliance Requirements, Industry Inventory Guidelines, CSI Inventory Policy, CSI Safety Protocols, Industry Administration Standards',
+        'infection control': 'OSHA Workplace Safety Standards, Industry Control Guidelines, CSI Infection Control Policy, CSI Safety Protocols, Industry Practice Standards',
+        'appointment management': 'CSI Scheduling Policy, CSI Client Communication Guidelines, CSI Quality Assurance Program, CSI Safety Protocols, Industry Practice Standards',
+        'documentation': 'Industry Documentation Guidelines, Documentation Requirements, CSI Quality Assurance Program, CSI Safety Protocols, Industry Practice Standards'
+    };
+    
+    let baseDocuments = '';
+    const topicLower = topic.toLowerCase();
+    for (const key in documents) {
+        if (topicLower.includes(key)) {
+            baseDocuments = documents[key];
+            break;
+        }
+    }
+    
+    if (!baseDocuments) {
+        baseDocuments = `CSI Quality Assurance Program, CSI Safety Protocols, Industry Practice Standards, Industry Best Practices, Regulatory Compliance Guidelines`;
+    }
+    
+    // Incorporate previous documents if provided
+    if (previousDocuments && previousDocuments.trim()) {
+        baseDocuments += `, ${previousDocuments}`;
+    }
+    
+    return baseDocuments;
+}
+
+function generateReviewApproval(topic, type, currentDate) {
+    const nextReviewDate = new Date(Date.now() + 365*24*60*60*1000).toISOString().split('T')[0];
+    return `Policy reviewed annually by Safety Committee. Updated based on regulatory changes and best practices. Approved by Fire Safety Officer and Clinic Manager. Next review date: ${nextReviewDate}`;
+}
+
+function generateObjective(topic, type) {
+    return `To establish standardized procedures for ${topic.toLowerCase()} that ensure consistent, safe, and effective operations across all clinic locations.`;
+}
+
+function generatePrinciples(topic, type) {
+    return `GUIDING PRINCIPLES:
+- Safety of all personnel and patients is the top priority
+- Compliance with industry standards and regulations is mandatory
+- Clear communication and coordination are essential
+- Regular training and competency assessments ensure preparedness
+- Continuous improvement based on outcomes and feedback`;
+}
+
+function generateExamples(topic, type) {
+    return `SCENARIOS:
+
+TYPICAL SITUATION:
+- Standard procedure implementation
+- Routine monitoring and assessment
+- Documentation and reporting
+- Quality assurance activities
+- Continuous improvement planning
+
+EMERGENCY SITUATION:
+- Immediate response protocols
+- Emergency communication procedures
+- Documentation of emergency events
+- Post-emergency evaluation
+- Policy updates based on lessons learned
+
+SPECIAL CIRCUMSTANCES:
+- Non-routine situations requiring adaptation
+- Special considerations for specific cases
+- Escalation procedures for complex issues
+- Documentation of special circumstances
+- Policy updates for recurring special cases`;
+}
+
+function generateEscalation(topic, type) {
+    return `ESCALATION AND SUPPORT:
+
+IMMEDIATE ESCALATION:
+- Report critical issues to supervisor immediately
+- Contact emergency services if required
+- Document all escalation events
+- Follow established communication protocols
+- Coordinate with appropriate authorities
+
+SUPPORT RESOURCES:
+- Clinical supervisor for technical issues
+- Management for policy and procedure questions
+- IT support for system-related problems
+- Emergency services for critical situations
+- External consultants for specialized expertise
+
+DOCUMENTATION:
+- Document all escalation events
+- Maintain records of support provided
+- Track resolution times and outcomes
+- Identify trends and improvement opportunities
+- Update procedures based on escalation experiences`;
+}
+
+function generateReview(topic, type, currentDate) {
+    const nextReviewDate = new Date(Date.now() + 30*24*60*60*1000).toISOString().split('T')[0];
+    return `REVIEW AND REVISION:
+
+MONTHLY REVIEWS:
+- Evaluate procedure effectiveness
+- Assess staff compliance and performance
+- Identify areas for improvement
+- Update procedures as needed
+- Document all changes and rationale
+
+ANNUAL REVIEW:
+- Comprehensive review of all procedures
+- Benchmark against industry standards
+- Update based on regulatory changes
+- Train staff on any modifications
+- Integrate with overall quality management
+
+NEXT REVIEW DATE: ${nextReviewDate}`;
+}
+
+function generateMessage(topic, type) {
+    return `URGENT: ${topic} Policy Update
+
+All CSI clinic staff are required to review and implement updated ${topic.toLowerCase()} procedures effective immediately.
+
+KEY UPDATES:
+- New procedures and protocols
+- Updated training requirements
+- Enhanced monitoring and compliance measures
+- New staff assignments and responsibilities
+
+WHAT THIS MEANS FOR STAFF:
+- All staff must complete updated training by end of month
+- New procedures must be followed exactly
+- Regular compliance monitoring will be implemented
+- Support and resources are available for implementation
+
+WHAT THIS MEANS FOR CLIENTS:
+- Enhanced safety and quality of care
+- Improved service delivery and outcomes
+- Clear communication about any changes
+- Continued commitment to excellence
+
+ACTION REQUIRED:
+- Review new procedures in staff handbook
+- Complete updated training by month end
+- Follow new protocols exactly
+- Report any concerns or questions immediately
+
+This memo is effective immediately and supersedes all previous ${topic.toLowerCase()} procedures.`;
+}
+
+function generateEffectivePeriod(topic, type, currentDate) {
+    const reviewDate = new Date(Date.now() + 30*24*60*60*1000).toISOString().split('T')[0];
+    return `Effective Date: ${currentDate}\nReview Date: ${reviewDate}`;
+}
+
+function generateNextSteps(topic, type) {
+    return `NEXT STEPS:
+1. Complete updated training by month end
+2. Review new procedures and protocols
+3. Implement new monitoring measures
+4. Know your responsibilities and assignments
+5. Report any concerns or questions immediately`;
+}
+
+function generateContact(topic, type) {
+    return `CONTACT FOR QUESTIONS:
+- Clinical Supervisor: [Contact Information]
+- Clinic Manager: [Contact Information]
+- Policy Coordinator: [Contact Information]`;
+}
+
+function generateComprehensivePolicy(topic, type, requirements) {
+    const topicLower = topic.toLowerCase();
+    
+    // Handle specific topics with detailed, realistic content
+    if (topicLower.includes('drop off') || topicLower.includes('dropoff') || topicLower.includes('unattended')) {
+        return generateDropOffPolicy(topic, type, requirements);
+    } else if (topicLower.includes('hand hygiene') || topicLower.includes('handwashing')) {
+        return generateHandHygienePolicy(topic, type, requirements);
+    } else if (topicLower.includes('safety') && !topicLower.includes('patient')) {
+        return generatePatientSafetyPolicy(topic, type, requirements);
+    } else if (topicLower.includes('data security') || topicLower.includes('hipaa') || topicLower.includes('privacy')) {
+        return generateDataSecurityPolicy(topic, type, requirements);
+    } else if (topicLower.includes('fire evacuation') || topicLower.includes('fire emergency') || topicLower.includes('fire safety')) {
+        return generateFireEvacuationPolicy(topic, type, requirements);
+    } else if (topicLower.includes('emergency') || topicLower.includes('crisis')) {
+        return generateEmergencyPolicy(topic, type, requirements);
+    } else if (topicLower.includes('medication') || topicLower.includes('drug')) {
+        return generateMedicationPolicy(topic, type, requirements);
+    } else if (topicLower.includes('infection control') || topicLower.includes('infection prevention')) {
+        return generateInfectionControlPolicy(topic, type, requirements);
+    } else if (topicLower.includes('appointment') || topicLower.includes('scheduling')) {
+        return generateAppointmentPolicy(topic, type, requirements);
+    } else if (topicLower.includes('documentation') || topicLower.includes('charting') || topicLower.includes('records')) {
+        return generateDocumentationPolicy(topic, type, requirements);
+    } else {
+        return generateGenericPolicy(topic, type, requirements);
+    }
+}
+
+function generateDropOffPolicy(topic, type, requirements) {
+    // Research-based policy incorporating industry best practices
+    const currentDate = new Date().toISOString().split('T')[0];
+    
+    if (type === 'admin') {
+        return {
+            title: topic,
+            purpose: `This administrative policy establishes comprehensive procedures for managing drop-off appointments (unattended service appointments) to ensure optimal service delivery, safety, and efficient operations. This policy addresses the unique challenges and requirements associated with unattended appointments, incorporating industry best practices from leading organizations and service facilities.`,
+            scope: `This policy applies to all drop-off appointments across all organization locations and covers all staff members involved in service delivery, client communication, and administrative functions.`,
+            policyStatement: `Our organization will provide comprehensive service for drop-off appointments while maintaining the highest standards of safety, client communication, and documentation. All drop-off appointments will follow standardized protocols that exceed industry standards for unattended service appointments.`,
+            definitions: `DROP-OFF APPOINTMENT: A service appointment where the client is not present during the appointment or procedure. UNATTENDED APPOINTMENT: Any service provided without the client's physical presence. EMERGENCY CONTACT: Primary client contact method for urgent communications during drop-off appointments.`,
+            procedure: `IMPLEMENTATION PROCEDURES:
+
+1. PRE-APPOINTMENT PROTOCOL (Based on Industry Guidelines):
+   - Verify client identity using two identifiers (name and ID number)
+   - Obtain comprehensive written consent for drop-off procedures
+   - Collect emergency contact information and preferred communication method
+   - Document special instructions, requirements, and concerns
+   - Provide detailed estimated completion time and update procedures
+   - Complete pre-service screening if applicable
+
+2. SERVICE ASSESSMENT PROTOCOL:
+   - Perform comprehensive assessment within 2 hours of arrival
+   - Document all findings using standardized assessment forms
+   - Conduct necessary diagnostic tests following organizational protocols
+   - Assess service requirements using standardized indicators
+   - Monitor status every 4 hours for extended stays
+   - Document any issues or complications immediately
+
+3. SERVICE EXECUTION:
+   - Follow established service protocols with enhanced documentation
+   - Ensure quality using best practices
+   - Monitor service progress every 2 hours
+   - Prepare comprehensive completion instructions with visual aids
+   - Document all services, materials, and procedures in real-time
+
+4. CLIENT COMMUNICATION PROTOCOL:
+   - Contact client within 1 hour of completion for routine procedures
+   - Immediate contact for any urgent findings or complications
+   - Provide written summary of all procedures performed
+   - Schedule follow-up appointments with clear instructions
+   - Document all client communications in service records
+
+5. COMPLETION PROCESS:
+   - Prepare comprehensive completion summary with documentation if applicable
+   - Provide written instructions with schedules and details
+   - Schedule follow-up appointments with specific timeframes
+   - Ensure client is contacted 30 minutes before pick-up
+   - Document completion time and client pick-up confirmation`,
+            roles: `RESPONSIBILITIES:
+
+RECEPTION STAFF:
+- Verify drop-off authorization and collect all required information
+- Maintain detailed communication log with clients
+- Coordinate pick-up scheduling and notifications
+- Ensure proper consent documentation
+
+OPERATIONS STAFF:
+- Perform comprehensive service assessments and procedures
+- Maintain detailed documentation of all procedures
+- Monitor service quality and status using standardized protocols
+- Communicate findings and recommendations to clients
+- Ensure compliance with service standards
+
+SUPPORT STAFF:
+- Assist with service delivery using best practices
+- Support service procedures and operations
+- Monitor service status and progress every 2 hours
+- Maintain clean and safe environment
+- Document service activities
+
+OPERATIONS MANAGER:
+- Ensure compliance with drop-off procedures
+- Handle escalated client concerns or complaints
+- Monitor staff training and competency
+- Review and update procedures based on industry best practices
+- Conduct regular audits of drop-off procedures`,
+            compliance: `CONSEQUENCES AND ACCOUNTABILITY:
+
+TRAINING REQUIREMENTS:
+- All staff must complete drop-off appointment management training (8 hours)
+- Annual competency assessments required
+- Ongoing education on best practices
+- Documentation of training completion
+
+MONITORING AND AUDITS:
+- Monthly review of drop-off appointment satisfaction scores
+- Quarterly assessment of procedure compliance
+- Annual evaluation of policy effectiveness
+- Continuous improvement based on client and staff feedback
+- Regular review of service outcomes for drop-off appointments
+
+ACCOUNTABILITY MEASURES:
+- Progressive discipline for non-compliance
+- Recognition programs for excellent performance
+- Regular policy updates based on industry standards
+- Integration with performance evaluations
+- Documentation of any incidents or complications
+
+RELATED DOCUMENTS:
+- Industry Guidelines for Practice Management
+- Industry Best Practices for Service Delivery
+- CSI Safety Protocols
+- CSI Client Communication Standards
+- CSI Emergency Response Procedures
+
+REVIEW AND APPROVAL:
+- Policy reviewed annually by Operations Director
+- Updated based on industry best practices and regulatory changes
+- Approved by Operations Director and Operations Manager
+- Next review date: ${new Date(Date.now() + 365*24*60*60*1000).toISOString().split('T')[0]}`
+        };
+    } else if (type === 'sog') {
+        return {
+            title: topic,
+            objective: `To establish standardized operating guidelines for managing drop-off appointments that ensure consistent, high-quality service while maximizing client satisfaction and safety.`,
+            principles: `GUIDING PRINCIPLES:
+- Patient safety and comfort are the highest priorities
+- Clear communication with clients is essential
+- Documentation must be comprehensive and accurate
+- Stress reduction techniques should be employed throughout the visit
+- Industry best practices guide all procedures`,
+            procedure: `RECOMMENDED APPROACH:
+
+1. RECEPTION PROTOCOL:
+   - Use standardized consent forms (available in clinic forms)
+   - Collect emergency contact information using designated forms
+   - Provide client with written pick-up procedures and contact information
+   - Document special instructions in patient record
+
+2. PATIENT CARE PROTOCOL:
+   - Place patient in designated drop-off area with comfortable bedding
+   - Use stress reduction techniques (Feliway diffusers, calming music)
+   - Monitor patient every 2 hours and document behavior
+   - Provide appropriate toys or comfort items as needed
+
+3. MEDICAL PROCEDURES:
+   - Follow standard treatment protocols with enhanced monitoring
+   - Document all findings using standardized forms
+   - Take photos of procedures when appropriate for client communication
+   - Ensure patient comfort throughout all procedures
+
+4. CLIENT COMMUNICATION:
+   - Call client within 1 hour of procedure completion
+   - Provide detailed summary of findings and treatments
+   - Schedule follow-up appointments as needed
+   - Document all communications in patient record`,
+            definitions: `DROP-OFF AREA: Designated space for unattended patients with comfortable bedding and stress reduction items. STRESS INDICATORS: Behavioral signs including excessive vocalization, hiding, aggression, or loss of appetite. EMERGENCY PROTOCOL: Immediate client contact for any urgent findings or complications.`,
+            examples: `SCENARIOS:
+
+ROUTINE SPAY PROCEDURE:
+- Patient dropped off at 8:00 AM
+- Procedure completed by 10:00 AM
+- Client contacted at 11:00 AM with update
+- Patient ready for pick-up at 2:00 PM
+- Discharge instructions provided in writing
+
+DIAGNOSTIC WORKUP:
+- Patient dropped off for blood work and X-rays
+- All tests completed by 12:00 PM
+- Client contacted with results and recommendations
+- Follow-up appointment scheduled
+- Written report provided to client`,
+            roles: `RESPONSIBILITIES:
+
+SUPPORT STAFF:
+- Monitor patient comfort and behavior
+- Assist with procedures as needed
+- Document patient care activities
+- Communicate with veterinary staff
+
+RECEPTION STAFF:
+- Maintain client communication log
+- Coordinate pick-up scheduling
+- Ensure proper documentation
+- Handle client inquiries
+
+VETERINARIAN:
+- Perform medical procedures
+- Communicate findings to client
+- Ensure proper documentation
+- Make treatment recommendations`,
+            escalation: `ESCALATION AND SUPPORT:
+
+URGENT FINDINGS:
+- Contact client immediately
+- Document all communications
+- Follow emergency protocols if needed
+- Notify clinic manager of situation
+
+CLIENT CONCERNS:
+- Address concerns promptly and professionally
+- Document all interactions
+- Escalate to clinic manager if needed
+- Follow up to ensure resolution
+
+STAFF SUPPORT:
+- Provide training and resources as needed
+- Address questions and concerns promptly
+- Regular team meetings to review procedures
+- Continuous improvement based on feedback`,
+            review: `REVIEW AND REVISION:
+
+MONTHLY REVIEWS:
+- Review drop-off procedures and outcomes
+- Assess client satisfaction scores
+- Identify areas for improvement
+- Update procedures as needed
+
+ANNUAL REVIEW:
+- Comprehensive review of all procedures
+- Benchmark against industry standards
+- Update based on new best practices
+- Train staff on any changes
+
+NEXT REVIEW DATE: ${new Date(Date.now() + 30*24*60*60*1000).toISOString().split('T')[0]}`
+        };
+    } else {
+        return {
+            title: topic,
+            message: `IMPORTANT UPDATE: Drop-off Patient Procedures
+
+Effective immediately, all CSI clinic locations will implement enhanced procedures for drop-off patients (unattended appointments) to ensure optimal patient care and client satisfaction.
+
+KEY CHANGES:
+- Enhanced client communication protocols
+- Improved patient comfort measures
+- Standardized documentation procedures
+- Updated consent and authorization processes
+
+WHAT THIS MEANS FOR STAFF:
+- All staff must complete updated training on drop-off procedures
+- New forms and documentation requirements are now in effect
+- Enhanced monitoring protocols for unattended patients
+- Improved client communication standards
+
+WHAT THIS MEANS FOR CLIENTS:
+- Better communication during drop-off appointments
+- Enhanced patient comfort and care
+- More detailed discharge instructions
+- Improved follow-up care coordination
+
+ACTION REQUIRED:
+- Review new procedures in staff handbook
+- Complete required training by end of month
+- Update client information materials
+- Ensure compliance with new documentation requirements
+
+CONTACT FOR QUESTIONS:
+- Clinical Director: [Contact Information]
+- Training Coordinator: [Contact Information]
+- Quality Assurance Manager: [Contact Information]
+
+This memo is effective immediately and will be reviewed monthly for updates and improvements.`,
+            effectivePeriod: `Effective Date: ${currentDate}\nReview Date: ${new Date(Date.now() + 30*24*60*60*1000).toISOString().split('T')[0]}`,
+            nextSteps: `NEXT STEPS:
+1. Complete required training on new procedures
+2. Update client information materials
+3. Implement new documentation protocols
+4. Schedule follow-up training sessions
+5. Monitor compliance and outcomes`,
+            contact: `CONTACT FOR QUESTIONS:
+- Clinical Director: [Contact Information]
+- Training Coordinator: [Contact Information]
+- Quality Assurance Manager: [Contact Information]`
+        };
+    }
+}
+
+function generateHandHygienePolicy(topic, type, requirements) {
+    const purpose = `This policy establishes comprehensive hand hygiene protocols to prevent healthcare-associated infections and ensure patient safety across all clinic locations. Proper hand hygiene is the most critical infection prevention measure in healthcare settings.`;
+    
+    const procedure = `HAND HYGIENE PROCEDURES:
+
+1. HANDWASHING TECHNIQUE:
+   - Wet hands with warm water
+   - Apply soap and lather for at least 20 seconds
+   - Scrub all surfaces: palms, backs, fingers, fingernails, wrists
+   - Rinse thoroughly with warm water
+   - Dry with clean paper towel or air dryer
+   - Use paper towel to turn off faucet
+
+2. ALCOHOL-BASED HAND SANITIZER:
+   - Apply sanitizer to palm of one hand
+   - Rub hands together covering all surfaces
+   - Continue rubbing until hands are dry (approximately 20 seconds)
+   - Ensure sanitizer contains at least 60% alcohol
+3. WHEN TO PERFORM HAND HYGIENE:
+   - Before and after patient contact
+   - Before and after wearing gloves
+   - After contact with patient environment
+   - Before eating or drinking
+   - After using restroom
+   - Before and after handling medications
+   - After contact with contaminated surfaces
+   - Before and after handling food
+
+4. GLOVE USE PROTOCOLS:
+   - Gloves do not replace hand hygiene
+   - Perform hand hygiene before putting on gloves
+   - Change gloves between patients
+   - Remove gloves carefully to avoid contamination
+   - Perform hand hygiene immediately after glove removal`;
+    
+    const roles = `RESPONSIBILITIES:
+
+ALL STAFF:
+- Perform hand hygiene at all required times
+- Use proper technique for handwashing and sanitizer
+- Report hand hygiene compliance issues
+- Participate in training and competency assessments
+
+INFECTION CONTROL COORDINATOR:
+- Monitor hand hygiene compliance
+- Provide education and training
+- Investigate infection control breaches
+- Maintain compliance records
+
+SUPERVISORS:
+- Ensure staff compliance with protocols
+- Provide feedback and coaching
+- Support infection control initiatives
+- Address non-compliance issues`;
+    
+    const compliance = `COMPLIANCE REQUIREMENTS:
+
+TRAINING:
+- Initial hand hygiene training for all new staff
+- Annual competency assessments
+- Ongoing education and updates
+- Documentation of training completion
+
+MONITORING:
+- Regular compliance audits
+- Direct observation of hand hygiene practices
+- Feedback to staff on compliance rates
+- Monthly compliance reporting
+
+ENFORCEMENT:
+- Progressive discipline for repeated non-compliance
+- Recognition programs for excellent compliance
+- Regular policy updates based on best practices
+- Integration with performance evaluations`;
+    
+    return {
+        title: topic,
+        purpose: purpose,
+        procedure: procedure,
+        roles: roles,
+        compliance: compliance
+    };
+}
+
+function generatePatientSafetyPolicy(topic, type, requirements) {
+    const purpose = `This policy establishes comprehensive patient safety protocols to minimize risks, prevent adverse events, and ensure the highest quality of care delivery across all clinic locations. Patient safety is our top priority in all clinical operations.`;
+    
+    const procedure = `PATIENT SAFETY PROTOCOLS:
+
+1. PATIENT IDENTIFICATION:
+   - Verify patient identity using two identifiers (name and ID number)
+   - Confirm correct patient before any procedure
+   - Use patient ID bands when available
+   - Double-check patient information on all forms and records
+
+2. MEDICATION SAFETY:
+   - Verify medication name, dose, route, and timing
+   - Check for allergies and contraindications
+   - Use standardized medication administration protocols
+   - Document all medications given
+   - Report any medication errors immediately
+
+3. PROCEDURE SAFETY:
+   - Follow standardized protocols for all procedures
+   - Use time-out procedures before invasive treatments
+   - Verify correct procedure and patient
+   - Ensure proper equipment and supplies
+   - Monitor patient throughout procedure
+
+4. ENVIRONMENTAL SAFETY:
+   - Maintain clean, organized treatment areas
+   - Ensure proper lighting and ventilation
+   - Keep floors dry and clear of obstacles
+   - Store hazardous materials properly
+   - Maintain emergency equipment and supplies
+
+5. COMMUNICATION SAFETY:
+   - Use clear, standardized communication protocols
+   - Document all patient communications
+   - Provide written instructions for home care
+   - Ensure client understanding of treatments
+   - Use interpreter services when needed`;
+    
+    const roles = `SAFETY RESPONSIBILITIES:
+
+ALL STAFF:
+- Follow all safety protocols
+- Report safety concerns immediately
+- Participate in safety training
+- Maintain safe work environment
+
+SAFETY OFFICER:
+- Monitor compliance with safety protocols
+- Investigate safety incidents
+- Provide safety education and training
+- Maintain safety records and reports
+
+CLINIC MANAGER:
+- Ensure adequate safety resources
+- Support safety initiatives
+- Address safety concerns promptly
+- Review safety performance regularly`;
+    
+    const compliance = `SAFETY COMPLIANCE:
+
+TRAINING:
+- Annual safety training for all staff
+- Procedure-specific safety training
+- Emergency response training
+- Documentation of all training
+
+MONITORING:
+- Regular safety audits
+- Incident reporting and investigation
+- Safety committee meetings
+- Performance improvement activities
+
+QUALITY ASSURANCE:
+- Regular review of safety metrics
+- Benchmarking against industry standards
+- Continuous improvement initiatives
+- Client satisfaction monitoring`;
+    
+    return {
+        title: topic,
+        purpose: purpose,
+        procedure: procedure,
+        roles: roles,
+        compliance: compliance
+    };
+}
+
+function generateDataSecurityPolicy(topic, type, requirements) {
+    const purpose = `This policy establishes comprehensive data security protocols to protect patient information, ensure HIPAA compliance, and maintain the confidentiality, integrity, and availability of all electronic and physical health records.`;
+    
+    const procedure = `DATA SECURITY PROCEDURES:
+
+1. ACCESS CONTROL:
+   - Unique user IDs and strong passwords for all systems
+   - Role-based access permissions
+   - Regular password updates (every 90 days)
+   - Automatic account lockout after failed attempts
+   - Multi-factor authentication for sensitive systems
+
+2. WORKSTATION SECURITY:
+   - Automatic screen lock after 15 minutes of inactivity
+   - Secure workstation placement to prevent unauthorized viewing
+   - Regular software updates and security patches
+   - Antivirus and anti-malware protection
+   - Encrypted hard drives for all workstations
+
+3. DATA TRANSMISSION:
+   - Encrypted email for patient information
+   - Secure file transfer protocols
+   - No patient information in unsecured communications
+   - Regular security assessments of transmission methods
+
+4. PHYSICAL SECURITY:
+   - Locked filing cabinets for paper records
+   - Restricted access to server rooms
+   - Secure disposal of sensitive documents
+   - Visitor access controls and monitoring
+
+5. INCIDENT RESPONSE:
+   - Immediate reporting of security breaches
+   - Investigation and documentation of incidents
+   - Notification procedures for affected patients
+   - Corrective action implementation`;
+    
+    const roles = `SECURITY RESPONSIBILITIES:
+
+ALL STAFF:
+- Follow all security protocols
+- Report security incidents immediately
+- Complete annual security training
+- Protect passwords and access credentials
+
+IT SECURITY OFFICER:
+- Monitor security systems and access logs
+- Investigate security incidents
+- Provide security training and education
+- Maintain security documentation
+
+PRIVACY OFFICER:
+- Ensure HIPAA compliance
+- Handle privacy complaints and breaches
+- Provide privacy training
+- Maintain privacy documentation`;
+    
+    const compliance = `SECURITY COMPLIANCE:
+
+TRAINING:
+- Annual HIPAA and security training
+- Role-specific security training
+- Incident response training
+- Documentation of training completion
+
+MONITORING:
+- Regular security audits and assessments
+- Access log reviews
+- Vulnerability assessments
+- Compliance reporting
+
+ENFORCEMENT:
+- Progressive discipline for security violations
+- Regular policy updates
+- Integration with performance evaluations
+- Recognition for security excellence`;
+    
+    return {
+        title: topic,
+        purpose: purpose,
+        procedure: procedure,
+        roles: roles,
+        compliance: compliance
+    };
+}
+
+function generateFireEvacuationPolicy(topic, type, requirements) {
+    const currentDate = new Date().toISOString().split('T')[0];
+    
+    if (type === 'admin') {
+        return {
+            title: topic,
+            purpose: `This policy establishes comprehensive fire evacuation procedures to ensure the safety of all staff, patients, and clients in the event of a fire emergency. This policy incorporates NFPA (National Fire Protection Association) guidelines and local fire safety regulations to provide clear, actionable procedures for fire emergencies.`,
+            scope: `This policy applies to all CSI clinic locations (Tudor Glen, River Valley, Rosslyn, UPC) and covers all staff members, contractors, clients, and patients present in the facility during a fire emergency.`,
+            policyStatement: `CSI clinics will maintain the highest standards of fire safety and evacuation procedures. All staff must be trained and prepared to execute fire evacuation protocols immediately upon detection of fire or activation of fire alarm systems.`,
+            definitions: `FIRE ALARM: Audible and visual warning system that activates upon detection of smoke or fire. EVACUATION ROUTE: Designated pathway for safe exit from the building during emergency. ASSEMBLY POINT: Designated safe location outside the building where staff and occupants gather after evacuation. FIRE WARDEN: Designated staff member responsible for coordinating evacuation procedures.`,
+            procedure: `FIRE EVACUATION PROCEDURES:
+
+1. IMMEDIATE RESPONSE (0-30 seconds):
+   - Upon hearing fire alarm or seeing fire/smoke, immediately activate manual fire alarm if not already activated
+   - Call 911 from a safe location and provide exact address and nature of emergency
+   - Announce "FIRE EMERGENCY - EVACUATE NOW" throughout the facility
+   - Begin immediate evacuation of all personnel and patients
+
+2. EVACUATION PROTOCOL (30 seconds - 5 minutes):
+   - Fire Wardens take control of evacuation procedures
+   - Direct all occupants to nearest safe exit route
+   - Check all rooms and areas to ensure complete evacuation
+   - Assist mobility-impaired individuals and patients
+   - Close all doors behind you to slow fire spread
+   - Do not use elevators - use stairs only
+
+3. PATIENT EVACUATION PRIORITIES:
+   - Critical patients: Evacuate first with medical equipment if possible
+   - Non-critical patients: Evacuate using carriers or leashes
+   - If patient evacuation is impossible, secure animals in carriers and evacuate
+   - Document any patients left behind and their location
+
+4. ASSEMBLY AND ACCOUNTABILITY:
+   - Proceed to designated assembly point (parking lot area)
+   - Fire Wardens conduct headcount of all staff and occupants
+   - Account for all patients and document any missing
+   - Do not re-enter building until cleared by fire department
+   - Maintain distance from building (minimum 100 feet)
+
+5. POST-EVACUATION PROTOCOL:
+   - Notify emergency contacts and management
+   - Provide information to fire department upon arrival
+   - Document incident details and any injuries
+   - Coordinate with emergency services for patient care needs
+   - Follow fire department instructions for re-entry`,
+            roles: `FIRE EVACUATION RESPONSIBILITIES:
+
+FIRE WARDENS (Designated staff):
+- Coordinate evacuation procedures
+- Ensure complete evacuation of assigned areas
+- Conduct headcount at assembly point
+- Communicate with emergency services
+- Maintain evacuation records
+
+ALL STAFF:
+- Follow evacuation procedures immediately
+- Assist with patient evacuation
+- Close doors behind them during evacuation
+- Report to assembly point for accountability
+- Assist mobility-impaired individuals
+
+CLINIC MANAGER:
+- Ensure fire safety equipment is maintained
+- Coordinate with fire department
+- Provide post-incident support
+- Review and update evacuation procedures
+- Conduct regular fire drills
+
+EMERGENCY COORDINATOR:
+- Activate emergency response procedures
+- Communicate with emergency services
+- Coordinate staff assignments
+- Maintain emergency contact information`,
+            compliance: `FIRE SAFETY COMPLIANCE:
+
+TRAINING REQUIREMENTS:
+- Annual fire safety training for all staff (4 hours)
+- Quarterly fire drill exercises
+- Fire Warden certification training
+- Documentation of all training completion
+
+EQUIPMENT MAINTENANCE:
+- Monthly fire alarm system testing
+- Quarterly fire extinguisher inspections
+- Annual sprinkler system maintenance
+- Regular evacuation route inspections
+
+MONITORING AND AUDITS:
+- Monthly fire safety equipment checks
+- Quarterly evacuation drill evaluations
+- Annual fire safety compliance audits
+- Continuous improvement based on drill outcomes`,
+            relatedDocuments: `NFPA 101: Life Safety Code, Local Fire Department Regulations, CSI Emergency Response Plan, CSI Patient Safety Protocols, OSHA Fire Safety Standards`,
+            reviewApproval: `Policy reviewed annually by Safety Committee. Updated based on regulatory changes and best practices. Approved by Fire Safety Officer and Clinic Manager. Next review date: ${new Date(Date.now() + 365*24*60*60*1000).toISOString().split('T')[0]}`
+        };
+    } else if (type === 'sog') {
+        return {
+            title: topic,
+            objective: `To establish standardized fire evacuation procedures that ensure safe and efficient evacuation of all personnel and patients during fire emergencies.`,
+            principles: `GUIDING PRINCIPLES:
+- Safety of all personnel and patients is the top priority
+- Immediate response to fire alarms is mandatory
+- Clear communication and coordination are essential
+- Regular training and drills ensure preparedness
+- Compliance with fire safety regulations is required`,
+            procedure: `RECOMMENDED FIRE EVACUATION APPROACH:
+
+1. ALARM RESPONSE:
+   - Immediately stop all activities upon hearing fire alarm
+   - Activate manual fire alarm if not already activated
+   - Call 911 and provide facility address and emergency details
+   - Announce evacuation to all occupants
+
+2. EVACUATION STEPS:
+   - Use nearest safe exit route
+   - Close doors behind you to contain fire
+   - Assist patients using carriers or leashes
+   - Check all areas for remaining occupants
+   - Proceed to designated assembly point
+
+3. ASSEMBLY POINT PROTOCOL:
+   - Gather at designated safe location
+   - Conduct headcount of all personnel
+   - Account for all patients
+   - Wait for fire department clearance
+   - Maintain safe distance from building`,
+            definitions: `FIRE WARDEN: Staff member designated to coordinate evacuation. ASSEMBLY POINT: Safe location outside building for post-evacuation gathering. EVACUATION ROUTE: Designated pathway for safe exit during emergency.`,
+            examples: `SCENARIOS:
+
+FIRE DETECTED IN TREATMENT ROOM:
+- Immediately activate fire alarm
+- Evacuate all patients from treatment area
+- Close treatment room door
+- Proceed to assembly point
+- Notify fire department of patient count
+
+FIRE ALARM ACTIVATES DURING SURGERY:
+- Complete surgery if safe to do so within 2 minutes
+- Otherwise, secure patient and evacuate immediately
+- Notify fire department of patient location
+- Coordinate with emergency services for patient care
+
+EVACUATION DURING BUSINESS HOURS:
+- Direct clients to nearest exit
+- Evacuate all patients in carriers
+- Ensure all staff members are accounted for
+- Maintain client communication at assembly point`,
+            roles: `RESPONSIBILITIES:
+
+FIRE WARDENS:
+- Coordinate evacuation procedures
+- Ensure complete building evacuation
+- Conduct headcount at assembly point
+- Communicate with emergency services
+
+ALL STAFF:
+- Follow evacuation procedures immediately
+- Assist with patient evacuation
+- Report to assembly point
+- Assist clients and visitors
+
+OPERATIONS STAFF:
+- Prioritize patient safety during evacuation
+- Coordinate with emergency services for patient care
+- Document any patient injuries or concerns
+- Provide medical information to emergency responders`,
+            escalation: `ESCALATION AND SUPPORT:
+
+FIRE DEPARTMENT ARRIVAL:
+- Provide building layout and patient information
+- Coordinate patient care with emergency services
+- Follow fire department instructions
+- Document incident details
+
+INJURIES OR CASUALTIES:
+- Provide first aid if safe to do so
+- Coordinate with emergency medical services
+- Document all injuries and treatments
+- Notify management and families
+
+EXTENDED EVACUATION:
+- Coordinate with local animal control if needed
+- Arrange temporary housing for patients
+- Communicate with clients about patient status
+- Maintain security of evacuated facility`,
+            review: `REVIEW AND REVISION:
+
+MONTHLY REVIEWS:
+- Evaluate evacuation drill performance
+- Assess staff response times
+- Identify areas for improvement
+- Update procedures as needed
+
+ANNUAL REVIEW:
+- Comprehensive review of all procedures
+- Benchmark against industry standards
+- Update based on regulatory changes
+- Train staff on any modifications
+
+NEXT REVIEW DATE: ${new Date(Date.now() + 30*24*60*60*1000).toISOString().split('T')[0]}`
+        };
+    } else {
+        return {
+            title: topic,
+            message: `URGENT: Fire Evacuation Procedures Update
+
+All CSI clinic staff are required to review and implement updated fire evacuation procedures effective immediately.
+
+KEY UPDATES:
+- New evacuation routes posted in all clinic areas
+- Updated assembly point locations
+- Enhanced patient evacuation protocols
+- New Fire Warden assignments
+
+WHAT THIS MEANS FOR STAFF:
+- All staff must complete fire safety training by end of month
+- Fire drills will be conducted monthly
+- New evacuation procedures must be followed exactly
+- Fire Wardens have been designated for each clinic location
+
+WHAT THIS MEANS FOR CLIENTS:
+- Clients will be directed to safe exits during emergencies
+- Patient safety is our top priority during evacuations
+- Clear communication will be maintained throughout emergency
+- Follow-up care will be coordinated as needed
+
+ACTION REQUIRED:
+- Review new evacuation procedures in staff handbook
+- Complete fire safety training by month end
+- Participate in monthly fire drills
+- Know your designated Fire Warden and assembly point
+
+CONTACT FOR QUESTIONS:
+- Fire Safety Coordinator: [Contact Information]
+- Clinic Manager: [Contact Information]
+- Emergency Services: 911
+
+This memo is effective immediately and supersedes all previous fire evacuation procedures.`,
+            effectivePeriod: `Effective Date: ${currentDate}\nReview Date: ${new Date(Date.now() + 30*24*60*60*1000).toISOString().split('T')[0]}`,
+            nextSteps: `NEXT STEPS:
+1. Complete fire safety training by month end
+2. Review evacuation routes and assembly points
+3. Participate in monthly fire drills
+4. Know your Fire Warden and responsibilities
+5. Report any fire safety concerns immediately`,
+            contact: `CONTACT FOR QUESTIONS:
+- Fire Safety Coordinator: [Contact Information]
+- Clinic Manager: [Contact Information]
+- Emergency Services: 911`
+        };
+    }
+}
+
+function generateEmergencyPolicy(topic, type, requirements) {
+    const purpose = `This policy establishes comprehensive emergency response procedures to ensure rapid, effective response to medical emergencies, natural disasters, and other critical situations that may occur in our clinic facilities.`;
+    
+    const procedure = `EMERGENCY RESPONSE PROCEDURES:
+
+1. MEDICAL EMERGENCIES:
+   - Immediate assessment of patient condition
+   - Call 911 for life-threatening emergencies
+   - Begin appropriate emergency medical care
+   - Notify supervisor immediately
+   - Document all emergency interventions
+   - Contact client/owner as soon as possible
+
+2. FIRE EMERGENCIES:
+   - Activate fire alarm system
+   - Evacuate all personnel and patients
+   - Call 911 from safe location
+   - Account for all staff and patients
+   - Follow established evacuation routes
+   - Do not re-enter building until cleared by fire department
+
+3. SEVERE WEATHER:
+   - Monitor weather alerts and warnings
+   - Secure outdoor equipment and supplies
+   - Move patients to safe interior locations
+   - Close clinic if severe weather warning issued
+   - Maintain emergency supplies and equipment
+
+4. POWER OUTAGES:
+   - Switch to emergency power if available
+   - Prioritize critical patient care equipment
+   - Use battery-powered lighting and equipment
+   - Contact utility company for updates
+   - Implement manual record-keeping procedures
+
+5. SECURITY INCIDENTS:
+   - Secure all staff and patients
+   - Contact law enforcement if necessary
+   - Document incident details
+   - Follow lockdown procedures if required
+   - Provide support to affected staff and clients`;
+    
+    const roles = `EMERGENCY RESPONSIBILITIES:
+
+EMERGENCY COORDINATOR:
+- Direct emergency response efforts
+- Communicate with emergency services
+- Coordinate staff assignments
+- Maintain emergency contact information
+
+ALL STAFF:
+- Follow emergency procedures
+- Assist with patient evacuation
+- Maintain calm and professional demeanor
+- Document emergency events
+
+CLINIC MANAGER:
+- Ensure adequate emergency supplies
+- Coordinate with emergency services
+- Provide post-emergency support
+- Review and update emergency procedures`;
+    
+    const compliance = `EMERGENCY COMPLIANCE:
+
+TRAINING:
+- Annual emergency response training
+- Fire safety and evacuation training
+- CPR and first aid certification
+- Emergency equipment training
+
+PREPAREDNESS:
+- Regular emergency drills and exercises
+- Emergency supply inventory and maintenance
+- Emergency contact list updates
+- Emergency procedure reviews
+
+DOCUMENTATION:
+- Emergency incident reporting
+- Training completion records
+- Emergency drill evaluations
+- Continuous improvement planning`;
+    
+    return {
+        title: topic,
+        purpose: purpose,
+        procedure: procedure,
+        roles: roles,
+        compliance: compliance
+    };
+}
+
+function generateMedicationPolicy(topic, type, requirements) {
+    const purpose = `This policy establishes comprehensive medication management protocols to ensure safe, accurate, and effective medication administration while preventing medication errors and ensuring regulatory compliance.`;
+    
+    const procedure = `MEDICATION MANAGEMENT PROCEDURES:
+
+1. MEDICATION STORAGE:
+   - Store medications in designated, locked areas
+   - Maintain proper temperature and humidity controls
+   - Separate controlled substances with additional security
+   - Regular inventory of all medications
+   - Proper labeling and expiration date monitoring
+
+2. MEDICATION ADMINISTRATION:
+   - Verify patient identity before administration
+   - Check medication name, dose, route, and timing
+   - Review patient allergies and contraindications
+   - Use standardized administration protocols
+   - Document all medications administered
+
+3. CONTROLLED SUBSTANCES:
+   - Maintain controlled substance logs
+   - Require two-person verification for administration
+   - Regular controlled substance audits
+   - Secure storage and disposal procedures
+   - Compliance with DEA regulations
+
+4. MEDICATION ERRORS:
+   - Immediate reporting of any medication errors
+   - Assessment of patient impact
+   - Documentation of error details
+   - Implementation of corrective actions
+   - Root cause analysis and prevention measures
+
+5. MEDICATION EDUCATION:
+   - Provide client education on medications
+   - Explain proper administration techniques
+   - Discuss potential side effects and monitoring
+   - Provide written medication information
+   - Schedule follow-up appointments as needed`;
+    
+    const roles = `MEDICATION RESPONSIBILITIES:
+
+VETERINARIANS:
+- Prescribe medications appropriately
+- Monitor patient response to medications
+- Adjust dosages as needed
+- Provide medication education to clients
+
+TECHNICIANS:
+- Administer medications as prescribed
+- Monitor patient response
+- Document medication administration
+- Maintain medication inventory
+
+PHARMACY STAFF:
+- Prepare and dispense medications
+- Maintain medication inventory
+- Provide medication counseling
+- Ensure regulatory compliance`;
+    
+    const compliance = `MEDICATION COMPLIANCE:
+
+TRAINING:
+- Annual medication safety training
+- Controlled substance training
+- Medication error prevention training
+- Documentation of training completion
+
+MONITORING:
+- Regular medication audits
+- Medication error reporting and analysis
+- Controlled substance compliance reviews
+- Client satisfaction with medication services
+
+QUALITY ASSURANCE:
+- Regular review of medication practices
+- Benchmarking against industry standards
+- Continuous improvement initiatives
+- Integration with quality management systems`;
+    
+    return {
+        title: topic,
+        purpose: purpose,
+        procedure: procedure,
+        roles: roles,
+        compliance: compliance
+    };
+}
+
+function generateInfectionControlPolicy(topic, type, requirements) {
+    const purpose = `This policy establishes comprehensive infection prevention and control measures to protect patients, staff, and clients from healthcare-associated infections and ensure a safe clinical environment.`;
+    
+    const procedure = `INFECTION CONTROL PROCEDURES:
+
+1. STANDARD PRECAUTIONS:
+   - Hand hygiene before and after patient contact
+   - Use of personal protective equipment (PPE)
+   - Proper handling and disposal of sharps
+   - Environmental cleaning and disinfection
+   - Respiratory hygiene and cough etiquette
+
+2. TRANSMISSION-BASED PRECAUTIONS:
+   - Contact precautions for infectious diseases
+   - Droplet precautions for respiratory infections
+   - Airborne precautions for highly contagious diseases
+   - Isolation procedures when indicated
+   - Special handling of infectious waste
+
+3. ENVIRONMENTAL CLEANING:
+   - Regular cleaning and disinfection of all surfaces
+   - Use of EPA-approved disinfectants
+   - Proper cleaning equipment and procedures
+   - Regular maintenance of cleaning equipment
+   - Documentation of cleaning activities
+
+4. WASTE MANAGEMENT:
+   - Proper segregation of medical waste
+   - Secure storage of infectious waste
+   - Regular waste collection and disposal
+   - Compliance with waste regulations
+   - Documentation of waste management
+
+5. OUTBREAK MANAGEMENT:
+   - Early detection of potential outbreaks
+   - Immediate investigation and reporting
+   - Implementation of control measures
+   - Communication with public health authorities
+   - Documentation and follow-up`;
+    
+    const roles = `INFECTION CONTROL RESPONSIBILITIES:
+
+INFECTION CONTROL COORDINATOR:
+- Develop and implement infection control programs
+- Monitor compliance with protocols
+- Investigate infection control incidents
+- Provide education and training
+
+ALL STAFF:
+- Follow all infection control protocols
+- Report potential infections immediately
+- Participate in training programs
+- Maintain clean work environment
+
+CLINIC MANAGER:
+- Ensure adequate infection control resources
+- Support infection control initiatives
+- Address compliance issues promptly
+- Review infection control performance`;
+    
+    const compliance = `INFECTION CONTROL COMPLIANCE:
+
+TRAINING:
+- Annual infection control training
+- Role-specific training programs
+- New employee orientation
+- Documentation of training completion
+
+MONITORING:
+- Regular infection control audits
+- Surveillance of healthcare-associated infections
+- Compliance monitoring and reporting
+- Performance improvement activities
+
+QUALITY ASSURANCE:
+- Regular review of infection control metrics
+- Benchmarking against industry standards
+- Continuous improvement initiatives
+- Integration with quality management systems`;
+    
+    return {
+        title: topic,
+        purpose: purpose,
+        procedure: procedure,
+        roles: roles,
+        compliance: compliance
+    };
+}
+
+function generateAppointmentPolicy(topic, type, requirements) {
+    const purpose = `This policy establishes comprehensive appointment scheduling and management procedures to ensure efficient clinic operations, optimal patient care, and excellent client service across all clinic locations.`;
+    
+    const procedure = `APPOINTMENT MANAGEMENT PROCEDURES:
+
+1. SCHEDULING PROTOCOLS:
+   - Standard appointment time allocations based on service type
+   - Buffer time between appointments for documentation
+   - Priority scheduling for urgent cases
+   - Advance scheduling for routine care
+   - Confirmation calls 24-48 hours before appointments
+
+2. APPOINTMENT TYPES:
+   - Wellness exams: 30 minutes
+   - Sick visits: 45 minutes
+   - Surgical consultations: 60 minutes
+   - Emergency appointments: As needed
+   - Follow-up appointments: 15-30 minutes
+
+3. CLIENT COMMUNICATION:
+   - Clear appointment instructions and preparation requirements
+   - Reminder calls and confirmations
+   - Wait time notifications if delays occur
+   - Rescheduling procedures and policies
+   - No-show and cancellation policies
+
+4. SCHEDULE MANAGEMENT:
+   - Daily schedule reviews and adjustments
+   - Emergency appointment integration
+   - Overbooking prevention strategies
+   - Staff scheduling coordination
+   - Resource allocation planning
+5. QUALITY ASSURANCE:
+   - Regular review of scheduling efficiency
+   - Client satisfaction monitoring
+   - Staff feedback collection
+   - Continuous improvement initiatives
+   - Performance metrics tracking`;
+    
+    const roles = `APPOINTMENT RESPONSIBILITIES:
+
+RECEPTION STAFF:
+- Schedule appointments according to protocols
+- Confirm appointments and communicate with clients
+- Manage schedule changes and cancellations
+- Provide excellent client service
+
+OPERATIONS STAFF:
+- Maintain appointment schedules
+- Provide timely and quality patient care
+- Communicate schedule changes to reception
+- Document all patient interactions
+
+CLINIC MANAGER:
+- Oversee appointment system efficiency
+- Address scheduling conflicts and issues
+- Monitor client satisfaction
+- Implement scheduling improvements`;
+    
+    const compliance = `APPOINTMENT COMPLIANCE:
+
+TRAINING:
+- Appointment scheduling training for all staff
+- Customer service training
+- System training for scheduling software
+- Documentation of training completion
+
+MONITORING:
+- Regular review of scheduling metrics
+- Client satisfaction surveys
+- Staff performance evaluations
+- System efficiency assessments
+
+QUALITY ASSURANCE:
+- Monthly scheduling performance reviews
+- Client feedback analysis
+- Continuous improvement planning
+- Integration with quality management systems`;
+    
+    return {
+        title: topic,
+        purpose: purpose,
+        procedure: procedure,
+        roles: roles,
+        compliance: compliance
+    };
+}
+
+function generateDocumentationPolicy(topic, type, requirements) {
+    const purpose = `This policy establishes comprehensive medical record documentation standards to ensure accurate, complete, and timely recording of patient care, legal compliance, and continuity of care across all clinic locations.`;
+    
+    const procedure = `DOCUMENTATION PROCEDURES:
+
+1. MEDICAL RECORD REQUIREMENTS:
+   - Complete patient identification information
+   - Detailed history and physical examination findings
+   - Accurate diagnosis and treatment plans
+   - All medications prescribed and administered
+   - Client communications and instructions
+
+2. DOCUMENTATION TIMELINES:
+   - Initial examination notes: Within 24 hours
+   - Treatment notes: Immediately after procedures
+   - Discharge instructions: Before patient departure
+   - Follow-up notes: Within 48 hours
+   - Emergency cases: Immediately after stabilization
+
+3. RECORD FORMAT AND STANDARDS:
+   - Use standardized templates and forms
+   - Clear, legible handwriting or electronic entry
+   - Objective, factual language
+   - Proper medical terminology
+   - Chronological organization of entries
+
+4. ELECTRONIC RECORD MANAGEMENT:
+   - Secure access controls and user authentication
+   - Regular backup and disaster recovery procedures
+   - Audit trails for all record access and modifications
+   - Integration with practice management systems
+   - Compliance with electronic record regulations
+
+5. RECORD RETENTION AND DISPOSAL:
+   - Minimum 7-year retention for adult patients
+   - Extended retention for minors until age of majority
+   - Secure disposal of expired records
+   - Compliance with legal and regulatory requirements
+   - Documentation of record destruction`;
+    
+    const roles = `DOCUMENTATION RESPONSIBILITIES:
+
+VETERINARIANS:
+- Complete accurate medical record documentation
+- Review and sign all medical records
+- Ensure compliance with documentation standards
+- Provide supervision for staff documentation
+
+TECHNICIANS:
+- Document technical procedures and observations
+- Assist with medical record maintenance
+- Follow documentation protocols
+- Participate in documentation training
+
+RECEPTION STAFF:
+- Maintain client information accuracy
+- Process medical record requests
+- Ensure proper record filing and organization
+- Assist with record management procedures`;
+    
+    const compliance = `DOCUMENTATION COMPLIANCE:
+
+TRAINING:
+- Annual documentation training for all staff
+- Medical terminology education
+- Legal requirements training
+- Documentation of training completion
+
+MONITORING:
+- Regular medical record audits
+- Documentation quality assessments
+- Compliance monitoring and reporting
+- Performance improvement activities
+
+QUALITY ASSURANCE:
+- Monthly documentation reviews
+- Benchmarking against industry standards
+- Continuous improvement initiatives
+- Integration with quality management systems`;
+    
+    return {
+        title: topic,
+        purpose: purpose,
+        procedure: procedure,
+        roles: roles,
+        compliance: compliance
+    };
+}
+
+function generateGenericPolicy(topic, type, requirements) {
+    const purpose = `This policy establishes comprehensive guidelines for ${topic.toLowerCase()} to ensure consistent, safe, and effective operations across all clinic locations. This policy addresses the specific requirements and best practices for ${topic.toLowerCase()} in our healthcare environment.`;
+    
+    const procedure = `PROCEDURES FOR ${topic.toUpperCase()}:
+
+1. INITIAL ASSESSMENT:
+   - Evaluate current practices and identify areas for improvement
+   - Assess staff knowledge and training needs
+   - Review existing protocols and procedures
+   - Identify potential risks and safety concerns
+   - Establish baseline metrics for performance
+
+2. IMPLEMENTATION PROTOCOLS:
+   - Develop standardized procedures for ${topic.toLowerCase()}
+   - Provide comprehensive staff training
+   - Establish monitoring and quality assurance measures
+   - Create documentation and reporting systems
+   - Implement continuous improvement processes
+
+3. STAFF RESPONSIBILITIES:
+   - Follow established protocols and procedures
+   - Participate in training and competency assessments
+   - Report any issues or concerns immediately
+   - Maintain accurate documentation
+   - Support continuous improvement efforts
+
+4. QUALITY ASSURANCE:
+   - Regular monitoring of compliance and outcomes
+   - Performance metrics tracking and analysis
+   - Client and staff feedback collection
+   - Regular policy review and updates
+   - Benchmarking against industry standards
+
+5. CONTINUOUS IMPROVEMENT:
+   - Regular evaluation of policy effectiveness
+   - Identification of improvement opportunities
+   - Implementation of best practices
+   - Staff education and training updates
+   - Integration with overall quality management systems`;
+    
+    const roles = `RESPONSIBILITIES FOR ${topic.toUpperCase()}:
+
+ALL STAFF:
+- Follow established protocols and procedures
+- Participate in training and competency assessments
+- Report issues and concerns promptly
+- Maintain accurate documentation
+- Support continuous improvement efforts
+
+SUPERVISORS:
+- Ensure staff compliance with protocols
+- Provide training and support to staff
+- Monitor performance and outcomes
+- Address compliance issues promptly
+- Support quality improvement initiatives
+
+CLINIC MANAGER:
+- Ensure adequate resources for policy implementation
+- Support staff training and development
+- Monitor overall policy effectiveness
+- Address systemic issues and barriers
+- Integrate policy with overall clinic operations`;
+    
+    const compliance = `COMPLIANCE REQUIREMENTS FOR ${topic.toUpperCase()}:
+
+TRAINING:
+- Initial training for all staff on policy requirements
+- Annual competency assessments and updates
+- Role-specific training for different staff positions
+- Documentation of all training completion
+- Ongoing education and skill development
+
+MONITORING:
+- Regular audits of policy compliance
+- Performance metrics tracking and reporting
+- Client and staff satisfaction monitoring
+- Incident reporting and investigation
+- Quality assurance activities
+
+ENFORCEMENT:
+- Progressive discipline for non-compliance
+- Recognition programs for excellent performance
+- Regular policy reviews and updates
+- Integration with performance evaluations
+- Continuous improvement planning`;
+    
+    return {
+        title: topic,
+        purpose: purpose,
+        procedure: procedure,
+        roles: roles,
+        compliance: compliance
+    };
+}
+
+function displayAIPolicy(policy) {
+    console.log('displayAIPolicy called with policy:', policy);
+    
+    const aiLoading = document.getElementById('aiLoading');
+    const aiResult = document.getElementById('aiResult');
+    const aiGeneratedContent = document.getElementById('aiGeneratedContent');
+    
+    if (!aiLoading || !aiResult || !aiGeneratedContent) {
+        console.error('Required elements not found:', { aiLoading, aiResult, aiGeneratedContent });
+        return;
+    }
+    
+    // Don't show the policy yet - wait for webhook
+    // aiLoading.style.display = 'none';
+    // aiResult.style.display = 'block';
+    
+    // Use the new professional formatting
+    const formattedContent = formatPolicyContent(policy, policy.type);
+    console.log('Formatted content:', formattedContent);
+    
+    // Add clinic information at the top
+    const clinicInfo = `
+    <div class="policy-info-header">
+        <div class="policy-summary">
+            <div class="summary-item">
+                <i class="fas fa-building"></i>
+                <span><strong>Organizations:</strong> ${policy.clinicNames || 'All Organizations'}</span>
+            </div>
+            ${policy.keyPoints ? `
+            <div class="summary-item">
+                <i class="fas fa-lightbulb"></i>
+                <span><strong>Key Points:</strong> ${policy.keyPoints}</span>
+            </div>
+            ` : ''}
+        </div>
+    </div>`;
+    
+    aiGeneratedContent.innerHTML = clinicInfo + formattedContent + `
+        <div class="ai-result-actions" style="margin-top: 20px; padding-top: 20px; border-top: 1px solid #ddd; display: flex; gap: 10px; justify-content: flex-end;">
+            <button class="btn btn-info" onclick="showRefinePolicyModal()" style="background: #667eea; border-color: #667eea; color: white;">
+                <i class="fas fa-magic"></i> Refine with AI
+            </button>
+            <button class="btn btn-secondary" onclick="storeDraft()">
+                <i class="fas fa-save"></i> Save as Draft
+            </button>
+            <button class="btn btn-primary" onclick="saveAIPolicy()">
+                <i class="fas fa-check"></i> Publish Policy
+            </button>
+        </div>
+    `;
+    
+    // Store the generated policy for saving
+    window.currentGeneratedPolicy = policy;
+    
+    // DO NOT automatically save - wait for webhook to complete first
+    // savePolicyToStorage(policy);
+    
+    // Update chat state and ask if anything needs to be changed
+    chatState.step = 'policy_generated';
+    
+}
+
+function editAIPolicy() {
+    // Move to create modal with pre-filled data
+    closeAIModal();
+    openCreateModal();
+    
+    const policy = window.currentGeneratedPolicy;
+    document.getElementById('policyTitle').value = policy.title;
+    document.getElementById('policyType').value = policy.type;
+    document.getElementById('clinicApplicability').value = policy.clinics;
+    document.getElementById('policyPurpose').value = policy.purpose;
+    document.getElementById('policyProcedure').value = policy.procedure;
+    document.getElementById('policyRoles').value = policy.roles;
+    document.getElementById('policyCompliance').value = policy.compliance;
+}
+
+async function saveAIPolicy() {
+    const policy = window.currentGeneratedPolicy;
+    
+    // Get full policy text content
+    let fullText = '';
+    if (policy.content) {
+        fullText = policy.content;
+    } else if (policy.policyStatement) {
+        fullText = policy.policyStatement;
+    } else if (policy.text) {
+        fullText = policy.text;
+    } else if (policy.description) {
+        fullText = policy.description;
+    } else if (policy.purpose) {
+        fullText = policy.purpose;
+    }
+    
+    // Try to get from preview element if available
+    if (!fullText && typeof document !== 'undefined') {
+        const preview = document.getElementById('policyPreview');
+        if (preview) {
+            fullText = preview.textContent || preview.innerText || preview.innerHTML || '';
+        }
+    }
+    
+    const newPolicy = {
+        id: currentPolicies.length + 1,
+        title: policy.title || 'Untitled Policy',
+        name: policy.title || 'Untitled Policy', // For backward compatibility
+        type: policy.type || 'admin',
+        clinics: policy.clinics,
+        description: policy.purpose,
+        content: fullText,
+        text: fullText, // Full policy text
+        status: policy.status || 'active',
+        created: new Date().toISOString().split('T')[0],
+        updated: new Date().toISOString().split('T')[0]
+    };
+
+    // Send policy data to webhook
+    try {
+        if (typeof window.sendPolicyToWebhook === 'function') {
+            await window.sendPolicyToWebhook(newPolicy);
+            console.log('Policy data sent to webhook successfully');
+        } else {
+            console.warn('sendPolicyToWebhook function not available');
+        }
+    } catch (error) {
+        console.error('Failed to send policy to webhook:', error);
+        // Don't block policy saving if webhook fails
+    }
+
+    currentPolicies.unshift(newPolicy);
+    displayPolicies(currentPolicies);
+    updateStats();
+    closeAIModal();
+    
+    // Also save to global "all policies" list
+    let allPolicies = JSON.parse(localStorage.getItem('allPolicies') || '[]');
+    allPolicies.unshift(newPolicy);
+    localStorage.setItem('allPolicies', JSON.stringify(allPolicies));
+    console.log('Policy saved to all policies list');
+    
+    showNotification('AI-generated policy saved successfully!', 'success');
+    
+    // Add notification to notification center
+    const aiPolicyTitle = window.currentGeneratedPolicy?.title || 'AI-Generated Policy';
+    addNotification(`New AI-generated policy "${aiPolicyTitle}" has been published`, 'success');
+}
+
+function formatMarkdownForDisplay(markdown) {
+    if (!markdown) return '';
+    
+    let html = markdown
+        // Headers
+        .replace(/^### (.*$)/gm, '<h4 style="color: #2563eb; margin-top: 20px; margin-bottom: 10px; font-weight: 600;">$1</h4>')
+        .replace(/^## (.*$)/gm, '<h3 style="color: #1e40af; margin-top: 25px; margin-bottom: 12px; font-weight: 700; border-bottom: 2px solid #e5e7eb; padding-bottom: 8px;">$1</h3>')
+        .replace(/^# (.*$)/gm, '<h2 style="color: #1e3a8a; margin-top: 30px; margin-bottom: 15px; font-weight: 700;">$1</h2>')
+        // Bold
+        .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+        // Lists
+        .replace(/^\- (.*$)/gm, '<li style="margin: 5px 0; padding-left: 20px;">$1</li>')
+        .replace(/^1\. (.*$)/gm, '<li style="margin: 5px 0; padding-left: 20px; list-style-type: decimal;">$1</li>')
+        // Line breaks
+        .replace(/\n/g, '<br>');
+    
+    // Wrap list items in <ul> tags
+    html = html.replace(/(<li[^>]*>.*?<\/li>)/gs, '<ul style="margin: 15px 0; padding-left: 30px;">$1</ul>');
+    
+    // Wrap in paragraph
+    return '<div style="padding: 15px; line-height: 1.8;">' + html + '</div>';
+}
+
+function formatPolicyContentForDisplay(content) {
+    if (!content) {
+        return '<p style="color: #666; font-style: italic;">No content available</p>';
+    }
+    
+    // If content is already HTML, return it
+    if (typeof content === 'string' && content.includes('<')) {
+        return content;
+    }
+    
+    // If content is a plain string, format it
+    if (typeof content === 'string') {
+        return formatMarkdownForDisplay(content);
+    }
+    
+    // If content is an object with sections, format those
+    if (typeof content === 'object') {
+        let html = '';
+        for (const [sectionName, sectionContent] of Object.entries(content)) {
+            if (sectionContent) {
+                const displayName = sectionName.charAt(0).toUpperCase() + sectionName.slice(1).replace(/([A-Z])/g, ' $1');
+                html += `
+                    <div class="policy-section" style="margin-bottom: 25px;">
+                        <h3 style="color: #1e40af; margin-top: 25px; margin-bottom: 12px; font-weight: 700; border-bottom: 2px solid #e5e7eb; padding-bottom: 8px;">${displayName}</h3>
+                        <div style="line-height: 1.8;">${typeof sectionContent === 'string' ? formatMarkdownForDisplay(sectionContent) : JSON.stringify(sectionContent)}</div>
+                    </div>
+                `;
+            }
+        }
+        return html || '<p style="color: #666; font-style: italic;">No content available</p>';
+    }
+    
+    return '<p style="color: #666; font-style: italic;">Content format not supported</p>';
+}
+
+function parseWebhookPolicyMarkdown(markdown) {
+    if (!markdown) return {};
+    
+    const sections = {};
+    const lines = markdown.split('\n');
+    let currentSection = null;
+    let currentContent = [];
+    
+    for (let i = 0; i < lines.length; i++) {
+        const line = lines[i];
+        
+        // Check for section headers (## Section Name)
+        const sectionMatch = line.match(/^## (.*)$/);
+        if (sectionMatch) {
+            // Save previous section
+            if (currentSection) {
+                sections[currentSection.toLowerCase()] = currentContent.join('\n').trim();
+            }
+            // Start new section
+            currentSection = sectionMatch[1];
+            currentContent = [];
+        } else {
+            currentContent.push(line);
+        }
+    }
+    
+    // Save last section
+    if (currentSection) {
+        sections[currentSection.toLowerCase()] = currentContent.join('\n').trim();
+    }
+    
+    return sections;
+}
+
+function generateEditablePolicySections(sections) {
+    const sectionIcons = {
+        'purpose': 'fa-info-circle',
+        'scope': 'fa-crosshairs',
+        'policy statement': 'fa-gavel',
+        'definitions': 'fa-book',
+        'procedure / implementation': 'fa-cogs',
+        'responsibilities': 'fa-users',
+        'consequences / accountability': 'fa-shield-alt',
+        'related documents': 'fa-folder',
+        'review & approval': 'fa-check-circle'
+    };
+    
+    let html = '';
+    
+    for (const [sectionName, content] of Object.entries(sections)) {
+        const icon = sectionIcons[sectionName] || 'fa-file-alt';
+        const displayName = sectionName.charAt(0).toUpperCase() + sectionName.slice(1);
+        
+        html += `
+            <div class="policy-section editable-section" data-field="${sectionName}">
+                <h5><i class="fas ${icon}"></i> ${displayName}</h5>
+                <div class="policy-content editable-content" contenteditable="true" data-field="${sectionName}">
+                    ${content.replace(/\n/g, '<br>')}
+                </div>
+                <div class="edit-actions" style="display: none;">
+                    <button class="btn btn-sm btn-success" onclick="savePolicyField('${sectionName}')">
+                        <i class="fas fa-save"></i> Save
+                    </button>
+                    <button class="btn btn-sm btn-secondary" onclick="cancelPolicyEdit('${sectionName}')">
+                        <i class="fas fa-times"></i> Cancel
+                    </button>
+                </div>
+            </div>
+        `;
+    }
+    
+    return html;
+}
+
+function saveWebhookPolicy() {
+    const webhookPolicy = window.currentWebhookPolicy;
+    
+    if (!webhookPolicy) {
+        showNotification('No policy data to save', 'error');
+        return;
+    }
+    
+    // Get the policy title from the input field
+    const titleInput = document.getElementById('policyTitleInput');
+    if (!titleInput) {
+        showNotification('Title input field not found', 'error');
+        return;
+    }
+    
+    const policyTitle = titleInput.value.trim();
+    if (!policyTitle || policyTitle === 'Generated Policy') {
+        showNotification('Please enter a policy title before saving', 'error');
+        titleInput.focus();
+        titleInput.style.borderColor = '#ef4444';
+        return;
+    }
+    
+    // Get selected category
+    const categoryId = document.getElementById('aiPolicyCategory')?.value || null;
+    
+    // Parse the webhook policy data
+    let policyData = null;
+    if (Array.isArray(webhookPolicy) && webhookPolicy.length > 0) {
+        policyData = webhookPolicy[0];
+    } else if (typeof webhookPolicy === 'object') {
+        policyData = webhookPolicy;
+    } else {
+        showNotification('Invalid policy data format', 'error');
+        return;
+    }
+    
+    // Create policy object with temporary ID
+    const tempId = 'policy_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+    
+    const policyType = policyData.policy_type || 'admin';
+    
+    // Generate policy code if category is selected
+    const policyCode = categoryId ? generatePolicyCode(categoryId, tempId, policyType) : null;
+    
+    const newPolicy = {
+        id: tempId,
+        title: policyTitle, // Use the manually entered title
+        type: policyType,
+        clinics: policyData.applies_to || 'All Organizations',
+        content: policyData.markdown || '',
+        effectiveDate: policyData.effective_date || new Date().toISOString().split('T')[0],
+        version: policyData.version || '1.0',
+        approvedBy: policyData.approved_by || 'Administrator',
+        company: currentCompany,
+        created: new Date().toISOString(),
+        updated: new Date().toISOString(),
+        generatedBy: 'Webhook',
+        categoryId: categoryId,
+        policyCode: policyCode
+    };
+    
+    // Save the policy
+    if (!currentCompany) {
+        showNotification('Please log in first', 'error');
+        return;
+    }
+    
+    const companyPolicies = loadCompanyPolicies();
+    companyPolicies.push(newPolicy);
+    localStorage.setItem(`policies_${currentCompany}`, JSON.stringify(companyPolicies));
+    
+    showNotification('Policy saved successfully!', 'success');
+    
+    // Add notification to notification center
+    const webhookPolicyTitle = webhookPolicy.policy_title || webhookPolicy.title || 'AI-Generated Policy';
+    addNotification(`New policy "${webhookPolicyTitle}" has been published`, 'success');
+    
+    closeAIModal();
+    
+    // Reload policies if on admin dashboard
+    if (typeof loadMainPoliciesFromStorage === 'function') {
+        loadMainPoliciesFromStorage();
+        displayMainPolicies();
+    }
+}
+
+// Draft Management Functions
+function storeDraft() {
+    const policy = window.currentGeneratedPolicy;
+    if (!policy) return;
+    
+    // Check if we're editing an existing draft
+    if (window.editingDraftId) {
+        // Update existing draft
+        const existingDraftIndex = draftPolicies.findIndex(d => d.id === window.editingDraftId);
+        if (existingDraftIndex !== -1) {
+            draftPolicies[existingDraftIndex] = {
+                ...draftPolicies[existingDraftIndex],
+                title: policy.title,
+                type: policy.type,
+                clinics: policy.clinics,
+                content: policy,
+                updated: new Date().toISOString().split('T')[0]
+            };
+            showNotification('Draft updated successfully!', 'success');
+        }
+        window.editingDraftId = null; // Clear editing flag
+    } else {
+        // Create new draft
+    const draft = {
+        id: Date.now(),
+        title: policy.title,
+        type: policy.type,
+        clinics: policy.clinics,
+        content: policy,
+        company: currentCompany || 'Default Company', // Assign to current company
+        created: new Date().toISOString().split('T')[0],
+        status: 'draft'
+    };
+    
+    draftPolicies.unshift(draft);
+        showNotification('Draft saved successfully!', 'success');
+    }
+    
+    // Save to localStorage to persist across sessions
+    saveToLocalStorage('draftPolicies', draftPolicies);
+    
+    displayDrafts();
+    updateStats();
+    closeAIModal();
+}
+
+function displayDrafts() {
+    // Only display drafts in admin dashboard, not on main page
+    // Check for admin draft list instead of main page draft list
+    const adminDraftList = document.getElementById('adminDraftList');
+    if (!adminDraftList) {
+        // If admin draft list doesn't exist, this is being called from main page - skip it
+        return;
+    }
+    
+    // Use admin draft list
+    const draftList = adminDraftList;
+    
+    // Filter drafts by company
+    const companyDrafts = currentCompany ? 
+        draftPolicies.filter(draft => draft.company === currentCompany || !draft.company) : 
+        draftPolicies;
+    
+    if (companyDrafts.length === 0) {
+        draftList.innerHTML = '<p class="no-drafts">No draft policies available.</p>';
+        return;
+    }
+    
+    draftList.innerHTML = companyDrafts.map(draft => `
+        <div class="draft-item">
+            <div class="draft-info">
+                <h4>${draft.title}</h4>
+                <p>${getTypeLabel(draft.type)} • Created: ${formatDate(draft.created)}</p>
+            </div>
+            <div class="draft-actions">
+                <button class="draft-btn edit" onclick="editDraft(${draft.id})">Edit</button>
+                <button class="draft-btn publish" onclick="publishDraft(${draft.id})">Publish</button>
+                <button class="draft-btn delete" onclick="deleteDraft(${draft.id})">Delete</button>
+            </div>
+        </div>
+    `).join('');
+}
+
+function editDraft(draftId) {
+    const draft = draftPolicies.find(d => d.id === draftId);
+    if (!draft) return;
+    
+    // Open AI modal with pre-filled data
+    openAIModal();
+    
+    // Pre-fill the form with draft data
+    document.getElementById('aiPolicyTopic').value = draft.title;
+    document.getElementById('aiPolicyType').value = draft.type;
+    document.getElementById('aiClinicApplicability').value = draft.clinics;
+    
+    // Store the draft ID for updating
+    window.editingDraftId = draftId;
+}
+
+function publishDraft(draftId) {
+    const draft = draftPolicies.find(d => d.id === draftId);
+    if (!draft) return;
+    
+    const newPolicy = {
+        id: currentPolicies.length + 1,
+        title: draft.title,
+        type: draft.type,
+        clinics: draft.clinics,
+        description: draft.content.purpose || draft.content.objective || draft.content.message,
+        created: new Date().toISOString().split('T')[0],
+        updated: new Date().toISOString().split('T')[0]
+    };
+    
+    currentPolicies.unshift(newPolicy);
+    saveToLocalStorage('currentPolicies', currentPolicies);
+    deleteDraft(draftId);
+    displayPolicies(currentPolicies);
+    updateStats();
+    
+    showNotification('Draft published successfully!', 'success');
+    
+    // Add notification to notification center
+    addNotification(`Draft "${newPolicy.title}" has been published as a policy`, 'success');
+}
+
+function deleteDraft(draftId) {
+    draftPolicies = draftPolicies.filter(d => d.id !== draftId);
+    saveToLocalStorage('draftPolicies', draftPolicies);
+    displayDrafts();
+    updateStats();
+    
+    showNotification('Draft deleted successfully!', 'success');
+}
+
+// Old regeneratePolicy function removed - replaced with new one below
+// Enhanced AI Policy Generation with Better Formatting
+function formatPolicyContent(content, type) {
+    // Helper function to safely get content or show fallback
+    const getContent = (field, fallback = 'Content will be generated by AI') => {
+        return content[field] && content[field] !== 'undefined' ? content[field] : fallback;
+    };
+    
+    // Helper function to create editable content
+    const createEditableContent = (field, value, label, icon) => {
+        return `
+        <div class="policy-section editable-section" data-field="${field}">
+            <h5><i class="fas ${icon}"></i> ${label}</h5>
+            <div class="policy-content editable-content" contenteditable="true" data-field="${field}">
+                ${value}
+            </div>
+            <div class="edit-actions" style="display: none;">
+                <button class="btn btn-sm btn-success" onclick="savePolicyField('${field}')">
+                    <i class="fas fa-save"></i> Save
+                </button>
+                <button class="btn btn-sm btn-secondary" onclick="cancelPolicyEdit('${field}')">
+                    <i class="fas fa-times"></i> Cancel
+                </button>
+            </div>
+        </div>`;
+    };
+    
+    if (type === 'admin') {
+        return `
+        <div class="policy-preview professional">
+            <div class="policy-header">
+                <h4>${getContent('title', 'AI-Generated Admin Policy')}</h4>
+                <span class="policy-type-badge admin">Admin Policy</span>
+            </div>
+            
+            <div class="policy-meta">
+                <div class="meta-item"><strong>Effective Date:</strong> ${getContent('effectiveDate', new Date().toISOString().split('T')[0])}</div>
+                <div class="meta-item"><strong>Last Reviewed:</strong> ${getContent('lastReviewed', new Date().toISOString().split('T')[0])}</div>
+                <div class="meta-item"><strong>Approved By:</strong> ${getContent('approvedBy', 'CSI Clinical Director')}</div>
+                <div class="meta-item"><strong>Version:</strong> ${getContent('version', '1.0')}</div>
+            </div>
+            
+            ${createEditableContent('purpose', getContent('purpose', 'This policy establishes guidelines and procedures for the specified topic.'), 'Purpose', 'fa-info-circle')}
+            
+            ${createEditableContent('scope', getContent('scope', 'This policy applies to all staff and operations within CSI facilities.'), 'Scope', 'fa-scope')}
+            
+            ${createEditableContent('policyStatement', getContent('policyStatement', 'It is the policy of CSI to ensure compliance with established procedures and guidelines.'), 'Policy Statement', 'fa-gavel')}
+            
+            ${createEditableContent('definitions', getContent('definitions', 'Key terms and definitions will be provided as needed.'), 'Definitions', 'fa-book')}
+            
+            ${createEditableContent('procedures', getContent('procedures', 'Detailed procedures will be outlined based on the specific policy requirements.'), 'Procedure / Implementation', 'fa-cogs')}
+            
+            ${createEditableContent('responsibilities', getContent('responsibilities', 'All staff members are responsible for following this policy.'), 'Responsibilities', 'fa-users')}
+            
+            ${createEditableContent('consequences', getContent('consequences', 'Non-compliance will result in appropriate disciplinary action.'), 'Consequences / Accountability', 'fa-shield-alt')}
+            
+            ${createEditableContent('relatedDocuments', getContent('relatedDocuments', 'Related policies and procedures will be referenced as applicable.'), 'Related Documents', 'fa-folder')}
+            
+            ${createEditableContent('reviewApproval', getContent('reviewApproval', 'This policy will be reviewed annually and updated as necessary.'), 'Review & Approval', 'fa-check-circle')}
+        </div>`;
+    } else if (type === 'sog') {
+        return `
+        <div class="policy-preview professional">
+            <div class="policy-header">
+                <h4>${getContent('title', 'AI-Generated SOG')}</h4>
+                <span class="policy-type-badge sog">Standard Operating Guidelines</span>
+            </div>
+            
+            <div class="policy-meta">
+                <div class="meta-item"><strong>Effective Date:</strong> ${getContent('effectiveDate', new Date().toISOString().split('T')[0])}</div>
+                <div class="meta-item"><strong>Author:</strong> ${getContent('author', 'CSI Clinical Staff')}</div>
+                <div class="meta-item"><strong>Approved By:</strong> ${getContent('approvedBy', 'CSI Medical Director')}</div>
+                <div class="meta-item"><strong>Version:</strong> ${getContent('version', '1.0')}</div>
+            </div>
+            
+            ${createEditableContent('objective', getContent('objective', 'To establish standardized operating guidelines for consistent, high-quality operations.'), 'Objective', 'fa-target')}
+            
+            ${createEditableContent('principles', getContent('principles', 'Safety, quality, and compliance guide all operations.'), 'Guiding Principles', 'fa-compass')}
+            
+            ${createEditableContent('procedures', getContent('procedures', 'Detailed procedures will be outlined based on the specific guidelines.'), 'Recommended Approach / Procedure', 'fa-route')}
+            
+            ${createEditableContent('definitions', getContent('definitions', 'Key terms and definitions will be provided as needed.'), 'Definitions', 'fa-book')}
+            
+            ${createEditableContent('examples', getContent('examples', 'Practical examples and scenarios will be provided for guidance.'), 'Examples / Scenarios', 'fa-lightbulb')}
+            
+            ${createEditableContent('responsibilities', getContent('responsibilities', 'All staff members are responsible for following these guidelines.'), 'Responsibilities', 'fa-users')}
+            
+            ${createEditableContent('escalation', getContent('escalation', 'Contact immediate supervisor for guidance and support.'), 'Escalation / Support', 'fa-phone')}
+            
+            ${createEditableContent('review', getContent('review', 'This guideline will be reviewed bi-annually and updated as necessary.'), 'Review & Revision', 'fa-sync')}
+        </div>`;
+    } else {
+        return `
+        <div class="policy-preview professional">
+            <div class="policy-header">
+                <h4>${getContent('title', 'AI-Generated Communication Memo')}</h4>
+                <span class="policy-type-badge memo">Communication Memo</span>
+            </div>
+            
+            <div class="policy-meta">
+                <div class="meta-item"><strong>Date:</strong> ${getContent('date', new Date().toISOString().split('T')[0])}</div>
+                <div class="meta-item"><strong>From:</strong> ${getContent('from', 'CSI Management')}</div>
+                <div class="meta-item"><strong>To:</strong> ${getContent('to', 'All Staff')}</div>
+                <div class="meta-item"><strong>Subject:</strong> ${getContent('subject', 'Important Communication')}</div>
+            </div>
+            
+            ${createEditableContent('message', getContent('message', 'This communication memo contains important information for all staff members.'), 'Message', 'fa-envelope')}
+            
+            ${createEditableContent('effectivePeriod', getContent('effectivePeriod', 'Effective immediately and ongoing until further notice.'), 'Effective Period (if applicable)', 'fa-calendar')}
+            
+            ${createEditableContent('nextSteps', getContent('nextSteps', 'Please review this communication and implement as directed.'), 'Next Steps / Action Required', 'fa-list-check')}
+            
+            ${createEditableContent('contact', getContent('contact', 'Contact your immediate supervisor for any questions or clarifications.'), 'Contact for Questions', 'fa-phone')}
+        </div>`;
+    }
+}
+
+// Update AI form fields based on policy type selection
+function updateAIFormFields() {
+    const policyType = document.getElementById('aiPolicyType').value;
+    const dynamicFields = document.getElementById('dynamicAIFormFields');
+    
+    if (!policyType) {
+        dynamicFields.innerHTML = '';
+        return;
+    }
+    
+    let fieldsHTML = '';
+    
+    if (policyType === 'admin') {
+        // LEVEL 1 - ADMIN POLICY HEADERS
+        fieldsHTML = `
+            <div class="form-group">
+                <label for="aiEffectiveDate">Effective Date</label>
+                <input type="date" id="aiEffectiveDate" required>
+            </div>
+            <div class="form-group">
+                <label for="aiLastReviewed">Last Reviewed</label>
+                <input type="date" id="aiLastReviewed" required>
+            </div>
+            <div class="form-group">
+                <label for="aiApprovedBy">Approved By</label>
+                <input type="text" id="aiApprovedBy" placeholder="CSI Clinical Director" required>
+            </div>
+            <div class="form-group">
+                <label for="aiVersion">Version #</label>
+                <input type="text" id="aiVersion" placeholder="1.0" required>
+            </div>
+            <div class="form-group">
+                <label for="aiPurpose">Purpose</label>
+                <textarea id="aiPurpose" rows="3" placeholder="Describe the purpose and objectives of this policy..."></textarea>
+            </div>
+            <div class="form-group">
+                <label for="aiScope">Scope</label>
+                <textarea id="aiScope" rows="3" placeholder="Define the scope and applicability of this policy..."></textarea>
+            </div>
+            <div class="form-group">
+                <label for="aiPolicyStatement">Policy Statement</label>
+                <textarea id="aiPolicyStatement" rows="3" placeholder="State the official policy statement..."></textarea>
+            </div>
+            <div class="form-group">
+                <label for="aiDefinitions">Definitions</label>
+                <textarea id="aiDefinitions" rows="3" placeholder="Define key terms and concepts used in this policy..."></textarea>
+            </div>
+            <div class="form-group">
+                <label for="aiProcedure">Procedure / Implementation</label>
+                <textarea id="aiProcedure" rows="5" placeholder="Describe the detailed procedures and implementation steps..."></textarea>
+            </div>
+            <div class="form-group">
+                <label for="aiRoles">Responsibilities</label>
+                <textarea id="aiRoles" rows="4" placeholder="Define roles and responsibilities for different staff members..."></textarea>
+            </div>
+            <div class="form-group">
+                <label for="aiCompliance">Consequences / Accountability</label>
+                <textarea id="aiCompliance" rows="3" placeholder="Describe compliance requirements and accountability measures..."></textarea>
+            </div>
+            <div class="form-group">
+                <label for="aiRelatedDocuments">Related Documents</label>
+                <textarea id="aiRelatedDocuments" rows="2" placeholder="List related policies, procedures, or reference documents..."></textarea>
+            </div>
+            <div class="form-group">
+                <label for="aiReviewApproval">Review & Approval</label>
+                <textarea id="aiReviewApproval" rows="2" placeholder="Define review schedule and approval process..."></textarea>
+            </div>
+        `;
+    } else if (policyType === 'sog') {
+        // LEVEL 2 - STANDARD OPERATING GUIDELINE HEADERS
+        fieldsHTML = `
+            <div class="form-group">
+                <label for="aiEffectiveDate">Effective Date</label>
+                <input type="date" id="aiEffectiveDate" required>
+            </div>
+            <div class="form-group">
+                <label for="aiAuthor">Author</label>
+                <input type="text" id="aiAuthor" placeholder="CSI Clinical Staff" required>
+            </div>
+            <div class="form-group">
+                <label for="aiApprovedBy">Approved By</label>
+                <input type="text" id="aiApprovedBy" placeholder="CSI Medical Director" required>
+            </div>
+            <div class="form-group">
+                <label for="aiVersion">Version #</label>
+                <input type="text" id="aiVersion" placeholder="1.0" required>
+            </div>
+            <div class="form-group">
+                <label for="aiObjective">Objective</label>
+                <textarea id="aiObjective" rows="3" placeholder="Define the objective and goals of these guidelines..."></textarea>
+            </div>
+            <div class="form-group">
+                <label for="aiPrinciples">Guiding Principles</label>
+                <textarea id="aiPrinciples" rows="3" placeholder="List the guiding principles that inform these guidelines..."></textarea>
+            </div>
+            <div class="form-group">
+                <label for="aiProcedure">Recommended Approach / Procedure</label>
+                <textarea id="aiProcedure" rows="5" placeholder="Describe the recommended approach and procedures..."></textarea>
+            </div>
+            <div class="form-group">
+                <label for="aiDefinitions">Definitions</label>
+                <textarea id="aiDefinitions" rows="3" placeholder="Define key terms and concepts used in these guidelines..."></textarea>
+            </div>
+            <div class="form-group">
+                <label for="aiExamples">Examples / Scenarios</label>
+                <textarea id="aiExamples" rows="4" placeholder="Provide examples and scenarios to illustrate the guidelines..."></textarea>
+            </div>
+            <div class="form-group">
+                <label for="aiRoles">Responsibilities</label>
+                <textarea id="aiRoles" rows="4" placeholder="Define roles and responsibilities for different staff members..."></textarea>
+            </div>
+            <div class="form-group">
+                <label for="aiEscalation">Escalation / Support</label>
+                <textarea id="aiEscalation" rows="3" placeholder="Describe escalation procedures and support resources..."></textarea>
+            </div>
+            <div class="form-group">
+                <label for="aiReview">Review & Revision</label>
+                <textarea id="aiReview" rows="2" placeholder="Define review schedule and revision process..."></textarea>
+            </div>
+        `;
+    } else if (policyType === 'memo') {
+        // LEVEL 3 - COMMUNICATION MEMO HEADERS
+        fieldsHTML = `
+            <div class="form-group">
+                <label for="aiDate">Date</label>
+                <input type="date" id="aiDate" required>
+            </div>
+            <div class="form-group">
+                <label for="aiFrom">From</label>
+                <input type="text" id="aiFrom" placeholder="CSI Management" required>
+            </div>
+            <div class="form-group">
+                <label for="aiTo">To</label>
+                <input type="text" id="aiTo" placeholder="All Staff" required>
+            </div>
+            <div class="form-group">
+                <label for="aiSubject">Subject</label>
+                <input type="text" id="aiSubject" placeholder="Enter the subject line for this memo..." required>
+            </div>
+            <div class="form-group">
+                <label for="aiMessage">Message</label>
+                <textarea id="aiMessage" rows="6" placeholder="Write the main message content for this memo..."></textarea>
+            </div>
+            <div class="form-group">
+                <label for="aiEffectivePeriod">Effective Period (if applicable)</label>
+                <textarea id="aiEffectivePeriod" rows="2" placeholder="Define when this memo is effective and any expiration dates..."></textarea>
+            </div>
+            <div class="form-group">
+                <label for="aiNextSteps">Next Steps / Action Required</label>
+                <textarea id="aiNextSteps" rows="3" placeholder="List the next steps and actions required from recipients..."></textarea>
+            </div>
+            <div class="form-group">
+                <label for="aiContact">Contact for Questions</label>
+                <textarea id="aiContact" rows="2" placeholder="Provide contact information for questions about this memo..."></textarea>
+            </div>
+        `;
+    }
+    
+    dynamicFields.innerHTML = fieldsHTML;
+    
+    // Set default dates
+    const today = new Date().toISOString().split('T')[0];
+    const dateInputs = dynamicFields.querySelectorAll('input[type="date"]');
+    dateInputs.forEach(input => {
+        input.value = today;
+    });
+}
+
+// Update manual form fields based on policy type selection
+function updateManualFormFields() {
+    const policyType = document.getElementById('policyType').value;
+    const dynamicFields = document.getElementById('dynamicManualFormFields');
+    
+    if (!policyType) {
+        dynamicFields.innerHTML = '';
+        return;
+    }
+    
+    let fieldsHTML = '';
+    
+    if (policyType === 'admin') {
+        // LEVEL 1 - ADMIN POLICY HEADERS
+        fieldsHTML = `
+            <div class="form-group">
+                <label for="effectiveDate">Effective Date</label>
+                <input type="date" id="effectiveDate">
+            </div>
+            <div class="form-group">
+                <label for="lastReviewed">Last Reviewed</label>
+                <input type="date" id="lastReviewed">
+            </div>
+            <div class="form-group">
+                <label for="approvedBy">Approved By</label>
+                <input type="text" id="approvedBy" placeholder="CSI Clinical Director">
+            </div>
+            <div class="form-group">
+                <label for="version">Version #</label>
+                <input type="text" id="version" placeholder="1.0">
+            </div>
+            <div class="form-group">
+                <label for="purpose">Purpose</label>
+                <textarea id="purpose" rows="3"></textarea>
+            </div>
+            <div class="form-group">
+                <label for="scope">Scope</label>
+                <textarea id="scope" rows="3"></textarea>
+            </div>
+            <div class="form-group">
+                <label for="policyStatement">Policy Statement</label>
+                <textarea id="policyStatement" rows="3"></textarea>
+            </div>
+            <div class="form-group">
+                <label for="definitions">Definitions</label>
+                <textarea id="definitions" rows="3"></textarea>
+            </div>
+            <div class="form-group">
+                <label for="procedure">Procedure / Implementation</label>
+                <textarea id="procedure" rows="5"></textarea>
+            </div>
+            <div class="form-group">
+                <label for="roles">Responsibilities</label>
+                <textarea id="roles" rows="4"></textarea>
+            </div>
+            <div class="form-group">
+                <label for="compliance">Consequences / Accountability</label>
+                <textarea id="compliance" rows="3"></textarea>
+            </div>
+            <div class="form-group">
+                <label for="relatedDocuments">Related Documents</label>
+                <textarea id="relatedDocuments" rows="2"></textarea>
+            </div>
+            <div class="form-group">
+                <label for="reviewApproval">Review & Approval</label>
+                <textarea id="reviewApproval" rows="2"></textarea>
+            </div>
+        `;
+    } else if (policyType === 'sog') {
+        // LEVEL 2 - STANDARD OPERATING GUIDELINE HEADERS
+        fieldsHTML = `
+            <div class="form-group">
+                <label for="effectiveDate">Effective Date</label>
+                <input type="date" id="effectiveDate">
+            </div>
+            <div class="form-group">
+                <label for="author">Author</label>
+                <input type="text" id="author" placeholder="CSI Clinical Staff">
+            </div>
+            <div class="form-group">
+                <label for="approvedBy">Approved By</label>
+                <input type="text" id="approvedBy" placeholder="CSI Medical Director">
+            </div>
+            <div class="form-group">
+                <label for="version">Version #</label>
+                <input type="text" id="version" placeholder="1.0">
+            </div>
+            <div class="form-group">
+                <label for="objective">Objective</label>
+                <textarea id="objective" rows="3"></textarea>
+            </div>
+            <div class="form-group">
+                <label for="principles">Guiding Principles</label>
+                <textarea id="principles" rows="3"></textarea>
+            </div>
+            <div class="form-group">
+                <label for="procedure">Recommended Approach / Procedure</label>
+                <textarea id="procedure" rows="5"></textarea>
+            </div>
+            <div class="form-group">
+                <label for="definitions">Definitions</label>
+                <textarea id="definitions" rows="3"></textarea>
+            </div>
+            <div class="form-group">
+                <label for="examples">Examples / Scenarios</label>
+                <textarea id="examples" rows="4"></textarea>
+            </div>
+            <div class="form-group">
+                <label for="roles">Responsibilities</label>
+                <textarea id="roles" rows="4"></textarea>
+            </div>
+            <div class="form-group">
+                <label for="escalation">Escalation / Support</label>
+                <textarea id="escalation" rows="3"></textarea>
+            </div>
+            <div class="form-group">
+                <label for="review">Review & Revision</label>
+                <textarea id="review" rows="2"></textarea>
+            </div>
+        `;
+    } else if (policyType === 'memo') {
+        // LEVEL 3 - COMMUNICATION MEMO HEADERS
+        fieldsHTML = `
+            <div class="form-group">
+                <label for="date">Date</label>
+                <input type="date" id="date">
+            </div>
+            <div class="form-group">
+                <label for="from">From</label>
+                <input type="text" id="from" placeholder="CSI Management">
+            </div>
+            <div class="form-group">
+                <label for="to">To</label>
+                <input type="text" id="to" placeholder="All Staff">
+            </div>
+            <div class="form-group">
+                <label for="subject">Subject</label>
+                <input type="text" id="subject">
+            </div>
+            <div class="form-group">
+                <label for="message">Message</label>
+                <textarea id="message" rows="6"></textarea>
+            </div>
+            <div class="form-group">
+                <label for="effectivePeriod">Effective Period (if applicable)</label>
+                <textarea id="effectivePeriod" rows="2"></textarea>
+            </div>
+            <div class="form-group">
+                <label for="nextSteps">Next Steps / Action Required</label>
+                <textarea id="nextSteps" rows="3"></textarea>
+            </div>
+            <div class="form-group">
+                <label for="contact">Contact for Questions</label>
+                <textarea id="contact" rows="2"></textarea>
+            </div>
+        `;
+    }
+    
+    dynamicFields.innerHTML = fieldsHTML;
+    
+    // Set default dates
+    const today = new Date().toISOString().split('T')[0];
+    const dateInputs = dynamicFields.querySelectorAll('input[type="date"]');
+    dateInputs.forEach(input => {
+        input.value = today;
+    });
+    
+    // Update policy code when policy type changes
+    updateManualPolicyCode();
+}
+
+// Survey step navigation functions
+function nextStep(stepNumber) {
+    // Hide current step
+    document.querySelector('.survey-step.active').classList.remove('active');
+    // Show next step
+    document.getElementById(`step${stepNumber}`).classList.add('active');
+}
+
+function prevStep(stepNumber) {
+    // Hide current step
+    document.querySelector('.survey-step.active').classList.remove('active');
+    // Show previous step
+    document.getElementById(`step${stepNumber}`).classList.add('active');
+}
+
+function generatePolicyFromSurvey() {
+    const topic = document.getElementById('aiPolicyTopic').value;
+    const type = document.getElementById('aiPolicyType').value;
+    const clinics = Array.from(document.querySelectorAll('input[name="clinics"]:checked')).map(cb => cb.value);
+    const specificNeeds = document.getElementById('aiSpecificNeeds').value;
+    const urgency = document.getElementById('aiUrgency').value;
+    const regulations = document.getElementById('aiRegulations').value;
+    const existingPolicies = document.getElementById('aiExistingPolicies').value;
+    const specialConsiderations = document.getElementById('aiSpecialConsiderations').value;
+    const useChatGPT = document.getElementById('useChatGPT').checked;
+
+    // Show loading with research simulation
+    document.getElementById('aiSurveyForm').style.display = 'none';
+    document.getElementById('aiLoading').style.display = 'block';
+    document.getElementById('aiResult').style.display = 'none';
+    
+    // Different loading messages based on AI mode
+    const loadingMessages = useChatGPT ? [
+        "Connecting to ChatGPT API...",
+        "Analyzing policy requirements with advanced AI...",
+        "Researching industry best practices...",
+        "Generating comprehensive policy content...",
+        "Formatting with CSI-specific headers...",
+        "Finalizing professional document..."
+    ] : [
+        "AI is analyzing your specific needs and requirements...",
+        "Researching latest industry best practices and standards...",
+        "Analyzing regulatory compliance requirements...",
+        "Cross-referencing with existing CSI policies...",
+        "Generating comprehensive policy framework...",
+        "Incorporating veterinary industry standards (AAHA, AVMA)...",
+        "Optimizing for clinic-specific implementation...",
+        "Formatting with professional CSI headers...",
+        "Finalizing policy structure and content..."
+    ];
+    
+    let messageIndex = 0;
+    const messageInterval = setInterval(() => {
+        const loadingText = document.querySelector('.ai-loading p');
+        if (loadingText && messageIndex < loadingMessages.length) {
+            loadingText.textContent = loadingMessages[messageIndex];
+            messageIndex++;
+        }
+    }, 500);
+
+    // Generate policy based on selected AI mode
+    if (useChatGPT) {
+        // Use ChatGPT for generation
+        setTimeout(async () => {
+            clearInterval(messageInterval);
+            try {
+                const generatedPolicy = await generatePolicyWithChatGPT(topic, type, clinics, specificNeeds, urgency, regulations, existingPolicies, specialConsiderations);
+                displayAIPolicy(generatedPolicy);
+            } catch (error) {
+                console.error('ChatGPT generation failed:', error);
+                // Fallback to local AI
+                const generatedPolicy = generatePolicyFromSurveyData(topic, type, clinics, specificNeeds, urgency, regulations, existingPolicies, specialConsiderations);
+                displayAIPolicy(generatedPolicy);
+            }
+        }, 4000);
+    } else {
+        // Use local AI generation
+        setTimeout(() => {
+            clearInterval(messageInterval);
+            const generatedPolicy = generatePolicyFromSurveyData(topic, type, clinics, specificNeeds, urgency, regulations, existingPolicies, specialConsiderations);
+            displayAIPolicy(generatedPolicy);
+        }, 3000);
+    }
+}
+
+function toggleAIMode() {
+    const useChatGPT = document.getElementById('useChatGPT').checked;
+    const modeInfo = document.getElementById('aiModeInfo');
+    
+    if (useChatGPT) {
+        modeInfo.innerHTML = '<small>ChatGPT: Más avanzado, requiere conexión a internet</small>';
+        modeInfo.style.color = '#28a745';
+    } else {
+        modeInfo.innerHTML = '<small>Local AI: Rápido, seguro, funciona sin internet</small>';
+        modeInfo.style.color = '#6c757d';
+    }
+}
+
+// Enhanced Policy Generation with Advanced AI Logic
+function generateAdvancedPolicyFromSurveyData(topic, type, clinics, specificNeeds, urgency, regulations, existingPolicies, specialConsiderations) {
+    const clinicNames = getClinicNames(clinics).join(', ');
+    const typeLabel = getTypeLabel(type);
+    const currentDate = new Date().toISOString().split('T')[0];
+    
+    // Advanced AI analysis of survey data
+    const urgencyLevel = analyzeUrgency(urgency);
+    const regulatoryCompliance = analyzeRegulations(regulations);
+    const policyContext = analyzePolicyContext(topic, specificNeeds, specialConsiderations);
+    
+    // Combine all survey data into comprehensive requirements with AI analysis
+    const combinedRequirements = [
+        specificNeeds,
+        urgencyLevel,
+        regulatoryCompliance,
+        existingPolicies ? `Existing policies: ${existingPolicies}` : '',
+        specialConsiderations ? `Special considerations: ${specialConsiderations}` : '',
+        policyContext
+    ].filter(Boolean).join('. ');
+    
+    // Generate comprehensive, topic-specific policy content with proper CSI headers
+    const policyContent = generateCSIPolicyWithHeaders(topic, type, combinedRequirements, currentDate, specificNeeds, existingPolicies);
+    
+    return {
+        ...policyContent,
+        type: type,
+        clinics: clinics,
+        additionalRequirements: combinedRequirements,
+        keyPoints: specificNeeds,
+        previousDocuments: existingPolicies,
+        clinicNames: clinicNames,
+        typeLabel: typeLabel,
+        urgency: urgency,
+        regulations: regulations
+    };
+}
+
+// ChatGPT Integration Functions
+async function generatePolicyWithChatGPT(topic, type, clinics, specificNeeds, urgency, regulations, existingPolicies, specialConsiderations) {
+    const clinicNames = getClinicNames(clinics).join(', ');
+    const typeLabel = getTypeLabel(type);
+    const currentDate = new Date().toISOString().split('T')[0];
+    
+    // Create a comprehensive prompt for ChatGPT
+    const prompt = createChatGPTPrompt(topic, type, clinics, specificNeeds, urgency, regulations, existingPolicies, specialConsiderations);
+    
+    try {
+        // Call ChatGPT API
+        const response = await callChatGPTAPI(prompt);
+        
+        // Parse the response and create policy object
+        const policyContent = parseChatGPTResponse(response, type, currentDate);
+        
+        return {
+            ...policyContent,
+            type: type,
+            clinics: clinics,
+            additionalRequirements: specificNeeds,
+            keyPoints: specificNeeds,
+            previousDocuments: existingPolicies,
+            clinicNames: clinicNames,
+            typeLabel: typeLabel,
+            urgency: urgency,
+            regulations: regulations,
+            generatedBy: 'ChatGPT'
+        };
+    } catch (error) {
+        console.error('ChatGPT API Error:', error);
+        // Fallback to local AI generation
+        return generateAdvancedPolicyFromSurveyData(topic, type, clinics, specificNeeds, urgency, regulations, existingPolicies, specialConsiderations);
+    }
+}
+
+function createChatGPTPrompt(topic, type, clinics, specificNeeds, urgency, regulations, existingPolicies, specialConsiderations) {
+    const clinicNames = getClinicNames(clinics).join(', ');
+    const typeLabel = getTypeLabel(type);
+    
+    let prompt = `You are a healthcare policy expert creating a professional ${typeLabel} for CSI (Clinical Services Inc.) veterinary clinics. 
+
+TOPIC: ${topic}
+TYPE: ${typeLabel}
+CLINICS: ${clinicNames}
+URGENCY: ${urgency}
+REGULATIONS: ${regulations}
+SPECIFIC NEEDS: ${specificNeeds}
+EXISTING POLICIES: ${existingPolicies}
+SPECIAL CONSIDERATIONS: ${specialConsiderations}
+
+Please create a comprehensive, professional policy document with the following structure:`;
+
+    if (type === 'admin') {
+        prompt += `
+
+LEVEL 1 — ADMIN POLICY HEADERS:
+• Document Title / Header Info
+• Effective Date
+• Last Reviewed  
+• Approved By
+• Version #
+• Purpose
+• Scope
+• Policy Statement
+• Definitions
+• Procedure / Implementation
+• Responsibilities
+• Consequences / Accountability
+• Related Documents
+• Review & Approval
+
+Make sure each section contains detailed, specific content relevant to veterinary healthcare operations.`;
+    } else if (type === 'sog') {
+        prompt += `
+
+LEVEL 2 — STANDARD OPERATING GUIDELINE (SOG) HEADERS:
+• SOG Title / Header Info
+• Effective Date
+• Author
+• Approved By
+• Version #
+• Objective
+• Guiding Principles
+• Recommended Approach / Procedure
+• Definitions
+• Examples / Scenarios
+• Responsibilities
+• Escalation / Support
+• Review & Revision
+
+Provide step-by-step procedures and practical examples for veterinary staff.`;
+    } else {
+        prompt += `
+
+LEVEL 3 — COMMUNICATION MEMO HEADERS:
+• CSI Communication Memo Header
+• Date
+• From
+• To
+• Subject
+• Message
+• Effective Period (if applicable)
+• Next Steps / Action Required
+• Contact for Questions
+
+Create a clear, actionable communication for all staff members.`;
+    }
+
+    prompt += `
+
+IMPORTANT: 
+- Use professional healthcare language appropriate for veterinary clinics
+- Include specific procedures and protocols
+- Reference relevant regulations (OSHA, HIPAA, AAHA, AVMA, DEA) where applicable
+- Make content actionable and practical for daily operations
+- Ensure compliance with veterinary industry standards
+
+Please format your response as a structured policy document with clear headings and detailed content for each section.`;
+
+    return prompt;
+}
+
+// Updated to use webhook instead of direct ChatGPT API
+async function callChatGPTAPI(prompt, additionalData = {}) {
+    const POLICY_GENERATION_WEBHOOK = 'https://jackwilde.app.n8n.cloud/webhook/cc526f0d-ccd1-4b6c-b8db-67c5c1cd19a4';
+    
+    console.log('Calling policy generation webhook...');
+    console.log('Current company:', currentCompany);
+    
+    try {
+        // Prepare webhook payload with prompt and any additional data
+        const payload = {
+            type: 'policygeneration',
+            data: {
+                prompt: prompt,
+                ...additionalData,
+                company: currentCompany || null,
+                user: currentUser ? {
+                    username: currentUser.username,
+                    email: currentUser.email
+                } : null
+            },
+            timestamp: new Date().toISOString()
+        };
+        
+        console.log('Sending to webhook:', payload);
+        const response = await fetch(POLICY_GENERATION_WEBHOOK, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(payload)
+        });
+
+        if (!response.ok) {
+            console.error('Webhook request failed:', response.status, response.statusText);
+            throw new Error(`Webhook request failed: ${response.status} ${response.statusText}`);
+        }
+
+        const data = await response.json();
+        console.log('Webhook response received:', data);
+        
+        // Return in format expected by calling code
+        // Wrap response to match ChatGPT API format
+        const content = data.policy || data.content || data.markdown || JSON.stringify(data);
+        return {
+            choices: [{
+                message: {
+                    content: content
+                }
+            }]
+        };
+    } catch (error) {
+        console.error('Webhook Error:', error);
+        throw new Error(`Failed to generate policy: ${error.message}`);
+    }
+}
+
+// Webhook loading indicator functions
+function showWebhookLoading() {
+    console.log('Showing webhook loading indicator');
+    // Keep the AI loading screen visible
+    document.getElementById('aiLoading').style.display = 'block';
+    const loadingText = document.getElementById('aiLoading').querySelector('p');
+    if (loadingText) {
+        loadingText.textContent = 'AI generating your policy...';
+    }
+}
+
+function hideWebhookLoading() {
+    console.log('Hiding webhook loading indicator');
+    // Webhook complete - now show the policy results
+    document.getElementById('aiLoading').style.display = 'none';
+}
+
+function displayWebhookResponse(webhookResponse) {
+    const loadingEl = document.getElementById('aiLoading');
+    const resultEl = document.getElementById('aiResult');
+    if (loadingEl) loadingEl.style.display = 'none';
+    if (resultEl) resultEl.style.display = 'block';
+    
+    let responseData = webhookResponse;
+    if (typeof webhookResponse === 'string') {
+        try {
+            responseData = JSON.parse(webhookResponse);
+        } catch (error) {
+            responseData = webhookResponse;
+        }
+    }
+    
+    const aiGeneratedContent = document.getElementById('aiGeneratedContent');
+    if (!aiGeneratedContent) return;
+    
+    let displayContent = '';
+    
+    if (Array.isArray(responseData) && responseData.length > 0 && responseData[0].markdown) {
+        const policy = responseData[0];
+        displayContent = `
+            <div class="policy-preview professional">
+                <div class="policy-header">
+                    <div class="form-group" style="margin-bottom: 15px;">
+                        <label for="policyTitleInput" style="display: block; margin-bottom: 5px; font-weight: 600; color: #333;">
+                            <i class="fas fa-heading"></i> Policy Title <span style="color: red;">*</span>
+                        </label>
+                        <input type="text" id="policyTitleInput" value="${policy.policy_title || 'Generated Policy'}" required
+                               style="width: 100%; padding: 12px; border: 2px solid #ddd; border-radius: 6px; font-size: 1.1rem; font-weight: 600;"
+                               placeholder="Enter policy title..." 
+                               oninput="this.style.borderColor='#ddd'" />
+                        <small style="color: #666; display: block; margin-top: 5px;">This title is required to save the policy</small>
+                    </div>
+                    <span class="policy-type-badge admin">${policy.policy_type || 'Policy'}</span>
+                </div>
+                
+                <div class="policy-meta">
+                    <div class="meta-item"><strong>Company:</strong> ${policy.company}</div>
+                    <div class="meta-item"><strong>Effective Date:</strong> ${policy.effective_date}</div>
+                    <div class="meta-item"><strong>Applies To:</strong> ${policy.applies_to}</div>
+                    <div class="meta-item"><strong>Author:</strong> ${policy.author}</div>
+                    <div class="meta-item"><strong>Version:</strong> ${policy.version}</div>
+                </div>
+                
+                <div class="policy-content-display" style="max-height: 600px; overflow-y: auto;">
+                    ${generateEditablePolicySections(parseWebhookPolicyMarkdown(policy.markdown))}
+                </div>
+                
+                <div class="form-group" style="margin-top: 20px; margin-bottom: 20px;">
+                    <label for="aiPolicyCategory" style="display: block; margin-bottom: 5px; font-weight: 600; color: #333;">
+                        <i class="fas fa-tags"></i> Select Category (for policy code generation)
+                    </label>
+                    <select id="aiPolicyCategory" onchange="updateAIPolicyCode()" style="width: 100%; padding: 12px; border: 2px solid #ddd; border-radius: 6px; font-size: 1rem;">
+                        <option value="">No Category (optional)</option>
+                    </select>
+                    <small style="color: #666; display: block; margin-top: 5px;">Policy code will be generated in format: Type.Category#.Policy#.Year (e.g., ADMIN.1.2.2025)</small>
+                    <div id="aiPolicyCodeDisplay" style="display: none; margin-top: 10px; padding: 10px; background: #f0f8ff; border-radius: 6px;">
+                        <strong>Policy Code:</strong> <span id="aiPolicyCodeText"></span>
+                    </div>
+                </div>
+                
+                <div class="ai-result-actions" style="margin-top: 20px;">
+                    <button class="btn btn-info" onclick="showRefinePolicyModal()" style="background: #667eea; border-color: #667eea; color: white;">
+                        <i class="fas fa-magic"></i> Refine with AI
+                    </button>
+                    <button class="btn btn-success" onclick="saveWebhookPolicy()">
+                        <i class="fas fa-save"></i> Save Policy
+                    </button>
+                    <button class="btn btn-secondary" onclick="closeAIModal()">
+                        <i class="fas fa-times"></i> Close
+                    </button>
+                </div>
+            </div>
+        `;
+        
+        aiGeneratedContent.innerHTML = displayContent;
+        setTimeout(() => populateAICategoryDropdown(), 0);
+        window.currentWebhookPolicy = responseData;
+        return;
+    }
+    
+    if (typeof responseData === 'object') {
+        displayContent = `
+            <div style="text-align: center; padding: 40px;">
+                <h4 style="color: #0066cc; margin-bottom: 20px;">✅ Webhook Response Received</h4>
+                <div style="background: #f0f8ff; border: 2px solid #0066cc; border-radius: 8px; padding: 20px; margin: 20px auto; max-width: 800px;">
+                    <pre style="background: white; padding: 15px; border-radius: 4px; overflow-x: auto; white-space: pre-wrap; word-wrap: break-word; text-align: left; margin: 0;">${JSON.stringify(responseData, null, 2)}</pre>
+                </div>
+                <div class="ai-result-actions">
+                    <button class="btn btn-primary" onclick="closeAIModal()">Close</button>
+                </div>
+            </div>
+        `;
+        aiGeneratedContent.innerHTML = displayContent;
+        window.currentWebhookPolicy = responseData;
+        return;
+    }
+    
+    displayContent = `
+        <div style="text-align: center; padding: 40px;">
+            <h4 style="color: #0066cc; margin-bottom: 20px;">✅ Webhook Response Received</h4>
+            <div style="background: #f0f8ff; border: 2px solid #0066cc; border-radius: 8px; padding: 20px; margin: 20px auto; max-width: 800px;">
+                <pre style="background: white; padding: 15px; border-radius: 4px; overflow-x: auto; white-space: pre-wrap; word-wrap: break-word; text-align: left; margin: 0;">${webhookResponse}</pre>
+            </div>
+            <div class="ai-result-actions">
+                <button class="btn btn-primary" onclick="closeAIModal()">Close</button>
+            </div>
+        </div>
+    `;
+    aiGeneratedContent.innerHTML = displayContent;
+    window.currentWebhookPolicy = responseData;
+}
+
+function displayWebhookError(message) {
+    const loadingEl = document.getElementById('aiLoading');
+    const resultEl = document.getElementById('aiResult');
+    if (loadingEl) loadingEl.style.display = 'none';
+    if (resultEl) resultEl.style.display = 'block';
+    
+    const aiGeneratedContent = document.getElementById('aiGeneratedContent');
+    if (!aiGeneratedContent) return;
+    
+    aiGeneratedContent.innerHTML = `
+        <div style="text-align: center; padding: 40px;">
+            <h4 style="color: #cc0000; margin-bottom: 20px;">❌ Webhook Error</h4>
+            <div style="background: #ffe6e6; border: 2px solid #cc0000; border-radius: 8px; padding: 20px; margin: 20px auto; max-width: 800px;">
+                <h5 style="color: #cc0000; margin: 0 0 15px 0;">Error Message:</h5>
+                <p style="margin: 0; color: #cc0000; font-size: 16px;">${message}</p>
+            </div>
+            <div class="ai-result-actions">
+                <button class="btn btn-primary" onclick="closeAIModal()">Close</button>
+            </div>
+        </div>
+    `;
+}
+
+// Webhook function to send policy generation data
+// Helper function to get company users' emails
+function getCompanyUserEmails() {
+    const allUsers = JSON.parse(localStorage.getItem('masterUsers') || '[]');
+    const companyUsers = allUsers.filter(user => user.company === currentCompany);
+    
+    // Return array of user emails
+    return companyUsers.map(user => ({
+        username: user.username,
+        email: user.email || '',
+        role: user.role || 'User'
+    }));
+}
+
+// Webhook function to send policy data when published
+async function sendPolicyPublishWebhook(policyData) {
+    const webhookUrl = getWebhookUrl('email');
+    
+    console.log('📤 Sending policy publish webhook to:', webhookUrl);
+    
+    // Get all users in the company
+    const allUsers = JSON.parse(localStorage.getItem('masterUsers') || '[]');
+    const companyUsers = allUsers.filter(user => user.company === currentCompany);
+    
+    // Get the organizations this policy applies to
+    const policyOrgs = policyData.clinicNames || 'All Organizations';
+    const applicableOrgs = policyOrgs === 'All Organizations' ? ['All Organizations'] : policyOrgs.split(', ').map(org => org.trim());
+    
+    // Filter users based on policy's organizations
+    const applicableUsers = companyUsers.filter(user => {
+        if (applicableOrgs.includes('All Organizations')) return true;
+        
+        // Check if user has any of the applicable organizations
+        if (user.organizations && Array.isArray(user.organizations)) {
+            return user.organizations.some(org => applicableOrgs.includes(org));
+        }
+        
+        // If user doesn't have specific organizations, include them
+        return true;
+    });
+    
+    // Prepare user data with names and emails
+    const usersData = applicableUsers.map(user => ({
+        id: user.id,
+        username: user.username,
+        email: user.email || '',
+        role: user.role || 'User',
+        organizations: user.organizations || []
+    }));
+    
+    const webhookPayload = {
+        event: 'policy_published',
+        timestamp: new Date().toISOString(),
+        policy: {
+            id: policyData.id,
+            title: policyData.title,
+            type: policyData.type,
+            policyCode: policyData.policyCode,
+            organizations: policyData.clinicNames,
+            description: policyData.description,
+            company: policyData.company || currentCompany,
+            created: policyData.created,
+            updated: policyData.updated,
+            categoryId: policyData.categoryId
+        },
+        applicableUsers: {
+            count: usersData.length,
+            users: usersData
+        },
+        createdBy: {
+            username: currentUser?.username || 'Unknown',
+            email: currentUser?.email || '',
+            company: currentCompany || 'Unknown'
+        }
+    };
+    
+    try {
+        console.log('📤 Sending webhook with data:', webhookPayload);
+        
+        const response = await fetch(webhookUrl, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(webhookPayload)
+        });
+        
+        if (response.ok) {
+            const responseData = await response.text();
+            console.log('✅ Policy publish webhook sent successfully');
+            console.log('Webhook response:', responseData);
+            return responseData;
+        } else {
+            console.warn('⚠️ Policy publish webhook failed:', response.status);
+            throw new Error(`Webhook failed with status: ${response.status}`);
+        }
+    } catch (error) {
+        console.error('❌ Policy publish webhook error:', error);
+        // Don't throw - we don't want to block policy creation if webhook fails
+        return null;
+    }
+}
+
+async function sendPolicyReportWebhook(policyData) {
+    // Get webhook URL for policy reports
+    const reportWebhookUrl = getWebhookUrl('summarizer');
+    
+    console.log('Sending policy report webhook to:', reportWebhookUrl);
+    
+    // Get company user emails
+    const companyUsers = getCompanyUserEmails();
+    
+    // Prepare full policy report data
+    const reportData = {
+        timestamp: new Date().toISOString(),
+        company: currentCompany || 'Unknown',
+        companyUsers: companyUsers,
+        policyReport: {
+            id: policyData.id,
+            title: policyData.title,
+            type: policyData.type,
+            content: policyData.content || policyData.description,
+            organizations: policyData.clinicNames || policyData.organizationNames,
+            effectiveDate: policyData.effectiveDate,
+            version: policyData.version,
+            approvedBy: policyData.approvedBy,
+            createdBy: currentUser?.username || 'Unknown',
+            lastModified: policyData.lastModified || new Date().toISOString(),
+            status: 'active'
+        }
+    };
+    
+    try {
+        console.log('Sending policy report webhook with data:', reportData);
+        
+        const response = await fetch(reportWebhookUrl, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(reportData)
+        });
+        
+        if (response.ok) {
+            const responseData = await response.text();
+            console.log('Policy report webhook sent successfully');
+            console.log('Webhook response:', responseData);
+            return responseData;
+        } else {
+            console.warn('Policy report webhook failed:', response.status);
+            throw new Error(`Policy report webhook failed with status: ${response.status}`);
+        }
+    } catch (error) {
+        console.error('Policy report webhook error:', error);
+        // Don't throw - we don't want to block policy saving if webhook fails
+        return null;
+    }
+}
+
+async function sendPolicyGenerationWebhook(policyData) {
+    // Use the specific policy generation webhook URL
+    const POLICY_GENERATION_WEBHOOK = 'https://jackwilde.app.n8n.cloud/webhook/cc526f0d-ccd1-4b6c-b8db-67c5c1cd19a4';
+    
+    // Check if it's an AI-generated policy (should use ChatGPT webhook)
+    const isAIGenerated = policyData.generatedBy === 'AI Generator' || policyData.generatedBy === 'ChatGPT';
+    
+    // If this is from the wizard, send all the data
+    // Otherwise, use the existing logic for backward compatibility
+    let webhookData;
+    if (isAIGenerated && policyData.wizardState) {
+        // Send all wizard data
+        webhookData = {
+            ...policyData, // Include all policyData fields
+            timestamp: policyData.timestamp || new Date().toISOString(),
+            policyType: policyData.type,
+            organizations: policyData.clinicNames || policyData.organizationNames,
+            userPrompt: policyData.prompt || policyData.userPrompt,
+            company: policyData.company || currentCompany || 'Unknown',
+            username: policyData.username || currentUser?.username || 'Unknown',
+            tool: 'ai-policy-wizard'
+        };
+    } else {
+        // Legacy format for non-wizard policies
+        webhookData = {
+        timestamp: new Date().toISOString(),
+        policyType: policyData.type,
+        organizations: policyData.clinicNames || policyData.organizationNames,
+        userPrompt: policyData.prompt || policyData.userPrompt,
+        company: currentCompany || 'Unknown',
+        username: currentUser?.username || 'Unknown',
+        tool: isAIGenerated ? 'ai-policy-assistant' : 'manual-policy'
+    };
+    }
+    
+    try {
+        console.log('Sending webhook with policy generation data:', webhookData);
+        // Use POST request with JSON body to send all data
+        const response = await fetch(POLICY_GENERATION_WEBHOOK, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(webhookData)
+        });
+        
+        if (response.ok) {
+            const responseData = await response.text();
+            console.log('Webhook sent successfully');
+            console.log('Webhook response:', responseData);
+            
+            // Try to parse as JSON, fallback to text
+            try {
+                return JSON.parse(responseData);
+            } catch (e) {
+            return responseData;
+            }
+        } else {
+            const errorText = await response.text();
+            console.warn('Webhook failed:', response.status, errorText);
+            throw new Error(`Webhook failed with status: ${response.status}`);
+        }
+    } catch (error) {
+        console.error('Webhook error:', error);
+        throw error; // Now we throw so caller can handle it
+    }
+}
+
+async function generateEnhancedLocalResponse(prompt) {
+    // Extract key information from the prompt
+    const topic = extractFromPrompt(prompt, 'TOPIC:');
+    const type = extractFromPrompt(prompt, 'TYPE:');
+    const clinics = extractFromPrompt(prompt, 'CLINICS:');
+    const urgency = extractFromPrompt(prompt, 'URGENCY:');
+    const regulations = extractFromPrompt(prompt, 'REGULATIONS:');
+    const specificNeeds = extractFromPrompt(prompt, 'SPECIFIC NEEDS:');
+    
+    // Generate a comprehensive policy response
+    let response = `# ${topic} - ${type}\n\n`;
+    
+    if (type.includes('Admin Policy')) {
+        response += generateAdminPolicyContent(topic, clinics, urgency, regulations, specificNeeds);
+    } else if (type.includes('Standard Operating Guidelines')) {
+        response += generateSOGContent(topic, clinics, urgency, regulations, specificNeeds);
+    } else if (type.includes('Communication Memo')) {
+        response += generateMemoContent(topic, clinics, urgency, regulations, specificNeeds);
+    }
+    
+    return response;
+}
+
+function extractFromPrompt(prompt, keyword) {
+    const lines = prompt.split('\n');
+    for (let line of lines) {
+        if (line.includes(keyword)) {
+            return line.replace(keyword, '').trim();
+        }
+    }
+    return '';
+}
+
+function expandAndProfessionalize(userNotes, sectionType, topic, urgency, regulations) {
+    if (!userNotes || userNotes.trim() === '') {
+        return getDefaultContent(sectionType, topic);
+    }
+    
+    // Convert user notes to professional, expanded content
+    let expandedContent = '';
+    
+    switch (sectionType) {
+        case 'purpose':
+            expandedContent = expandPurpose(userNotes, topic, urgency, regulations);
+            break;
+        case 'procedures':
+            expandedContent = expandProcedures(userNotes, topic, urgency, regulations);
+            break;
+        case 'responsibilities':
+            expandedContent = expandResponsibilities(userNotes, topic, urgency, regulations);
+            break;
+        default:
+            expandedContent = professionalizeText(userNotes, topic, urgency, regulations);
+    }
+    
+    return expandedContent;
+}
+
+function expandPurpose(userNotes, topic, urgency, regulations) {
+    const urgencyText = urgency === 'immediate' ? 'immediate implementation' : urgency === 'high' ? 'priority implementation' : 'standard implementation';
+    const regulatoryText = regulations ? ` in compliance with ${regulations}` : '';
+    
+    return `The primary objective of this policy is to ${userNotes.toLowerCase()}${regulatoryText}. This policy is designed for ${urgencyText} and establishes clear guidelines for all staff members to ensure consistent, safe, and effective operations. The policy addresses specific challenges and requirements related to ${topic.toLowerCase()} while maintaining the highest standards of patient care and regulatory compliance.`;
+}
+
+function expandProcedures(userNotes, topic, urgency, regulations) {
+    const steps = userNotes.split(/[,;]/).map(step => step.trim()).filter(step => step);
+    
+    if (steps.length === 0) {
+        return getDefaultContent('procedures', topic);
+    }
+    
+    let expandedProcedures = `The following procedures have been established to address the specific requirements outlined:`;
+    
+    steps.forEach((step, index) => {
+        expandedProcedures += `\n\n${index + 1}. **${professionalizeStepTitle(step)}**: ${professionalizeStepDescription(step, topic, urgency, regulations)}`;
+    });
+    
+    expandedProcedures += `\n\n**Implementation Guidelines**: All staff members must follow these procedures consistently. Regular training and competency assessments will ensure proper implementation. Documentation of all activities is required for compliance and quality assurance purposes.`;
+    
+    return expandedProcedures;
+}
+
+function expandResponsibilities(userNotes, topic, urgency, regulations) {
+    const responsibilityText = userNotes.toLowerCase();
+    let expandedResponsibilities = `**Primary Responsibilities**: ${professionalizeText(userNotes, topic, urgency, regulations)}`;
+    
+    // Add role-specific responsibilities based on settings
+    if (roles.length > 0) {
+        expandedResponsibilities += `\n\n**Role-Specific Responsibilities**:`;
+        roles.forEach(role => {
+            expandedResponsibilities += `\n\n**${role.name}**: ${role.description}. In relation to ${topic.toLowerCase()}, this role is responsible for ensuring compliance with established procedures and maintaining documentation as required.`;
+        });
+    }
+    
+    expandedResponsibilities += `\n\n**Accountability Measures**: All staff members are accountable for following these procedures. Regular monitoring and performance evaluations will ensure compliance with policy requirements.`;
+    
+    return expandedResponsibilities;
+}
+
+function professionalizeText(text, topic, urgency, regulations) {
+    // Convert casual notes to professional language
+    let professionalText = text;
+    
+    // Replace casual phrases with professional equivalents
+    const replacements = {
+        'make sure': 'ensure',
+        'need to': 'must',
+        'should': 'shall',
+        'have to': 'are required to',
+        'gotta': 'must',
+        'wanna': 'want to',
+        'gonna': 'will',
+        'stuff': 'procedures',
+        'things': 'elements',
+        'check': 'verify',
+        'look at': 'review',
+        'do': 'perform',
+        'get': 'obtain',
+        'put': 'place',
+        'use': 'utilize',
+        'tell': 'inform',
+        'ask': 'request',
+        'help': 'assist',
+        'fix': 'resolve',
+        'clean': 'sanitize',
+        'wash': 'cleanse'
+    };
+    
+    Object.entries(replacements).forEach(([casual, professional]) => {
+        const regex = new RegExp(`\\b${casual}\\b`, 'gi');
+        professionalText = professionalText.replace(regex, professional);
+    });
+    
+    // Add professional context
+    if (topic) {
+        professionalText = professionalText.replace(/\b(policy|procedure|process)\b/gi, `${topic} policy`);
+    }
+    
+    return professionalText.charAt(0).toUpperCase() + professionalText.slice(1);
+}
+
+function professionalizeStepTitle(step) {
+    const title = step.trim();
+    const capitalized = title.charAt(0).toUpperCase() + title.slice(1);
+    
+    // Add professional context if needed
+    if (!title.includes('procedure') && !title.includes('process') && !title.includes('protocol')) {
+        return `${capitalized} Procedure`;
+    }
+    
+    return capitalized;
+}
+
+function professionalizeStepDescription(step, topic, urgency, regulations) {
+    let description = professionalizeText(step, topic, urgency, regulations);
+    
+    // Add specific details based on the step content
+    if (step.toLowerCase().includes('check') || step.toLowerCase().includes('verify')) {
+        description += ' This includes thorough examination and documentation of findings.';
+    } else if (step.toLowerCase().includes('clean') || step.toLowerCase().includes('wash')) {
+        description += ' Proper sanitization procedures must be followed according to established protocols.';
+    } else if (step.toLowerCase().includes('train') || step.toLowerCase().includes('teach')) {
+        description += ' Training must be documented and competency assessments completed.';
+    } else if (step.toLowerCase().includes('report') || step.toLowerCase().includes('document')) {
+        description += ' All documentation must be accurate, complete, and maintained according to regulatory requirements.';
+    }
+    
+    return description;
+}
+
+function getDefaultContent(sectionType, topic) {
+    const defaults = {
+        purpose: `This policy establishes comprehensive guidelines for ${topic.toLowerCase()} to ensure consistent, safe, and effective operations across all CSI clinic locations.`,
+        procedures: `1. **Initial Assessment**: Evaluate current practices and identify areas for improvement\n2. **Staff Training**: Provide comprehensive training on ${topic.toLowerCase()} procedures\n3. **Implementation**: Roll out standardized procedures across all clinic locations\n4. **Monitoring**: Regular assessment of compliance and effectiveness\n5. **Continuous Improvement**: Regular review and updates based on feedback and regulatory changes`,
+        responsibilities: `**All Staff**: Follow established protocols, participate in training, report issues promptly\n**Supervisors**: Ensure compliance, provide training, monitor performance\n**Clinic Managers**: Support implementation, address systemic issues, integrate with overall operations`
+    };
+    
+    return defaults[sectionType] || 'Professional content will be generated based on the specific requirements.';
+}
+
+function generateAdminPolicyContent(topic, clinics, urgency, regulations, specificNeeds) {
+    const expandedPurpose = expandAndProfessionalize(specificNeeds, 'purpose', topic, urgency, regulations);
+    const expandedProcedures = expandAndProfessionalize(specificNeeds, 'procedures', topic, urgency, regulations);
+    const expandedResponsibilities = expandAndProfessionalize(specificNeeds, 'responsibilities', topic, urgency, regulations);
+    
+    return `## PURPOSE
+${expandedPurpose}
+
+This policy establishes comprehensive guidelines for ${topic.toLowerCase()} to ensure consistent, safe, and effective operations across all CSI clinic locations (${clinics}). This policy addresses the specific requirements and best practices for ${topic.toLowerCase()} in our veterinary healthcare environment.
+
+## SCOPE
+This policy applies to all staff members, including operations staff, specialists, support staff, and administrative personnel at the following locations: ${clinics}. The policy covers all aspects of ${topic.toLowerCase()} operations and procedures.
+
+## POLICY STATEMENT
+CSI is committed to maintaining the highest standards of ${topic.toLowerCase()} practices. All staff members must adhere to the procedures outlined in this policy to ensure compliance with regulatory requirements and industry best practices.
+
+${regulations ? `Regulatory Compliance: This policy ensures compliance with ${regulations}.` : ''}
+
+## DEFINITIONS
+- **${topic}**: The comprehensive set of procedures and guidelines outlined in this policy
+- **CSI Staff**: All employees working at CSI clinic locations
+- **Compliance**: Adherence to all applicable regulations and internal procedures
+- **Documentation**: Written records of all ${topic.toLowerCase()} activities
+
+## PROCEDURE / IMPLEMENTATION
+${expandedProcedures}
+
+${urgency ? `Priority Level: ${urgency} - This policy requires immediate attention and implementation.` : ''}
+
+## RESPONSIBILITIES
+${expandedResponsibilities}
+
+## CONSEQUENCES / ACCOUNTABILITY
+Non-compliance with this policy may result in disciplinary action up to and including termination. All staff members are responsible for understanding and following these procedures.
+
+## RELATED DOCUMENTS
+- CSI Employee Handbook
+- Regulatory compliance guidelines
+- Industry best practice standards
+- Training materials and procedures
+
+## REVIEW & APPROVAL
+This policy will be reviewed annually and updated as necessary to reflect changes in regulations, industry standards, or operational requirements.`;
+}
+
+function generateSOGContent(topic, clinics, urgency, regulations, specificNeeds) {
+    return `## OBJECTIVE
+To provide standardized operating procedures for ${topic.toLowerCase()} across all CSI clinic locations (${clinics}), ensuring consistent, efficient, and safe operations.
+
+${specificNeeds ? `Specific Requirements: ${specificNeeds}` : ''}
+
+## GUIDING PRINCIPLES
+- Patient safety is the top priority
+- Consistency across all clinic locations
+- Compliance with regulatory requirements
+- Continuous improvement and staff development
+
+## RECOMMENDED APPROACH / PROCEDURE
+1. **Preparation**: Gather necessary equipment and materials
+2. **Assessment**: Evaluate the situation and determine appropriate actions
+3. **Implementation**: Follow step-by-step procedures
+4. **Documentation**: Record all activities and outcomes
+5. **Follow-up**: Monitor results and make adjustments as needed
+
+${urgency ? `Priority Level: ${urgency} - This procedure requires immediate implementation.` : ''}
+
+## DEFINITIONS
+- **Standard Operating Procedure**: Documented process for completing specific tasks
+- **Quality Assurance**: Systematic approach to ensuring consistent outcomes
+- **Compliance**: Adherence to established procedures and regulations
+
+## EXAMPLES / SCENARIOS
+Common scenarios include routine operations, emergency situations, and special cases. Each scenario requires specific procedures and documentation.
+
+${regulations ? `Regulatory Compliance: This procedure ensures compliance with ${regulations}.` : ''}
+
+## RESPONSIBILITIES
+**Staff Members**: Follow procedures, maintain documentation, report issues
+**Supervisors**: Monitor compliance, provide support, address concerns
+**Management**: Ensure resources are available, support continuous improvement
+
+## ESCALATION / SUPPORT
+For questions or concerns, contact your immediate supervisor or clinic manager. Emergency situations should be escalated immediately.
+
+## REVIEW & REVISION
+This guideline will be reviewed quarterly and updated based on staff feedback, regulatory changes, and operational improvements.`;
+}
+
+function generateMemoContent(topic, clinics, urgency, regulations, specificNeeds) {
+    return `## MESSAGE
+This memo serves to inform all staff members at CSI clinic locations (${clinics}) about important updates regarding ${topic.toLowerCase()}.
+
+${specificNeeds ? `Key Requirements: ${specificNeeds}` : ''}
+
+All staff members must follow the updated procedures outlined in this communication to ensure compliance with regulatory requirements and maintain the highest standards of patient care.
+
+## EFFECTIVE PERIOD
+This communication is effective immediately and will remain in effect until further notice.
+
+## NEXT STEPS / ACTION REQUIRED
+All staff members are required to:
+1. Review this information carefully
+2. Implement any necessary changes
+3. Contact supervisors with questions
+4. Ensure compliance with updated procedures
+
+${urgency ? `Note: This is a ${urgency} priority communication.` : ''}
+
+## CONTACT FOR QUESTIONS
+For questions about this memo or related procedures, please contact your immediate supervisor or the clinic manager at your location.`;
+}
+
+// Duplicate parseChatGPTResponse function removed - using the more comprehensive version defined later
+
+function parsePolicyContent(content) {
+    const sections = {};
+    const lines = content.split('\n');
+    let currentSection = '';
+    let currentContent = [];
+    
+    for (let line of lines) {
+        if (line.startsWith('## ')) {
+            // Save previous section
+            if (currentSection) {
+                sections[currentSection] = currentContent.join('\n').trim();
+            }
+            // Start new section
+            currentSection = line.replace('## ', '').trim();
+            currentContent = [];
+        } else if (currentSection && line.trim()) {
+            currentContent.push(line);
+        }
+    }
+    
+    // Save last section
+    if (currentSection) {
+        sections[currentSection] = currentContent.join('\n').trim();
+    }
+    
+    return sections;
+}
+
+// Advanced AI Analysis Functions
+function analyzeUrgency(urgency) {
+    const urgencyAnalysis = {
+        'immediate': 'This policy requires immediate implementation due to regulatory compliance, safety concerns, or operational necessity. All staff must be trained and procedures implemented within 48 hours.',
+        'soon': 'This policy should be implemented within the next month to maintain compliance and operational efficiency. Training and implementation should be scheduled promptly.',
+        'planned': 'This policy is part of regular policy updates and improvements. Implementation can be scheduled as part of normal operations and training cycles.'
+    };
+    return urgencyAnalysis[urgency] || '';
+}
+
+function analyzeRegulations(regulations) {
+    if (!regulations || !regulations.trim()) return '';
+    
+    const regulationAnalysis = {
+        'osha': 'OSHA compliance requirements mandate specific safety protocols, training programs, and documentation standards.',
+        'hipaa': 'HIPAA compliance requires strict privacy protection, data security measures, and patient information handling protocols.',
+        'aaha': 'AAHA standards require evidence-based practices, quality assurance measures, and comprehensive care protocols.',
+        'avma': 'AVMA guidelines establish professional standards, ethical practices, and quality of care requirements.',
+        'dea': 'DEA regulations require controlled substance protocols, secure storage, and comprehensive documentation.'
+    };
+    
+    let analysis = '';
+    const regLower = regulations.toLowerCase();
+    for (const [key, value] of Object.entries(regulationAnalysis)) {
+        if (regLower.includes(key)) {
+            analysis += value + ' ';
+        }
+    }
+    
+    return analysis.trim();
+}
+
+function analyzePolicyContext(topic, specificNeeds, specialConsiderations) {
+    const contextAnalysis = {
+        'fire': 'Fire safety policies require immediate response protocols, evacuation procedures, and emergency coordination.',
+        'safety': 'Safety policies must address risk assessment, prevention measures, and incident response procedures.',
+        'hygiene': 'Hygiene policies require infection control measures, sanitation protocols, and health monitoring.',
+        'data': 'Data policies must address security, privacy, access control, and compliance requirements.',
+        'emergency': 'Emergency policies require rapid response protocols, communication procedures, and resource management.',
+        'medication': 'Medication policies require safety protocols, administration procedures, and regulatory compliance.',
+        'infection': 'Infection control policies require prevention measures, monitoring protocols, and outbreak response.',
+        'appointment': 'Appointment policies require scheduling efficiency, client communication, and resource management.',
+        'documentation': 'Documentation policies require accuracy standards, retention protocols, and compliance measures.'
+    };
+    
+    let context = '';
+    const topicLower = topic.toLowerCase();
+    for (const [key, value] of Object.entries(contextAnalysis)) {
+        if (topicLower.includes(key)) {
+            context += value + ' ';
+        }
+    }
+    
+    return context.trim();
+}
+
+
+function generatePolicyFromSurveyData(topic, type, clinics, specificNeeds, urgency, regulations, existingPolicies, specialConsiderations) {
+    const clinicNames = getClinicNames(clinics).join(', ');
+    const typeLabel = getTypeLabel(type);
+    const currentDate = new Date().toISOString().split('T')[0];
+    
+    // Combine all survey data into comprehensive requirements
+    const combinedRequirements = [
+        specificNeeds,
+        urgency ? `Urgency: ${urgency}` : '',
+        regulations ? `Regulations: ${regulations}` : '',
+        existingPolicies ? `Existing policies: ${existingPolicies}` : '',
+        specialConsiderations ? `Special considerations: ${specialConsiderations}` : ''
+    ].filter(Boolean).join('. ');
+    
+    // Generate comprehensive, topic-specific policy content with proper CSI headers
+    const policyContent = generateCSIPolicyWithHeaders(topic, type, combinedRequirements, currentDate, specificNeeds, existingPolicies);
+    
+    return {
+        ...policyContent,
+        type: type,
+        clinics: clinics,
+        additionalRequirements: combinedRequirements,
+        keyPoints: specificNeeds,
+        previousDocuments: existingPolicies,
+        clinicNames: clinicNames,
+        typeLabel: typeLabel
+    };
+}
+
+// Document Export Functionality
+function exportPolicy(format) {
+    const policy = window.currentGeneratedPolicy;
+    if (!policy) {
+        alert('No policy available to export. Please generate a policy first.');
+        return;
+    }
+    
+    if (format === 'pdf') {
+        exportToPDF(policy);
+    } else if (format === 'docx') {
+        exportToWord(policy);
+    }
+}
+
+function exportToPDF(policy) {
+    // Create a new window for PDF generation
+    const printWindow = window.open('', '_blank');
+    const policyHTML = generatePolicyHTML(policy);
+    
+    printWindow.document.write(`
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <title>${policy.title}</title>
+            <style>
+                body { font-family: Arial, sans-serif; margin: 40px; line-height: 1.6; }
+                .policy-header { border-bottom: 2px solid #333; padding-bottom: 20px; margin-bottom: 30px; }
+                .policy-meta { background: #f5f5f5; padding: 15px; margin-bottom: 20px; border-radius: 5px; }
+                .policy-section { margin-bottom: 25px; }
+                .policy-section h5 { color: #333; border-bottom: 1px solid #ccc; padding-bottom: 5px; }
+                .policy-content { margin-top: 10px; white-space: pre-wrap; }
+                @media print { body { margin: 20px; } }
+            </style>
+        </head>
+        <body>
+            ${policyHTML}
+        </body>
+        </html>
+    `);
+    
+    printWindow.document.close();
+    printWindow.print();
+}
+
+function exportToWord(policy) {
+    // Create Word document content
+    const policyHTML = generatePolicyHTML(policy);
+    
+    // Convert HTML to Word format
+    const wordContent = `
+        <html xmlns:o='urn:schemas-microsoft-com:office:office' 
+              xmlns:w='urn:schemas-microsoft-com:office:word' 
+              xmlns='http://www.w3.org/TR/REC-html40'>
+        <head>
+            <meta charset='utf-8'>
+            <title>${policy.title}</title>
+            <!--[if gte mso 9]>
+            <xml>
+                <w:WordDocument>
+                    <w:View>Print</w:View>
+                    <w:Zoom>90</w:Zoom>
+                </w:WordDocument>
+            </xml>
+            <![endif]-->
+            <style>
+                body { font-family: Arial, sans-serif; margin: 40px; line-height: 1.6; }
+                .policy-header { border-bottom: 2px solid #333; padding-bottom: 20px; margin-bottom: 30px; }
+                .policy-meta { background: #f5f5f5; padding: 15px; margin-bottom: 20px; border-radius: 5px; }
+                .policy-section { margin-bottom: 25px; }
+                .policy-section h5 { color: #333; border-bottom: 1px solid #ccc; padding-bottom: 5px; }
+                .policy-content { margin-top: 10px; white-space: pre-wrap; }
+            </style>
+        </head>
+        <body>
+            ${policyHTML}
+        </body>
+        </html>
+    `;
+    
+    // Create and download the Word document
+    const blob = new Blob([wordContent], { type: 'application/msword' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `${policy.title.replace(/[^a-z0-9]/gi, '_').toLowerCase()}.doc`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+}
+function generatePolicyHTML(policy) {
+    const currentDate = new Date().toLocaleDateString();
+    
+    if (policy.type === 'admin') {
+        return `
+            <div class="policy-header">
+                <h1>${policy.title}</h1>
+                <div class="policy-meta">
+                    <p><strong>Effective Date:</strong> ${policy.effectiveDate}</p>
+                    <p><strong>Last Reviewed:</strong> ${policy.lastReviewed}</p>
+                    <p><strong>Approved By:</strong> ${policy.approvedBy}</p>
+                    <p><strong>Version:</strong> ${policy.version}</p>
+                    <p><strong>Applicable Clinics:</strong> ${policy.clinicNames}</p>
+                </div>
+            </div>
+            
+            <div class="policy-section">
+                <h5>Purpose</h5>
+                <div class="policy-content">${policy.purpose}</div>
+            </div>
+            
+            <div class="policy-section">
+                <h5>Scope</h5>
+                <div class="policy-content">${policy.scope}</div>
+            </div>
+            
+            <div class="policy-section">
+                <h5>Policy Statement</h5>
+                <div class="policy-content">${policy.policyStatement}</div>
+            </div>
+            
+            <div class="policy-section">
+                <h5>Definitions</h5>
+                <div class="policy-content">${policy.definitions}</div>
+            </div>
+            
+            <div class="policy-section">
+                <h5>Procedure / Implementation</h5>
+                <div class="policy-content">${policy.procedure}</div>
+            </div>
+            
+            <div class="policy-section">
+                <h5>Responsibilities</h5>
+                <div class="policy-content">${policy.roles}</div>
+            </div>
+            
+            <div class="policy-section">
+                <h5>Consequences / Accountability</h5>
+                <div class="policy-content">${policy.compliance}</div>
+            </div>
+            
+            <div class="policy-section">
+                <h5>Related Documents</h5>
+                <div class="policy-content">${policy.relatedDocuments}</div>
+            </div>
+            
+            <div class="policy-section">
+                <h5>Review & Approval</h5>
+                <div class="policy-content">${policy.reviewApproval}</div>
+            </div>
+        `;
+    } else if (policy.type === 'sog') {
+        return `
+            <div class="policy-header">
+                <h1>${policy.title}</h1>
+                <div class="policy-meta">
+                    <p><strong>Effective Date:</strong> ${policy.effectiveDate}</p>
+                    <p><strong>Author:</strong> ${policy.author}</p>
+                    <p><strong>Approved By:</strong> ${policy.approvedBy}</p>
+                    <p><strong>Version:</strong> ${policy.version}</p>
+                    <p><strong>Applicable Clinics:</strong> ${policy.clinicNames}</p>
+                </div>
+            </div>
+            
+            <div class="policy-section">
+                <h5>Objective</h5>
+                <div class="policy-content">${policy.objective}</div>
+            </div>
+            
+            <div class="policy-section">
+                <h5>Guiding Principles</h5>
+                <div class="policy-content">${policy.principles}</div>
+            </div>
+            
+            <div class="policy-section">
+                <h5>Recommended Approach / Procedure</h5>
+                <div class="policy-content">${policy.procedure}</div>
+            </div>
+            
+            <div class="policy-section">
+                <h5>Definitions</h5>
+                <div class="policy-content">${policy.definitions}</div>
+            </div>
+            
+            <div class="policy-section">
+                <h5>Examples / Scenarios</h5>
+                <div class="policy-content">${policy.examples}</div>
+            </div>
+            
+            <div class="policy-section">
+                <h5>Responsibilities</h5>
+                <div class="policy-content">${policy.roles}</div>
+            </div>
+            
+            <div class="policy-section">
+                <h5>Escalation / Support</h5>
+                <div class="policy-content">${policy.escalation}</div>
+            </div>
+            
+            <div class="policy-section">
+                <h5>Review & Revision</h5>
+                <div class="policy-content">${policy.review}</div>
+            </div>
+        `;
+    } else {
+        return `
+            <div class="policy-header">
+                <h1>CSI Communication Memo</h1>
+                <div class="policy-meta">
+                    <p><strong>Date:</strong> ${policy.date}</p>
+                    <p><strong>From:</strong> ${policy.from}</p>
+                    <p><strong>To:</strong> ${policy.to}</p>
+                    <p><strong>Subject:</strong> ${policy.subject}</p>
+                    <p><strong>Applicable Clinics:</strong> ${policy.clinicNames}</p>
+                </div>
+            </div>
+            
+            <div class="policy-section">
+                <h5>Message</h5>
+                <div class="policy-content">${policy.message}</div>
+            </div>
+            
+            <div class="policy-section">
+                <h5>Effective Period</h5>
+                <div class="policy-content">${policy.effectivePeriod}</div>
+            </div>
+            
+            <div class="policy-section">
+                <h5>Next Steps / Action Required</h5>
+                <div class="policy-content">${policy.nextSteps}</div>
+            </div>
+            
+            <div class="policy-section">
+                <h5>Contact for Questions</h5>
+                <div class="policy-content">${policy.contact}</div>
+            </div>
+        `;
+    }
+}
+
+// Password Protection Functions
+
+function displayAdminDrafts() {
+    const adminDraftList = document.getElementById('adminDraftList');
+    
+    if (draftPolicies.length === 0) {
+        adminDraftList.innerHTML = '<p class="no-drafts">No draft policies available.</p>';
+        return;
+    }
+    
+    adminDraftList.innerHTML = draftPolicies.map(draft => `
+        <div class="draft-item">
+            <div class="draft-info">
+                <h4>${draft.title}</h4>
+                <p><strong>Type:</strong> ${getTypeLabel(draft.type)}</p>
+                <p><strong>Clinics:</strong> ${draft.clinicNames}</p>
+                <p><strong>Created:</strong> ${draft.created}</p>
+            </div>
+            <div class="draft-actions">
+                <button class="btn btn-small btn-primary" onclick="editDraft(${draft.id})">
+                    <i class="fas fa-edit"></i> Edit
+                </button>
+                <button class="btn btn-small btn-success" onclick="publishDraft(${draft.id})">
+                    <i class="fas fa-check"></i> Publish
+                </button>
+                <button class="btn btn-small btn-danger" onclick="deleteDraft(${draft.id})">
+                    <i class="fas fa-trash"></i> Delete
+                </button>
+            </div>
+        </div>
+    `).join('');
+}
+
+// Modal Functions
+function populateOrganizationsDropdown() {
+    console.log('🏢 populateOrganizationsDropdown called');
+    const clinicSelect = document.getElementById('clinicApplicability');
+    if (!clinicSelect) {
+        console.error('❌ clinicApplicability select element not found!');
+        return;
+    }
+    
+    // Clear existing options
+    clinicSelect.innerHTML = '';
+    
+    console.log('🏢 Current company:', currentCompany);
+    
+    // Load ALL organizations from all sources
+    let companyOrgs = [];
+    
+    // Try localStorage organizations first
+    const orgData = localStorage.getItem('organizations');
+    if (orgData) {
+        const loadedOrgs = JSON.parse(orgData);
+        console.log('📋 All organizations in localStorage:', loadedOrgs);
+        if (currentCompany && loadedOrgs[currentCompany]) {
+            companyOrgs = loadedOrgs[currentCompany];
+        } else {
+            // Get all organizations from all companies
+            companyOrgs = Object.values(loadedOrgs).flat();
+            companyOrgs = [...new Set(companyOrgs)]; // Remove duplicates
+        }
+        console.log('✅ Loaded organizations:', companyOrgs);
+    }
+    
+    // If still empty, try masterCompanies
+    if (companyOrgs.length === 0) {
+        const masterCompanies = JSON.parse(localStorage.getItem('masterCompanies') || '[]');
+        if (masterCompanies.length > 0) {
+            companyOrgs = masterCompanies.map(company => company.name);
+            console.log('✅ Using master companies:', companyOrgs);
+        }
+    }
+    
+    // If STILL empty, show a message
+    if (companyOrgs.length === 0) {
+        clinicSelect.innerHTML = '<option value="">No organizations available. Add organizations in Admin Dashboard.</option>';
+        console.warn('⚠️ No organizations found for any source!');
+        return;
+    }
+    
+    // Add organizations to dropdown
+    companyOrgs.forEach(org => {
+        const option = document.createElement('option');
+        option.value = org.toLowerCase().replace(/\s+/g, '-');
+        option.textContent = org;
+        clinicSelect.appendChild(option);
+    });
+    
+    console.log('✅ Added', companyOrgs.length, 'organizations to dropdown');
+}
+
+function populateAIOrganizations() {
+    // Get the AI organizations checkbox group
+    const clinicGroup = document.getElementById('aiClinicApplicabilityCheckboxes');
+    if (!clinicGroup) return;
+    
+    // Clear existing checkboxes
+    clinicGroup.innerHTML = '';
+    
+    // Load organizations from localStorage for the current company
+    const orgData = localStorage.getItem('organizations');
+    let companyOrgs = [];
+    
+    if (orgData) {
+        const loadedOrgs = JSON.parse(orgData);
+        companyOrgs = loadedOrgs[currentCompany] || [];
+    } else if (organizations[currentCompany]) {
+        companyOrgs = organizations[currentCompany];
+    }
+    
+    // If no company-specific orgs, try master companies
+    if (companyOrgs.length === 0) {
+        const masterCompanies = JSON.parse(localStorage.getItem('masterCompanies') || '[]');
+        if (masterCompanies.length > 0) {
+            companyOrgs = masterCompanies.map(company => company.name);
+        }
+    }
+    
+    // Fall back to default organizations if still empty
+    if (companyOrgs.length === 0) {
+        companyOrgs = ['Tudor Glen', 'River Valley', 'Rosslyn', 'UPC'];
+    }
+    
+    if (companyOrgs.length === 0) {
+        clinicGroup.innerHTML = '<p style="color: #999;">No organizations available. Add organizations in the Admin Dashboard.</p>';
+        return;
+    }
+    
+    // Add organizations from the companies
+    companyOrgs.forEach(org => {
+        const label = document.createElement('label');
+        label.innerHTML = `<input type="checkbox" name="clinics" value="${org.toLowerCase().replace(/\s+/g, '-')}"> ${org}`;
+        clinicGroup.appendChild(label);
+    });
+}
+
+function openCreateModal() {
+    console.log('📝 openCreateModal called');
+    // Keep admin dashboard open, just open create modal on top
+    // Open create policy modal (z-index 3500, above admin modal at 2000)
+    document.getElementById('createModal').style.display = 'block';
+    
+    // Small delay to ensure DOM is ready
+    setTimeout(() => {
+    // Populate category dropdown
+    populateManualCategoryDropdown();
+    }, 50);
+}
+
+function closeCreateModal() {
+    document.getElementById('createModal').style.display = 'none';
+    document.getElementById('policyForm').reset();
+    document.getElementById('dynamicManualFormFields').innerHTML = '';
+    
+    // Keep admin dashboard open if it was open
+    const adminModal = document.getElementById('adminModal');
+    if (adminModal && adminModal.style.display !== 'none') {
+        console.log('Admin dashboard is open, keeping it visible');
+        // Already open, do nothing
+        return;
+    }
+}
+
+// ChatGPT-Style Policy Creation System
+// chatState is declared later in the file (line 7324) with formData property
+
+function populateRolesAndDisciplinaryActions() {
+    // Load from admin settings or use defaults
+    const defaultRoles = ['Clinic Manager', 'Medical Director', 'Staff'];
+    const defaultDisciplinaryActions = ['Verbal Warning', 'Written Warning', 'Suspension', 'Termination'];
+    
+    // Load organizations for the current company
+    let allOrgs = [];
+    
+    // First try to load from localStorage organizations for the current company
+    const orgData = localStorage.getItem('organizations');
+    console.log('Current company:', currentCompany);
+    console.log('Organizations from localStorage:', orgData);
+    
+    if (orgData) {
+        const loadedOrgs = JSON.parse(orgData);
+        console.log('Parsed organizations:', loadedOrgs);
+        console.log('Company keys in loadedOrgs:', Object.keys(loadedOrgs));
+        
+        // Get organizations for current company
+        allOrgs = loadedOrgs[currentCompany] || [];
+        console.log('Organizations for company:', allOrgs);
+    }
+    
+    // If no company-specific orgs, use the in-memory organizations object
+    if (allOrgs.length === 0 && organizations[currentCompany]) {
+        allOrgs = organizations[currentCompany];
+        console.log('Loaded from in-memory organizations:', allOrgs);
+    }
+    
+    // If still empty, try master companies
+    if (allOrgs.length === 0) {
+        const masterCompanies = JSON.parse(localStorage.getItem('masterCompanies') || '[]');
+        if (masterCompanies && masterCompanies.length > 0) {
+            allOrgs = masterCompanies.map(company => company.name);
+            console.log('Loaded organizations from master companies:', allOrgs);
+        }
+    }
+    
+    // Fall back to default if still empty
+    if (allOrgs.length === 0) {
+        allOrgs = ['Tudor Glen', 'River Valley', 'Rosslyn', 'UPC'];
+        console.log('Using default organizations:', allOrgs);
+    }
+    
+    console.log('Final allOrgs:', allOrgs);
+    
+    // Check what's stored in localStorage
+    const storedRoles = localStorage.getItem('adminRoles') || localStorage.getItem('masterRoles') || localStorage.getItem('roles');
+    const storedDisciplinaryActions = localStorage.getItem('adminDisciplinaryActions') || localStorage.getItem('masterDisciplinaryActions') || localStorage.getItem('disciplinaryActions');
+    
+    // Get saved settings from admin or use defaults
+    // Parse stored data - could be objects or arrays
+    let roles = defaultRoles;
+    let disciplinaryActions = defaultDisciplinaryActions;
+    
+    if (storedRoles) {
+        const parsed = JSON.parse(storedRoles);
+        roles = Array.isArray(parsed) ? parsed.map(r => {
+            return typeof r === 'object' && r !== null && r.name ? r.name : (typeof r === 'string' ? r : String(r));
+        }) : defaultRoles;
+    }
+    
+    if (storedDisciplinaryActions) {
+        const parsed = JSON.parse(storedDisciplinaryActions);
+        disciplinaryActions = Array.isArray(parsed) ? parsed.map(a => {
+            return typeof a === 'object' && a !== null && a.name ? a.name : (typeof a === 'string' ? a : String(a));
+        }) : defaultDisciplinaryActions;
+    }
+    
+    // Populate responsibility toggles
+    const responsibilityToggles = document.getElementById('responsibilityToggles');
+    if (responsibilityToggles) {
+        responsibilityToggles.innerHTML = roles.map(role => `
+            <label class="toggle-item">
+                <input type="checkbox" name="responsibleRoles" value="${role}" checked>
+                <span class="toggle-label">${role}</span>
+            </label>
+        `).join('');
+    }
+    
+    // Populate disciplinary action toggles
+    const disciplinaryToggles = document.getElementById('disciplinaryToggles');
+    if (disciplinaryToggles) {
+        disciplinaryToggles.innerHTML = disciplinaryActions.map(action => `
+            <label class="toggle-item">
+                <input type="checkbox" name="disciplinaryActions" value="${action}" checked>
+                <span class="toggle-label">${action}</span>
+            </label>
+        `).join('');
+    }
+    
+    // Update organization checkboxes
+    const orgToggles = document.querySelector('.organization-toggles');
+    if (orgToggles && allOrgs.length > 0) {
+        orgToggles.innerHTML = `
+            <label class="toggle-item">
+                <input type="checkbox" id="org-all" onchange="toggleAllOrganizations()">
+                <span class="toggle-label">All Organizations</span>
+            </label>
+            ${allOrgs.map(org => `
+                <label class="toggle-item">
+                    <input type="checkbox" id="org-${org.toLowerCase().replace(/\s+/g, '-')}" value="${org.toLowerCase().replace(/\s+/g, '-')}">
+                    <span class="toggle-label">${org}</span>
+                </label>
+            `).join('')}
+        `;
+    }
+}
+
+// AI Policy Generator - Complete Redesign
+// wizardQuestions is now initialized at the top of the file (line 53)
+
+// AI Policy Generator - Main Functions
+// Check if AI generator is configured
+function isAIGeneratorConfigured() {
+    // Check if config exists in localStorage (this means user has saved it)
+    const saved = localStorage.getItem('aiGeneratorConfig');
+    if (!saved) {
+        return false;
+    }
+    
+    try {
+        const config = JSON.parse(saved);
+        // Check if config has been customized (has items in key categories)
+        // If it's just empty arrays, it's not configured
+        const hasConfig = config.policyTypes && config.policyTypes.length > 0 &&
+                         config.categories && config.categories.length > 0 &&
+                         config.audience && config.audience.length > 0;
+        return hasConfig;
+    } catch (e) {
+        return false;
+    }
+}
+
+function openAIModal() {
+    // Track if admin dashboard was open
+    const adminModal = document.getElementById('adminModal');
+    const wasAdminOpen = adminModal && adminModal.style.display !== 'none';
+    window.wasAdminModalOpen = wasAdminOpen;
+    
+    // Close admin dashboard first
+    closeAdminModal();
+    
+    // Open AI modal
+    const aiModal = document.getElementById('aiModal');
+    if (!aiModal) {
+        console.error('AI Modal not found');
+        return;
+    }
+    aiModal.style.display = 'block';
+    
+    // Hide result and loading
+    const aiResult = document.getElementById('aiResult');
+    const aiLoading = document.getElementById('aiLoading');
+    const aiWizard = document.getElementById('aiWizard');
+    const aiSetupForm = document.getElementById('aiSetupForm');
+    
+    if (aiResult) aiResult.style.display = 'none';
+    if (aiLoading) aiLoading.style.display = 'none';
+    
+    // Setup form/survey is disabled - always show wizard directly
+    // Hide setup form and always show wizard
+        if (aiSetupForm) aiSetupForm.style.display = 'none';
+        if (aiWizard) aiWizard.style.display = 'block';
+        
+        // Initialize wizard
+        if (typeof initWizard === 'function') {
+            initWizard();
+    }
+}
+
+function closeAIModal() {
+    const aiModal = document.getElementById('aiModal');
+    if (aiModal) {
+        aiModal.style.display = 'none';
+    }
+    
+    // Reset form if function exists
+    if (typeof resetAIPolicyForm === 'function') {
+        resetAIPolicyForm();
+    }
+    
+    resetWizard();
+    
+    // Reopen admin modal if it was open
+    const shouldReopenAdmin = window.wasAdminModalOpen !== false;
+    window.wasAdminModalOpen = false;
+    if (shouldReopenAdmin) {
+        setTimeout(() => openAdminModal(), 250);
+    }
+}
+
+// Form-Based AI Policy Generator Functions
+// These functions support the new tabbed form interface
+
+// Initialize policy generator config (will use defaults if not configured)
+let policyGeneratorConfig = {
+    organizations: [
+        { id: '1', name: 'All Organizations', value: 'all', description: 'Applies to all organizations' }
+    ],
+    roles: [
+        { id: '1', name: 'All Staff', description: 'Applies to all staff members' }
+    ],
+    disciplinaryActions: [
+        { id: '1', name: 'As per company policy', description: 'Follow standard company disciplinary procedures' }
+    ],
+    categories: [
+        { id: '1', name: 'Admin Policy', value: 'admin', description: 'Administrative policies' },
+        { id: '2', name: 'Standard Operating Guidelines', value: 'sog', description: 'Standard operating procedures' },
+        { id: '3', name: 'Communication Memo', value: 'memo', description: 'Internal communications' }
+    ],
+    audience: [
+        { id: '1', name: 'All Staff', description: 'All employees' }
+    ],
+    compliance: []
+};
+
+let chatState = {
+    step: 'start',
+    isGenerating: false,
+    currentPolicy: null,
+    formData: null
+};
+
+function resetAIPolicyForm() {
+    const titleEl = document.getElementById('aiPolicyTitle');
+    const descEl = document.getElementById('aiPolicyDescription');
+    const keyPointsEl = document.getElementById('aiPolicyKeyPoints');
+    const dateEl = document.getElementById('aiPolicyEffectiveDate');
+    const versionEl = document.getElementById('aiPolicyVersion');
+    
+    if (titleEl) titleEl.value = '';
+    if (descEl) descEl.value = '';
+    if (keyPointsEl) keyPointsEl.value = '';
+    if (versionEl) versionEl.value = '1.0';
+    
+    // Set default effective date to today
+    if (dateEl) {
+        const today = new Date().toISOString().split('T')[0];
+        dateEl.value = today;
+    }
+    
+    // Clear all checkboxes
+    const formSetup = document.getElementById('aiFormSetup');
+    if (formSetup) {
+        formSetup.querySelectorAll('input[type="checkbox"]').forEach(cb => cb.checked = false);
+        formSetup.querySelectorAll('input[type="radio"]').forEach(rb => rb.checked = false);
+    }
+}
+
+function populateFormFields() {
+    populateFormPolicyTypes();
+    populateFormOrganizations();
+    populateFormRoles();
+    populateFormDisciplinaryActions();
+    populateFormAudience();
+    populateFormCompliance();
+    
+    // Set default selections
+    const firstPolicyType = document.querySelector('#formPolicyTypes input[type="radio"]');
+    if (firstPolicyType) firstPolicyType.checked = true;
+    
+    const allOrgCheckbox = document.querySelector('#formOrganizations input[value="all"]');
+    if (allOrgCheckbox) allOrgCheckbox.checked = true;
+}
+
+function populateFormPolicyTypes() {
+    const container = document.getElementById('formPolicyTypes');
+    if (!container) return;
+    
+    const categories = policyGeneratorConfig.categories || [];
+    if (categories.length === 0) {
+        container.innerHTML = '<p style="color: #999; padding: 10px;">No policy types configured.</p>';
+        return;
+    }
+    
+    container.innerHTML = categories.map((cat, index) => `
+        <label class="toggle-item">
+            <input type="radio" name="formPolicyType" value="${cat.value || cat.name.toLowerCase().replace(/\s+/g, '-')}" ${index === 0 ? 'checked' : ''}>
+            <span class="toggle-label">${cat.name}</span>
+        </label>
+    `).join('');
+}
+
+function populateFormOrganizations() {
+    const container = document.getElementById('formOrganizations');
+    if (!container) return;
+    
+    const orgs = policyGeneratorConfig.organizations || [];
+    if (orgs.length === 0) {
+        container.innerHTML = '<p style="color: #999; padding: 10px;">No organizations configured.</p>';
+        return;
+    }
+    
+    container.innerHTML = orgs.map(org => `
+        <label class="toggle-item">
+            <input type="checkbox" class="form-org-checkbox" 
+                   value="${org.value || org.name.toLowerCase().replace(/\s+/g, '-')}" 
+                   ${org.value === 'all' ? 'onchange="toggleAllFormOrganizations()"' : ''}>
+            <span class="toggle-label">${org.name}</span>
+        </label>
+    `).join('');
+}
+
+function populateFormRoles() {
+    const container = document.getElementById('formResponsibilityToggles');
+    if (!container) return;
+    
+    const roles = policyGeneratorConfig.roles || [];
+    if (roles.length === 0) {
+        container.innerHTML = '<p style="color: #999; padding: 10px;">No roles configured.</p>';
+        return;
+    }
+    
+    container.innerHTML = roles.map(role => `
+        <label class="toggle-item">
+            <input type="checkbox" value="${role.name}">
+            <span class="toggle-label">${role.name}</span>
+        </label>
+    `).join('');
+}
+
+function populateFormDisciplinaryActions() {
+    const container = document.getElementById('formDisciplinaryToggles');
+    if (!container) return;
+    
+    const actions = policyGeneratorConfig.disciplinaryActions || [];
+    if (actions.length === 0) {
+        container.innerHTML = '<p style="color: #999; padding: 10px;">No disciplinary actions configured.</p>';
+        return;
+    }
+    
+    container.innerHTML = actions.map(action => `
+        <label class="toggle-item">
+            <input type="checkbox" value="${action.name}">
+            <span class="toggle-label">${action.name}</span>
+        </label>
+    `).join('');
+}
+
+function populateFormAudience() {
+    const container = document.getElementById('formAudienceToggles');
+    if (!container) return;
+    
+    const audience = policyGeneratorConfig.audience || [];
+    if (audience.length === 0) {
+        container.innerHTML = '<p style="color: #999; padding: 10px;">No audience options configured.</p>';
+        return;
+    }
+    
+    container.innerHTML = audience.map(aud => `
+        <label class="toggle-item">
+            <input type="checkbox" value="${aud.name}">
+            <span class="toggle-label">${aud.name}</span>
+        </label>
+    `).join('');
+}
+
+function populateFormCompliance() {
+    const container = document.getElementById('formComplianceToggles');
+    if (!container) return;
+    
+    const compliance = policyGeneratorConfig.compliance || [];
+    if (compliance.length === 0) {
+        container.innerHTML = '<p style="color: #999; padding: 10px;">No compliance requirements configured.</p>';
+        return;
+    }
+    
+    container.innerHTML = compliance.map(comp => `
+        <label class="toggle-item">
+            <input type="checkbox" value="${comp.name}">
+            <span class="toggle-label">${comp.name}</span>
+        </label>
+    `).join('');
+}
+
+function switchFormTab(tabName) {
+    // Hide all tab contents
+    document.querySelectorAll('.form-tab-content').forEach(content => {
+        content.classList.remove('active');
+    });
+    
+    // Remove active from all tabs
+    document.querySelectorAll('.form-tab').forEach(tab => {
+        tab.classList.remove('active');
+    });
+    
+    // Show selected tab content
+    const selectedContent = document.getElementById(`tab-${tabName}`);
+    if (selectedContent) {
+        selectedContent.classList.add('active');
+    }
+    
+    // Activate selected tab button
+    const selectedTab = document.querySelector(`.form-tab[data-tab="${tabName}"]`);
+    if (selectedTab) {
+        selectedTab.classList.add('active');
+    }
+}
+
+function toggleAllFormOrganizations() {
+    const allCheckbox = document.querySelector('#formOrganizations input[value="all"]');
+    const otherCheckboxes = document.querySelectorAll('#formOrganizations input.form-org-checkbox:not([value="all"])');
+    
+    if (allCheckbox && allCheckbox.checked) {
+        otherCheckboxes.forEach(cb => cb.checked = false);
+    }
+}
+
+async function generatePolicyFromForm() {
+    // Collect form data
+    const titleEl = document.getElementById('aiPolicyTitle');
+    const title = titleEl ? titleEl.value.trim() : '';
+    
+    if (!title) {
+        showNotification('Please enter a policy title', 'error');
+        if (titleEl) titleEl.focus();
+        return;
+    }
+    
+    const description = document.getElementById('aiPolicyDescription')?.value.trim() || '';
+    const keyPoints = document.getElementById('aiPolicyKeyPoints')?.value.trim() || '';
+    const effectiveDate = document.getElementById('aiPolicyEffectiveDate')?.value || '';
+    const version = document.getElementById('aiPolicyVersion')?.value || '1.0';
+    
+    // Get selected policy type
+    const policyTypeRadio = document.querySelector('#formPolicyTypes input[name="formPolicyType"]:checked');
+    const policyType = policyTypeRadio ? policyTypeRadio.value : 'admin';
+    
+    // Get selected organizations
+    const selectedOrgs = Array.from(document.querySelectorAll('#formOrganizations input:checked'))
+        .map(cb => cb.value);
+    
+    // Get selected roles
+    const selectedRoles = Array.from(document.querySelectorAll('#formResponsibilityToggles input:checked'))
+        .map(cb => cb.value);
+    
+    // Get selected disciplinary actions
+    const selectedActions = Array.from(document.querySelectorAll('#formDisciplinaryToggles input:checked'))
+        .map(cb => cb.value);
+    
+    // Get selected audience
+    const selectedAudience = Array.from(document.querySelectorAll('#formAudienceToggles input:checked'))
+        .map(cb => cb.value);
+    
+    // Get selected compliance
+    const selectedCompliance = Array.from(document.querySelectorAll('#formComplianceToggles input:checked'))
+        .map(cb => cb.value);
+    
+    // Build comprehensive prompt
+    let prompt = `Create a comprehensive policy titled "${title}"`;
+    
+    if (description) {
+        prompt += `\n\nDescription: ${description}`;
+    }
+    
+    if (keyPoints) {
+        prompt += `\n\nKey Requirements:\n${keyPoints}`;
+    }
+    
+    prompt += `\n\nPolicy Type: ${policyType}`;
+    
+    if (selectedOrgs.length > 0) {
+        const orgNames = selectedOrgs.join(', ');
+        prompt += `\nApplicable Organizations: ${orgNames}`;
+    }
+    
+    if (selectedRoles.length > 0) {
+        prompt += `\nResponsible Roles: ${selectedRoles.join(', ')}`;
+    }
+    
+    if (selectedActions.length > 0) {
+        prompt += `\nDisciplinary Actions: ${selectedActions.join(', ')}`;
+    }
+    
+    if (selectedAudience.length > 0) {
+        prompt += `\nTarget Audience: ${selectedAudience.join(', ')}`;
+    }
+    
+    if (selectedCompliance.length > 0) {
+        prompt += `\nCompliance Requirements: ${selectedCompliance.join(', ')}`;
+    }
+    
+    // Store form data
+    chatState.formData = {
+        title,
+        description,
+        keyPoints,
+        policyType,
+        organizations: selectedOrgs,
+        roles: selectedRoles,
+        disciplinaryActions: selectedActions,
+        audience: selectedAudience,
+        compliance: selectedCompliance,
+        effectiveDate,
+        version
+    };
+    
+    // Use unified webhook-based generation
+    await generatePolicyWithChatGPT(prompt);
+}
+
+// Unified policy generation function using webhook
+async function generatePolicyWithChatGPT(prompt) {
+    const POLICY_GENERATION_WEBHOOK = 'https://jackwilde.app.n8n.cloud/webhook/cc526f0d-ccd1-4b6c-b8db-67c5c1cd19a4';
+    
+    try {
+        // Get form data from chatState or collect fresh
+        const formData = chatState.formData || {};
+        
+        // Collect all form data
+        const title = formData.title || document.getElementById('aiPolicyTitle')?.value.trim() || '';
+        const description = formData.description || document.getElementById('aiPolicyDescription')?.value.trim() || '';
+        const keyPoints = formData.keyPoints || document.getElementById('aiPolicyKeyPoints')?.value.trim() || '';
+        const policyType = formData.policyType || document.querySelector('#formPolicyTypes input[name="formPolicyType"]:checked')?.value || 'admin';
+        const effectiveDate = formData.effectiveDate || document.getElementById('aiPolicyEffectiveDate')?.value || new Date().toISOString().split('T')[0];
+        const version = formData.version || document.getElementById('aiPolicyVersion')?.value || '1.0';
+        
+        // Get selected organizations
+        const selectedOrgs = formData.organizations || Array.from(document.querySelectorAll('#formOrganizations input:checked'))
+            .map(cb => cb.value);
+        
+        // Get selected roles
+        const selectedRoles = formData.roles || Array.from(document.querySelectorAll('#formResponsibilityToggles input:checked'))
+            .map(cb => cb.value);
+        
+        // Get selected disciplinary actions
+        const selectedActions = formData.disciplinaryActions || Array.from(document.querySelectorAll('#formDisciplinaryToggles input:checked'))
+            .map(cb => cb.value);
+        
+        // Get selected audience
+        const selectedAudience = formData.audience || Array.from(document.querySelectorAll('#formAudienceToggles input:checked'))
+            .map(cb => cb.value);
+        
+        // Get selected compliance
+        const selectedCompliance = formData.compliance || Array.from(document.querySelectorAll('#formComplianceToggles input:checked'))
+            .map(cb => cb.value);
+        
+        // Validate required fields
+        if (!title) {
+            throw new Error('Policy title is required');
+        }
+        
+        // Prepare webhook payload
+        const payload = {
+            type: 'policygeneration',
+            data: {
+                title: title,
+                description: description,
+                keyPoints: keyPoints,
+                policyType: policyType,
+                effectiveDate: effectiveDate,
+                version: version,
+                organizations: selectedOrgs,
+                roles: selectedRoles,
+                disciplinaryActions: selectedActions,
+                audience: selectedAudience,
+                compliance: selectedCompliance,
+                company: currentCompany || null,
+                user: currentUser ? {
+                    username: currentUser.username,
+                    email: currentUser.email
+                } : null,
+                prompt: prompt || `Create a ${policyType} policy titled "${title}"${description ? ` with description: ${description}` : ''}${keyPoints ? `\n\nKey Requirements:\n${keyPoints}` : ''}`
+            },
+            timestamp: new Date().toISOString()
+        };
+        
+        // Show loading state
+    const aiFormSetup = document.getElementById('aiFormSetup');
+    const aiLoading = document.getElementById('aiLoading');
+    const aiResult = document.getElementById('aiResult');
+    
+    if (aiFormSetup) aiFormSetup.style.display = 'none';
+        if (aiLoading) {
+            aiLoading.style.display = 'block';
+            const loadingText = aiLoading.querySelector('p');
+            if (loadingText) {
+                loadingText.textContent = 'Generating policy with AI...';
+            }
+        }
+        if (aiResult) aiResult.style.display = 'none';
+        
+        // Call webhook
+        console.log('Sending policy generation request to webhook:', payload);
+        const response = await fetch(POLICY_GENERATION_WEBHOOK, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(payload)
+        });
+        
+        if (!response.ok) {
+            throw new Error(`Webhook error: ${response.status} ${response.statusText}`);
+        }
+        
+        const webhookResponse = await response.json().catch(() => ({}));
+        console.log('Webhook response received:', webhookResponse);
+        
+        // Extract policy content from response - handle various response formats
+        let generatedContent = '';
+        let policyData = null;
+        
+        // Try different response formats
+        if (webhookResponse.policy) {
+            generatedContent = webhookResponse.policy;
+            policyData = webhookResponse;
+        } else if (webhookResponse.content) {
+            generatedContent = webhookResponse.content;
+            policyData = webhookResponse;
+        } else if (webhookResponse.markdown) {
+            generatedContent = webhookResponse.markdown;
+            policyData = webhookResponse;
+        } else if (webhookResponse.data) {
+            // Response wrapped in data object
+            if (webhookResponse.data.policy) {
+                generatedContent = webhookResponse.data.policy;
+            } else if (webhookResponse.data.content) {
+                generatedContent = webhookResponse.data.content;
+            } else if (webhookResponse.data.markdown) {
+                generatedContent = webhookResponse.data.markdown;
+            } else if (typeof webhookResponse.data === 'string') {
+                generatedContent = webhookResponse.data;
+            }
+            policyData = webhookResponse.data || webhookResponse;
+        } else if (typeof webhookResponse === 'string') {
+            generatedContent = webhookResponse;
+            policyData = { content: webhookResponse };
+        } else if (webhookResponse.text) {
+            generatedContent = webhookResponse.text;
+            policyData = webhookResponse;
+        } else {
+            // Last resort: try to find any text content
+            const responseStr = JSON.stringify(webhookResponse);
+            if (responseStr.length > 100) {
+                // If it's a large response, it might be the policy content
+                generatedContent = responseStr;
+                policyData = webhookResponse;
+            } else {
+                throw new Error('Unexpected response format from webhook');
+            }
+        }
+        
+        if (!generatedContent || generatedContent.trim().length === 0) {
+            throw new Error('No policy content received from webhook. Response: ' + JSON.stringify(webhookResponse).substring(0, 200));
+        }
+        
+        // Store webhook response for saving
+        window.currentWebhookPolicy = policyData || { 
+            policy_title: title,
+            policy_type: policyType,
+            markdown: generatedContent,
+            content: generatedContent
+        };
+        
+        // Display result
+        if (aiLoading) aiLoading.style.display = 'none';
+        if (aiResult) aiResult.style.display = 'block';
+        
+        const policyPreview = document.getElementById('policyPreview');
+        if (policyPreview) {
+            // Format the content for display
+            const formattedContent = generatedContent
+                .replace(/\n/g, '<br>')
+                .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+                .replace(/\*(.*?)\*/g, '<em>$1</em>');
+            policyPreview.innerHTML = `<div class="policy-content">${formattedContent}</div>`;
+        }
+        
+        // Store in chatState
+        chatState.currentPolicy = {
+            title: title,
+            type: policyType,
+            content: generatedContent,
+            clinicNames: selectedOrgs.length > 0 ? selectedOrgs.join(', ') : 'All Organizations',
+            effectiveDate: effectiveDate,
+            version: version
+        };
+        
+        // Update form data
+        chatState.formData = {
+            title,
+            description,
+            keyPoints,
+            policyType,
+            organizations: selectedOrgs,
+            roles: selectedRoles,
+            disciplinaryActions: selectedActions,
+            audience: selectedAudience,
+            compliance: selectedCompliance,
+            effectiveDate,
+            version
+        };
+        
+        console.log('Policy generated successfully');
+        
+    } catch (error) {
+        console.error('Error generating policy:', error);
+        
+        // Show error to user
+        const errorMessage = error.message || 'Failed to generate policy. Please try again.';
+        showNotification(errorMessage, 'error');
+        
+        // Restore form
+        const aiFormSetup = document.getElementById('aiFormSetup');
+        const aiLoading = document.getElementById('aiLoading');
+        if (aiFormSetup) aiFormSetup.style.display = 'block';
+        if (aiLoading) aiLoading.style.display = 'none';
+    }
+}
+
+function previewPolicyForm() {
+    const title = document.getElementById('aiPolicyTitle')?.value.trim() || '(Not set)';
+    const description = document.getElementById('aiPolicyDescription')?.value.trim() || '(Not set)';
+    const keyPoints = document.getElementById('aiPolicyKeyPoints')?.value.trim() || '(Not set)';
+    
+    const policyTypeRadio = document.querySelector('#formPolicyTypes input[name="formPolicyType"]:checked');
+    const policyType = policyTypeRadio ? policyTypeRadio.nextElementSibling.textContent : '(Not selected)';
+    
+    const selectedOrgs = Array.from(document.querySelectorAll('#formOrganizations input:checked'))
+        .map(cb => cb.nextElementSibling.textContent);
+    const orgNames = selectedOrgs.length > 0 ? selectedOrgs.join(', ') : '(None selected)';
+    
+    const preview = `Policy Preview:\n\nTitle: ${title}\nType: ${policyType}\nDescription: ${description}\nKey Points: ${keyPoints}\nOrganizations: ${orgNames}`;
+    alert(preview);
+}
+
+function updatePolicyPreview() {
+    // Placeholder for live preview updates
+}
+
+function resetChat() {
+    chatState = {
+        step: 'start',
+        isGenerating: false,
+        currentPolicy: null,
+        formData: chatState.formData // Preserve form data
+    };
+    
+    const chatMessages = document.getElementById('chatMessages');
+    if (chatMessages) {
+        chatMessages.innerHTML = `
+            <div class="message ai-message">
+                <div class="message-avatar">
+                    <i class="fas fa-robot"></i>
+                </div>
+                <div class="message-content">
+                    <p><strong>Hello! I'm your AI Policy Assistant powered by ChatGPT.</strong></p>
+                    <p>Fill out the form in the tabs above, or chat with me to refine your policy.</p>
+                </div>
+            </div>
+        `;
+    }
+}
+
+function handleChatKeyPress(event) {
+    if (event.key === 'Enter') {
+        sendChatMessage();
+    }
+}
+
+function sendChatMessage() {
+    const input = document.getElementById('chatInput');
+    if (!input) return;
+    
+    const message = input.value.trim();
+    if (!message) return;
+    
+    // Add user message to chat
+    const chatMessages = document.getElementById('chatMessages');
+    if (chatMessages) {
+        const userMessage = document.createElement('div');
+        userMessage.className = 'message user-message';
+        userMessage.innerHTML = `
+            <div class="message-content">
+                <p>${message}</p>
+            </div>
+        `;
+        chatMessages.appendChild(userMessage);
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+    }
+    
+    input.value = '';
+    
+    // For now, just acknowledge (could integrate with ChatGPT API)
+    setTimeout(() => {
+        if (chatMessages) {
+            const aiMessage = document.createElement('div');
+            aiMessage.className = 'message ai-message';
+            aiMessage.innerHTML = `
+                <div class="message-avatar">
+                    <i class="fas fa-robot"></i>
+                </div>
+                <div class="message-content">
+                    <p>Thank you for your input. You can use the form above to generate your policy, or continue chatting for more assistance.</p>
+                </div>
+            `;
+            chatMessages.appendChild(aiMessage);
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+    }, 500);
+}
+
+// Policy result functions
+async function saveGeneratedPolicy() {
+    const preview = document.getElementById('policyPreview');
+    if (!preview || !preview.textContent) {
+        alert('No policy to save. Please generate a policy first.');
+        return;
+    }
+    
+    // Get form data if available
+    const formData = chatState.formData || {};
+    const title = formData.title || document.getElementById('aiPolicyTitle')?.value || 'Untitled Policy';
+    
+    // Get full policy text content
+    const fullText = preview.innerHTML || preview.textContent || preview.innerText || '';
+    
+    // Create policy object
+    const policy = {
+        id: Date.now().toString(),
+        title: title,
+        name: title, // For backward compatibility
+        type: formData.policyType || 'admin',
+        content: fullText,
+        text: fullText, // Full policy text
+        clinicNames: formData.organizations ? formData.organizations.join(', ') : 'All Organizations',
+        effectiveDate: formData.effectiveDate || new Date().toISOString().split('T')[0],
+        version: formData.version || '1.0',
+        created: new Date().toISOString(),
+        lastModified: new Date().toISOString(),
+        status: 'draft'
+    };
+    
+    // Send policy data to webhook
+    try {
+        if (typeof window.sendPolicyToWebhook === 'function') {
+            await window.sendPolicyToWebhook(policy);
+            console.log('Policy data sent to webhook successfully');
+        } else {
+            console.warn('sendPolicyToWebhook function not available');
+        }
+    } catch (error) {
+        console.error('Failed to send policy to webhook:', error);
+        // Don't block policy saving if webhook fails
+    }
+    
+    // Save to localStorage (policies array)
+    if (typeof policies !== 'undefined') {
+        policies.push(policy);
+        if (typeof savePoliciesToStorage === 'function') {
+            savePoliciesToStorage();
+        } else {
+            localStorage.setItem('policies', JSON.stringify(policies));
+        }
+    } else {
+        // Fallback: save directly to localStorage
+        let savedPolicies = JSON.parse(localStorage.getItem('policies') || '[]');
+        savedPolicies.push(policy);
+        localStorage.setItem('policies', JSON.stringify(savedPolicies));
+    }
+    
+    // Also save to global "all policies" list
+    let allPolicies = JSON.parse(localStorage.getItem('allPolicies') || '[]');
+    allPolicies.push(policy);
+    localStorage.setItem('allPolicies', JSON.stringify(allPolicies));
+    console.log('Policy saved to all policies list');
+    
+    alert('Policy saved successfully!');
+    closeAIModal();
+}
+
+function downloadGeneratedPolicy() {
+    const preview = document.getElementById('policyPreview');
+    if (!preview) {
+        alert('No policy to download. Please generate a policy first.');
+        return;
+    }
+    
+    const formData = chatState.formData || {};
+    const title = formData.title || document.getElementById('aiPolicyTitle')?.value || 'Untitled Policy';
+    
+    // Get text content
+    const content = preview.textContent || preview.innerText || '';
+    
+    // Create downloadable content
+    const textContent = `${title}\n\n${'='.repeat(50)}\n\n${content}`;
+    
+    // Create blob and download
+    const blob = new Blob([textContent], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${title.replace(/[^a-z0-9]/gi, '_').toLowerCase()}.txt`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+}
+
+function regeneratePolicy() {
+    // Hide result, show form
+    const aiResult = document.getElementById('aiResult');
+    const aiFormSetup = document.getElementById('aiFormSetup');
+    
+    if (aiResult) aiResult.style.display = 'none';
+    if (aiFormSetup) aiFormSetup.style.display = 'block';
+    
+    // Switch to basic tab
+    switchFormTab('basic');
+    
+    // Keep form data but allow regeneration
+    // User can modify and regenerate
+}
+
+// Attach functions to window
+if (typeof window !== 'undefined') {
+    window.switchFormTab = switchFormTab;
+    window.generatePolicyFromForm = generatePolicyFromForm;
+    window.previewPolicyForm = previewPolicyForm;
+    window.updatePolicyPreview = updatePolicyPreview;
+    window.toggleAllFormOrganizations = toggleAllFormOrganizations;
+    window.toggleAllRoleUsers = toggleAllRoleUsers;
+    window.updateSelectAllCheckbox = updateSelectAllCheckbox;
+    window.resetChat = resetChat;
+    window.handleChatKeyPress = handleChatKeyPress;
+    window.sendChatMessage = sendChatMessage;
+    window.saveGeneratedPolicy = saveGeneratedPolicy;
+    window.downloadGeneratedPolicy = downloadGeneratedPolicy;
+    window.regeneratePolicy = regeneratePolicy;
+    window.openAIModal = openAIModal;
+    window.closeAIModal = closeAIModal;
+    window.generatePolicyWithChatGPT = generatePolicyWithChatGPT;
+}
+
+function resetWizard() {
+    aiWizardState = {};
+    aiWizardCurrentStep = 0;
+    aiWizardRecommendations = {};
+}
+
+// ============================================
+// AI Policy Generator Configuration Management
+// ============================================
+
+// AI Generator Configuration Storage
+let aiGeneratorConfig = {
+    policyTypes: [],
+    categories: [],
+    audience: [],
+    compliance: [],
+    urgency: [],
+    questions: [],
+    customQuestions: []
+};
+
+// Default AI Generator Configuration
+const defaultAIGeneratorConfig = {
+    policyTypes: [
+        { id: '1', value: 'admin', label: 'Admin Policy', description: 'Administrative procedures and governance', icon: 'fa-file-alt', color: '#6366f1' },
+        { id: '2', value: 'sog', label: 'Standard Operating Guidelines', description: 'Operational procedures and workflows', icon: 'fa-clipboard-list', color: '#10b981' },
+        { id: '3', value: 'protocol', label: 'Protocol', description: 'Detailed step-by-step procedures', icon: 'fa-tasks', color: '#f59e0b' },
+        { id: '4', value: 'memo', label: 'Communication Memo', description: 'Internal announcements and updates', icon: 'fa-envelope', color: '#ec4899' },
+        { id: '5', value: 'training', label: 'Training Document', description: 'Educational materials and guides', icon: 'fa-graduation-cap', color: '#8b5cf6' },
+        { id: '6', value: 'governance', label: 'Governance Policy', description: 'Corporate governance and compliance', icon: 'fa-shield-alt', color: '#64748b' }
+    ],
+    categories: [
+        { id: '1', value: 'quality_assurance', label: 'Quality Assurance & Standards', description: 'Quality control, performance standards, best practices', icon: 'fa-award', color: '#10b981' },
+        { id: '2', value: 'emergency_response', label: 'Emergency Response', description: 'Disaster plans, evacuation procedures, crisis management', icon: 'fa-exclamation-triangle', color: '#ef4444' },
+        { id: '3', value: 'operations', label: 'Operations & Workflow', description: 'Scheduling, logistics, client experience', icon: 'fa-cogs', color: '#6366f1' },
+        { id: '4', value: 'data_security', label: 'Data & Security', description: 'Cybersecurity, documentation, privacy compliance', icon: 'fa-lock', color: '#8b5cf6' },
+        { id: '5', value: 'hr_people', label: 'HR & People', description: 'Hiring, training, performance management', icon: 'fa-users', color: '#f59e0b' },
+        { id: '6', value: 'custom', label: 'Custom Topic', description: 'Something specific to your organization', icon: 'fa-lightbulb', color: '#ec4899' }
+    ],
+    audience: [
+        { id: '1', value: 'operations_team', label: 'Operations Team', description: 'Operations staff, specialists, professional team members', icon: 'fa-user-md', color: '#10b981' },
+        { id: '2', value: 'front_desk', label: 'Client Services', description: 'Reception, CSRs, client communications', icon: 'fa-headset', color: '#6366f1' },
+        { id: '3', value: 'leadership', label: 'Leadership & Management', description: 'Directors, supervisors, administrators', icon: 'fa-user-tie', color: '#8b5cf6' },
+        { id: '4', value: 'all_staff', label: 'All Staff', description: 'Everyone in the organization', icon: 'fa-users', color: '#f59e0b' }
+    ],
+    compliance: [
+        { id: '1', value: 'hipaa', label: 'HIPAA / PHI', description: 'Privacy and protected health information', icon: 'fa-shield-alt', color: '#6366f1' },
+        { id: '2', value: 'osha', label: 'OSHA / Safety', description: 'Workplace safety and hazard control', icon: 'fa-hard-hat', color: '#f59e0b' },
+        { id: '3', value: 'accreditation', label: 'AAHA / Accreditation', description: 'Industry best practices and standards', icon: 'fa-certificate', color: '#10b981' },
+        { id: '4', value: 'none', label: 'No Specific Requirement', description: 'General best practices only', icon: 'fa-check-circle', color: '#64748b' }
+    ],
+    urgency: [
+        { id: '1', value: 'immediate', label: 'Immediate', description: 'Urgent - needs immediate implementation', icon: 'fa-bolt', color: '#ef4444' },
+        { id: '2', value: 'soon', label: 'Soon', description: 'Within the next few weeks', icon: 'fa-clock', color: '#f59e0b' },
+        { id: '3', value: 'planned', label: 'Planned', description: 'Part of routine planning or annual updates', icon: 'fa-calendar', color: '#10b981' }
+    ],
+    questions: [
+        {
+            id: 'policyType',
+            title: 'What type of policy do you want to create?',
+            subtitle: 'Select the policy type that best fits your needs',
+            type: 'choice',
+            placeholder: '',
+            helper: ''
+        },
+        {
+            id: 'policyCategory',
+            title: 'What category does this policy cover?',
+            subtitle: 'Choose the primary focus area',
+            type: 'choice',
+            placeholder: '',
+            helper: ''
+        },
+        {
+            id: 'audience',
+            title: 'Who is the primary audience?',
+            subtitle: 'Select who needs to follow this policy',
+            type: 'choice',
+            placeholder: '',
+            helper: ''
+        },
+        {
+            id: 'urgency',
+            title: 'What\'s the urgency level?',
+            subtitle: 'This helps us set the appropriate tone and timeline',
+            type: 'choice',
+            placeholder: '',
+            helper: ''
+        },
+        {
+            id: 'compliance',
+            title: 'Any compliance requirements?',
+            subtitle: 'Select applicable regulations or standards',
+            type: 'choice',
+            placeholder: '',
+            helper: ''
+        },
+        // Organizations question is already in base wizardQuestions array, so removed from here to avoid duplication
+    ],
+    customQuestions: [
+        // Recommended custom questions
+        {
+            id: 'responsibleRoles',
+            title: 'Who is responsible for this policy?',
+            subtitle: 'Select the roles of people responsible for implementing or managing this policy',
+            type: 'roles',
+            placeholder: '',
+            helper: 'These roles will be included in the policy document'
+        },
+        {
+            id: 'policyDepartment',
+            title: 'Which department does this policy apply to?',
+            subtitle: 'Select the primary department or departments',
+            type: 'choice',
+            options: [
+                { value: 'clinical', label: 'Clinical Department', description: 'Veterinary services, medical procedures', icon: 'fa-heartbeat', color: '#10b981' },
+                { value: 'front_office', label: 'Front Office', description: 'Reception, client services, scheduling', icon: 'fa-headset', color: '#6366f1' },
+                { value: 'management', label: 'Management', description: 'Administration, operations, leadership', icon: 'fa-user-tie', color: '#8b5cf6' },
+                { value: 'support', label: 'Support Staff', description: 'Maintenance, housekeeping, support roles', icon: 'fa-tools', color: '#f59e0b' },
+                { value: 'all', label: 'All Departments', description: 'Applies to the entire organization', icon: 'fa-building', color: '#64748b' }
+            ]
+        },
+        {
+            id: 'reviewFrequency',
+            title: 'How often should this policy be reviewed?',
+            subtitle: 'Select the review frequency',
+            type: 'choice',
+            options: [
+                { value: 'monthly', label: 'Monthly', description: 'Reviewed every month', icon: 'fa-calendar-week', color: '#ef4444' },
+                { value: 'quarterly', label: 'Quarterly', description: 'Reviewed every 3 months', icon: 'fa-calendar-alt', color: '#f59e0b' },
+                { value: 'annually', label: 'Annually', description: 'Reviewed once per year', icon: 'fa-calendar-check', color: '#10b981' },
+                { value: 'biannually', label: 'Bi-Annually', description: 'Reviewed twice per year', icon: 'fa-calendar', color: '#6366f1' },
+                { value: 'as_needed', label: 'As Needed', description: 'Reviewed when circumstances change', icon: 'fa-clock', color: '#64748b' }
+            ]
+        },
+        {
+            id: 'approvalLevel',
+            title: 'What level of approval is required?',
+            subtitle: 'Select the approval authority level',
+            type: 'choice',
+            options: [
+                { value: 'director', label: 'Director Approval', description: 'Requires director or CEO approval', icon: 'fa-user-tie', color: '#8b5cf6' },
+                { value: 'manager', label: 'Manager Approval', description: 'Requires department manager approval', icon: 'fa-user-cog', color: '#6366f1' },
+                { value: 'supervisor', label: 'Supervisor Approval', description: 'Requires supervisor approval', icon: 'fa-user-shield', color: '#10b981' },
+                { value: 'committee', label: 'Committee Approval', description: 'Requires committee review and approval', icon: 'fa-users-cog', color: '#f59e0b' },
+                { value: 'none', label: 'No Formal Approval', description: 'Standard procedure, no special approval needed', icon: 'fa-check-circle', color: '#64748b' }
+            ]
+        }
+    ]
+};
+
+function loadAIGeneratorConfig() {
+    const saved = localStorage.getItem('aiGeneratorConfig');
+    if (saved) {
+        try {
+            aiGeneratorConfig = JSON.parse(saved);
+            // Merge with defaults to ensure all categories exist
+            Object.keys(defaultAIGeneratorConfig).forEach(key => {
+                if (key === 'customQuestions') {
+                    // For customQuestions, merge recommended ones with existing ones
+                    if (!aiGeneratorConfig.customQuestions) {
+                        aiGeneratorConfig.customQuestions = defaultAIGeneratorConfig.customQuestions || [];
+                    } else {
+                        // Check if recommended questions exist, if not add them
+                        const recommendedIds = (defaultAIGeneratorConfig.customQuestions || []).map(q => q.id);
+                        const existingIds = aiGeneratorConfig.customQuestions.map(q => q.id);
+                        
+                        // Add missing recommended questions
+                        defaultAIGeneratorConfig.customQuestions.forEach(recommendedQ => {
+                            if (!existingIds.includes(recommendedQ.id)) {
+                                aiGeneratorConfig.customQuestions.push(recommendedQ);
+                            }
+                        });
+                    }
+                } else if (!aiGeneratorConfig[key] || (Array.isArray(aiGeneratorConfig[key]) && aiGeneratorConfig[key].length === 0)) {
+                    aiGeneratorConfig[key] = defaultAIGeneratorConfig[key];
+                } else if (key === 'questions' && Array.isArray(aiGeneratorConfig[key])) {
+                    // Merge question configs, preserving configured values
+                    const defaultQuestions = defaultAIGeneratorConfig[key];
+                    aiGeneratorConfig[key] = defaultQuestions.map(defaultQ => {
+                        const configuredQ = aiGeneratorConfig[key].find(q => q.id === defaultQ.id);
+                        return configuredQ ? { ...defaultQ, ...configuredQ } : defaultQ;
+                    });
+                }
+            });
+            // Ensure customQuestions exists
+            if (!aiGeneratorConfig.customQuestions) {
+                aiGeneratorConfig.customQuestions = defaultAIGeneratorConfig.customQuestions || [];
+            }
+        } catch (e) {
+            console.error('Error loading AI config:', e);
+            aiGeneratorConfig = JSON.parse(JSON.stringify(defaultAIGeneratorConfig));
+            if (!aiGeneratorConfig.customQuestions) {
+                aiGeneratorConfig.customQuestions = [];
+            }
+        }
+    } else {
+        aiGeneratorConfig = JSON.parse(JSON.stringify(defaultAIGeneratorConfig));
+        if (!aiGeneratorConfig.customQuestions) {
+            aiGeneratorConfig.customQuestions = [];
+        }
+    }
+    saveAIGeneratorConfig();
+    updateWizardQuestionsFromConfig();
+}
+
+function saveAIGeneratorConfig() {
+    localStorage.setItem('aiGeneratorConfig', JSON.stringify(aiGeneratorConfig));
+}
+
+// Setup wizard state
+let setupWizardCurrentStep = 1;
+let setupWizardData = {
+    policyTypes: [],
+    categories: [],
+    audience: [],
+    compliance: [],
+    urgency: [],
+    roles: []
+};
+
+// Setup wizard recommendations
+const setupRecommendations = {
+    policyTypes: [
+        { label: 'Admin Policy', icon: 'fa-file-alt', color: '#6366f1' },
+        { label: 'Standard Operating Guidelines', icon: 'fa-clipboard-list', color: '#10b981' },
+        { label: 'Protocol', icon: 'fa-tasks', color: '#f59e0b' },
+        { label: 'Communication Memo', icon: 'fa-envelope', color: '#ec4899' },
+        { label: 'Training Document', icon: 'fa-graduation-cap', color: '#8b5cf6' },
+        { label: 'Governance Policy', icon: 'fa-shield-alt', color: '#64748b' }
+    ],
+    categories: [
+        { label: 'Quality Assurance & Standards', icon: 'fa-award', color: '#10b981' },
+        { label: 'Emergency Response', icon: 'fa-exclamation-triangle', color: '#ef4444' },
+        { label: 'Operations & Workflow', icon: 'fa-cogs', color: '#6366f1' },
+        { label: 'Data & Security', icon: 'fa-lock', color: '#8b5cf6' },
+        { label: 'HR & People', icon: 'fa-users', color: '#f59e0b' },
+        { label: 'Custom Topic', icon: 'fa-lightbulb', color: '#ec4899' }
+    ],
+    audience: [
+        { label: 'Clinical Team', icon: 'fa-user-md', color: '#10b981' },
+        { label: 'Client Services', icon: 'fa-headset', color: '#6366f1' },
+        { label: 'Leadership & Management', icon: 'fa-user-tie', color: '#8b5cf6' },
+        { label: 'All Staff', icon: 'fa-users', color: '#f59e0b' }
+    ],
+    compliance: [
+        { label: 'HIPAA / PHI', icon: 'fa-shield-alt', color: '#6366f1' },
+        { label: 'OSHA / Safety', icon: 'fa-hard-hat', color: '#f59e0b' },
+        { label: 'AAHA / Accreditation', icon: 'fa-certificate', color: '#10b981' },
+        { label: 'No Specific Requirement', icon: 'fa-check-circle', color: '#64748b' }
+    ],
+    urgency: [
+        { label: 'Immediate', icon: 'fa-bolt', color: '#ef4444' },
+        { label: 'Soon', icon: 'fa-clock', color: '#f59e0b' },
+        { label: 'Planned', icon: 'fa-calendar', color: '#10b981' }
+    ]
+};
+
+// Initialize setup wizard
+function initSetupWizard() {
+    setupWizardCurrentStep = 1;
+    setupWizardData = {
+        policyTypes: [],
+        categories: [],
+        audience: [],
+        compliance: [],
+        urgency: [],
+        roles: []
+    };
+    
+    // Populate recommendations
+    populateSetupRecommendations();
+    
+    // Load existing users for roles
+    loadUsersForRoles();
+    
+    // Show first step
+    showSetupStep(1);
+}
+
+// Populate recommendations for all steps
+function populateSetupRecommendations() {
+    Object.keys(setupRecommendations).forEach(key => {
+        const container = document.getElementById(`setup${key.charAt(0).toUpperCase() + key.slice(1)}Recommendations`);
+        if (!container) return;
+        
+        const recommendations = setupRecommendations[key];
+        container.innerHTML = recommendations.map(rec => `
+            <label class="setup-recommendation-item" style="display: flex; align-items: center; padding: 15px; background: white; border: 2px solid #e0e0e0; border-radius: 8px; cursor: pointer; transition: all 0.2s;">
+                <input type="checkbox" class="setup-recommendation-checkbox" data-type="${key}" data-label="${rec.label}" 
+                    style="margin-right: 12px; width: 20px; height: 20px; cursor: pointer;">
+                <div style="flex: 1;">
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <i class="fas ${rec.icon}" style="color: ${rec.color}; font-size: 20px;"></i>
+                        <strong style="color: #333;">${rec.label}</strong>
+                    </div>
+                </div>
+            </label>
+        `).join('');
+        
+        // Add click handlers
+        container.querySelectorAll('.setup-recommendation-item').forEach(item => {
+            item.addEventListener('click', function(e) {
+                if (e.target.type !== 'checkbox') {
+                    const checkbox = this.querySelector('input[type="checkbox"]');
+                    checkbox.checked = !checkbox.checked;
+                    updateSetupDataFromCheckbox(checkbox);
+                }
+            });
+        });
+        
+        container.querySelectorAll('.setup-recommendation-checkbox').forEach(checkbox => {
+            checkbox.addEventListener('change', function() {
+                updateSetupDataFromCheckbox(this);
+            });
+        });
+    });
+}
+
+// Update setup data from checkbox
+function updateSetupDataFromCheckbox(checkbox) {
+    const type = checkbox.dataset.type;
+    const label = checkbox.dataset.label;
+    const rec = setupRecommendations[type].find(r => r.label === label);
+    
+    if (!rec) return;
+    
+    const value = label.toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '');
+    const item = {
+        id: String(Date.now() + Math.random()),
+        value: value,
+        label: label,
+        description: `${label} configuration`,
+        icon: rec.icon,
+        color: rec.color
+    };
+    
+    if (checkbox.checked) {
+        if (!setupWizardData[type].find(i => i.label === label)) {
+            setupWizardData[type].push(item);
+        }
+    } else {
+        setupWizardData[type] = setupWizardData[type].filter(i => i.label !== label);
+    }
+}
+
+// Add custom item
+function addCustomItem(type) {
+    const input = document.getElementById(`setup${type.charAt(0).toUpperCase() + type.slice(1)}Custom`);
+    if (!input) return;
+    
+    const label = input.value.trim();
+    if (!label) return;
+    
+    // Check if already exists
+    if (setupWizardData[type].find(i => i.label === label)) {
+        alert('This item already exists!');
+        return;
+    }
+    
+    const value = label.toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '');
+    const defaultIcons = {
+        policyTypes: ['fa-file-alt', 'fa-clipboard-list', 'fa-tasks', 'fa-envelope', 'fa-graduation-cap', 'fa-shield-alt'],
+        categories: ['fa-heartbeat', 'fa-exclamation-triangle', 'fa-cogs', 'fa-lock', 'fa-users', 'fa-lightbulb'],
+        audience: ['fa-user-md', 'fa-headset', 'fa-user-tie', 'fa-users'],
+        compliance: ['fa-shield-alt', 'fa-hard-hat', 'fa-certificate', 'fa-check-circle'],
+        urgency: ['fa-bolt', 'fa-clock', 'fa-calendar']
+    };
+    const defaultColors = {
+        policyTypes: ['#6366f1', '#10b981', '#f59e0b', '#ec4899', '#8b5cf6', '#64748b'],
+        categories: ['#10b981', '#ef4444', '#6366f1', '#8b5cf6', '#f59e0b', '#ec4899'],
+        audience: ['#10b981', '#6366f1', '#8b5cf6', '#f59e0b'],
+        compliance: ['#6366f1', '#f59e0b', '#10b981', '#64748b'],
+        urgency: ['#ef4444', '#f59e0b', '#10b981']
+    };
+    
+    const icons = defaultIcons[type] || ['fa-circle'];
+    const colors = defaultColors[type] || ['#6366f1'];
+    const index = setupWizardData[type].length;
+    
+    const item = {
+        id: String(Date.now() + Math.random()),
+        value: value,
+        label: label,
+        description: `${label} configuration`,
+        icon: icons[index % icons.length],
+        color: colors[index % colors.length]
+    };
+    
+    setupWizardData[type].push(item);
+    input.value = '';
+    
+    // Update UI
+    updateCustomItemsList(type);
+}
+
+// Update custom items list
+function updateCustomItemsList(type) {
+    const container = document.getElementById(`setup${type.charAt(0).toUpperCase() + type.slice(1)}CustomList`);
+    if (!container) return;
+    
+    const customItems = setupWizardData[type].filter(item => 
+        !setupRecommendations[type].find(rec => rec.label === item.label)
+    );
+    
+    if (customItems.length === 0) {
+        container.innerHTML = '';
+        return;
+    }
+    
+    container.innerHTML = customItems.map(item => `
+        <div class="setup-custom-tag" style="display: inline-flex; align-items: center; gap: 8px; padding: 8px 15px; background: ${item.color}20; border: 2px solid ${item.color}; border-radius: 20px; color: ${item.color};">
+            <i class="fas ${item.icon}"></i>
+            <span style="font-weight: 600;">${item.label}</span>
+            <button type="button" onclick="removeCustomItem('${type}', '${item.id}')" 
+                style="background: none; border: none; color: ${item.color}; cursor: pointer; padding: 0; margin-left: 5px; font-size: 16px;">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+    `).join('');
+}
+
+// Remove custom item
+function removeCustomItem(type, id) {
+    setupWizardData[type] = setupWizardData[type].filter(item => item.id !== id);
+    updateCustomItemsList(type);
+}
+
+// Show setup step
+function showSetupStep(step) {
+    setupWizardCurrentStep = step;
+    
+    // Hide all steps
+    for (let i = 1; i <= 6; i++) {
+        const content = document.getElementById(`setupStepContent${i}`);
+        const stepLabel = document.getElementById(`setupStep${i}`);
+        if (content) content.style.display = 'none';
+        if (stepLabel) {
+            stepLabel.classList.remove('active');
+            stepLabel.style.color = '#666';
+            stepLabel.style.fontWeight = 'normal';
+        }
+    }
+    
+    // Show current step
+    const currentContent = document.getElementById(`setupStepContent${step}`);
+    const currentLabel = document.getElementById(`setupStep${step}`);
+    if (currentContent) currentContent.style.display = 'block';
+    if (currentLabel) {
+        currentLabel.classList.add('active');
+        currentLabel.style.color = '#6366f1';
+        currentLabel.style.fontWeight = '600';
+    }
+    
+    // Update progress bar
+    const progress = (step / 6) * 100;
+    const progressFill = document.getElementById('setupProgressFill');
+    if (progressFill) progressFill.style.width = `${progress}%`;
+    
+    // Update navigation buttons
+    const backBtn = document.getElementById('setupBackBtn');
+    const nextBtn = document.getElementById('setupNextBtn');
+    const saveBtn = document.getElementById('setupSaveBtn');
+    
+    if (backBtn) backBtn.style.display = step > 1 ? 'block' : 'none';
+    if (nextBtn) nextBtn.style.display = step < 6 ? 'block' : 'none';
+    if (saveBtn) saveBtn.style.display = step === 6 ? 'block' : 'none';
+    
+    // Update custom items lists
+    if (step <= 5) {
+        const types = ['policyTypes', 'categories', 'audience', 'compliance', 'urgency'];
+        updateCustomItemsList(types[step - 1]);
+    }
+    
+    // Special handling for roles step
+    if (step === 6) {
+        renderRolesStep();
+    }
+}
+
+// Setup navigation
+function setupGoNext() {
+    if (setupWizardCurrentStep < 6) {
+        showSetupStep(setupWizardCurrentStep + 1);
+    }
+}
+
+function setupGoBack() {
+    if (setupWizardCurrentStep > 1) {
+        showSetupStep(setupWizardCurrentStep - 1);
+    }
+}
+
+// Load users for roles
+async function loadUsersForRoles() {
+    try {
+        let users = [];
+        
+        // Try to get users from Supabase
+        if (typeof SupabaseDB !== 'undefined' && SupabaseDB.getUsers) {
+            try {
+                users = await SupabaseDB.getUsers();
+            } catch (e) {
+                console.log('Could not load users from Supabase, trying localStorage');
+            }
+        }
+        
+        // Fallback to localStorage
+        if (!users || users.length === 0) {
+            const masterUsers = JSON.parse(localStorage.getItem('masterUsers') || '[]');
+            const currentCompany = rememberDevicePreference ? 
+                loadFromLocalStorage('currentCompany', null) : 
+                loadFromSessionStorage('currentCompany', null);
+            
+            if (currentCompany) {
+                users = masterUsers.filter(u => u.company === currentCompany.name || u.company === currentCompany);
+            } else {
+                users = masterUsers;
+            }
+        }
+        
+        // Store for roles step
+        window.setupWizardUsers = users || [];
+    } catch (e) {
+        console.error('Error loading users:', e);
+        window.setupWizardUsers = [];
+    }
+}
+
+// Render roles step
+function renderRolesStep() {
+    const container = document.getElementById('setupRolesContainer');
+    if (!container) return;
+    
+    const users = window.setupWizardUsers || [];
+    const defaultRoles = [
+        { name: 'Policy Manager', description: 'Oversees policy creation and updates' },
+        { name: 'Compliance Officer', description: 'Ensures policies meet compliance requirements' },
+        { name: 'HR Manager', description: 'Manages HR-related policies' },
+        { name: 'Clinical Director', description: 'Oversees clinical policies' }
+    ];
+    
+    // Initialize roles if empty
+    if (setupWizardData.roles.length === 0) {
+        setupWizardData.roles = defaultRoles.map((role, index) => ({
+            id: String(index + 1),
+            name: role.name,
+            description: role.description,
+            assignedUsers: []
+        }));
+    }
+    
+    container.innerHTML = setupWizardData.roles.map(role => `
+        <div class="setup-role-card" style="margin-bottom: 20px; padding: 20px; background: white; border: 2px solid #e0e0e0; border-radius: 12px;">
+            <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 15px;">
+                <div style="flex: 1;">
+                    <h4 style="margin: 0 0 5px 0; color: #333; font-size: 1.1rem;">${role.name}</h4>
+                    <p style="margin: 0; color: #666; font-size: 0.9rem;">${role.description || ''}</p>
+                </div>
+                <button type="button" onclick="removeRole('${role.id}')" 
+                    style="background: none; border: none; color: #ef4444; cursor: pointer; padding: 5px 10px; font-size: 18px;">
+                    <i class="fas fa-trash"></i>
+                </button>
+            </div>
+            <div>
+                <label style="display: block; margin-bottom: 8px; font-weight: 600; color: #333; font-size: 0.9rem;">Assign People:</label>
+                <select multiple class="form-control" id="roleUsers_${role.id}" 
+                    style="min-height: 100px; padding: 10px; border: 1px solid #ddd; border-radius: 6px; width: 100%;">
+                    ${users.map(user => `
+                        <option value="${user.id || user.username}" 
+                            ${role.assignedUsers && role.assignedUsers.includes(user.id || user.username) ? 'selected' : ''}>
+                            ${user.fullName || user.username || user.name} ${user.email ? `(${user.email})` : ''}
+                        </option>
+                    `).join('')}
+                </select>
+                ${users.length === 0 ? '<p style="color: #999; font-size: 0.85rem; margin-top: 5px;">No users found. Add users in the Admin panel first.</p>' : ''}
+            </div>
+        </div>
+    `).join('');
+}
+
+// Add new role
+function addNewRole() {
+    const input = document.getElementById('setupNewRoleName');
+    if (!input) return;
+    
+    const name = input.value.trim();
+    if (!name) {
+        alert('Please enter a role name');
+        return;
+    }
+    
+    // Check if already exists
+    if (setupWizardData.roles.find(r => r.name === name)) {
+        alert('This role already exists!');
+        return;
+    }
+    
+    setupWizardData.roles.push({
+        id: String(Date.now() + Math.random()),
+        name: name,
+        description: '',
+        assignedUsers: []
+    });
+    
+    input.value = '';
+    renderRolesStep();
+}
+
+// Remove role
+function removeRole(id) {
+    if (confirm('Are you sure you want to remove this role?')) {
+        setupWizardData.roles = setupWizardData.roles.filter(r => r.id !== id);
+        renderRolesStep();
+    }
+}
+
+// Save AI setup form data
+function saveAISetup(event) {
+    if (event) {
+        event.preventDefault();
+    }
+    
+    // Collect role assignments
+    setupWizardData.roles.forEach(role => {
+        const select = document.getElementById(`roleUsers_${role.id}`);
+        if (select) {
+            role.assignedUsers = Array.from(select.selectedOptions).map(opt => opt.value);
+        }
+    });
+    
+    // Update aiGeneratorConfig
+    aiGeneratorConfig.categories = setupWizardData.categories;
+    aiGeneratorConfig.audience = setupWizardData.audience;
+    aiGeneratorConfig.compliance = setupWizardData.compliance;
+    aiGeneratorConfig.urgency = setupWizardData.urgency;
+    
+    // Save roles separately
+    if (!aiGeneratorConfig.roles) {
+        aiGeneratorConfig.roles = [];
+    }
+    aiGeneratorConfig.roles = setupWizardData.roles;
+    
+    // Save to localStorage
+    saveAIGeneratorConfig();
+    
+    // Update wizard questions
+    if (typeof updateWizardQuestionsFromConfig === 'function') {
+        updateWizardQuestionsFromConfig();
+    }
+    
+    // Hide setup form and show wizard
+    const aiSetupForm = document.getElementById('aiSetupForm');
+    const aiWizard = document.getElementById('aiWizard');
+    
+    if (aiSetupForm) aiSetupForm.style.display = 'none';
+    if (aiWizard) {
+        aiWizard.style.display = 'block';
+        // Initialize wizard
+        if (typeof initWizard === 'function') {
+            initWizard();
+        }
+    }
+    
+    // Show success message
+    if (typeof showNotification === 'function') {
+        showNotification('AI Policy Generator configured successfully!', 'success');
+    } else {
+        alert('AI Policy Generator configured successfully!');
+    }
+}
+
+function loadRolesFromStorage() {
+    // Try multiple storage keys for roles
+    const storedRoles = localStorage.getItem('adminRoles') || localStorage.getItem('masterRoles') || localStorage.getItem('roles');
+    let rolesList = [];
+    
+    if (storedRoles) {
+        try {
+            const parsed = JSON.parse(storedRoles);
+            rolesList = Array.isArray(parsed) ? parsed.map(r => {
+                if (typeof r === 'object' && r !== null) {
+                    return {
+                        name: r.name || r.label || String(r),
+                        email: r.email || '',
+                        id: r.id || Date.now().toString(),
+                        description: r.description || ''
+                    };
+                }
+                return {
+                    name: String(r),
+                    email: '',
+                    id: Date.now().toString() + Math.random(),
+                    description: ''
+                };
+            }) : [];
+        } catch (e) {
+            console.error('Error parsing roles:', e);
+        }
+    }
+    
+    // Filter by company
+    if (currentCompany && rolesList.length > 0) {
+        rolesList = rolesList.filter(r => !r.company || r.company === currentCompany);
+    }
+    
+    return rolesList;
+}
+
+function loadOrganizationsFromStorage() {
+    const storedOrgs = localStorage.getItem('organizations');
+    let orgsList = [];
+    
+    if (storedOrgs) {
+        try {
+            const parsed = JSON.parse(storedOrgs);
+            // Handle both array and object formats
+            if (Array.isArray(parsed)) {
+                orgsList = parsed;
+            } else if (typeof parsed === 'object' && currentCompany) {
+                // If it's an object with company keys
+                const companyOrgs = parsed[currentCompany] || [];
+                orgsList = Array.isArray(companyOrgs) ? companyOrgs.map(name => ({
+                    name: name,
+                    id: name.toLowerCase().replace(/\s+/g, '_')
+                })) : [];
+            }
+            
+            // Ensure all orgs have proper structure
+            orgsList = orgsList.map(org => {
+                if (typeof org === 'string') {
+                    return {
+                        name: org,
+                        id: org.toLowerCase().replace(/\s+/g, '_'),
+                        address: '',
+                        email: '',
+                        phone: ''
+                    };
+                }
+                return {
+                    name: org.name || '',
+                    id: org.id || (org.name ? org.name.toLowerCase().replace(/\s+/g, '_') : Date.now().toString()),
+                    address: org.address || '',
+                    email: org.email || '',
+                    phone: org.phone || ''
+                };
+            });
+        } catch (e) {
+            console.error('Error parsing organizations:', e);
+        }
+    }
+    
+    return orgsList.filter(org => org.name);
+}
+
+function loadDisciplinaryActionsFromStorage() {
+    const storedActions = localStorage.getItem('disciplinaryActions');
+    let actionsList = [];
+    
+    if (storedActions) {
+        try {
+            const parsed = JSON.parse(storedActions);
+            actionsList = Array.isArray(parsed) ? parsed : [];
+            
+            // Filter by company
+            if (currentCompany && actionsList.length > 0) {
+                actionsList = actionsList.filter(a => !a.company || a.company === currentCompany);
+            }
+        } catch (e) {
+            console.error('Error parsing disciplinary actions:', e);
+        }
+    }
+    
+    return actionsList;
+}
+
+function loadDocumentsFromStorage() {
+    const storedDocs = localStorage.getItem('documents');
+    let docsList = [];
+    
+    if (storedDocs) {
+        try {
+            const parsed = JSON.parse(storedDocs);
+            docsList = Array.isArray(parsed) ? parsed : [];
+            
+            // Filter by company
+            if (currentCompany && docsList.length > 0) {
+                docsList = docsList.filter(d => !d.company || d.company === currentCompany);
+            }
+        } catch (e) {
+            console.error('Error parsing documents:', e);
+        }
+    }
+    
+    return docsList;
+}
+
+function updateWizardQuestionsFromConfig() {
+    // Start with base questions
+    let allQuestions = [];
+    
+    // First, update default questions with configured values
+    if (wizardQuestions && wizardQuestions.length > 0 && aiGeneratorConfig.questions) {
+        allQuestions = wizardQuestions.map(question => {
+            const configQuestion = aiGeneratorConfig.questions.find(q => q.id === question.id);
+            if (configQuestion) {
+                // Update question text properties
+                const updatedQuestion = { ...question };
+                if (configQuestion.title) updatedQuestion.title = configQuestion.title;
+                if (configQuestion.subtitle !== undefined) updatedQuestion.subtitle = configQuestion.subtitle;
+                if (configQuestion.placeholder !== undefined) updatedQuestion.placeholder = configQuestion.placeholder;
+                if (configQuestion.helper !== undefined) updatedQuestion.helper = configQuestion.helper;
+                
+                // Update options based on question type
+                if (configQuestion.id === 'policyCategory' && aiGeneratorConfig.categories) {
+                    updatedQuestion.options = aiGeneratorConfig.categories.map(item => ({
+                value: item.value,
+                label: item.label,
+                description: item.description,
+                icon: item.icon,
+                color: item.color
+            }));
+                } else if (configQuestion.id === 'policyCategory' && aiGeneratorConfig.categories) {
+                    updatedQuestion.options = aiGeneratorConfig.categories.map(item => ({
+                value: item.value,
+                label: item.label,
+                description: item.description,
+                icon: item.icon,
+                color: item.color
+            }));
+                } else if (configQuestion.id === 'audience' && aiGeneratorConfig.audience) {
+                    updatedQuestion.options = aiGeneratorConfig.audience.map(item => ({
+                value: item.value,
+                label: item.label,
+                description: item.description,
+                icon: item.icon,
+                color: item.color
+            }));
+                } else if (configQuestion.id === 'urgency' && aiGeneratorConfig.urgency) {
+                    updatedQuestion.options = aiGeneratorConfig.urgency.map(item => ({
+                        value: item.value,
+                        label: item.label,
+                        description: item.description,
+                        icon: item.icon,
+                        color: item.color
+                    }));
+                } else if (configQuestion.id === 'compliance' && aiGeneratorConfig.compliance) {
+                    updatedQuestion.options = aiGeneratorConfig.compliance.map(item => ({
+                value: item.value,
+                label: item.label,
+                description: item.description,
+                icon: item.icon,
+                color: item.color
+            }));
+        }
+                
+                return updatedQuestion;
+            }
+            return question;
+        });
+    } else {
+        allQuestions = [...wizardQuestions];
+    }
+    
+    // Process and add custom questions before the organizations question, or at the end
+    if (aiGeneratorConfig.customQuestions && aiGeneratorConfig.customQuestions.length > 0) {
+        // Filter out hidden questions
+        const visibleCustomQuestions = aiGeneratorConfig.customQuestions.filter(q => !q.hidden);
+        
+        const processedCustomQuestions = visibleCustomQuestions.map(customQ => {
+            // If it's a roles question type, dynamically load roles from storage
+            if (customQ.type === 'roles') {
+                const rolesData = loadRolesFromStorage();
+                const questionWithRoles = {
+                    ...customQ,
+                    options: rolesData.map((role, index) => ({
+                        value: role.id || role.name.toLowerCase().replace(/\s+/g, '_'),
+                        label: role.name,
+                        description: role.email ? `Email: ${role.email}` : '',
+                        icon: 'fa-user-tie',
+                        color: ['#6366f1', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899', '#64748b'][index % 6]
+                    }))
+                };
+                // If no roles found, add a placeholder
+                if (questionWithRoles.options.length === 0) {
+                    questionWithRoles.options = [
+                        { value: 'no_roles', label: 'No roles configured', description: 'Please add roles in Settings > Roles', icon: 'fa-exclamation-circle', color: '#64748b' }
+                    ];
+                }
+                return questionWithRoles;
+            } else if (customQ.type === 'organizations') {
+                // Load organizations from storage
+                const orgs = loadOrganizationsFromStorage();
+                const questionWithOrgs = {
+                    ...customQ,
+                    options: orgs.map((org, index) => ({
+                        value: org.id || org.name.toLowerCase().replace(/\s+/g, '_'),
+                        label: org.name,
+                        description: org.address || org.email || '',
+                        icon: 'fa-building',
+                        color: ['#6366f1', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899'][index % 5]
+                    }))
+                };
+                if (questionWithOrgs.options.length === 0) {
+                    questionWithOrgs.options = [
+                        { value: 'no_orgs', label: 'No organizations configured', description: 'Please add organizations in Settings > Organizations', icon: 'fa-exclamation-circle', color: '#64748b' }
+                    ];
+                }
+                return questionWithOrgs;
+            } else if (customQ.type === 'disciplinaryActions') {
+                // Load disciplinary actions from storage
+                const actions = loadDisciplinaryActionsFromStorage();
+                const questionWithActions = {
+                    ...customQ,
+                    options: actions.map((action, index) => ({
+                        value: action.id || action.name.toLowerCase().replace(/\s+/g, '_'),
+                        label: action.name,
+                        description: action.description || action.severity ? `Severity: ${action.severity}` : '',
+                        icon: 'fa-gavel',
+                        color: action.severity === 'severe' ? '#ef4444' : action.severity === 'major' ? '#f59e0b' : action.severity === 'moderate' ? '#6366f1' : '#10b981'
+                    }))
+                };
+                if (questionWithActions.options.length === 0) {
+                    questionWithActions.options = [
+                        { value: 'no_actions', label: 'No disciplinary actions configured', description: 'Please add disciplinary actions in Settings > Disciplinary Actions', icon: 'fa-exclamation-circle', color: '#64748b' }
+                    ];
+                }
+                return questionWithActions;
+            } else if (customQ.type === 'documents') {
+                // Load documents from storage
+                const docs = loadDocumentsFromStorage();
+                const questionWithDocs = {
+                    ...customQ,
+                    options: docs.map((doc, index) => ({
+                        value: doc.id || doc.name.toLowerCase().replace(/\s+/g, '_'),
+                        label: doc.name,
+                        description: doc.description || doc.url || '',
+                        icon: 'fa-file-alt',
+                        color: ['#6366f1', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899'][index % 5]
+                    }))
+                };
+                if (questionWithDocs.options.length === 0) {
+                    questionWithDocs.options = [
+                        { value: 'no_docs', label: 'No documents configured', description: 'Please add documents in Settings > Documents', icon: 'fa-exclamation-circle', color: '#64748b' }
+                    ];
+                }
+                return questionWithDocs;
+            }
+            return customQ;
+        });
+        
+        // Filter out any duplicate questions (by id) before adding custom questions
+        const existingIds = new Set(allQuestions.map(q => q.id));
+        const uniqueCustomQuestions = processedCustomQuestions.filter(q => !existingIds.has(q.id));
+        
+        const organizationsIndex = allQuestions.findIndex(q => q.id === 'organizations');
+        if (organizationsIndex > -1) {
+            // Insert custom questions before the organizations question
+            allQuestions.splice(organizationsIndex, 0, ...uniqueCustomQuestions);
+        } else {
+            // Add at the end if no organizations question
+            allQuestions.push(...uniqueCustomQuestions);
+        }
+    }
+    
+    // Final check: Remove any duplicate questions by id (keep first occurrence)
+    const seenIds = new Set();
+    const finalQuestions = [];
+    for (const q of allQuestions) {
+        if (!seenIds.has(q.id)) {
+            seenIds.add(q.id);
+            finalQuestions.push(q);
+        } else {
+            console.warn(`Duplicate question removed: ${q.id}`);
+        }
+    }
+    
+    // Replace wizardQuestions with merged array
+    wizardQuestions.length = 0;
+    wizardQuestions.push(...finalQuestions);
+}
+
+function displayAIConfigItems() {
+    displayAIConfigList('categories', 'aiCategoriesList');
+    displayAIConfigList('audience', 'aiAudienceList');
+    displayAIConfigList('compliance', 'aiComplianceList');
+    displayAIConfigList('urgency', 'aiUrgencyList');
+    displayAICustomQuestions();
+    displayAIConfigQuestions();
+}
+
+function displayAIConfigList(configType, listId) {
+    const list = document.getElementById(listId);
+    if (!list) return;
+    
+    const items = aiGeneratorConfig[configType] || [];
+    
+    if (items.length === 0) {
+        list.innerHTML = '<p style="color: #999; padding: 20px; text-align: center; font-style: italic;">No items configured. Click "Add" to create one.</p>';
+        return;
+    }
+    
+    list.innerHTML = items.map(item => `
+        <div class="config-item-card" style="display: flex; justify-content: space-between; align-items: center; padding: 16px; background: white; border: 1px solid #e0e0e0; border-radius: 8px; margin-bottom: 12px;">
+            <div style="flex: 1;">
+                <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 6px;">
+                    ${item.icon ? `<i class="fas ${item.icon}" style="color: ${item.color || '#6366f1'}; font-size: 18px;"></i>` : ''}
+                    <strong style="color: #333; font-size: 15px;">${item.label}</strong>
+                    ${item.value ? `<span style="color: #999; font-size: 12px;">(${item.value})</span>` : ''}
+                </div>
+                ${item.description ? `<p style="color: #666; font-size: 13px; margin: 4px 0 0 0;">${item.description}</p>` : ''}
+            </div>
+            <div style="display: flex; gap: 8px;">
+                <button class="btn btn-sm btn-secondary" onclick="editAIConfigItem('${configType}', '${item.id}')" style="padding: 6px 12px; font-size: 13px;">
+                    <i class="fas fa-edit"></i> Edit
+                </button>
+                <button class="btn btn-sm btn-danger" onclick="deleteAIConfigItem('${configType}', '${item.id}')" style="padding: 6px 12px; font-size: 13px;">
+                    <i class="fas fa-trash"></i> Delete
+                </button>
+            </div>
+        </div>
+    `).join('');
+}
+
+function addAIConfigItem(type) {
+    const typeLabels = {
+        'category': 'Policy Category',
+        'audience': 'Audience Option',
+        'compliance': 'Compliance Requirement',
+        'urgency': 'Urgency Level'
+    };
+    
+    document.getElementById('aiConfigItemModalTitle').innerHTML = `<i class="fas fa-plus"></i> Add ${typeLabels[type] || 'Item'}`;
+    document.getElementById('aiConfigItemType').value = type;
+    document.getElementById('aiConfigItemId').value = '';
+    document.getElementById('aiConfigItemLabel').value = '';
+    document.getElementById('aiConfigItemValue').value = '';
+    document.getElementById('aiConfigItemDescription').value = '';
+    document.getElementById('aiConfigItemIcon').value = '';
+    document.getElementById('aiConfigItemColor').value = '#6366f1';
+    
+    // Show icon and color fields for policy types and categories
+    const iconGroup = document.getElementById('aiConfigItemIconGroup');
+    const colorGroup = document.getElementById('aiConfigItemColorGroup');
+    if (type === 'policyType' || type === 'category') {
+        if (iconGroup) iconGroup.style.display = 'block';
+        if (colorGroup) colorGroup.style.display = 'block';
+    } else {
+        if (iconGroup) iconGroup.style.display = 'none';
+        if (colorGroup) colorGroup.style.display = 'none';
+    }
+    
+    document.getElementById('aiConfigItemModal').style.display = 'block';
+}
+
+function editAIConfigItem(type, id) {
+    const typeMapping = {
+        'category': 'categories',
+        'audience': 'audience',
+        'compliance': 'compliance',
+        'urgency': 'urgency'
+    };
+    
+    const configKey = typeMapping[type];
+    if (!configKey) return;
+    
+    const items = aiGeneratorConfig[configKey] || [];
+    const item = items.find(i => i.id === id);
+    if (!item) return;
+    
+    const typeLabels = {
+        'category': 'Policy Category',
+        'audience': 'Audience Option',
+        'compliance': 'Compliance Requirement',
+        'urgency': 'Urgency Level'
+    };
+    
+    document.getElementById('aiConfigItemModalTitle').innerHTML = `<i class="fas fa-edit"></i> Edit ${typeLabels[type] || 'Item'}`;
+    document.getElementById('aiConfigItemType').value = type;
+    document.getElementById('aiConfigItemId').value = id;
+    document.getElementById('aiConfigItemLabel').value = item.label || '';
+    document.getElementById('aiConfigItemValue').value = item.value || '';
+    document.getElementById('aiConfigItemDescription').value = item.description || '';
+    document.getElementById('aiConfigItemIcon').value = item.icon || '';
+    document.getElementById('aiConfigItemColor').value = item.color || '#6366f1';
+    
+    // Show icon and color fields for policy types and categories
+    const iconGroup = document.getElementById('aiConfigItemIconGroup');
+    const colorGroup = document.getElementById('aiConfigItemColorGroup');
+    if (type === 'policyType' || type === 'category') {
+        if (iconGroup) iconGroup.style.display = 'block';
+        if (colorGroup) colorGroup.style.display = 'block';
+    } else {
+        if (iconGroup) iconGroup.style.display = 'none';
+        if (colorGroup) colorGroup.style.display = 'none';
+    }
+    
+    document.getElementById('aiConfigItemModal').style.display = 'block';
+}
+
+function saveAIConfigItem(event) {
+    event.preventDefault();
+    
+    const type = document.getElementById('aiConfigItemType').value;
+    const id = document.getElementById('aiConfigItemId').value;
+    const label = document.getElementById('aiConfigItemLabel').value.trim();
+    const value = document.getElementById('aiConfigItemValue').value.trim();
+    const description = document.getElementById('aiConfigItemDescription').value.trim();
+    const icon = document.getElementById('aiConfigItemIcon').value.trim();
+    const color = document.getElementById('aiConfigItemColor').value;
+    
+    if (!label) {
+        alert('Label is required');
+        return;
+    }
+    
+    // Map type to config key
+    const typeMapping = {
+        'category': 'categories',
+        'audience': 'audience',
+        'compliance': 'compliance',
+        'urgency': 'urgency'
+    };
+    
+    const configKey = typeMapping[type];
+    if (!configKey) {
+        alert('Invalid configuration type');
+        return;
+    }
+    
+    if (!aiGeneratorConfig[configKey]) {
+        aiGeneratorConfig[configKey] = [];
+    }
+    
+    // Generate value from label if not provided
+    const finalValue = value || label.toLowerCase().replace(/\s+/g, '_');
+    
+    if (id) {
+        // Edit existing
+        const index = aiGeneratorConfig[configKey].findIndex(item => item.id === id);
+        if (index !== -1) {
+            aiGeneratorConfig[configKey][index] = {
+                ...aiGeneratorConfig[configKey][index],
+                label,
+                value: finalValue,
+                description: description || undefined,
+                icon: icon || undefined,
+                color: color || undefined
+            };
+        }
+    } else {
+        // Add new
+        const newId = Date.now().toString();
+        const newItem = {
+            id: newId,
+            label,
+            value: finalValue,
+            description: description || undefined
+        };
+        if (icon) newItem.icon = icon;
+        if (color) newItem.color = color;
+        aiGeneratorConfig[configKey].push(newItem);
+    }
+    
+    saveAIGeneratorConfig();
+    updateWizardQuestionsFromConfig();
+    displayAIConfigList(configKey, getAIConfigListId(type));
+    closeAIConfigItemModal();
+    
+    if (typeof showNotification === 'function') {
+        showNotification('Configuration saved successfully!', 'success');
+    } else {
+        alert('Configuration saved successfully!');
+    }
+}
+
+function deleteAIConfigItem(type, id) {
+    if (!confirm('Are you sure you want to delete this item?')) {
+        return;
+    }
+    
+    const typeMapping = {
+        'policyType': 'policyTypes',
+        'category': 'categories',
+        'audience': 'audience',
+        'compliance': 'compliance',
+        'urgency': 'urgency'
+    };
+    
+    const configKey = typeMapping[type];
+    if (!configKey) return;
+    
+    aiGeneratorConfig[configKey] = aiGeneratorConfig[configKey].filter(item => item.id !== id);
+    saveAIGeneratorConfig();
+    updateWizardQuestionsFromConfig();
+    displayAIConfigList(configKey, getAIConfigListId(type));
+    
+    if (typeof showNotification === 'function') {
+        showNotification('Item deleted successfully', 'success');
+    } else {
+        alert('Item deleted successfully');
+    }
+}
+
+function getAIConfigListId(type) {
+    const mapping = {
+        'category': 'aiCategoriesList',
+        'audience': 'aiAudienceList',
+        'compliance': 'aiComplianceList',
+        'urgency': 'aiUrgencyList'
+    };
+    return mapping[type] || '';
+}
+
+function displayAIConfigQuestions() {
+    const list = document.getElementById('aiQuestionsList');
+    if (!list) return;
+    
+    const questions = aiGeneratorConfig.questions || [];
+    
+    if (questions.length === 0) {
+        list.innerHTML = '<p style="color: #999; padding: 20px; text-align: center; font-style: italic;">No questions configured.</p>';
+        return;
+    }
+    
+    const questionLabels = {
+        'policyCategory': 'Policy Category Question',
+        'audience': 'Audience Question',
+        'urgency': 'Urgency Question',
+        'compliance': 'Compliance Question',
+        'organizations': 'Organizations Question'
+    };
+    
+    list.innerHTML = questions.map(question => `
+        <div class="config-item-card" style="padding: 20px; background: white; border: 1px solid #e0e0e0; border-radius: 8px; margin-bottom: 16px;">
+            <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 15px;">
+                <div style="flex: 1;">
+                    <h5 style="margin: 0 0 8px 0; color: #333; font-size: 16px; font-weight: 600;">
+                        <i class="fas fa-question-circle" style="color: #667eea; margin-right: 8px;"></i>
+                        ${questionLabels[question.id] || question.id}
+                    </h5>
+                    <div style="color: #666; font-size: 13px; margin-top: 8px;">
+                        <div><strong>Title:</strong> ${question.title || '(not set)'}</div>
+                        <div style="margin-top: 4px;"><strong>Subtitle:</strong> ${question.subtitle || '(not set)'}</div>
+                        ${question.type === 'text' ? `
+                            <div style="margin-top: 4px;"><strong>Placeholder:</strong> ${question.placeholder || '(not set)'}</div>
+                            <div style="margin-top: 4px;"><strong>Helper Text:</strong> ${question.helper || '(not set)'}</div>
+                        ` : ''}
+                        <div style="margin-top: 4px;"><strong>Type:</strong> <span style="text-transform: capitalize;">${question.type || 'choice'}</span></div>
+                    </div>
+                </div>
+                <button class="btn btn-sm btn-secondary" onclick="editAIQuestion('${question.id}')" style="padding: 8px 16px; font-size: 13px; white-space: nowrap;">
+                    <i class="fas fa-edit"></i> Edit Question
+                </button>
+            </div>
+        </div>
+    `).join('');
+}
+
+function editAIQuestion(questionId) {
+    const questions = aiGeneratorConfig.questions || [];
+    const question = questions.find(q => q.id === questionId);
+    if (!question) return;
+    
+    // Create or find modal for editing questions
+    let modal = document.getElementById('aiQuestionEditModal');
+    if (!modal) {
+        // Create modal
+        modal = document.createElement('div');
+        modal.id = 'aiQuestionEditModal';
+        modal.className = 'modal';
+        modal.style.display = 'none';
+        modal.innerHTML = `
+            <div class="modal-content" style="max-width: 700px;">
+                <div class="modal-header">
+                    <h3 id="aiQuestionEditModalTitle"><i class="fas fa-edit"></i> Edit Question</h3>
+                    <span class="close" onclick="closeAIQuestionModal()">&times;</span>
+                </div>
+                <div class="modal-body">
+                    <form id="aiQuestionEditForm" onsubmit="saveAIQuestion(event)">
+                        <input type="hidden" id="aiQuestionEditId" value="">
+                        
+                        <div class="form-group">
+                            <label for="aiQuestionEditTitle">Question Title *</label>
+                            <input type="text" id="aiQuestionEditTitle" class="form-control" required
+                                placeholder="e.g., What category does this policy cover?">
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="aiQuestionEditSubtitle">Question Subtitle</label>
+                            <input type="text" id="aiQuestionEditSubtitle" class="form-control"
+                                placeholder="e.g., Choose the primary focus area">
+                        </div>
+                        
+                        <div id="aiQuestionEditTextFields" style="display: none;">
+                            <div class="form-group">
+                                <label for="aiQuestionEditPlaceholder">Placeholder Text</label>
+                                <textarea id="aiQuestionEditPlaceholder" class="form-control" rows="3"
+                                    placeholder="Text shown in the input field"></textarea>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label for="aiQuestionEditHelper">Helper Text</label>
+                                <textarea id="aiQuestionEditHelper" class="form-control" rows="2"
+                                    placeholder="Additional guidance for users"></textarea>
+                            </div>
+                        </div>
+                        
+                        <div class="form-actions" style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px;">
+                            <button type="button" class="btn btn-secondary" onclick="closeAIQuestionModal()">Cancel</button>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-save"></i> Save Question
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(modal);
+    }
+    
+    // Populate form
+    document.getElementById('aiQuestionEditId').value = questionId;
+    document.getElementById('aiQuestionEditTitle').value = question.title || '';
+    document.getElementById('aiQuestionEditSubtitle').value = question.subtitle || '';
+    document.getElementById('aiQuestionEditPlaceholder').value = question.placeholder || '';
+    document.getElementById('aiQuestionEditHelper').value = question.helper || '';
+    
+    // Show/hide text fields based on question type
+    const textFields = document.getElementById('aiQuestionEditTextFields');
+    if (question.type === 'text') {
+        textFields.style.display = 'block';
+    } else {
+        textFields.style.display = 'none';
+    }
+    
+    const questionLabels = {
+        'policyCategory': 'Policy Category Question',
+        'audience': 'Audience Question',
+        'urgency': 'Urgency Question',
+        'compliance': 'Compliance Question',
+        'organizations': 'Organizations Question'
+    };
+    document.getElementById('aiQuestionEditModalTitle').innerHTML = `<i class="fas fa-edit"></i> Edit ${questionLabels[questionId] || questionId}`;
+    
+    modal.style.display = 'block';
+}
+
+function saveAIQuestion(event) {
+    event.preventDefault();
+    
+    const questionId = document.getElementById('aiQuestionEditId').value;
+    const title = document.getElementById('aiQuestionEditTitle').value.trim();
+    const subtitle = document.getElementById('aiQuestionEditSubtitle').value.trim();
+    const placeholder = document.getElementById('aiQuestionEditPlaceholder').value.trim();
+    const helper = document.getElementById('aiQuestionEditHelper').value.trim();
+    
+    if (!title) {
+        alert('Question title is required');
+        return;
+    }
+    
+    if (!aiGeneratorConfig.questions) {
+        aiGeneratorConfig.questions = [];
+    }
+    
+    const questionIndex = aiGeneratorConfig.questions.findIndex(q => q.id === questionId);
+    if (questionIndex !== -1) {
+        aiGeneratorConfig.questions[questionIndex] = {
+            ...aiGeneratorConfig.questions[questionIndex],
+            title,
+            subtitle: subtitle || '',
+            placeholder: placeholder || '',
+            helper: helper || ''
+        };
+    }
+    
+    saveAIGeneratorConfig();
+    updateWizardQuestionsFromConfig();
+    displayAIConfigQuestions();
+    closeAIQuestionModal();
+    
+    if (typeof showNotification === 'function') {
+        showNotification('Question updated successfully!', 'success');
+    } else {
+        alert('Question updated successfully!');
+    }
+}
+
+function closeAIQuestionModal() {
+    const modal = document.getElementById('aiQuestionEditModal');
+    if (modal) {
+        modal.style.display = 'none';
+    }
+}
+
+// Custom Multiple Choice Questions Functions
+function displayAICustomQuestions() {
+    const list = document.getElementById('aiCustomQuestionsList');
+    if (!list) return;
+    
+    const customQuestions = aiGeneratorConfig.customQuestions || [];
+    const recommendedIds = ['responsibleRoles', 'policyDepartment', 'reviewFrequency', 'approvalLevel'];
+    
+    if (customQuestions.length === 0) {
+        list.innerHTML = '<p style="color: #999; padding: 20px; text-align: center; font-style: italic;">No custom questions added yet. Click "Add Question" to create one.</p>';
+        return;
+    }
+    
+    list.innerHTML = customQuestions.map((question, index) => {
+        const isRecommended = recommendedIds.includes(question.id);
+        const isRolesQuestion = question.type === 'roles';
+        const optionsCount = isRolesQuestion ? 'Dynamic (from Roles)' : ((question.options?.length || 0) + ' choices');
+        
+        return `
+        <div class="config-item-card" style="padding: 20px; background: white; border: 1px solid ${isRecommended ? '#667eea' : '#e0e0e0'}; border-radius: 8px; margin-bottom: 16px; ${isRecommended ? 'border-left: 4px solid #667eea;' : ''}">
+            <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 15px;">
+                <div style="flex: 1;">
+                    <h5 style="margin: 0 0 8px 0; color: #333; font-size: 16px; font-weight: 600; display: flex; align-items: center; gap: 8px;">
+                        <span style="background: #667eea; color: white; padding: 2px 8px; border-radius: 4px; font-size: 12px;">Q${index + 1}</span>
+                        ${question.title || '(Untitled Question)'}
+                        ${isRecommended ? '<span style="background: #10b981; color: white; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 500;">Recommended</span>' : ''}
+                        ${isRolesQuestion ? '<span style="background: #f59e0b; color: white; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 500;">Roles</span>' : ''}
+                    </h5>
+                    <div style="color: #666; font-size: 13px; margin-top: 8px;">
+                        <div><strong>Subtitle:</strong> ${question.subtitle || '(not set)'}</div>
+                        <div style="margin-top: 4px;"><strong>Options:</strong> ${optionsCount}</div>
+                        ${isRolesQuestion ? '<div style="margin-top: 4px; color: #f59e0b; font-size: 12px;"><i class="fas fa-info-circle"></i> Options loaded from Settings > Roles</div>' : ''}
+                    </div>
+                    ${question.options && question.options.length > 0 && !isRolesQuestion ? `
+                        <div style="margin-top: 12px; padding: 12px; background: #f8f9fa; border-radius: 6px;">
+                            <strong style="font-size: 12px; color: #666;">Options:</strong>
+                            <div style="display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px;">
+                                ${question.options.map(opt => `
+                                    <span style="background: white; padding: 4px 10px; border-radius: 4px; border: 1px solid #ddd; font-size: 12px;">
+                                        ${opt.label || opt.value}
+                                    </span>
+                                `).join('')}
+                            </div>
+                        </div>
+                    ` : ''}
+                    ${isRolesQuestion ? `
+                        <div style="margin-top: 12px; padding: 12px; background: #fff3cd; border: 1px solid #ffc107; border-radius: 6px;">
+                            <strong style="font-size: 12px; color: #856404;"><i class="fas fa-lightbulb"></i> Info:</strong>
+                            <p style="margin: 4px 0 0 0; font-size: 12px; color: #856404;">
+                                This question automatically loads roles from Settings > Roles. To add or modify roles, go to Settings.
+                            </p>
+                        </div>
+                    ` : ''}
+                </div>
+                <div style="display: flex; gap: 8px; flex-direction: column;">
+                    <button class="btn btn-sm btn-secondary" onclick="editCustomQuestion('${question.id}')" style="padding: 8px 16px; font-size: 13px; white-space: nowrap;">
+                        <i class="fas fa-edit"></i> Edit
+                    </button>
+                    ${!isRecommended ? `
+                        <button class="btn btn-sm btn-danger" onclick="deleteCustomQuestion('${question.id}')" style="padding: 8px 16px; font-size: 13px; white-space: nowrap;">
+                            <i class="fas fa-trash"></i> Delete
+                        </button>
+                    ` : `
+                        <button class="btn btn-sm btn-danger" onclick="deleteCustomQuestion('${question.id}')" style="padding: 8px 16px; font-size: 13px; white-space: nowrap; opacity: 0.6;" title="Recommended questions can be hidden but not deleted">
+                            <i class="fas fa-eye-slash"></i> Hide
+                        </button>
+                    `}
+                </div>
+            </div>
+        </div>
+    `}).join('');
+}
+
+function addCustomQuestion() {
+    const questionId = 'custom_' + Date.now();
+    const newQuestion = {
+        id: questionId,
+        title: 'New Multiple Choice Question',
+        subtitle: 'Select an option',
+        type: 'choice',
+        options: [
+            { value: 'option1', label: 'Option 1', description: '', icon: 'fa-circle', color: '#6366f1' },
+            { value: 'option2', label: 'Option 2', description: '', icon: 'fa-circle', color: '#10b981' }
+        ]
+    };
+    
+    if (!aiGeneratorConfig.customQuestions) {
+        aiGeneratorConfig.customQuestions = [];
+    }
+    aiGeneratorConfig.customQuestions.push(newQuestion);
+    
+    saveAIGeneratorConfig();
+    updateWizardQuestionsFromConfig();
+    displayAICustomQuestions();
+    
+    // Open edit modal immediately
+    editCustomQuestion(questionId);
+}
+
+function editCustomQuestion(questionId) {
+    const customQuestions = aiGeneratorConfig.customQuestions || [];
+    const question = customQuestions.find(q => q.id === questionId);
+    if (!question) return;
+    
+    // Create or find modal for editing custom questions
+    let modal = document.getElementById('aiCustomQuestionModal');
+    if (!modal) {
+        // Create modal
+        modal = document.createElement('div');
+        modal.id = 'aiCustomQuestionModal';
+        modal.className = 'modal';
+        modal.style.display = 'none';
+        modal.style.zIndex = '10000';
+        modal.innerHTML = `
+            <div class="modal-content" style="max-width: 900px; max-height: 90vh; overflow-y: auto;">
+                <div class="modal-header">
+                    <h3 id="aiCustomQuestionModalTitle"><i class="fas fa-plus"></i> Add Multiple Choice Question</h3>
+                    <span class="close" onclick="closeCustomQuestionModal()">&times;</span>
+                </div>
+                <div class="modal-body">
+                    <form id="aiCustomQuestionForm" onsubmit="saveCustomQuestion(event)">
+                        <input type="hidden" id="aiCustomQuestionId" value="">
+                        
+                        <div class="form-group">
+                            <label for="aiCustomQuestionTitle">Question Title *</label>
+                            <input type="text" id="aiCustomQuestionTitle" class="form-control" required
+                                placeholder="e.g., What department should this policy apply to?">
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="aiCustomQuestionSubtitle">Question Subtitle</label>
+                            <input type="text" id="aiCustomQuestionSubtitle" class="form-control"
+                                placeholder="e.g., Select the appropriate department">
+                        </div>
+                        
+                        <div class="form-group">
+                            <label style="display: flex; justify-content: space-between; align-items: center;">
+                                <span>Multiple Choice Options *</span>
+                                <button type="button" class="btn btn-sm btn-primary" onclick="addCustomQuestionOption()">
+                                    <i class="fas fa-plus"></i> Add Option
+                                </button>
+                            </label>
+                            <div id="aiCustomQuestionOptions" style="display: flex; flex-direction: column; gap: 10px; margin-top: 10px;">
+                                <!-- Options will be added here -->
+                            </div>
+                        </div>
+                        
+                        <div class="form-actions" style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px; padding-top: 20px; border-top: 1px solid #e0e0e0;">
+                            <button type="button" class="btn btn-secondary" onclick="closeCustomQuestionModal()">Cancel</button>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-save"></i> Save Question
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(modal);
+    }
+    
+    // Populate form
+    document.getElementById('aiCustomQuestionId').value = questionId;
+    document.getElementById('aiCustomQuestionTitle').value = question.title || '';
+    document.getElementById('aiCustomQuestionSubtitle').value = question.subtitle || '';
+    
+    // Render options
+    renderCustomQuestionOptions(question.options || []);
+    
+    modal.style.display = 'block';
+    document.getElementById('aiCustomQuestionModalTitle').innerHTML = questionId.startsWith('custom_') ? 
+        '<i class="fas fa-edit"></i> Edit Multiple Choice Question' : 
+        '<i class="fas fa-plus"></i> Add Multiple Choice Question';
+}
+
+function renderCustomQuestionOptions(options) {
+    const container = document.getElementById('aiCustomQuestionOptions');
+    if (!container) return;
+    
+    if (options.length === 0) {
+        options = [
+            { value: 'option1', label: 'Option 1', description: '', icon: 'fa-circle', color: '#6366f1' }
+        ];
+    }
+    
+    container.innerHTML = options.map((option, index) => `
+        <div class="custom-option-item" style="padding: 15px; background: #f8f9fa; border-radius: 8px; border: 1px solid #e0e0e0;">
+            <div style="display: flex; gap: 10px; align-items: flex-start;">
+                <div style="flex: 1;">
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px;">
+                        <div>
+                            <label style="font-size: 12px; color: #666; margin-bottom: 4px; display: block;">Option Label *</label>
+                            <input type="text" class="form-control option-label" value="${option.label || ''}" 
+                                placeholder="e.g., Clinical Team" required style="font-size: 14px;">
+                        </div>
+                        <div>
+                            <label style="font-size: 12px; color: #666; margin-bottom: 4px; display: block;">Value</label>
+                            <input type="text" class="form-control option-value" value="${option.value || ''}" 
+                                placeholder="auto-generated" style="font-size: 14px;">
+                        </div>
+                    </div>
+                    <div>
+                        <label style="font-size: 12px; color: #666; margin-bottom: 4px; display: block;">Description</label>
+                        <input type="text" class="form-control option-description" value="${option.description || ''}" 
+                            placeholder="Brief description" style="font-size: 14px;">
+                    </div>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px;">
+                        <div>
+                            <label style="font-size: 12px; color: #666; margin-bottom: 4px; display: block;">Icon (FontAwesome class)</label>
+                            <input type="text" class="form-control option-icon" value="${option.icon || 'fa-circle'}" 
+                                placeholder="fa-circle" style="font-size: 14px;">
+                        </div>
+                        <div>
+                            <label style="font-size: 12px; color: #666; margin-bottom: 4px; display: block;">Color</label>
+                            <input type="color" class="form-control option-color" value="${option.color || '#6366f1'}" 
+                                style="font-size: 14px; height: 38px;">
+                        </div>
+                    </div>
+                </div>
+                <button type="button" class="btn btn-sm btn-danger" onclick="removeCustomQuestionOption(this)" 
+                    style="padding: 8px 12px; ${options.length <= 1 ? 'opacity: 0.5; cursor: not-allowed;' : ''}"
+                    ${options.length <= 1 ? 'disabled' : ''}>
+                    <i class="fas fa-trash"></i>
+                </button>
+            </div>
+        </div>
+    `).join('');
+}
+
+function addCustomQuestionOption() {
+    const container = document.getElementById('aiCustomQuestionOptions');
+    if (!container) return;
+    
+    const newOption = document.createElement('div');
+    newOption.className = 'custom-option-item';
+    newOption.style.cssText = 'padding: 15px; background: #f8f9fa; border-radius: 8px; border: 1px solid #e0e0e0;';
+    newOption.innerHTML = `
+        <div style="display: flex; gap: 10px; align-items: flex-start;">
+            <div style="flex: 1;">
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px;">
+                    <div>
+                        <label style="font-size: 12px; color: #666; margin-bottom: 4px; display: block;">Option Label *</label>
+                        <input type="text" class="form-control option-label" placeholder="e.g., Clinical Team" required style="font-size: 14px;">
+                    </div>
+                    <div>
+                        <label style="font-size: 12px; color: #666; margin-bottom: 4px; display: block;">Value</label>
+                        <input type="text" class="form-control option-value" placeholder="auto-generated" style="font-size: 14px;">
+                    </div>
+                </div>
+                <div>
+                    <label style="font-size: 12px; color: #666; margin-bottom: 4px; display: block;">Description</label>
+                    <input type="text" class="form-control option-description" placeholder="Brief description" style="font-size: 14px;">
+                </div>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px;">
+                    <div>
+                        <label style="font-size: 12px; color: #666; margin-bottom: 4px; display: block;">Icon (FontAwesome class)</label>
+                        <input type="text" class="form-control option-icon" value="fa-circle" placeholder="fa-circle" style="font-size: 14px;">
+                    </div>
+                    <div>
+                        <label style="font-size: 12px; color: #666; margin-bottom: 4px; display: block;">Color</label>
+                        <input type="color" class="form-control option-color" value="#6366f1" style="font-size: 14px; height: 38px;">
+                    </div>
+                </div>
+            </div>
+            <button type="button" class="btn btn-sm btn-danger" onclick="removeCustomQuestionOption(this)" style="padding: 8px 12px;">
+                <i class="fas fa-trash"></i>
+            </button>
+        </div>
+    `;
+    container.appendChild(newOption);
+    
+    // Update remove buttons state
+    updateRemoveButtonsState();
+}
+
+function removeCustomQuestionOption(button) {
+    const container = document.getElementById('aiCustomQuestionOptions');
+    if (!container || container.children.length <= 1) return;
+    
+    button.closest('.custom-option-item').remove();
+    updateRemoveButtonsState();
+}
+
+function updateRemoveButtonsState() {
+    const container = document.getElementById('aiCustomQuestionOptions');
+    if (!container) return;
+    
+    const removeButtons = container.querySelectorAll('.btn-danger');
+    removeButtons.forEach(btn => {
+        if (container.children.length <= 1) {
+            btn.style.opacity = '0.5';
+            btn.style.cursor = 'not-allowed';
+            btn.disabled = true;
+        } else {
+            btn.style.opacity = '1';
+            btn.style.cursor = 'pointer';
+            btn.disabled = false;
+        }
+    });
+}
+
+function saveCustomQuestion(event) {
+    event.preventDefault();
+    
+    const questionId = document.getElementById('aiCustomQuestionId').value;
+    const title = document.getElementById('aiCustomQuestionTitle').value.trim();
+    const subtitle = document.getElementById('aiCustomQuestionSubtitle').value.trim();
+    
+    if (!title) {
+        alert('Question title is required');
+        return;
+    }
+    
+    // Collect options
+    const optionItems = document.querySelectorAll('#aiCustomQuestionOptions .custom-option-item');
+    const options = [];
+    
+    optionItems.forEach(item => {
+        const label = item.querySelector('.option-label').value.trim();
+        const valueInput = item.querySelector('.option-value').value.trim();
+        const description = item.querySelector('.option-description').value.trim();
+        const icon = item.querySelector('.option-icon').value.trim() || 'fa-circle';
+        const color = item.querySelector('.option-color').value || '#6366f1';
+        
+        if (label) {
+            options.push({
+                value: valueInput || label.toLowerCase().replace(/\s+/g, '_'),
+                label: label,
+                description: description || '',
+                icon: icon,
+                color: color
+            });
+        }
+    });
+    
+    if (options.length === 0) {
+        alert('At least one option is required');
+        return;
+    }
+    
+    if (!aiGeneratorConfig.customQuestions) {
+        aiGeneratorConfig.customQuestions = [];
+    }
+    
+    const questionIndex = aiGeneratorConfig.customQuestions.findIndex(q => q.id === questionId);
+    const questionData = {
+        id: questionId,
+        title,
+        subtitle: subtitle || '',
+        type: 'choice',
+        options: options
+    };
+    
+    if (questionIndex !== -1) {
+        aiGeneratorConfig.customQuestions[questionIndex] = questionData;
+    } else {
+        aiGeneratorConfig.customQuestions.push(questionData);
+    }
+    
+    saveAIGeneratorConfig();
+    updateWizardQuestionsFromConfig();
+    displayAICustomQuestions();
+    closeCustomQuestionModal();
+    
+    if (typeof showNotification === 'function') {
+        showNotification('Question saved successfully!', 'success');
+    } else {
+        alert('Question saved successfully!');
+    }
+}
+
+function deleteCustomQuestion(questionId) {
+    const recommendedIds = ['responsibleRoles', 'policyDepartment', 'reviewFrequency', 'approvalLevel'];
+    const isRecommended = recommendedIds.includes(questionId);
+    
+    if (isRecommended) {
+        // Hide recommended questions instead of deleting
+        if (!confirm('This is a recommended question. Hide it from the wizard? (You can add it back later)')) {
+            return;
+        }
+    } else {
+        if (!confirm('Are you sure you want to delete this question? It will be removed from the policy generator wizard.')) {
+            return;
+        }
+    }
+    
+    if (!aiGeneratorConfig.customQuestions) {
+        aiGeneratorConfig.customQuestions = [];
+    }
+    
+    // For recommended questions, mark as hidden
+    if (isRecommended) {
+        const question = aiGeneratorConfig.customQuestions.find(q => q.id === questionId);
+        if (question) {
+            question.hidden = true;
+        }
+    } else {
+        // For custom questions, remove completely
+        aiGeneratorConfig.customQuestions = aiGeneratorConfig.customQuestions.filter(q => q.id !== questionId);
+    }
+    
+    saveAIGeneratorConfig();
+    updateWizardQuestionsFromConfig();
+    displayAICustomQuestions();
+    
+    if (typeof showNotification === 'function') {
+        showNotification(isRecommended ? 'Question hidden successfully' : 'Question deleted successfully', 'success');
+    } else {
+        alert(isRecommended ? 'Question hidden successfully' : 'Question deleted successfully');
+    }
+}
+
+function closeCustomQuestionModal() {
+    const modal = document.getElementById('aiCustomQuestionModal');
+    if (modal) {
+        modal.style.display = 'none';
+    }
+}
+
+function closeAIConfigItemModal() {
+    document.getElementById('aiConfigItemModal').style.display = 'none';
+    document.getElementById('aiConfigItemForm').reset();
+}
+
+// Load AI config when settings tab is shown
+function showSettingsTab(tabName, event) {
+    if (event) event.preventDefault();
+    
+    // Hide all tabs
+    document.querySelectorAll('.settings-tab').forEach(tab => {
+        tab.classList.remove('active');
+    });
+    
+    // Remove active from all tab buttons
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+        btn.classList.remove('active');
+    });
+    
+    // Show selected tab
+    const selectedTab = document.getElementById(tabName + 'Tab');
+    if (selectedTab) {
+        selectedTab.classList.add('active');
+    }
+    
+    // Activate selected tab button
+    if (event && event.target) {
+        event.target.classList.add('active');
+    }
+    
+    // Load AI config if AI Generator tab is selected
+    if (tabName === 'aiGenerator') {
+        if (!aiGeneratorConfig || !aiGeneratorConfig.categories || aiGeneratorConfig.categories.length === 0) {
+            loadAIGeneratorConfig();
+        }
+        displayAIConfigItems();
+    }
+}
+
+// Attach functions to window
+if (typeof window !== 'undefined') {
+    window.addAIConfigItem = addAIConfigItem;
+    window.editAIConfigItem = editAIConfigItem;
+    window.deleteAIConfigItem = deleteAIConfigItem;
+    window.saveAIConfigItem = saveAIConfigItem;
+    window.closeAIConfigItemModal = closeAIConfigItemModal;
+    window.loadAIGeneratorConfig = loadAIGeneratorConfig;
+    window.displayAIConfigItems = displayAIConfigItems;
+    window.editAIQuestion = editAIQuestion;
+    window.saveAIQuestion = saveAIQuestion;
+    window.closeAIQuestionModal = closeAIQuestionModal;
+    window.addCustomQuestion = addCustomQuestion;
+    window.editCustomQuestion = editCustomQuestion;
+    window.deleteCustomQuestion = deleteCustomQuestion;
+    window.saveCustomQuestion = saveCustomQuestion;
+    window.closeCustomQuestionModal = closeCustomQuestionModal;
+    window.addCustomQuestionOption = addCustomQuestionOption;
+    window.removeCustomQuestionOption = removeCustomQuestionOption;
+    
+    // Override showSettingsTab if it exists, or add it
+    if (typeof showSettingsTab === 'function') {
+        // Store original function
+        const originalShowSettingsTab = window.showSettingsTab;
+        window.showSettingsTab = function(tabName, event) {
+            if (tabName === 'aiGenerator') {
+                if (!aiGeneratorConfig || !aiGeneratorConfig.policyTypes || aiGeneratorConfig.policyTypes.length === 0) {
+                    loadAIGeneratorConfig();
+                }
+                displayAIConfigItems();
+            }
+            if (originalShowSettingsTab) {
+                originalShowSettingsTab(tabName, event);
+            } else {
+                showSettingsTab(tabName, event);
+            }
+        };
+    } else {
+        window.showSettingsTab = showSettingsTab;
+    }
+}
+
+// Load AI config on page load
+if (typeof document !== 'undefined') {
+    document.addEventListener('DOMContentLoaded', function() {
+        loadAIGeneratorConfig();
+    });
+}
+
+function initWizard() {
+    aiWizardState = {};
+    aiWizardCurrentStep = 0;
+    aiWizardRecommendations = {};
+    
+    // Update organizations question with current settings
+    updateOrganizationsQuestion();
+    
+    // Ensure containers are visible
+    const wizardContainer = document.getElementById('aiWizard');
+    const textSlide = document.getElementById('aiWizardTextSlide');
+    const optionsContainer = document.getElementById('wizardOptionsContainer');
+    const recommendationsContainer = document.getElementById('wizardRecommendationsContainer');
+    
+    // Show wizard, hide text slides
+    if (wizardContainer) {
+        wizardContainer.style.display = 'block';
+        wizardContainer.classList.remove('slide-out');
+    }
+    if (textSlide) {
+        textSlide.style.display = 'none';
+        textSlide.classList.remove('slide-in');
+    }
+    const detailsSlide = document.getElementById('aiWizardDetailsSlide');
+    if (detailsSlide) {
+        detailsSlide.style.display = 'none';
+        detailsSlide.classList.remove('slide-in');
+    }
+    if (optionsContainer) optionsContainer.style.display = 'grid';
+    if (recommendationsContainer) recommendationsContainer.style.display = 'none';
+    
+    renderWizardStep();
+}
+
+function renderWizardStep() {
+    if (!wizardQuestions || wizardQuestions.length === 0) {
+        console.error('Wizard questions not found');
+        return;
+    }
+    
+    if (aiWizardCurrentStep < 0 || aiWizardCurrentStep >= wizardQuestions.length) {
+        console.error('Invalid step index:', aiWizardCurrentStep);
+        return;
+    }
+    
+    const question = wizardQuestions[aiWizardCurrentStep];
+    if (!question) {
+        console.error('Question not found at step:', aiWizardCurrentStep);
+        return;
+    }
+    
+    const total = wizardQuestions.length;
+    const progress = ((aiWizardCurrentStep + 1) / total) * 100;
+    
+    // Update progress bar
+    const progressFill = document.getElementById('wizardProgressFill');
+    if (progressFill) {
+        progressFill.style.width = `${progress}%`;
+    }
+    
+    // Update step text
+    const stepText = document.getElementById('wizardStepText');
+    if (stepText) {
+        stepText.textContent = `Step ${aiWizardCurrentStep + 1} of ${total}`;
+    }
+    
+    // Update question title and subtitle
+    const questionTitle = document.getElementById('wizardQuestionTitle');
+    const questionSubtitle = document.getElementById('wizardQuestionSubtitle');
+    if (questionTitle) questionTitle.textContent = question.title || 'Question';
+    if (questionSubtitle) questionSubtitle.textContent = question.subtitle || '';
+    
+    // Show/hide containers based on question type
+    const optionsContainer = document.getElementById('wizardOptionsContainer');
+    
+    console.log('Rendering step', aiWizardCurrentStep, {
+        questionId: question.id,
+        questionType: question.type,
+        hasOptions: question.options?.length,
+        containerFound: !!optionsContainer,
+        containerDisplay: optionsContainer?.style.display
+    });
+    
+    // Handle roles question type - show text input if no roles, otherwise show role options
+    if (question.type === 'roles') {
+        const rolesData = loadFromLocalStorage('roles', []);
+        
+        if (!rolesData || rolesData.length === 0) {
+            // No roles set up - show text input
+            const textSlide = document.getElementById('aiWizardTextSlide');
+            const textInput = document.getElementById('wizardTextInput');
+            const textQuestionTitle = document.getElementById('wizardTextQuestionTitle');
+            const textQuestionSubtitle = document.getElementById('wizardTextQuestionSubtitle');
+            const helperText = document.getElementById('wizardHelperText');
+            
+            if (textSlide && textInput) {
+                // Show text input slide
+                const wizardContainer = document.getElementById('aiWizard');
+                if (wizardContainer) wizardContainer.classList.add('slide-out');
+                
+                setTimeout(() => {
+                    if (textSlide) {
+                        textSlide.style.display = 'block';
+                        textSlide.classList.add('slide-in');
+                    }
+                    if (textQuestionTitle) textQuestionTitle.textContent = question.title || 'Who is responsible for this policy?';
+                    if (textQuestionSubtitle) textQuestionSubtitle.textContent = 'Enter the name of the person responsible';
+                    
+                    // Hide organizations container since this is for roles
+                    const organizationsContainer = document.getElementById('wizardOrganizationsContainer');
+                    if (organizationsContainer) {
+                        organizationsContainer.style.display = 'none';
+                    }
+                    
+                    // Show text input container for roles
+                    const rolesTextContainer = document.getElementById('wizardRolesTextContainer');
+                    if (rolesTextContainer) {
+                        rolesTextContainer.style.display = 'block';
+                    }
+                    
+                    if (textInput) {
+                        textInput.value = aiWizardState[question.id] || '';
+                        textInput.placeholder = 'Enter name (e.g., John Smith, Dr. Jane Doe)';
+                        setTimeout(() => textInput.focus(), 100);
+                    }
+                    if (helperText) {
+                        helperText.textContent = question.helper || 'This name will be included in the policy document';
+                        helperText.style.display = 'block';
+                    }
+                    
+                    // Update button to go to next step instead of generate (if not last step)
+                    const textGenerateBtn = document.getElementById('wizardTextGenerateBtn');
+                    if (textGenerateBtn) {
+                        if (aiWizardCurrentStep < wizardQuestions.length - 1) {
+                            textGenerateBtn.innerHTML = 'Continue <i class="fas fa-arrow-right"></i>';
+                            textGenerateBtn.onclick = function() {
+                                // Save the input value
+                                if (textInput) {
+                                    aiWizardState[question.id] = textInput.value.trim();
+                                }
+                                // Go to next step
+                                wizardGoNext();
+                            };
+                        } else {
+                            textGenerateBtn.innerHTML = '<i class="fas fa-magic"></i> Generate Policy';
+                            textGenerateBtn.onclick = function() {
+                                // Save the input value
+                                if (textInput) {
+                                    aiWizardState[question.id] = textInput.value.trim();
+                                }
+                                // Generate policy
+                                wizardGeneratePolicy();
+                            };
+                        }
+                    }
+                }, 300);
+            }
+        } else {
+            // Roles exist - convert to choice options and render
+            if (!optionsContainer) {
+                console.error('Options container element not found in DOM!');
+                return;
+            }
+            
+            // Convert roles to options format
+            question.options = rolesData.map((role, index) => ({
+                value: role.id || role.name.toLowerCase().replace(/\s+/g, '_'),
+                label: role.name,
+                description: role.email ? `Email: ${role.email}` : '',
+                icon: 'fa-user-tie',
+                color: ['#6366f1', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899', '#64748b'][index % 6]
+            }));
+            
+            // Force display
+            optionsContainer.style.display = 'grid';
+            optionsContainer.style.visibility = 'visible';
+            optionsContainer.style.opacity = '1';
+            optionsContainer.style.minHeight = '400px';
+            
+            // Render options
+            console.log('Rendering roles as choice options:', question.options);
+            renderChoiceOptions(question, optionsContainer);
+        }
+    } else if (question.type === 'choice') {
+        if (!optionsContainer) {
+            console.error('Options container element not found in DOM!');
+        return;
+    }
+    
+        // Force display
+        optionsContainer.style.display = 'grid';
+        optionsContainer.style.visibility = 'visible';
+        optionsContainer.style.opacity = '1';
+        optionsContainer.style.minHeight = '400px';
+        
+        // Render options
+        console.log('About to call renderChoiceOptions with:', { question, container: optionsContainer });
+        renderChoiceOptions(question, optionsContainer);
+    }
+    // Note: Text questions are now handled on a separate slide/page
+    // This is only for choice questions within the wizard
+    
+    // Update navigation buttons
+    updateNavigationButtons();
+}
+
+function renderChoiceOptions(question, container) {
+    console.log('=== RENDER CHOICE OPTIONS START ===');
+    console.log('Question:', question);
+    console.log('Container:', container);
+    console.log('Container ID:', container?.id);
+    console.log('Container display:', container?.style?.display);
+    console.log('Has options:', question?.options?.length);
+    
+    if (!container) {
+        console.error('❌ Container is NULL or UNDEFINED');
+        // Try to find it again
+        const retryContainer = document.getElementById('wizardOptionsContainer');
+        console.log('Retry container:', retryContainer);
+        if (!retryContainer) {
+            alert('ERROR: Options container not found! Check console.');
+            return;
+        }
+        container = retryContainer;
+    }
+        
+    if (!question || !question.options || question.options.length === 0) {
+        console.error('❌ No options available', question);
+        container.innerHTML = '<p style="color: #ef4444; text-align: center; padding: 40px; font-size: 1.2rem; background: #fee; border: 2px solid #f00; border-radius: 12px;">ERROR: No options available for this question.</p>';
+        return;
+    }
+    
+    // Clear and force display
+    container.innerHTML = '';
+    container.style.display = 'grid';
+    container.style.visibility = 'visible';
+    container.style.opacity = '1';
+    container.style.minHeight = '400px';
+    container.style.padding = '20px 0';
+    
+    console.log('Container after setup:', {
+        display: container.style.display,
+        visibility: container.style.visibility,
+        opacity: container.style.opacity,
+        innerHTML: container.innerHTML.length
+    });
+        
+    // Kahoot-style colors: red, blue, yellow, green, purple, orange
+    const kahootColors = ['red', 'blue', 'yellow', 'green', 'purple', 'orange'];
+    
+    question.options.forEach((option, index) => {
+        console.log(`Creating option ${index + 1}:`, option.label);
+        
+        const optionBtn = document.createElement('button');
+        optionBtn.type = 'button';
+        optionBtn.className = 'wizard-option-card';
+        optionBtn.dataset.question = question.id;
+        
+        // Assign Kahoot-style color based on index
+        const colorIndex = index % kahootColors.length;
+        const kahootColor = kahootColors[colorIndex];
+        optionBtn.dataset.color = kahootColor;
+        
+            if (aiWizardState[question.id] === option.value) {
+            optionBtn.classList.add('selected');
+        }
+        
+        // Use the original color for the icon, but Kahoot color for the card
+        const iconColor = option.color || '#6366f1';
+        
+        const isSelected = aiWizardState[question.id] === option.value;
+        optionBtn.innerHTML = `
+            <div class="option-icon" style="background: linear-gradient(135deg, ${iconColor}25 0%, ${iconColor}15 100%); color: ${iconColor}; border: 3px solid ${iconColor}40;">
+                <i class="fas ${option.icon || 'fa-circle'}"></i>
+            </div>
+            <div class="option-content">
+                <h4>${option.label}</h4>
+                ${option.description ? `<p style="margin: 0; font-size: 0.95rem; color: #6b7280; line-height: 1.5;">${option.description}</p>` : ''}
+            </div>
+            ${isSelected ? `<div class="option-check" style="position: absolute; top: 16px; right: 16px; width: 44px; height: 44px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-size: 1.3rem; box-shadow: 0 4px 16px rgba(102, 126, 234, 0.4); z-index: 10; animation: checkPop 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);"><i class="fas fa-check"></i></div>` : ''}
+        `;
+        
+        // Force all styles
+        optionBtn.style.display = 'block';
+        optionBtn.style.visibility = 'visible';
+        optionBtn.style.opacity = '1';
+        optionBtn.style.width = '100%';
+        optionBtn.style.height = 'auto';
+        optionBtn.style.minHeight = '180px';
+        optionBtn.style.position = 'relative';
+        optionBtn.style.zIndex = '10';
+        
+        optionBtn.addEventListener('click', () => {
+            console.log('Option clicked:', option.label);
+            selectOption(question, option, optionBtn);
+        });
+        
+        container.appendChild(optionBtn);
+        console.log(`✅ Appended option ${index + 1} to container. Container children: ${container.children.length}`);
+    });
+    
+    console.log(`=== RENDER COMPLETE: ${question.options.length} options rendered ===`);
+    console.log('Container final state:', {
+        children: container.children.length,
+        display: container.style.display,
+        innerHTML: container.innerHTML.substring(0, 200) + '...'
+    });
+    
+    // Final verification
+    if (container.children.length === 0) {
+        console.error('❌ CRITICAL: No children appended to container!');
+        alert('ERROR: Buttons were not created. Check console for details.');
+    }
+    
+    // Render recommendations if available
+    renderRecommendations(question);
+}
+
+function renderRecommendations(question) {
+    const recommendationsContainer = document.getElementById('wizardRecommendationsContainer');
+    const recommendationsInner = document.getElementById('wizardRecommendations');
+    
+    // Hide recommendations - user requested to remove them
+    if (recommendationsContainer) {
+        recommendationsContainer.style.display = 'none';
+    }
+    return; // Don't render recommendations
+    
+    if (!recommendationsContainer || !recommendationsInner) return;
+    
+    // Initialize recommendations array for this question if not exists
+    if (!aiWizardRecommendations[question.id]) {
+        aiWizardRecommendations[question.id] = [];
+    }
+    
+    // Always show policy types as recommendations (since we removed that question)
+    // Get recommendations from aiGeneratorConfig for the current question
+    const configMap = {
+        'policyCategory': 'categories',
+        'audience': 'audience',
+        'compliance': 'compliance',
+        'urgency': 'urgency'
+    };
+    
+    const configKey = configMap[question.id];
+    const questionRecommendations = configKey && aiGeneratorConfig[configKey] ? aiGeneratorConfig[configKey] : [];
+    
+    // Get question-specific recommendations
+    const allRecommendations = [];
+    
+    // Add question-specific recommendations
+    if (questionRecommendations.length > 0) {
+        allRecommendations.push(...questionRecommendations);
+    }
+    
+    // Show ALL recommendations as toggleable options
+    if (allRecommendations.length === 0) {
+        recommendationsContainer.style.display = 'none';
+        return;
+    }
+    
+    // Show recommendations container
+    recommendationsContainer.style.display = 'block';
+    
+    // Initialize policy types recommendations if not exists
+    // Initialize recommendations for this question if not exists
+    if (!aiWizardRecommendations[question.id]) {
+        aiWizardRecommendations[question.id] = [];
+    }
+    
+    // Render recommendations as toggleable items
+    recommendationsInner.innerHTML = allRecommendations.map(rec => {
+        const checkKey = question.id;
+        const isChecked = aiWizardRecommendations[checkKey].includes(rec.value);
+        return `
+            <label class="wizard-recommendation-item" style="display: flex; align-items: center; padding: 15px; background: white; border: 2px solid ${isChecked ? '#6366f1' : '#e0e0e0'}; border-radius: 8px; cursor: pointer; transition: all 0.2s; ${isChecked ? 'background: linear-gradient(135deg, #6366f1, #8b5cf6); color: white;' : ''}">
+                <input type="checkbox" class="wizard-recommendation-checkbox" 
+                    data-question="${checkKey}" 
+                    data-value="${rec.value}"
+                    data-color="${rec.color || '#6366f1'}"
+                    ${isChecked ? 'checked' : ''}
+                    style="margin-right: 12px; width: 20px; height: 20px; cursor: pointer;">
+                <div style="flex: 1; display: flex; align-items: center; gap: 10px;">
+                    ${rec.icon ? `<i class="fas ${rec.icon}" style="color: ${isChecked ? 'white' : rec.color || '#6366f1'}; font-size: 20px;"></i>` : ''}
+                    <div>
+                        <strong style="color: ${isChecked ? 'white' : '#333'};">${rec.label}</strong>
+                        ${rec.description ? `<div style="font-size: 0.85rem; color: ${isChecked ? 'rgba(255,255,255,0.9)' : '#666'}; margin-top: 4px;">${rec.description}</div>` : ''}
+                    </div>
+                </div>
+            </label>
+        `;
+    }).join('');
+    
+    // Add event listeners
+    recommendationsInner.querySelectorAll('.wizard-recommendation-item').forEach(item => {
+        item.addEventListener('click', function(e) {
+            if (e.target.type !== 'checkbox') {
+                const checkbox = this.querySelector('input[type="checkbox"]');
+                checkbox.checked = !checkbox.checked;
+                updateRecommendation(question.id, checkbox);
+            }
+        });
+    });
+    
+    recommendationsInner.querySelectorAll('.wizard-recommendation-checkbox').forEach(checkbox => {
+        checkbox.addEventListener('change', function() {
+            updateRecommendation(question.id, this);
+        });
+    });
+}
+
+function updateRecommendation(questionId, checkbox) {
+    const value = checkbox.dataset.value;
+    const isChecked = checkbox.checked;
+    // Use the data-question from checkbox which may be 'policyTypes' or the actual question id
+    const storageKey = checkbox.dataset.question || questionId;
+    
+    if (!aiWizardRecommendations[storageKey]) {
+        aiWizardRecommendations[storageKey] = [];
+    }
+    
+    if (isChecked) {
+        if (!aiWizardRecommendations[storageKey].includes(value)) {
+            aiWizardRecommendations[storageKey].push(value);
+        }
+    } else {
+        aiWizardRecommendations[storageKey] = aiWizardRecommendations[storageKey].filter(v => v !== value);
+    }
+    
+    // Update visual state
+    const item = checkbox.closest('.wizard-recommendation-item');
+    if (item) {
+        if (isChecked) {
+            item.style.borderColor = '#6366f1';
+            item.style.background = 'linear-gradient(135deg, #6366f1, #8b5cf6)';
+            item.style.color = 'white';
+            item.querySelectorAll('strong, div').forEach(el => {
+                if (el.tagName === 'STRONG') {
+                    el.style.color = 'white';
+                } else if (el.tagName === 'DIV' && el.style) {
+                    el.style.color = 'rgba(255,255,255,0.9)';
+                }
+            });
+            item.querySelectorAll('i').forEach(icon => {
+                icon.style.color = 'white';
+            });
+        } else {
+            item.style.borderColor = '#e0e0e0';
+            item.style.background = 'white';
+            item.style.color = '';
+            item.querySelectorAll('strong, div').forEach(el => {
+                if (el.tagName === 'STRONG') {
+                    el.style.color = '#333';
+                } else if (el.tagName === 'DIV' && el.style) {
+                    el.style.color = '#666';
+                }
+            });
+            const icon = item.querySelector('i');
+            if (icon) {
+                const originalColor = checkbox.dataset.color || '#6366f1';
+                icon.style.color = originalColor;
+            }
+        }
+    }
+}
+
+function renderTextInput(question, container) {
+    if (!container) return;
+    
+    // Hide recommendations for text questions
+    const recommendationsContainer = document.getElementById('wizardRecommendationsContainer');
+    if (recommendationsContainer) recommendationsContainer.style.display = 'none';
+    
+    const textInput = document.getElementById('wizardTextInput');
+    const helperText = document.getElementById('wizardHelperText');
+    
+    if (textInput) {
+        textInput.value = aiWizardState[question.id] || '';
+        textInput.placeholder = question.placeholder || '';
+        
+        // Auto-focus the text input when it appears
+        setTimeout(() => {
+            textInput.focus();
+            // Scroll the text input into view smoothly
+            textInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }, 100);
+    }
+    
+    if (helperText && question.helper) {
+        helperText.textContent = question.helper;
+        helperText.style.display = 'block';
+    } else if (helperText) {
+        helperText.style.display = 'none';
+    }
+}
+
+function showTextInputSlide() {
+    // Update organizations question with current settings before showing
+    updateOrganizationsQuestion();
+    
+    // Get the organizations question
+    const organizationsQuestion = wizardQuestions.find(q => q.id === 'organizations');
+    if (!organizationsQuestion) {
+        console.error('Organizations question not found');
+        wizardGeneratePolicy();
+        return;
+    }
+    
+    const wizardContainer = document.getElementById('aiWizard');
+    const textSlide = document.getElementById('aiWizardTextSlide');
+    
+    if (!wizardContainer || !textSlide) {
+        console.error('Wizard containers not found');
+        return;
+    }
+    
+    // Update slide content
+    const questionTitle = document.getElementById('wizardTextQuestionTitle');
+    const questionSubtitle = document.getElementById('wizardTextQuestionSubtitle');
+    const organizationsContainer = document.getElementById('wizardOrganizationsContainer');
+    
+    if (questionTitle) questionTitle.textContent = organizationsQuestion.title || 'Select applicable organizations';
+    if (questionSubtitle) questionSubtitle.textContent = organizationsQuestion.subtitle || '';
+    
+    // Hide roles text container (this is for organizations, not roles)
+    const rolesTextContainer = document.getElementById('wizardRolesTextContainer');
+    if (rolesTextContainer) {
+        rolesTextContainer.style.display = 'none';
+    }
+    
+    // Render organization options
+    if (organizationsContainer && organizationsQuestion.options) {
+        organizationsContainer.style.display = 'grid';
+        organizationsContainer.style.visibility = 'visible';
+        organizationsContainer.style.opacity = '1';
+        renderChoiceOptions(organizationsQuestion, organizationsContainer);
+    }
+    
+    // Hide wizard with slide-out animation
+    wizardContainer.classList.add('slide-out');
+    
+    // Show organizations slide after a short delay
+    setTimeout(() => {
+        wizardContainer.style.display = 'none';
+        textSlide.style.display = 'block';
+        
+        // Trigger slide-in animation
+        requestAnimationFrame(() => {
+            textSlide.classList.add('slide-in');
+        });
+    }, 200);
+}
+
+function showDetailsSlide() {
+    const organizationsSlide = document.getElementById('aiWizardTextSlide');
+    const detailsSlide = document.getElementById('aiWizardDetailsSlide');
+    
+    if (!organizationsSlide || !detailsSlide) {
+        console.error('Details slide containers not found');
+        wizardGeneratePolicy();
+        return;
+    }
+    
+    // Get saved details if any
+    const detailsInput = document.getElementById('wizardDetailsInput');
+    if (detailsInput) {
+        detailsInput.value = aiWizardState['details'] || '';
+    }
+    
+    // Hide organizations slide with slide-out animation
+    organizationsSlide.classList.remove('slide-in');
+    
+    // Show details slide after a short delay
+    setTimeout(() => {
+        organizationsSlide.style.display = 'none';
+        detailsSlide.style.display = 'block';
+        
+        // Trigger slide-in animation
+        requestAnimationFrame(() => {
+            detailsSlide.classList.add('slide-in');
+        });
+        
+        // Auto-focus the text input
+        setTimeout(() => {
+            if (detailsInput) {
+                detailsInput.focus();
+                detailsInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+        }, 100);
+    }, 200);
+}
+
+function wizardGoBackFromText() {
+    const wizardContainer = document.getElementById('aiWizard');
+    const textSlide = document.getElementById('aiWizardTextSlide');
+    
+    if (!wizardContainer || !textSlide) return;
+    
+    // Save text input value before going back
+    const question = wizardQuestions[aiWizardCurrentStep];
+    const textInput = document.getElementById('wizardTextInput');
+    if (textInput && question) {
+        aiWizardState[question.id] = textInput.value.trim();
+    }
+    
+    // Hide text slide with slide-out animation
+    textSlide.classList.remove('slide-in');
+    
+    // Show wizard after a short delay
+    setTimeout(() => {
+        textSlide.style.display = 'none';
+        wizardContainer.style.display = 'block';
+        wizardContainer.classList.remove('slide-out');
+        
+        // Render the current wizard step (don't go back, just show the step)
+        renderWizardStep();
+    }, 200);
+}
+
+function wizardGoBackFromDetails() {
+    const organizationsSlide = document.getElementById('aiWizardTextSlide');
+    const detailsSlide = document.getElementById('aiWizardDetailsSlide');
+    
+    if (!organizationsSlide || !detailsSlide) return;
+    
+    // Save details input value
+    const detailsInput = document.getElementById('wizardDetailsInput');
+    if (detailsInput) {
+        aiWizardState['details'] = detailsInput.value.trim();
+    }
+    
+    // Hide details slide with slide-out animation
+    detailsSlide.classList.remove('slide-in');
+    
+    // Show organizations slide after a short delay
+    setTimeout(() => {
+        detailsSlide.style.display = 'none';
+        organizationsSlide.style.display = 'block';
+        organizationsSlide.classList.add('slide-in');
+    }, 200);
+}
+
+function selectOption(question, option, button) {
+    aiWizardState[question.id] = option.value;
+    
+    // Update all buttons for this question
+    const allButtons = document.querySelectorAll('.wizard-option-card');
+    allButtons.forEach(btn => {
+        if (btn.dataset.question === question.id) {
+            btn.classList.remove('selected');
+        }
+    });
+    button.classList.add('selected');
+    
+    // Add checkmark
+    if (!button.querySelector('.option-check')) {
+        const check = document.createElement('div');
+        check.className = 'option-check';
+        check.innerHTML = '<i class="fas fa-check"></i>';
+        button.appendChild(check);
+    }
+    
+    // Check if we're on the organizations slide - if so, show details slide
+    const textSlide = document.getElementById('aiWizardTextSlide');
+    if (textSlide && textSlide.style.display !== 'none' && question.id === 'organizations') {
+        // On organizations slide - transition to details slide after short delay
+        setTimeout(() => {
+            showDetailsSlide();
+        }, 300);
+        return;
+    }
+    
+    // Auto-advance after short delay
+    setTimeout(() => {
+        if (aiWizardCurrentStep < wizardQuestions.length - 1) {
+            aiWizardCurrentStep++;
+            renderWizardStep();
+        } else {
+            // This is the last choice question - transition to organizations slide
+            showTextInputSlide();
+        }
+    }, 300);
+}
+
+function updateNavigationButtons() {
+    const backBtn = document.getElementById('wizardBackBtn');
+    const nextBtn = document.getElementById('wizardNextBtn');
+    const generateBtn = document.getElementById('wizardGenerateBtn');
+    const question = wizardQuestions[aiWizardCurrentStep];
+    
+    // Back button
+    if (backBtn) {
+        backBtn.style.display = aiWizardCurrentStep > 0 ? 'inline-flex' : 'none';
+    }
+    
+    // Next/Generate buttons
+    // Check if we're on text slide for roles question
+    const textSlide = document.getElementById('aiWizardTextSlide');
+    const isOnTextSlide = textSlide && textSlide.style.display !== 'none';
+    const isRolesTextInput = question.type === 'roles' && isOnTextSlide;
+    
+    if (question.type === 'text' || isRolesTextInput) {
+        if (nextBtn) nextBtn.style.display = 'none';
+        if (generateBtn) generateBtn.style.display = 'inline-flex';
+    } else {
+        if (nextBtn) nextBtn.style.display = 'none';
+        if (generateBtn) generateBtn.style.display = 'none';
+    }
+}
+
+function wizardGoBack() {
+    if (aiWizardCurrentStep > 0) {
+    aiWizardCurrentStep--;
+        renderWizardStep();
+    }
+}
+
+function wizardGoNext() {
+    const question = wizardQuestions[aiWizardCurrentStep];
+    
+    // Save text input for text questions or roles questions (when no roles exist)
+    if (question.type === 'text' || question.type === 'roles') {
+        const textSlide = document.getElementById('aiWizardTextSlide');
+        const input = document.getElementById('wizardTextInput');
+        
+        // Check if we're on the text slide (for roles question when no roles exist)
+        if (textSlide && textSlide.style.display !== 'none' && input) {
+            aiWizardState[question.id] = input.value.trim();
+            
+            // Hide text slide and go back to wizard
+            textSlide.classList.remove('slide-in');
+            setTimeout(() => {
+                textSlide.style.display = 'none';
+                const wizardContainer = document.getElementById('aiWizard');
+                if (wizardContainer) {
+                    wizardContainer.style.display = 'block';
+                    wizardContainer.classList.remove('slide-out');
+                }
+                
+                // Move to next step
+                if (aiWizardCurrentStep < wizardQuestions.length - 1) {
+                    aiWizardCurrentStep++;
+                    renderWizardStep();
+                } else {
+                    wizardGeneratePolicy();
+                }
+            }, 200);
+            return;
+        }
+        
+        // Regular text input handling
+            if (input) {
+            aiWizardState[question.id] = input.value.trim();
+            }
+    }
+    
+    if (aiWizardCurrentStep < wizardQuestions.length - 1) {
+        aiWizardCurrentStep++;
+        renderWizardStep();
+    } else {
+        wizardGeneratePolicy();
+    }
+}
+
+function wizardGeneratePolicy() {
+    // Save details/intent from details slide
+    const detailsInput = document.getElementById('wizardDetailsInput');
+    if (detailsInput) {
+        aiWizardState['details'] = detailsInput.value.trim();
+    }
+    
+    // Organizations are already saved in aiWizardState when selected
+    
+    // Hide wizard, text slides, show loading
+    const wizardContainer = document.getElementById('aiWizard');
+    const textSlide = document.getElementById('aiWizardTextSlide');
+    const detailsSlide = document.getElementById('aiWizardDetailsSlide');
+    const loadingContainer = document.getElementById('aiLoading');
+    const resultContainer = document.getElementById('aiResult');
+    
+    if (wizardContainer) wizardContainer.style.display = 'none';
+    if (textSlide) {
+        textSlide.classList.remove('slide-in');
+        textSlide.style.display = 'none';
+    }
+    if (detailsSlide) {
+        detailsSlide.classList.remove('slide-in');
+        detailsSlide.style.display = 'none';
+    }
+    if (loadingContainer) loadingContainer.style.display = 'block';
+    if (resultContainer) resultContainer.style.display = 'none';
+    
+    // Animate loading steps
+    animateLoadingSteps();
+    
+    // Build prompt from wizard responses
+    const prompt = buildWizardPrompt();
+    
+    // Map organization value to label for clinicNames (dynamic from settings)
+    const selectedOrgValue = aiWizardState.organizations || 'all';
+    let clinicNames = 'All Organizations';
+    
+    if (selectedOrgValue !== 'all') {
+        // Get the organizations question to find the selected option
+        const orgQuestion = wizardQuestions.find(q => q.id === 'organizations');
+        if (orgQuestion && orgQuestion.options) {
+            const selectedOption = orgQuestion.options.find(opt => opt.value === selectedOrgValue);
+            if (selectedOption) {
+                clinicNames = selectedOption.label;
+            } else {
+                // Fallback: try to get from settings
+                const companyOrgs = getCompanyOrganizations(currentCompany || 'Default Company');
+                const orgName = companyOrgs.find(org => 
+                    org.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '') === selectedOrgValue
+                );
+                clinicNames = orgName || 'All Organizations';
+            }
+        }
+    }
+    
+    // Prepare comprehensive policy data with all wizard information
+    const policyData = {
+        type: 'admin', // Default type since policyType question was removed
+        clinicNames: clinicNames,
+        prompt: prompt,
+        generatedBy: 'AI Generator',
+        recommendations: aiWizardRecommendations, // Include selected recommendations
+        // Include all wizard state data
+        wizardState: aiWizardState,
+        // Include question metadata
+        questions: wizardQuestions.map(q => ({
+            id: q.id,
+            title: q.title,
+            subtitle: q.subtitle,
+            type: q.type
+        })),
+        // Include user and company context
+        company: currentCompany || 'Unknown',
+        username: currentUser?.username || 'Unknown',
+        userId: currentUser?.id || null,
+        timestamp: new Date().toISOString()
+    };
+    
+    // Send to webhook
+    sendPolicyGenerationWebhook(policyData)
+        .then(response => {
+            displayWizardResult(response);
+        })
+        .catch(error => {
+            console.error('Policy generation error:', error);
+            displayWizardError(error.message || 'Unable to generate policy. Please try again.');
+        });
+}
+
+function buildWizardPrompt() {
+    const getOptionLabel = (questionId, value) => {
+        if (!value) return 'Not specified';
+        const question = wizardQuestions.find(q => q.id === questionId);
+        if (!question || !question.options) return value;
+        const option = question.options.find(opt => opt.value === value);
+        return option ? option.label : value;
+    };
+    
+    // Get recommendation labels
+    const getRecommendationLabels = (questionId) => {
+        const recs = aiWizardRecommendations[questionId] || [];
+        if (recs.length === 0) return 'None selected';
+        const question = wizardQuestions.find(q => q.id === questionId);
+        const configMap = {
+            'policyCategory': 'categories',
+            'audience': 'audience',
+            'compliance': 'compliance',
+            'urgency': 'urgency'
+        };
+        const configKey = configMap[questionId];
+        if (!configKey || !aiGeneratorConfig[configKey]) return recs.join(', ');
+        return recs.map(value => {
+            const item = aiGeneratorConfig[configKey].find(item => item.value === value);
+            return item ? item.label : value;
+        }).join(', ');
+    };
+    
+    // Get organization label (dynamic from settings)
+    const orgLabel = getOptionLabel('organizations', aiWizardState.organizations) || 'All Organizations';
+    
+    const parts = [
+        `POLICY GENERATION REQUEST`,
+        `Company: ${currentCompany || 'Unknown Company'}`,
+        `Requested by: ${currentUser?.username || 'Unknown User'}`,
+        ``,
+        `Category: ${getOptionLabel('policyCategory', aiWizardState.policyCategory)}`,
+        `Category Recommendations: ${getRecommendationLabels('policyCategory')}`,
+        `Audience: ${getOptionLabel('audience', aiWizardState.audience)}`,
+        `Audience Recommendations: ${getRecommendationLabels('audience')}`,
+        `Urgency: ${getOptionLabel('urgency', aiWizardState.urgency)}`,
+        `Urgency Recommendations: ${getRecommendationLabels('urgency')}`,
+        `Compliance: ${getOptionLabel('compliance', aiWizardState.compliance)}`,
+        `Compliance Recommendations: ${getRecommendationLabels('compliance')}`,
+        ``,
+        `Applicable Organizations: ${orgLabel}`,
+        ``,
+        `Policy Intent and Requirements:`,
+        aiWizardState.details || 'No specific requirements provided. Generate a comprehensive policy based on the selected category and audience.'
+    ];
+    
+    return parts.join('\n');
+}
+
+function animateLoadingSteps() {
+    const steps = ['step1', 'step2', 'step3', 'step4'];
+    const messages = [
+        'Processing your inputs...',
+        'Researching best practices and compliance standards...',
+        'Generating comprehensive policy content...',
+        'Finalizing and formatting your policy...'
+    ];
+    
+    let currentStep = 0;
+    const loadingMessage = document.getElementById('loadingMessage');
+    
+    const interval = setInterval(() => {
+        if (currentStep < steps.length) {
+            // Mark previous steps as complete
+            if (currentStep > 0) {
+                const prevStep = document.getElementById(steps[currentStep - 1]);
+                if (prevStep) {
+                    prevStep.classList.add('complete');
+                    prevStep.querySelector('i').className = 'fas fa-check-circle';
+                }
+            }
+            
+            // Activate current step
+            const currentStepEl = document.getElementById(steps[currentStep]);
+            if (currentStepEl) {
+                currentStepEl.classList.add('active');
+            }
+            
+            // Update message
+            if (loadingMessage && messages[currentStep]) {
+                loadingMessage.textContent = messages[currentStep];
+            }
+            
+            currentStep++;
+        } else {
+            clearInterval(interval);
+        }
+    }, 1500);
+}
+
+function displayWizardResult(response) {
+    // Hide loading, show result
+    const aiLoading = document.getElementById('aiLoading');
+    const aiWizard = document.getElementById('aiWizard');
+    const aiResult = document.getElementById('aiResult');
+    
+    if (aiLoading) aiLoading.style.display = 'none';
+    if (aiWizard) aiWizard.style.display = 'none';
+    if (aiResult) aiResult.style.display = 'block';
+    
+    // Parse the response - could be JSON string, array, or object
+    let policyData = null;
+    let policyContent = '';
+    
+    console.log('Raw response type:', typeof response);
+    console.log('Raw response:', response);
+    
+    if (typeof response === 'string') {
+        try {
+            // Try to parse as JSON
+            const parsed = JSON.parse(response);
+            if (Array.isArray(parsed) && parsed.length > 0) {
+                // Handle array response from webhook
+                const firstItem = parsed[0];
+                if (firstItem.message && firstItem.message.content) {
+                    policyContent = firstItem.message.content;
+                } else {
+                    policyData = firstItem;
+                }
+            } else if (parsed && typeof parsed === 'object') {
+                policyData = parsed;
+            } else {
+                policyContent = response;
+            }
+        } catch (e) {
+            // If not JSON, treat as markdown content
+            console.log('Response is not JSON, treating as markdown');
+            policyContent = response;
+        }
+    } else if (Array.isArray(response) && response.length > 0) {
+        // Handle array response from webhook
+        const firstItem = response[0];
+        if (firstItem.message && firstItem.message.content) {
+            policyContent = firstItem.message.content;
+        } else {
+            policyData = firstItem;
+        }
+    } else if (response && typeof response === 'object') {
+        if (response.message && response.message.content) {
+            policyContent = response.message.content;
+        } else {
+        policyData = response;
+        }
+    }
+    
+    // If we extracted content, parse it into policyData
+    if (policyContent && !policyData) {
+        // Parse the content to extract policy information
+        const lines = policyContent.split('\n');
+        let title = 'Untitled Policy';
+        let type = 'admin';
+        
+        // Try to extract title
+        for (let line of lines) {
+            if (line.includes('Title:') || line.startsWith('Title:')) {
+                title = line.replace(/Title:\s*/i, '').trim();
+            }
+            if (line.includes('Document Type:') || line.startsWith('Document Type:')) {
+                const docType = line.replace(/Document Type:\s*/i, '').trim();
+                if (docType.toLowerCase().includes('administrative')) type = 'admin';
+                else if (docType.toLowerCase().includes('operating')) type = 'sog';
+                else if (docType.toLowerCase().includes('protocol')) type = 'protocol';
+                else if (docType.toLowerCase().includes('memo')) type = 'memo';
+            }
+        }
+        
+        policyData = {
+            title: title,
+            policy_title: title,
+            type: type,
+            policy_type: type,
+            markdown: policyContent,
+            content: policyContent
+        };
+    }
+    
+    console.log('Parsed policy data:', policyData);
+    
+    // Display generated content in editable format
+    // Replace the content of aiResult with the editable policy form
+    if (aiResult && policyData) {
+        // Keep the header and action buttons, replace the preview area
+        const existingHeader = aiResult.querySelector('h4');
+        const existingActions = aiResult.querySelector('.policy-actions');
+        
+        // Create new content structure
+        let newContent = '';
+        if (existingHeader) newContent += existingHeader.outerHTML;
+        newContent += '<div class="wizard-policy-editor-container">' + renderEditablePolicy(policyData) + '</div>';
+        if (existingActions) newContent += existingActions.outerHTML;
+        
+        aiResult.innerHTML = newContent;
+        
+        // Add event listener for preview updates
+        setTimeout(() => {
+        const contentTextarea = document.getElementById('editPolicyContent');
+        if (contentTextarea) {
+            contentTextarea.addEventListener('input', updatePolicyPreview);
+            // Initial preview
+                updatePolicyPreview();
+            }
+        }, 100);
+    } else if (aiResult) {
+        // Fallback: show error message
+        aiResult.innerHTML = '<h4>Generated Policy</h4><p>Policy generated successfully, but content could not be parsed. Please try again.</p>';
+    }
+    
+    // Store generated policy for saving/publishing
+    window.generatedPolicy = policyData || response;
+}
+
+function renderEditablePolicy(policy) {
+    // Extract fields with defaults
+    const title = policy.policy_title || policy.title || 'Untitled Policy';
+    const type = policy.policy_type || policy.type || 'admin';
+    const company = policy.company || policy.applies_to || currentCompany || 'Unknown Company';
+    const effectiveDate = policy.effective_date ? new Date(policy.effective_date).toISOString().split('T')[0] : new Date().toISOString().split('T')[0];
+    const approvedBy = policy.approved_by || '';
+    const version = policy.version || '1.0';
+    const author = policy.author || currentUser?.username || 'Unknown';
+    const appliesTo = policy.applies_to || company;
+    const markdown = policy.markdown || policy.content || policy.statement || '';
+    
+    return `
+        <div class="policy-editor">
+            <div class="policy-field-group">
+                <label class="policy-field-label">
+                    <strong>Policy Title</strong>
+                </label>
+                <input type="text" id="editPolicyTitle" class="policy-field-input" value="${escapeHtml(title)}" placeholder="Enter policy title">
+            </div>
+            
+            <div class="policy-field-group">
+                <label class="policy-field-label">
+                    <strong>Policy Type</strong>
+                </label>
+                <select id="editPolicyType" class="policy-field-input">
+                    <option value="admin" ${type === 'admin' ? 'selected' : ''}>Admin Policy</option>
+                    <option value="sog" ${type === 'sog' ? 'selected' : ''}>Standard Operating Guidelines</option>
+                    <option value="protocol" ${type === 'protocol' ? 'selected' : ''}>Protocol</option>
+                    <option value="memo" ${type === 'memo' ? 'selected' : ''}>Communication Memo</option>
+                    <option value="training" ${type === 'training' ? 'selected' : ''}>Training Document</option>
+                    <option value="governance" ${type === 'governance' ? 'selected' : ''}>Governance Policy</option>
+                </select>
+            </div>
+            
+            <div class="policy-field-row">
+                <div class="policy-field-group">
+                    <label class="policy-field-label">
+                        <strong>Company</strong>
+                    </label>
+                    <input type="text" id="editPolicyCompany" class="policy-field-input" value="${escapeHtml(company)}" placeholder="Company name">
+                </div>
+                
+                <div class="policy-field-group">
+                    <label class="policy-field-label">
+                        <strong>Applies To</strong>
+                    </label>
+                    <input type="text" id="editPolicyAppliesTo" class="policy-field-input" value="${escapeHtml(appliesTo)}" placeholder="Applies to">
+                </div>
+            </div>
+            
+            <div class="policy-field-row">
+                <div class="policy-field-group">
+                    <label class="policy-field-label">
+                        <strong>Effective Date</strong>
+                    </label>
+                    <input type="date" id="editPolicyEffectiveDate" class="policy-field-input" value="${effectiveDate}">
+                </div>
+                
+                <div class="policy-field-group">
+                    <label class="policy-field-label">
+                        <strong>Version</strong>
+                    </label>
+                    <input type="text" id="editPolicyVersion" class="policy-field-input" value="${escapeHtml(version)}" placeholder="1.0">
+                </div>
+            </div>
+            
+            <div class="policy-field-row">
+                <div class="policy-field-group">
+                    <label class="policy-field-label">
+                        <strong>Author</strong>
+                    </label>
+                    <input type="text" id="editPolicyAuthor" class="policy-field-input" value="${escapeHtml(author)}" placeholder="Author name">
+                </div>
+                
+                <div class="policy-field-group">
+                    <label class="policy-field-label">
+                        <strong>Approved By</strong>
+                    </label>
+                    <input type="text" id="editPolicyApprovedBy" class="policy-field-input" value="${escapeHtml(approvedBy)}" placeholder="Approver name">
+                </div>
+            </div>
+            
+            <div class="policy-field-group">
+                <label class="policy-field-label">
+                    <strong>Policy Content (Markdown)</strong>
+                </label>
+                <textarea id="editPolicyContent" class="policy-field-textarea" rows="20" placeholder="Policy content in markdown format">${escapeHtml(markdown)}</textarea>
+                <div class="policy-field-help">
+                    <small>You can edit the markdown content directly. Use standard markdown syntax for formatting.</small>
+                </div>
+            </div>
+            
+            <div class="policy-preview-section">
+                <h4>Preview</h4>
+                <div id="policyPreview" class="policy-preview-content"></div>
+            </div>
+        </div>
+    `;
+}
+
+function escapeHtml(text) {
+    if (!text) return '';
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+// Update preview when content changes
+function updatePolicyPreview() {
+    const content = document.getElementById('editPolicyContent')?.value || '';
+    const preview = document.getElementById('policyPreview');
+    if (preview) {
+        // Simple markdown to HTML conversion (basic)
+        let html = content
+            .replace(/^# (.*$)/gim, '<h1>$1</h1>')
+            .replace(/^## (.*$)/gim, '<h2>$1</h2>')
+            .replace(/^### (.*$)/gim, '<h3>$1</h3>')
+            .replace(/^\*\*(.*)\*\*/gim, '<strong>$1</strong>')
+            .replace(/^\*(.*)\*/gim, '<em>$1</em>')
+            .replace(/\n/g, '<br>');
+        preview.innerHTML = html || '<em>No content to preview</em>';
+    }
+}
+
+function displayWizardError(message) {
+    document.getElementById('aiLoading').style.display = 'none';
+    document.getElementById('aiWizard').style.display = 'block';
+    
+    showNotification(message, 'error');
+}
+
+async function wizardSavePolicy() {
+    if (!window.generatedPolicy) {
+        showNotification('No policy to save', 'error');
+        return;
+    }
+    
+    // Get values from editable fields
+    const title = document.getElementById('editPolicyTitle')?.value || 'Untitled Policy';
+    const type = document.getElementById('editPolicyType')?.value || 'admin';
+    const company = document.getElementById('editPolicyCompany')?.value || currentCompany;
+    const effectiveDate = document.getElementById('editPolicyEffectiveDate')?.value || new Date().toISOString().split('T')[0];
+    const version = document.getElementById('editPolicyVersion')?.value || '1.0';
+    const author = document.getElementById('editPolicyAuthor')?.value || currentUser?.username;
+    const approvedBy = document.getElementById('editPolicyApprovedBy')?.value || '';
+    const appliesTo = document.getElementById('editPolicyAppliesTo')?.value || company;
+    const content = document.getElementById('editPolicyContent')?.value || '';
+    
+    const newPolicy = {
+        id: Date.now(),
+        title: title,
+        name: title, // For backward compatibility
+        type: type,
+        company: company,
+        appliesTo: appliesTo,
+        effectiveDate: effectiveDate,
+        version: version,
+        author: author,
+        approvedBy: approvedBy,
+        statement: content,
+        markdown: content,
+        content: content, // Full policy content
+        text: content, // Full policy text
+        status: 'draft',
+        createdAt: new Date().toISOString(),
+        clinics: [currentCompany || 'All Organizations']
+    };
+    
+    // Send policy data to webhook
+    try {
+        if (typeof window.sendPolicyToWebhook === 'function') {
+            await window.sendPolicyToWebhook(newPolicy);
+            console.log('Policy data sent to webhook successfully');
+        } else {
+            console.warn('sendPolicyToWebhook function not available');
+        }
+    } catch (error) {
+        console.error('Failed to send policy to webhook:', error);
+        // Don't block policy saving if webhook fails
+    }
+    
+    draftPolicies.push(newPolicy);
+    saveToLocalStorage('draftPolicies', draftPolicies);
+    
+    // Also save to global "all policies" list
+    let allPolicies = JSON.parse(localStorage.getItem('allPolicies') || '[]');
+    allPolicies.push(newPolicy);
+    localStorage.setItem('allPolicies', JSON.stringify(allPolicies));
+    console.log('Policy saved to all policies list');
+    
+    showNotification('Policy saved to drafts!', 'success');
+    closeAIModal();
+    loadPolicies();
+}
+
+async function wizardPublishPolicy() {
+    if (!window.generatedPolicy) {
+        showNotification('No policy to publish', 'error');
+        return;
+    }
+    
+    // Get values from editable fields
+    const title = document.getElementById('editPolicyTitle')?.value || 'Untitled Policy';
+    const type = document.getElementById('editPolicyType')?.value || 'admin';
+    const company = document.getElementById('editPolicyCompany')?.value || currentCompany;
+    const effectiveDate = document.getElementById('editPolicyEffectiveDate')?.value || new Date().toISOString().split('T')[0];
+    const version = document.getElementById('editPolicyVersion')?.value || '1.0';
+    const author = document.getElementById('editPolicyAuthor')?.value || currentUser?.username;
+    const approvedBy = document.getElementById('editPolicyApprovedBy')?.value || '';
+    const appliesTo = document.getElementById('editPolicyAppliesTo')?.value || company;
+    const content = document.getElementById('editPolicyContent')?.value || '';
+    
+    const newPolicy = {
+        id: Date.now(),
+        title: title,
+        name: title, // For backward compatibility
+        type: type,
+        company: company,
+        appliesTo: appliesTo,
+        effectiveDate: effectiveDate,
+        version: version,
+        author: author,
+        approvedBy: approvedBy,
+        statement: content,
+        markdown: content,
+        content: content, // Full policy content
+        text: content, // Full policy text
+        status: 'active',
+        createdAt: new Date().toISOString(),
+        clinics: [currentCompany || 'All Organizations']
+    };
+    
+    // Send policy data to webhook
+    try {
+        if (typeof window.sendPolicyToWebhook === 'function') {
+            await window.sendPolicyToWebhook(newPolicy);
+            console.log('Policy data sent to webhook successfully');
+        } else {
+            console.warn('sendPolicyToWebhook function not available');
+        }
+    } catch (error) {
+        console.error('Failed to send policy to webhook:', error);
+        // Don't block policy saving if webhook fails
+    }
+    
+    currentPolicies.push(newPolicy);
+    saveToLocalStorage('currentPolicies', currentPolicies);
+    
+    // Also save to global "all policies" list
+    let allPolicies = JSON.parse(localStorage.getItem('allPolicies') || '[]');
+    allPolicies.push(newPolicy);
+    localStorage.setItem('allPolicies', JSON.stringify(allPolicies));
+    console.log('Policy saved to all policies list');
+    
+    showNotification('Policy published successfully!', 'success');
+    closeAIModal();
+    loadPolicies();
+}
+
+function wizardEditPolicy() {
+    // Switch to edit mode - could open in policy editor
+    showNotification('Edit functionality coming soon', 'info');
+}
+
+function wizardRefinePolicy() {
+    const refinementText = document.getElementById('refinementInput')?.value.trim();
+    if (!refinementText) {
+        showNotification('Please describe what you\'d like to change', 'error');
+        return;
+    }
+    
+    // Hide result, show loading
+    document.getElementById('aiResult').style.display = 'none';
+    document.getElementById('aiLoading').style.display = 'block';
+    
+    // Build refinement prompt
+    const originalPrompt = buildWizardPrompt();
+    const refinementPrompt = `${originalPrompt}\n\nREFINEMENT REQUEST:\n${refinementText}`;
+    
+    const policyData = {
+        type: 'admin', // Default type since policyType question was removed
+        clinicNames: currentCompany || 'All Organizations',
+        prompt: refinementPrompt,
+        generatedBy: 'AI Generator',
+        recommendations: aiWizardRecommendations // Include selected recommendations
+    };
+    
+    sendPolicyGenerationWebhook(policyData)
+        .then(response => {
+            displayWizardResult(response);
+            // Clear refinement input
+            const refinementInput = document.getElementById('refinementInput');
+            if (refinementInput) refinementInput.value = '';
+        })
+        .catch(error => {
+            console.error('Policy refinement error:', error);
+            displayWizardError(error.message || 'Unable to refine policy. Please try again.');
+        });
+}
+
+function selectPolicyType(type) {
+    // This function is no longer needed in the ChatGPT-style flow
+    // Users will just type their request directly
+}
+
+function addUserMessage(message) {
+    const chatMessages = document.getElementById('chatMessages');
+    const messageDiv = document.createElement('div');
+    messageDiv.className = 'message user-message';
+    messageDiv.innerHTML = `
+        <div class="message-avatar">
+            <i class="fas fa-user"></i>
+        </div>
+        <div class="message-content">
+            <p>${message}</p>
+        </div>
+    `;
+    chatMessages.appendChild(messageDiv);
+    chatMessages.scrollTop = chatMessages.scrollHeight;
+    
+    // Store in conversation history
+    conversationHistory.push({ role: 'user', content: message });
+}
+
+function getClinicNames(clinicIds) {
+    const clinicMap = {
+        'tudor-glen': 'Tudor Glen',
+        'river-valley': 'River Valley',
+        'rosslyn': 'Rosslyn',
+        'upc': 'UPC'
+    };
+    return clinicIds.map(id => clinicMap[id] || id);
+}
+
+function addAIMessage(message, quickOptions = null) {
+    const chatMessages = document.getElementById('chatMessages');
+    const messageDiv = document.createElement('div');
+    messageDiv.className = 'message ai-message';
+    
+    let quickOptionsHTML = '';
+    if (quickOptions) {
+        quickOptionsHTML = '<div class="quick-options">';
+        quickOptions.forEach(option => {
+            quickOptionsHTML += `<button class="btn btn-sm btn-outline" onclick="selectQuickOption('${option}')">${option}</button>`;
+        });
+        quickOptionsHTML += '</div>';
+    }
+    
+    messageDiv.innerHTML = `
+        <div class="message-avatar">
+            <i class="fas fa-robot"></i>
+        </div>
+        <div class="message-content">
+            <p>${message}</p>
+            ${quickOptionsHTML}
+        </div>
+    `;
+    chatMessages.appendChild(messageDiv);
+    chatMessages.scrollTop = chatMessages.scrollHeight;
+    
+    // Store in conversation history
+    conversationHistory.push({ role: 'assistant', content: message });
+}
+
+function selectQuickOption(option) {
+    if (option === 'Other (type your own)') {
+        document.getElementById('chatInput').focus();
+        return;
+    }
+    
+    document.getElementById('chatInput').value = option;
+    sendChatMessage();
+}
+
+function handleChatKeyPress(event) {
+    if (event.key === 'Enter') {
+        sendChatMessage();
+    }
+}
+
+function sendChatMessage() {
+    const input = document.getElementById('chatInput');
+    const message = input.value.trim();
+    
+    if (!message || chatState.isGenerating) return;
+    
+    // Clear input immediately
+    input.value = '';
+    
+    // Add user message once
+    addUserMessage(message);
+    
+    // Process the message based on current step
+    processChatMessage(message);
+}
+
+function processChatMessage(message) {
+    if (chatState.isGenerating) return;
+    
+    if (chatState.step === 'start') {
+        // User's first message - generate policy directly
+        generatePolicyFromPrompt(message);
+    } else if (chatState.step === 'policy_generated') {
+        // User wants to modify the policy
+        if (message.toLowerCase().includes('yes') || message.toLowerCase().includes('modify') || message.toLowerCase().includes('change')) {
+            addAIMessage(`What would you like me to change or modify in the policy? Please describe the specific changes you need.`);
+            chatState.step = 'modify_policy';
+        } else if (message.toLowerCase().includes('no') || message.toLowerCase().includes('perfect') || message.toLowerCase().includes('good')) {
+            addAIMessage(`Great! Your policy is ready. You can save it, export it, or create another policy. What would you like to do next?`);
+            chatState.step = 'policy_complete';
+        } else {
+            // Treat as modification request
+            modifyPolicy(message);
+        }
+    } else if (chatState.step === 'modify_policy') {
+        // User is providing modification details
+        modifyPolicy(message);
+    }
+}
+
+function generatePolicyFromPrompt(prompt) {
+    console.log('generatePolicyFromPrompt called with:', prompt);
+    chatState.isGenerating = true;
+    
+    // Hide chat and show loading immediately
+    document.querySelector('.chat-container').style.display = 'none';
+    document.getElementById('aiLoading').style.display = 'block';
+    
+    // Generate policy with ChatGPT
+    generatePolicyFromPromptData(prompt)
+        .then(generatedPolicy => {
+            console.log('Policy generated successfully:', generatedPolicy);
+            chatState.currentPolicy = generatedPolicy;
+            
+            // Save policy through webhook
+            savePolicyToStorage(generatedPolicy);
+        })
+        .catch(error => {
+            console.error('Error generating policy:', error);
+            chatState.isGenerating = false;
+            // Show error message to user
+            document.getElementById('aiLoading').style.display = 'none';
+            document.getElementById('aiResult').style.display = 'block';
+            document.getElementById('aiResult').innerHTML = `
+                <div class="error-message">
+                    <h4>Error Generating Policy</h4>
+                    <p>${error.message}</p>
+                    <p>Please check your ChatGPT API key in Settings or try again.</p>
+                    <button onclick="continueChat()" class="btn btn-primary">Try Again</button>
+                </div>
+            `;
+            // Show chat again
+            document.querySelector('.chat-container').style.display = 'block';
+        });
+}
+
+async function generatePolicyFromPromptData(prompt) {
+    console.log('generatePolicyFromPromptData called with:', prompt);
+    const currentDate = new Date().toISOString().split('T')[0];
+    
+    try {
+        // Get the selected policy type
+        const policyType = document.querySelector('input[name="policyType"]:checked').value;
+        console.log('Selected policy type:', policyType);
+        const typeLabel = getTypeLabel(policyType);
+        
+        // Get selected options
+        const selectedOrganizations = getSelectedOrganizations();
+        const selectedRoles = getSelectedRoles();
+        const selectedDisciplinaryActions = getSelectedDisciplinaryActions();
+        
+        console.log('Selected organizations:', selectedOrganizations);
+        console.log('Selected roles:', selectedRoles);
+        console.log('Selected disciplinary actions:', selectedDisciplinaryActions);
+        
+        // Create organization names
+        const organizationNames = selectedOrganizations.map(org => getOrganizationName(org)).join(', ');
+        
+        // Create role names
+        const roleNames = selectedRoles.map(role => role.name).join(', ');
+        
+        // Create disciplinary action names
+        const disciplinaryActionNames = selectedDisciplinaryActions.map(action => action.name).join(', ');
+        
+        console.log('Organization names:', organizationNames);
+        console.log('Role names:', roleNames);
+        console.log('Disciplinary action names:', disciplinaryActionNames);
+        
+        // Create a comprehensive prompt for ChatGPT
+        const chatGPTPrompt = createSimpleChatGPTPrompt(prompt, currentDate, policyType, organizationNames, roleNames, disciplinaryActionNames);
+        console.log('ChatGPT prompt created:', chatGPTPrompt);
+        
+        // Call ChatGPT API to generate the policy
+        console.log('Calling ChatGPT API...');
+        const chatGPTResponse = await callChatGPTAPI(chatGPTPrompt);
+        console.log('ChatGPT response received:', chatGPTResponse);
+        
+        const generatedContent = chatGPTResponse.choices[0].message.content;
+        console.log('Generated content:', generatedContent);
+        
+        // Parse the ChatGPT response into a structured policy
+        const policyContent = parseChatGPTResponse(generatedContent, prompt, policyType);
+        console.log('Parsed policy content:', policyContent);
+        
+        return {
+            ...policyContent,
+            type: policyType,
+            clinics: selectedOrganizations,
+            additionalRequirements: prompt,
+            keyPoints: prompt,
+            clinicNames: organizationNames,
+            typeLabel: typeLabel,
+            prompt: prompt,
+            selectedRoles: selectedRoles,
+            selectedDisciplinaryActions: selectedDisciplinaryActions,
+            generatedBy: 'ChatGPT'
+        };
+    } catch (error) {
+        console.error('Error generating policy with ChatGPT:', error);
+        // Fallback to simple local generation if ChatGPT fails
+        console.log('Falling back to simple local generation...');
+        
+        // Get the variables that might be undefined due to the error
+        const fallbackOrganizations = getSelectedOrganizations();
+        const fallbackOrganizationNames = fallbackOrganizations.map(org => getOrganizationName(org)).join(', ');
+        const fallbackRoles = getSelectedRoles();
+        const fallbackRoleNames = fallbackRoles.map(role => role.name).join(', ');
+        const fallbackDisciplinaryActions = getSelectedDisciplinaryActions();
+        const fallbackDisciplinaryActionNames = fallbackDisciplinaryActions.map(action => action.name).join(', ');
+        
+        const policyContent = generateSimpleFallbackPolicy(prompt, policyType, fallbackOrganizationNames, fallbackRoleNames, fallbackDisciplinaryActionNames);
+        
+        return {
+            ...policyContent,
+            selectedRoles: fallbackRoles,
+            selectedDisciplinaryActions: fallbackDisciplinaryActions
+        };
+    }
+}
+
+function continueChat() {
+    // Hide result and show chat again
+    document.getElementById('aiResult').style.display = 'none';
+    document.querySelector('.chat-container').style.display = 'block';
+    
+    addAIMessage(`Great! Your policy has been generated. Is there anything else you'd like to modify or add?`, [
+        'Modify the policy content',
+        'Add more details',
+        'Create another policy',
+        'Save and finish'
+    ]);
+    chatState.step = 'modify';
+}
+
+// Settings Modal Functions
+function openSettingsModal(sectionName = 'organizations') {
+    // Close admin dashboard first
+    closeAdminModal();
+    // Open settings modal
+    document.getElementById('settingsModal').classList.add('show');
+    
+    // Show the requested section (defaults to organizations)
+    showSettingsSection(sectionName);
+    
+    // Preload common data
+    displayRoles();
+    displayDisciplinaryActions();
+    displayOrganizations();
+}
+
+function closeSettingsModal() {
+    document.getElementById('settingsModal').classList.remove('show');
+    
+    // Automatically reopen admin dashboard when closing settings
+    setTimeout(() => {
+        openAdminModal();
+    }, 250);
+}
+// Profile Modal Functions
+function showProfileModal() {
+    console.log('Opening profile modal...');
+    const modal = document.getElementById('profileModal');
+    
+    if (modal && currentUser) {
+        modal.style.display = 'block';
+        modal.classList.add('show');
+        
+        // Populate profile data
+        updateProfileInfo();
+        
+        console.log('Profile modal opened');
+    } else if (!currentUser) {
+        showNotification('Please log in to view your profile', 'info');
+    }
+}
+
+function closeProfileModal() {
+    console.log('Closing profile modal...');
+    const modal = document.getElementById('profileModal');
+    
+    if (modal) {
+        modal.style.display = 'none';
+        modal.classList.remove('show');
+        console.log('Profile modal closed');
+    }
+}
+
+function updateProfileInfo() {
+    if (!currentUser) return;
+    
+    // Calculate policy view percentage
+    const viewPercentage = getUserPolicyViewPercentage(currentUser.id);
+    
+    // Update profile header
+    document.getElementById('profileUserName').textContent = currentUser.username || 'Guest User';
+    document.getElementById('profileUserCompany').textContent = currentUser.company || 'Not assigned';
+    document.getElementById('profileUserStatus').textContent = currentUser.active ? 'Active' : 'Inactive';
+    document.getElementById('profileUserStatus').className = `profile-status ${currentUser.active ? 'active' : 'inactive'}`;
+    
+    // Update account info tab
+    document.getElementById('profileUsername').textContent = currentUser.username || 'guest';
+    document.getElementById('profileEmail').textContent = currentUser.email || 'guest@example.com';
+    document.getElementById('profileCompany').textContent = currentUser.company || 'Not assigned';
+    document.getElementById('profileRole').textContent = currentUser.role || 'Guest';
+    
+    // Update or create policy view percentage display
+    let viewPercentageEl = document.getElementById('profileViewPercentage');
+    if (!viewPercentageEl) {
+        const infoGrid = document.querySelector('#accountTab .info-grid');
+        if (infoGrid) {
+            const viewPercentageItem = document.createElement('div');
+            viewPercentageItem.className = 'info-item';
+            viewPercentageItem.id = 'profileViewPercentage';
+            viewPercentageItem.innerHTML = `
+                <label>Policies Viewed</label>
+                <span style="display: flex; align-items: center; gap: 10px;">
+                    <span style="font-weight: 600; color: #667eea;">${viewPercentage}%</span>
+                    <div style="flex: 1; max-width: 150px; height: 8px; background: #e9ecef; border-radius: 10px; overflow: hidden;">
+                        <div style="height: 100%; width: ${viewPercentage}%; background: linear-gradient(90deg, #667eea 0%, #764ba2 100%); border-radius: 10px; transition: width 0.3s;"></div>
+                    </div>
+                </span>
+            `;
+            infoGrid.appendChild(viewPercentageItem);
+        }
+    } else {
+        viewPercentageEl.querySelector('span span').textContent = `${viewPercentage}%`;
+        viewPercentageEl.querySelector('div div').style.width = `${viewPercentage}%`;
+    }
+}
+
+function showChangePasswordModal() {
+    if (!currentUser) {
+        showNotification('Please log in to change your password', 'warning');
+        return;
+    }
+    
+    const modal = document.getElementById('changePasswordModal');
+    if (modal) {
+        modal.style.display = 'block';
+        modal.classList.add('show');
+    }
+}
+
+function closeChangePasswordModal() {
+    const modal = document.getElementById('changePasswordModal');
+    if (modal) {
+        modal.style.display = 'none';
+        modal.classList.remove('show');
+        // Reset form
+        const form = document.getElementById('changePasswordForm');
+        if (form) {
+            form.reset();
+        }
+    }
+}
+
+function changeUserPassword(event) {
+    event.preventDefault();
+    
+    if (!currentUser) {
+        showNotification('You must be logged in to change your password', 'error');
+        return;
+    }
+    
+    const currentPassword = document.getElementById('currentPassword').value.trim();
+    const newPassword = document.getElementById('newPassword').value.trim();
+    const confirmPassword = document.getElementById('confirmPassword').value.trim();
+    
+    // Validate inputs
+    if (!currentPassword || !newPassword || !confirmPassword) {
+        showNotification('Please fill in all fields', 'error');
+        return;
+    }
+    
+    // Verify current password
+    if (currentPassword !== currentUser.password) {
+        showNotification('Current password is incorrect', 'error');
+        return;
+    }
+    
+    // Check if new password matches confirmation
+    if (newPassword !== confirmPassword) {
+        showNotification('New passwords do not match', 'error');
+        return;
+    }
+    
+    // Check password length
+    if (newPassword.length < 6) {
+        showNotification('New password must be at least 6 characters long', 'error');
+        return;
+    }
+    
+    // Check if new password is same as current
+    if (newPassword === currentPassword) {
+        showNotification('New password must be different from current password', 'error');
+        return;
+    }
+    
+    try {
+        // Load all users from masterUsers
+        const allUsers = JSON.parse(localStorage.getItem('masterUsers') || '[]');
+        
+        // Find and update the user in the array
+        const userIndex = allUsers.findIndex(u => u.id === currentUser.id);
+        if (userIndex === -1) {
+            showNotification('User not found in system', 'error');
+            return;
+        }
+        
+        // Update password
+        allUsers[userIndex].password = newPassword;
+        
+        // Save updated users back to localStorage
+        localStorage.setItem('masterUsers', JSON.stringify(allUsers));
+        
+        // Update current user object
+        currentUser.password = newPassword;
+        persistAuthUser(currentUser, currentCompany);
+        
+        // Close modal
+        closeChangePasswordModal();
+        
+        // Show success message
+        showNotification('Password changed successfully!', 'success');
+        
+    } catch (error) {
+        console.error('Error changing password:', error);
+        showNotification('An error occurred while changing your password', 'error');
+    }
+}
+
+function showProfileTab(tabName) {
+    // Hide all tabs
+    document.querySelectorAll('.profile-tab').forEach(tab => tab.classList.remove('active'));
+    document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+    
+    // Show selected tab
+    const selectedTab = document.getElementById(`${tabName}Tab`);
+    if (selectedTab) {
+        selectedTab.classList.add('active');
+    }
+    
+    // Update button
+    event.target.classList.add('active');
+}
+
+// Modal open/close functions for settings
+function openAddDisciplinaryModal() {
+    const modal = document.getElementById('addDisciplinaryModal');
+    if (modal) {
+        modal.style.display = 'block';
+        modal.classList.add('show');
+        const form = document.getElementById('addDisciplinaryForm');
+        if (form) form.reset();
+    }
+}
+
+function closeAddDisciplinaryModal() {
+    const modal = document.getElementById('addDisciplinaryModal');
+    if (modal) {
+        modal.style.display = 'none';
+        modal.classList.remove('show');
+        const form = document.getElementById('addDisciplinaryForm');
+        if (form) form.reset();
+    }
+}
+
+function openAddOrganizationModal() {
+    const modal = document.getElementById('addOrganizationModal');
+    if (modal) {
+        modal.style.display = 'block';
+        modal.classList.add('show');
+        const form = document.getElementById('addOrganizationForm');
+        if (form) form.reset();
+    }
+}
+
+function closeAddOrganizationModal() {
+    const modal = document.getElementById('addOrganizationModal');
+    if (modal) {
+        modal.style.display = 'none';
+        modal.classList.remove('show');
+        const form = document.getElementById('addOrganizationForm');
+        if (form) form.reset();
+    }
+}
+
+function openAddDocumentModal() {
+    const modal = document.getElementById('addDocumentModal');
+    if (modal) {
+        modal.style.display = 'block';
+        modal.classList.add('show');
+        const form = document.getElementById('addDocumentForm');
+        if (form) form.reset();
+    }
+}
+
+function closeAddDocumentModal() {
+    const modal = document.getElementById('addDocumentModal');
+    if (modal) {
+        modal.style.display = 'none';
+        modal.classList.remove('show');
+        const form = document.getElementById('addDocumentForm');
+        if (form) form.reset();
+    }
+}
+
+function openAddCategoryModal() {
+    const modal = document.getElementById('addCategoryModal');
+    if (modal) {
+        modal.style.display = 'block';
+        modal.classList.add('show');
+        const form = document.getElementById('addCategoryForm');
+        if (form) form.reset();
+        
+        // Focus on first input
+        setTimeout(() => {
+            const firstInput = document.getElementById('modalCategoryName');
+            if (firstInput) {
+                firstInput.focus();
+            }
+        }, 100);
+    }
+}
+
+function closeAddCategoryModal() {
+    const modal = document.getElementById('addCategoryModal');
+    if (modal) {
+        modal.style.display = 'none';
+        modal.classList.remove('show');
+        const form = document.getElementById('addCategoryForm');
+        if (form) form.reset();
+    }
+}
+
+function showSettingsSection(sectionName, evt) {
+    // Hide all sections
+    document.querySelectorAll('.settings-section').forEach(section => section.classList.remove('active'));
+    document.querySelectorAll('.settings-menu-item').forEach(btn => btn.classList.remove('active'));
+    
+    // Show selected section
+    const sectionElement = document.getElementById(sectionName + 'Section');
+    if (sectionElement) {
+        sectionElement.classList.add('active');
+    }
+    const trigger = evt?.currentTarget || evt?.target || window.event?.currentTarget || window.event?.target;
+    if (trigger) {
+        trigger.classList.add('active');
+    }
+    
+    // Load data when specific section is opened
+    if (sectionName === 'webhooks') {
+        loadWebhookUrls();
+    } else if (sectionName === 'documents') {
+        loadDocuments();
+    } else if (sectionName === 'categories') {
+        loadCategories();
+    } else if (sectionName === 'organizations') {
+        displayOrganizations();
+    } else if (sectionName === 'roles') {
+        displayRoles();
+    } else if (sectionName === 'disciplinary') {
+        displayDisciplinaryActions();
+    } else if (sectionName === 'aiGenerator') {
+        if (!aiGeneratorConfig || !aiGeneratorConfig.categories || aiGeneratorConfig.categories.length === 0) {
+            loadAIGeneratorConfig();
+        }
+        displayAIConfigItems();
+    }
+    
+    // Scroll to top of content
+    const contentArea = document.querySelector('.settings-content');
+    if (contentArea) {
+        contentArea.scrollTop = 0;
+    }
+}
+
+// Legacy function name support
+function showSettingsTab(tabName, evt) {
+    showSettingsSection(tabName, evt);
+}
+
+// Filter settings menu by search query
+function filterSettingsMenu(query) {
+    const menuItems = document.querySelectorAll('.settings-menu-item');
+    const menuGroups = document.querySelectorAll('.settings-menu-group');
+    const lowerQuery = query.toLowerCase();
+    
+    menuItems.forEach(item => {
+        const text = item.textContent.toLowerCase();
+        const parent = item.closest('.settings-menu-group');
+        
+        if (text.includes(lowerQuery)) {
+            item.style.display = '';
+            if (parent) parent.style.display = '';
+        } else {
+            item.style.display = 'none';
+        }
+    });
+    
+    // Hide empty groups
+    menuGroups.forEach(group => {
+        const visibleItems = group.querySelectorAll('.settings-menu-item:not([style*="display: none"])');
+        if (visibleItems.length === 0 && query) {
+            group.style.display = 'none';
+        } else {
+            group.style.display = '';
+        }
+    });
+}
+
+function loadWebhookUrls() {
+    refreshCurrentWebhookSettings();
+    const advisorInput = document.getElementById('webhookAdvisorUrl');
+    const generatorInput = document.getElementById('webhookGeneratorUrl');
+    const summarizerInput = document.getElementById('webhookSummarizerUrl');
+    const emailInput = document.getElementById('webhookEmailUrl');
+    const companyContext = document.getElementById('webhookCompanyContext');
+    const companyName = currentCompany || 'Default Company';
+    
+    if (companyContext) {
+        companyContext.textContent = `Currently editing settings for "${companyName}"`;
+    }
+    
+    const config = currentWebhookSettings || WEBHOOK_DEFAULTS;
+    if (advisorInput) advisorInput.value = config.advisor || '';
+    if (generatorInput) generatorInput.value = config.generator || '';
+    if (summarizerInput) summarizerInput.value = config.summarizer || '';
+    if (emailInput) emailInput.value = config.email || '';
+}
+
+async function saveWebhookUrls(event) {
+    if (event) {
+        event.preventDefault();
+    }
+    
+    const settings = {
+        advisor: document.getElementById('webhookAdvisorUrl')?.value || '',
+        generator: document.getElementById('webhookGeneratorUrl')?.value || '',
+        summarizer: document.getElementById('webhookSummarizerUrl')?.value || '',
+        email: document.getElementById('webhookEmailUrl')?.value || ''
+    };
+    const statusDiv = document.getElementById('webhookStatus');
+    
+    try {
+        await saveCompanyWebhookSettings(settings);
+        if (statusDiv) {
+            statusDiv.innerHTML = '<div class="notification success">Webhook settings saved successfully.</div>';
+            setTimeout(() => { statusDiv.innerHTML = ''; }, 4000);
+        }
+        showNotification('Webhook settings updated.', 'success');
+    } catch (error) {
+        console.error('Failed to save webhook settings:', error);
+        if (statusDiv) {
+            statusDiv.innerHTML = '<div class="notification error">Failed to save webhooks. Please try again.</div>';
+        }
+        showNotification('Unable to save webhook settings. Check console for details.', 'error');
+    }
+}
+
+// Add Role Modal Functions
+function openAddRoleModal(roleId = null) {
+    const modal = document.getElementById('addRoleModal');
+    if (modal) {
+        modal.style.display = 'block';
+        modal.classList.add('show');
+        
+        // Reset form
+        const form = document.getElementById('addRoleForm');
+        if (form) {
+            if (!roleId) {
+                form.reset();
+                tempAssignedUsers = [];
+                updateAssignedUsersDisplay([]);
+            }
+            form.dataset.editingId = roleId || '';
+        }
+        
+        // Populate user dropdown
+        populateRoleUserDropdown(roleId);
+        
+        // Update modal title
+        const modalTitle = document.querySelector('#addRoleModal .modal-header h3');
+        if (modalTitle && !roleId) {
+            modalTitle.innerHTML = '<i class="fas fa-user-plus"></i> Add New Role';
+        }
+        
+        // Focus on first input
+        setTimeout(() => {
+            const firstInput = document.getElementById('modalRoleName');
+            if (firstInput) {
+                firstInput.focus();
+            }
+        }, 100);
+    }
+}
+
+function populateRoleUserDropdown(roleId = null) {
+    const usersListContainer = document.getElementById('modalRoleUsersList');
+    if (!usersListContainer) return;
+    
+    // Clear existing content
+    usersListContainer.innerHTML = '';
+    
+    // Get users for current company
+    const allUsers = JSON.parse(localStorage.getItem('masterUsers') || '[]');
+    const companyUsers = allUsers.filter(user => user.company === currentCompany);
+    
+    // If no users in masterUsers, try regular users array
+    const usersToShow = companyUsers.length > 0 ? companyUsers : (users || []).filter(user => user.company === currentCompany);
+    
+    if (usersToShow.length === 0) {
+        usersListContainer.innerHTML = '<p style="color: #999; text-align: center; padding: 20px;">No users available in this company. Add users first in User Management.</p>';
+        return;
+    }
+    
+    // Get currently assigned users if editing
+    let assignedUserIds = [];
+    if (roleId) {
+        const role = roles.find(r => r.id == roleId);
+        if (role && role.users && role.users.length > 0) {
+            assignedUserIds = role.users.map(u => u.id || u.username);
+        }
+    }
+    
+    // Create checkbox list for all users
+    usersToShow.forEach(user => {
+        const userId = user.id || user.username;
+        const isChecked = assignedUserIds.includes(userId);
+        
+        const userItem = document.createElement('label');
+        userItem.style.cssText = 'display: flex; align-items: center; gap: 12px; padding: 12px; background: white; border: 2px solid #e0e0e0; border-radius: 8px; cursor: pointer; transition: all 0.2s;';
+        userItem.onmouseover = function() {
+            this.style.borderColor = '#6366f1';
+            this.style.backgroundColor = '#f8f9ff';
+        };
+        userItem.onmouseout = function() {
+            if (!this.querySelector('input[type="checkbox"]').checked) {
+                this.style.borderColor = '#e0e0e0';
+                this.style.backgroundColor = 'white';
+            }
+        };
+        
+        const checkbox = document.createElement('input');
+        checkbox.type = 'checkbox';
+        checkbox.value = userId;
+        checkbox.dataset.userId = userId;
+        checkbox.checked = isChecked;
+        checkbox.style.cssText = 'width: 18px; height: 18px; cursor: pointer;';
+        checkbox.className = 'modal-role-user-checkbox';
+        checkbox.onchange = function() {
+            if (this.checked) {
+                userItem.style.borderColor = '#6366f1';
+                userItem.style.backgroundColor = '#f8f9ff';
+            } else {
+                userItem.style.borderColor = '#e0e0e0';
+                userItem.style.backgroundColor = 'white';
+            }
+            updateSelectAllCheckbox();
+        };
+        
+        const userInfo = document.createElement('div');
+        userInfo.style.cssText = 'flex: 1; display: flex; flex-direction: column; gap: 4px;';
+        
+        const userName = document.createElement('div');
+        userName.style.cssText = 'font-weight: 600; color: #333; font-size: 15px;';
+        userName.textContent = user.fullName || user.username || 'Unknown User';
+        
+        const userEmail = document.createElement('div');
+        userEmail.style.cssText = 'font-size: 13px; color: #666;';
+        userEmail.textContent = user.email || 'No email';
+        
+        userInfo.appendChild(userName);
+        userInfo.appendChild(userEmail);
+        
+        userItem.appendChild(checkbox);
+        userItem.appendChild(userInfo);
+        
+        usersListContainer.appendChild(userItem);
+    });
+    
+    // Update select all checkbox state
+    updateSelectAllCheckbox();
+}
+
+function toggleAllRoleUsers() {
+    const selectAllCheckbox = document.getElementById('modalRoleSelectAll');
+    const userCheckboxes = document.querySelectorAll('.modal-role-user-checkbox');
+    
+    if (!selectAllCheckbox || userCheckboxes.length === 0) return;
+    
+    const shouldCheck = selectAllCheckbox.checked;
+    userCheckboxes.forEach(checkbox => {
+        checkbox.checked = shouldCheck;
+        const userItem = checkbox.closest('label');
+        if (userItem) {
+            if (shouldCheck) {
+                userItem.style.borderColor = '#6366f1';
+                userItem.style.backgroundColor = '#f8f9ff';
+            } else {
+                userItem.style.borderColor = '#e0e0e0';
+                userItem.style.backgroundColor = 'white';
+            }
+        }
+    });
+}
+
+function updateSelectAllCheckbox() {
+    const selectAllCheckbox = document.getElementById('modalRoleSelectAll');
+    const userCheckboxes = document.querySelectorAll('.modal-role-user-checkbox');
+    
+    if (!selectAllCheckbox || userCheckboxes.length === 0) return;
+    
+    const checkedCount = Array.from(userCheckboxes).filter(cb => cb.checked).length;
+    selectAllCheckbox.checked = checkedCount === userCheckboxes.length && userCheckboxes.length > 0;
+    selectAllCheckbox.indeterminate = checkedCount > 0 && checkedCount < userCheckboxes.length;
+}
+
+function closeAddRoleModal() {
+    const modal = document.getElementById('addRoleModal');
+    if (modal) {
+        modal.style.display = 'none';
+        modal.classList.remove('show');
+        
+        // Reset form
+        const form = document.getElementById('addRoleForm');
+        if (form) {
+            form.reset();
+            form.dataset.editingId = '';
+        }
+        
+        // Reset temp assigned users
+        tempAssignedUsers = [];
+        updateAssignedUsersDisplay([]);
+        
+        // Reset modal title and button
+        const modalTitle = document.querySelector('#addRoleModal .modal-header h3');
+        if (modalTitle) {
+            modalTitle.innerHTML = '<i class="fas fa-user-plus"></i> Add New Role';
+        }
+        const submitBtn = document.querySelector('#addRoleForm button[type="submit"]');
+        if (submitBtn) {
+            submitBtn.innerHTML = '<i class="fas fa-check"></i> Add Role';
+        }
+    }
+}
+
+// Store assigned users temporarily while editing role
+let tempAssignedUsers = [];
+
+function addRole() {
+    const form = document.getElementById('addRoleForm');
+    const editingId = form ? form.dataset.editingId : null;
+    
+    // Get values from modal inputs
+    const nameInput = document.getElementById('modalRoleName');
+    const descInput = document.getElementById('modalRoleDescription');
+    const userCheckboxes = document.querySelectorAll('.modal-role-user-checkbox:checked');
+    
+    const name = nameInput ? nameInput.value.trim() : '';
+    const description = descInput ? descInput.value.trim() : '';
+    
+    if (!name || !description) {
+        showNotification('Please fill in role name and description.', 'error');
+        return;
+    }
+    
+    // Get assigned users from checked checkboxes
+    let assignedUsers = [];
+    if (userCheckboxes.length > 0) {
+        // Get user details for all selected users
+        const allUsers = JSON.parse(localStorage.getItem('masterUsers') || '[]');
+        const companyUsers = allUsers.filter(user => user.company === currentCompany);
+        const usersToSearch = companyUsers.length > 0 ? companyUsers : (users || []).filter(user => user.company === currentCompany);
+        
+        userCheckboxes.forEach(checkbox => {
+            const userId = checkbox.value || checkbox.dataset.userId;
+            const selectedUser = usersToSearch.find(u => (u.id || u.username) === userId);
+            if (selectedUser) {
+                assignedUsers.push({
+                    id: selectedUser.id || selectedUser.username,
+                    name: selectedUser.fullName || selectedUser.username,
+                    email: selectedUser.email || '',
+                    username: selectedUser.username || ''
+                });
+            }
+        });
+    }
+    
+    if (editingId) {
+        // Edit existing role
+        const roleIndex = roles.findIndex(r => r.id == editingId);
+        if (roleIndex !== -1) {
+            roles[roleIndex] = {
+                ...roles[roleIndex],
+                name: name,
+                description: description,
+                users: assignedUsers,
+                // Keep existing staffName/email for backward compatibility
+                staffName: assignedUsers.length > 0 ? assignedUsers[0].name : (roles[roleIndex].staffName || ''),
+                email: assignedUsers.length > 0 ? assignedUsers[0].email : (roles[roleIndex].email || '')
+            };
+            saveToLocalStorage('roles', roles);
+            displayRoles();
+            
+            // Reset modal
+            const modalTitle = document.querySelector('#addRoleModal .modal-header h3');
+            if (modalTitle) {
+                modalTitle.innerHTML = '<i class="fas fa-user-plus"></i> Add New Role';
+            }
+            const submitBtn = document.querySelector('#addRoleForm button[type="submit"]');
+            if (submitBtn) {
+                submitBtn.innerHTML = '<i class="fas fa-check"></i> Add Role';
+            }
+            if (form) form.dataset.editingId = '';
+            tempAssignedUsers = [];
+            updateAssignedUsersDisplay([]);
+            
+            closeAddRoleModal();
+            showNotification(`Role "${name}" updated successfully!`, 'success');
+        }
+    } else {
+        // Add new role
+        const newRole = {
+            id: roles.length > 0 ? Math.max(...roles.map(r => r.id || 0)) + 1 : 1,
+            name: name,
+            description: description,
+            users: assignedUsers,
+            staffName: assignedUsers.length > 0 ? assignedUsers[0].name : '',
+            email: assignedUsers.length > 0 ? assignedUsers[0].email : '',
+            company: currentCompany || 'Default Company'
+        };
+        
+        roles.push(newRole);
+        saveToLocalStorage('roles', roles);
+        displayRoles();
+        tempAssignedUsers = [];
+        updateAssignedUsersDisplay([]);
+        closeAddRoleModal();
+        showNotification(`Role "${name}" added successfully!`, 'success');
+    }
+    
+    // Update wizard questions to refresh roles
+    if (typeof updateWizardQuestionsFromConfig === 'function') {
+        updateWizardQuestionsFromConfig();
+    }
+}
+
+function openAssignUsersModal() {
+    const modal = document.getElementById('assignUsersModal');
+    if (!modal) return;
+    
+    // Load users
+    loadUsersForAssignment();
+    
+    modal.style.display = 'block';
+    modal.classList.add('show');
+}
+
+function closeAssignUsersModal() {
+    const modal = document.getElementById('assignUsersModal');
+    if (modal) {
+        modal.style.display = 'none';
+        modal.classList.remove('show');
+    }
+}
+
+async function loadUsersForAssignment() {
+    const container = document.getElementById('availableUsersList');
+    if (!container) return;
+    
+    container.innerHTML = '<p style="color: #999; text-align: center; padding: 20px;">Loading users...</p>';
+    
+    let users = [];
+    
+    // Try to load from Supabase first
+    if (typeof SupabaseDB !== 'undefined' && SupabaseDB.getUsers) {
+        try {
+            users = await SupabaseDB.getUsers();
+        } catch (e) {
+            console.error('Error loading users from Supabase:', e);
+        }
+    }
+    
+    // Fallback to localStorage
+    if (users.length === 0) {
+        const masterUsers = JSON.parse(localStorage.getItem('masterUsers') || '[]');
+        if (currentCompany) {
+            users = masterUsers.filter(u => u.company === currentCompany || u.company === currentCompany.name);
+        } else {
+            users = masterUsers;
+        }
+    }
+    
+    if (users.length === 0) {
+        container.innerHTML = '<p style="color: #999; text-align: center; padding: 20px;">No users found. Users must sign up first.</p>';
+        return;
+    }
+    
+    // Get currently assigned users
+    const form = document.getElementById('addRoleForm');
+    const editingId = form ? form.dataset.editingId : null;
+    let currentlyAssigned = [];
+    
+    if (editingId) {
+        const role = roles.find(r => r.id == editingId);
+        if (role && role.users) {
+            currentlyAssigned = role.users.map(u => u.id || u.email || u.name);
+        }
+    } else if (tempAssignedUsers.length > 0) {
+        currentlyAssigned = tempAssignedUsers.map(u => u.id || u.email || u.name);
+    }
+    
+    container.innerHTML = users.map(user => {
+        const userId = user.id || user.email || user.username;
+        const isChecked = currentlyAssigned.includes(userId);
+        const userName = user.fullName || user.name || user.username || user.email || 'Unknown User';
+        const userEmail = user.email || '';
+        
+        return `
+            <label style="display: flex; align-items: center; padding: 12px; margin-bottom: 8px; background: ${isChecked ? '#e8f5e9' : 'white'}; border: 2px solid ${isChecked ? '#4caf50' : '#e0e0e0'}; border-radius: 6px; cursor: pointer; transition: all 0.2s;">
+                <input type="checkbox" value="${userId}" data-user-name="${userName}" data-user-email="${userEmail}" ${isChecked ? 'checked' : ''} 
+                       onchange="updateTempAssignedUsers()" 
+                       style="margin-right: 12px; width: 18px; height: 18px; cursor: pointer;">
+                <div style="flex: 1;">
+                    <div style="font-weight: 600; color: #333;">${userName}</div>
+                    ${userEmail ? `<div style="font-size: 12px; color: #666; margin-top: 2px;">${userEmail}</div>` : ''}
+                </div>
+            </label>
+        `;
+    }).join('');
+}
+
+function updateTempAssignedUsers() {
+    const checkboxes = document.querySelectorAll('#availableUsersList input[type="checkbox"]:checked');
+    tempAssignedUsers = Array.from(checkboxes).map(cb => ({
+        id: cb.value,
+        name: cb.dataset.userName,
+        email: cb.dataset.userEmail
+    }));
+    
+    updateAssignedUsersDisplay(tempAssignedUsers);
+}
+
+function updateAssignedUsersDisplay(assignedUsers) {
+    const container = document.getElementById('assignedUsersList');
+    if (!container) return;
+    
+    if (assignedUsers.length === 0) {
+        container.innerHTML = '<p style="margin: 0; color: #999; font-size: 13px;">No users assigned yet. Click "Assign Users" to add.</p>';
+        return;
+    }
+    
+    container.innerHTML = assignedUsers.map(user => `
+        <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px 12px; margin-bottom: 6px; background: white; border: 1px solid #e0e0e0; border-radius: 6px;">
+            <div>
+                <div style="font-weight: 600; color: #333; font-size: 14px;">${user.name}</div>
+                ${user.email ? `<div style="font-size: 12px; color: #666;">${user.email}</div>` : ''}
+            </div>
+            <button type="button" class="btn btn-sm btn-danger" onclick="removeAssignedUser('${user.id}')" style="padding: 4px 8px; font-size: 12px;">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+    `).join('');
+}
+
+function removeAssignedUser(userId) {
+    tempAssignedUsers = tempAssignedUsers.filter(u => (u.id || u.email || u.name) !== userId);
+    updateAssignedUsersDisplay(tempAssignedUsers);
+    
+    // Update checkboxes
+    const checkbox = document.querySelector(`#availableUsersList input[value="${userId}"]`);
+    if (checkbox) {
+        checkbox.checked = false;
+    }
+}
+
+function saveAssignedUsers() {
+    updateTempAssignedUsers();
+    closeAssignUsersModal();
+    showNotification('Users assigned successfully!', 'success');
+}
+
+function deleteRole(roleId) {
+    if (confirm('Are you sure you want to delete this role?')) {
+        roles = roles.filter(role => role.id !== roleId);
+        saveToLocalStorage('roles', roles);
+        displayRoles();
+    }
+}
+
+function displayRoles() {
+    const rolesList = document.getElementById('rolesList');
+    
+    // Filter roles by company
+    const companyRoles = currentCompany ? 
+        roles.filter(role => role.company === currentCompany || !role.company) : 
+        roles;
+    
+    if (companyRoles.length === 0) {
+        rolesList.innerHTML = '<p class="no-items">No roles defined. Add your first role above.</p>';
+        return;
+    }
+    
+    rolesList.innerHTML = companyRoles.map(role => `
+        <div class="item-card">
+            <div class="item-info">
+                <h4>${role.name}</h4>
+                <p>${role.description}</p>
+                ${role.users && role.users.length > 0 ? `
+                    <div style="margin-top: 12px; padding: 12px; background: #f8f9fa; border-radius: 6px;">
+                        <strong style="font-size: 13px; color: #666; display: block; margin-bottom: 8px;">
+                            <i class="fas fa-users"></i> Assigned Users (${role.users.length}):
+                        </strong>
+                        ${role.users.map(u => `
+                            <div style="padding: 6px 10px; margin-bottom: 4px; background: white; border-radius: 4px; font-size: 13px;">
+                                <strong>${u.name || 'Unknown'}</strong>${u.email ? ` <span style="color: #666;">(${u.email})</span>` : ''}
+                            </div>
+                        `).join('')}
+                    </div>
+                ` : `
+                    <p style="color: #999; font-size: 13px; margin-top: 8px;">
+                        <i class="fas fa-info-circle"></i> No users assigned. Click "Edit" to assign users.
+                    </p>
+                `}
+                ${role.staffName && (!role.users || role.users.length === 0) ? `
+                    <p style="margin-top: 8px; color: #666; font-size: 13px;">
+                        <strong>Legacy Staff:</strong> ${role.staffName} ${role.email ? `(${role.email})` : ''}
+                    </p>
+                ` : ''}
+            </div>
+            <div class="item-actions">
+                <button onclick="editRole(${role.id})" class="btn btn-sm btn-secondary">
+                    <i class="fas fa-edit"></i> Edit
+                </button>
+                <button onclick="deleteRole(${role.id})" class="btn btn-sm btn-danger">
+                    <i class="fas fa-trash"></i> Delete
+                </button>
+            </div>
+        </div>
+    `).join('');
+}
+
+function editRole(roleId) {
+    const role = roles.find(r => r.id == roleId);
+    if (!role) return;
+    
+    // Populate modal with role data
+    document.getElementById('modalRoleName').value = role.name || '';
+    document.getElementById('modalRoleDescription').value = role.description || '';
+    document.getElementById('modalRoleStaffName').value = role.staffName || (role.users && role.users[0] ? role.users[0].name : '');
+    document.getElementById('modalRoleEmail').value = role.email || (role.users && role.users[0] ? role.users[0].email : '');
+    
+    // Load assigned users into temp storage
+    tempAssignedUsers = role.users || [];
+    updateAssignedUsersDisplay(tempAssignedUsers);
+    
+    // Update modal title
+    const modalTitle = document.querySelector('#addRoleModal .modal-header h3');
+    if (modalTitle) {
+        modalTitle.innerHTML = '<i class="fas fa-edit"></i> Edit Role';
+    }
+    
+    // Update button text
+    const submitBtn = document.querySelector('#addRoleForm button[type="submit"]');
+    if (submitBtn) {
+        submitBtn.innerHTML = '<i class="fas fa-check"></i> Update Role';
+    }
+    
+    // Store editing role ID
+    const form = document.getElementById('addRoleForm');
+    if (form) {
+        form.dataset.editingId = roleId;
+    }
+    
+    // Open modal
+    openAddRoleModal(roleId);
+}
+
+function addDisciplinaryAction() {
+    const form = document.getElementById('addDisciplinaryForm');
+    const editingId = form ? form.dataset.editingId : null;
+    
+    // Try modal inputs first, fallback to old inputs
+    const nameInput = document.getElementById('modalActionName');
+    const descInput = document.getElementById('modalActionDescription');
+    const penaltiesInput = document.getElementById('modalActionPenalties');
+    const severityInput = document.getElementById('modalActionSeverity');
+    
+    const name = nameInput ? nameInput.value.trim() : (document.getElementById('newActionName')?.value.trim() || '');
+    const description = descInput ? descInput.value.trim() : (document.getElementById('newActionDescription')?.value.trim() || '');
+    const penalties = penaltiesInput ? penaltiesInput.value.trim() : (document.getElementById('newActionPenalties')?.value.trim() || '');
+    const severity = severityInput ? severityInput.value : (document.getElementById('newActionSeverity')?.value || 'minor');
+    
+    if (!name || !description || !penalties) {
+        showNotification('Please fill in all fields: action name, description, and penalties.', 'error');
+        return;
+    }
+    
+    if (editingId) {
+        // Edit existing action
+        const actionIndex = disciplinaryActions.findIndex(a => a.id == editingId);
+        if (actionIndex !== -1) {
+            disciplinaryActions[actionIndex] = {
+                ...disciplinaryActions[actionIndex],
+                name: name,
+                description: description,
+                penalties: penalties,
+                severity: severity
+            };
+            saveToLocalStorage('disciplinaryActions', disciplinaryActions);
+            displayDisciplinaryActions();
+            
+            // Reset modal
+            const modalTitle = document.querySelector('#addDisciplinaryModal .modal-header h3');
+            if (modalTitle) {
+                modalTitle.innerHTML = '<i class="fas fa-gavel"></i> Add Disciplinary Action';
+            }
+            if (form) form.dataset.editingId = '';
+            
+            closeAddDisciplinaryModal();
+            showNotification(`Disciplinary action "${name}" updated successfully!`, 'success');
+        }
+    } else {
+        // Add new action
+    const newAction = {
+            id: disciplinaryActions.length > 0 ? Math.max(...disciplinaryActions.map(a => a.id || 0)) + 1 : 1,
+        name: name,
+        description: description,
+        penalties: penalties,
+        severity: severity,
+        company: currentCompany || 'Default Company'
+    };
+    
+    disciplinaryActions.push(newAction);
+    saveToLocalStorage('disciplinaryActions', disciplinaryActions);
+    displayDisciplinaryActions();
+    closeAddDisciplinaryModal();
+    showNotification(`Disciplinary action "${name}" added successfully!`, 'success');
+    }
+}
+
+function deleteDisciplinaryAction(actionId) {
+    if (confirm('Are you sure you want to delete this disciplinary action?')) {
+        disciplinaryActions = disciplinaryActions.filter(action => action.id !== actionId);
+        saveToLocalStorage('disciplinaryActions', disciplinaryActions);
+        displayDisciplinaryActions();
+    }
+}
+
+function displayDisciplinaryActions() {
+    const disciplinaryList = document.getElementById('disciplinaryList');
+    
+    // Filter disciplinary actions by company
+    const companyActions = currentCompany ? 
+        disciplinaryActions.filter(action => action.company === currentCompany || !action.company) : 
+        disciplinaryActions;
+    
+    if (companyActions.length === 0) {
+        disciplinaryList.innerHTML = '<p class="no-items">No disciplinary actions defined. Add your first action above.</p>';
+        return;
+    }
+    
+    disciplinaryList.innerHTML = companyActions.map(action => `
+        <div class="item-card">
+            <div class="item-info">
+                <h4>${action.name} <span class="severity-badge severity-${action.severity}">${action.severity}</span></h4>
+                <p>${action.description}</p>
+                <p><strong>Penalties:</strong> ${action.penalties}</p>
+            </div>
+            <div class="item-actions">
+                <button onclick="editDisciplinaryAction(${action.id})" class="btn btn-sm btn-secondary">
+                    <i class="fas fa-edit"></i> Edit
+                </button>
+                <button onclick="deleteDisciplinaryAction(${action.id})" class="btn btn-sm btn-danger">
+                    <i class="fas fa-trash"></i> Delete
+                </button>
+            </div>
+        </div>
+    `).join('');
+}
+
+function editDisciplinaryAction(actionId) {
+    const action = disciplinaryActions.find(a => a.id == actionId);
+    if (!action) return;
+    
+    // Populate modal with action data
+    document.getElementById('modalActionName').value = action.name || '';
+    document.getElementById('modalActionDescription').value = action.description || '';
+    document.getElementById('modalActionPenalties').value = action.penalties || '';
+    document.getElementById('modalActionSeverity').value = action.severity || 'minor';
+    
+    // Update modal title
+    const modalTitle = document.querySelector('#addDisciplinaryModal .modal-header h3');
+    if (modalTitle) {
+        modalTitle.innerHTML = '<i class="fas fa-edit"></i> Edit Disciplinary Action';
+    }
+    
+    // Update button text
+    const submitBtn = document.querySelector('#addDisciplinaryForm button[type="submit"]');
+    if (submitBtn) {
+        submitBtn.innerHTML = '<i class="fas fa-check"></i> Update Action';
+    }
+    
+    // Store editing action ID
+    const form = document.getElementById('addDisciplinaryForm');
+    if (form) {
+        form.dataset.editingId = actionId;
+    }
+    
+    // Open modal
+    openAddDisciplinaryModal(actionId);
+}
+
+function openAddDisciplinaryModal(actionId = null) {
+    const modal = document.getElementById('addDisciplinaryModal');
+    if (modal) {
+        modal.style.display = 'block';
+        modal.classList.add('show');
+        
+        // Reset form
+        const form = document.getElementById('addDisciplinaryForm');
+        if (form) {
+            form.reset();
+            form.dataset.editingId = actionId || '';
+        }
+        
+        // Update modal title
+        const modalTitle = document.querySelector('#addDisciplinaryModal .modal-header h3');
+        if (modalTitle && !actionId) {
+            modalTitle.innerHTML = '<i class="fas fa-gavel"></i> Add Disciplinary Action';
+        }
+    }
+}
+
+// Duplicate generatePolicyWithChatGPT function removed - using the more comprehensive version defined earlier
+
+function createSimpleChatGPTPrompt(userPrompt, currentDate, policyType, organizationNames, roleNames, disciplinaryActionNames) {
+    console.log('Creating ChatGPT prompt for:', userPrompt);
+    
+    let policyStructure = '';
+    
+    if (policyType === 'admin') {
+        policyStructure = `
+LEVEL 1 — ADMIN POLICY STRUCTURE:
+Please create a comprehensive Admin Policy with the following sections:
+
+Document Title / Header Info:
+• Effective Date: ${currentDate}
+• Last Reviewed: ${currentDate}
+• Approved By: [To be filled by administrator]
+• Version #: 1.0
+
+Required Sections:
+1. Purpose - Clear statement of why this policy exists
+2. Scope - Who and what this policy applies to
+3. Policy Statement - The main policy content
+4. Definitions - Key terms and definitions
+5. Procedure / Implementation - Step-by-step implementation
+6. Responsibilities - Who is responsible for what
+7. Consequences / Accountability - What happens if policy is violated
+8. Related Documents - References to other relevant policies
+9. Review & Approval - Process for reviewing and updating
+
+Organizations: ${organizationNames}
+Responsible Roles: ${roleNames}
+Disciplinary Actions: ${disciplinaryActionNames}`;
+    } else if (policyType === 'sog') {
+        policyStructure = `
+LEVEL 2 — STANDARD OPERATING GUIDELINE (SOG) STRUCTURE:
+Please create a comprehensive SOG with the following sections:
+
+SOG Title / Header Info:
+• Effective Date: ${currentDate}
+• Author: [To be filled by administrator]
+• Approved By: [To be filled by administrator]
+• Version #: 1.0
+
+Required Sections:
+1. Objective - Clear goal of this guideline
+2. Guiding Principles - Core principles to follow
+3. Recommended Approach / Procedure - Detailed procedures
+4. Definitions - Key terms and definitions
+5. Examples / Scenarios - Real-world examples
+6. Responsibilities - Who does what
+7. Escalation / Support - When and how to escalate
+8. Review & Revision - Process for updates
+
+Organizations: ${organizationNames}
+Responsible Roles: ${roleNames}
+Disciplinary Actions: ${disciplinaryActionNames}`;
+    } else if (policyType === 'memo') {
+        policyStructure = `
+LEVEL 3 — COMMUNICATION MEMO STRUCTURE:
+Please create a professional Communication Memo with the following sections:
+
+CSI Communication Memo Header:
+• Date: ${currentDate}
+• From: [Administrator Name]
+• To: All Staff
+• Subject: [Based on user prompt]
+
+Required Sections:
+1. Message - Main communication content
+2. Effective Period - When this takes effect (if applicable)
+3. Next Steps / Action Required - What staff need to do
+4. Contact for Questions - Who to contact for clarification
+
+Organizations: ${organizationNames}
+Responsible Roles: ${roleNames}
+Disciplinary Actions: ${disciplinaryActionNames}`;
+    }
+    
+    const prompt = `You are a professional policy writer for CSI (Comprehensive Specialty Imaging) veterinary clinics. 
+
+USER REQUEST: "${userPrompt}"
+
+${policyStructure}
+
+INSTRUCTIONS:
+- Create a comprehensive, professional policy document
+- Use proper healthcare industry terminology
+- Make it specific to veterinary clinic operations
+- Ensure all required sections are included
+- Write in a clear, professional tone
+- Include specific details relevant to the request
+- Make it actionable and practical for clinic staff
+
+Please generate the complete policy document with all sections properly formatted and filled out.`;
+    
+    return prompt;
+}
+
+// Duplicate function removed - using the main callChatGPTAPI function above
+
+function parseChatGPTResponse(response, topic, type) {
+    console.log('parseChatGPTResponse called with:', { topic, type, response });
+    
+    // Handle both string and object responses
+    let content;
+    if (typeof response === 'string') {
+        content = response;
+    } else if (response.choices && response.choices[0] && response.choices[0].message) {
+        content = response.choices[0].message.content;
+    } else {
+        content = response;
+    }
+    
+    console.log('Parsing content:', content);
+    
+    // Create a basic policy structure with the actual content
+    const currentDate = new Date().toISOString().split('T')[0];
+    
+    // Determine policy type
+    const policyType = type === 'admin' ? 'admin' : 
+                      type === 'sog' ? 'sog' : 'memo';
+    
+    // Create basic policy structure
+    const policy = {
+        title: `${topic} Policy`,
+        type: policyType,
+        effectiveDate: currentDate,
+        lastReviewed: currentDate,
+        approvedBy: 'CSI Clinical Director',
+        version: '1.0',
+        created: currentDate,
+        updated: currentDate,
+        description: `AI-generated ${policyType} policy for ${topic}`,
+        status: 'active',
+        content: content // Store the full ChatGPT response
+    };
+    
+    // Try to extract specific sections from the content
+    const sections = extractPolicySections(content, policyType);
+    console.log('Extracted sections:', sections);
+    
+    // Merge extracted sections with basic policy
+    const finalPolicy = { ...policy, ...sections };
+    console.log('Final policy object:', finalPolicy);
+    
+    return finalPolicy;
+}
+
+function extractPolicySections(content, policyType) {
+    const sections = {};
+    
+    // Split content into lines for parsing
+    const lines = content.split('\n');
+    let currentSection = '';
+    let currentContent = [];
+    
+    for (let line of lines) {
+        const trimmedLine = line.trim();
+        
+        // Look for section headers (various formats)
+        if (trimmedLine.match(/^#{1,3}\s+(.+)/) || 
+            trimmedLine.match(/^(.+?):\s*$/) ||
+            trimmedLine.match(/^(.+?)\s*-\s*$/)) {
+            
+            // Save previous section
+            if (currentSection && currentContent.length > 0) {
+                sections[currentSection] = currentContent.join('\n').trim();
+            }
+            
+            // Start new section
+            currentSection = trimmedLine.replace(/^#{1,3}\s+/, '').replace(/:\s*$/, '').replace(/\s*-\s*$/, '').toUpperCase();
+            currentContent = [];
+        } else if (trimmedLine && currentSection) {
+            currentContent.push(line);
+        }
+    }
+    
+    // Save last section
+    if (currentSection && currentContent.length > 0) {
+        sections[currentSection] = currentContent.join('\n').trim();
+    }
+    
+    // Map common section names to policy fields
+    const fieldMapping = {
+        'PURPOSE': 'purpose',
+        'SCOPE': 'scope',
+        'POLICY STATEMENT': 'policyStatement',
+        'PROCEDURES': 'procedures',
+        'RESPONSIBILITIES': 'responsibilities',
+        'CONSEQUENCES': 'consequences',
+        'ACCOUNTABILITY': 'accountability',
+        'MESSAGE': 'message',
+        'FROM': 'from',
+        'TO': 'to',
+        'SUBJECT': 'subject',
+        'EFFECTIVE PERIOD': 'effectivePeriod',
+        'NEXT STEPS': 'nextSteps',
+        'CONTACT': 'contact'
+    };
+    
+    const mappedSections = {};
+    for (const [key, value] of Object.entries(sections)) {
+        const mappedKey = fieldMapping[key] || key.toLowerCase().replace(/\s+/g, '');
+        mappedSections[mappedKey] = value;
+    }
+    
+    return mappedSections;
+}
+
+// Policy editing functionality
+let originalPolicyContent = {};
+
+function savePolicyField(field) {
+    const editableContent = document.querySelector(`[data-field="${field}"].editable-content`);
+    const editActions = editableContent.parentElement.querySelector('.edit-actions');
+    
+    if (editableContent && editActions) {
+        // Save the new content
+        const newContent = editableContent.innerHTML;
+        if (window.currentGeneratedPolicy) {
+            window.currentGeneratedPolicy[field] = newContent;
+            
+            // Save the updated policy to localStorage
+            savePolicyToStorage(window.currentGeneratedPolicy);
+        }
+        
+        // Hide edit actions
+        editActions.style.display = 'none';
+        editableContent.contentEditable = false;
+        
+        // Remove editing styling
+        editableContent.classList.remove('editing');
+        
+        showNotification(`Policy field "${field}" saved successfully!`, 'success');
+        
+        console.log(`Saved policy field ${field}:`, newContent);
+    }
+}
+
+function cancelPolicyEdit(field) {
+    const editableContent = document.querySelector(`[data-field="${field}"].editable-content`);
+    const editActions = editableContent.parentElement.querySelector('.edit-actions');
+    
+    if (editableContent && editActions) {
+        // Restore original content
+        if (originalPolicyContent[field]) {
+            editableContent.innerHTML = originalPolicyContent[field];
+        }
+        
+        // Hide edit actions
+        editActions.style.display = 'none';
+        editableContent.contentEditable = false;
+        
+        // Remove editing styling
+        editableContent.classList.remove('editing');
+        
+        console.log(`Cancelled edit for policy field ${field}`);
+    }
+}
+
+// Add event listeners for editable content
+document.addEventListener('click', function(e) {
+    if (e.target.classList.contains('editable-content')) {
+        startEditing(e.target);
+    }
+});
+
+function startEditing(element) {
+    // Store original content
+    const field = element.getAttribute('data-field');
+    originalPolicyContent[field] = element.innerHTML;
+    
+    // Enable editing
+    element.contentEditable = true;
+    element.classList.add('editing');
+    
+    // Show edit actions
+    const editActions = element.parentElement.querySelector('.edit-actions');
+    if (editActions) {
+        editActions.style.display = 'block';
+    }
+    
+    // Focus and select content
+    element.focus();
+    
+    console.log(`Started editing policy field: ${field}`);
+}
+// Policy saving and storage functions
+async function savePolicyToStorage(policy) {
+    if (!policy || !currentCompany) {
+        console.error('Cannot save policy: missing policy or company');
+        return;
+    }
+    
+    // Generate a unique ID for the policy if it doesn't have one
+    if (!policy.id) {
+        policy.id = 'policy_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+    }
+    
+    // Add metadata
+    policy.company = currentCompany;
+    policy.lastModified = new Date().toISOString();
+    policy.modifiedBy = currentUser ? currentUser.username : 'Unknown';
+    
+    // Ensure status is set
+    if (!policy.status) {
+        policy.status = 'active';
+    }
+    
+    // Ensure type is set
+    if (!policy.type) {
+        policy.type = 'admin';
+    }
+    
+    // Ensure title is set
+    if (!policy.title && !policy.name) {
+        policy.title = 'Untitled Policy';
+        policy.name = 'Untitled Policy';
+    }
+    
+    // Load existing policies for this company
+    const companyPolicies = loadCompanyPolicies();
+    
+    // Update or add the policy
+    const existingIndex = companyPolicies.findIndex(p => p.id === policy.id);
+    if (existingIndex >= 0) {
+        companyPolicies[existingIndex] = policy;
+        console.log('Updated existing policy:', policy.id);
+    } else {
+        companyPolicies.push(policy);
+        console.log('Added new policy:', policy.id);
+    }
+    
+    // Save back to localStorage
+    localStorage.setItem(`policies_${currentCompany}`, JSON.stringify(companyPolicies));
+    
+    // Save timestamp to trigger cross-browser sync
+    localStorage.setItem(`policies_${currentCompany}_updated`, new Date().toISOString());
+    
+    // Also save to global "all policies" list
+    let allPolicies = JSON.parse(localStorage.getItem('allPolicies') || '[]');
+    const globalIndex = allPolicies.findIndex(p => p.id === policy.id);
+    if (globalIndex >= 0) {
+        allPolicies[globalIndex] = policy;
+    } else {
+        allPolicies.push(policy);
+    }
+    localStorage.setItem('allPolicies', JSON.stringify(allPolicies));
+    console.log('Policy saved to all policies list');
+    
+    // Dispatch event to notify other admins/users in the same company
+    window.dispatchEvent(new CustomEvent('companyPoliciesUpdated', {
+        detail: { company: currentCompany, policies: companyPolicies }
+    }));
+    
+    // Send policy data to webhook with full text, type, status, and title
+    try {
+        if (typeof window.sendPolicyToWebhook === 'function') {
+            await window.sendPolicyToWebhook(policy);
+            console.log('Policy data sent to webhook successfully');
+        } else {
+            console.warn('sendPolicyToWebhook function not available');
+        }
+    } catch (error) {
+        console.error('Failed to send policy to webhook:', error);
+        // Don't block policy saving if webhook fails
+    }
+    
+    // Send policy report webhook with full policy report and company user emails
+    try {
+        await sendPolicyReportWebhook(policy);
+        console.log('Policy report webhook sent successfully');
+    } catch (error) {
+        console.error('Failed to send policy report webhook:', error);
+        // Don't block policy saving if webhook fails
+    }
+    
+    // Send new policy notification emails to all company users
+    try {
+        await sendNewPolicyNotificationEmail(policy);
+        console.log('New policy notification emails sent successfully');
+    } catch (error) {
+        console.error('Failed to send new policy notification emails:', error);
+        // Don't block policy saving if email sending fails
+    }
+    
+    // Send webhook notification with loading indicator and wait for response
+    if (policy.generatedBy === 'ChatGPT' || policy.type) {
+        showWebhookLoading();
+        
+        try {
+            const webhookResponse = await sendPolicyGenerationWebhook(policy);
+            console.log('Webhook response received:', webhookResponse);
+            displayWebhookResponse(webhookResponse);
+            
+            // Only sync to master admin dashboard if webhook succeeded
+            syncPoliciesToMasterAdmin(companyPolicies);
+    console.log(`Policy saved for company ${currentCompany}:`, policy.title);
+        } catch (error) {
+            console.error('Webhook error:', error);
+            displayWebhookError(error.message || 'Unable to generate policy with the provided information.');
+        }
+    }
+}
+
+function openPoliciesModal() {
+    // Load policies for current company
+    const policies = loadCompanyPolicies();
+    
+    // Create modern modal with card-based layout
+    const modalHtml = `
+        <div id="policiesModal" class="modal" style="display: block; z-index: 3000;">
+            <div class="modal-content" style="max-width: 1400px; padding: 0;">
+                <!-- Header -->
+                <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; color: white; border-radius: 8px 8px 0 0;">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <div>
+                            <h2 style="margin: 0; color: white; font-size: 28px;">
+                                <i class="fas fa-file-alt"></i> Manage Policies
+                            </h2>
+                            <p style="margin: 5px 0 0 0; color: rgba(255,255,255,0.9);">${policies.length} policy/policies in ${currentCompany}</p>
+                        </div>
+                        <button onclick="closePoliciesModal()" style="background: rgba(255,255,255,0.2); border: none; color: white; font-size: 28px; cursor: pointer; padding: 5px 15px; border-radius: 4px;">
+                            &times;
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- Toolbar -->
+                <div style="padding: 20px; background: #f8f9fa; border-bottom: 1px solid #dee2e6;">
+                    <div style="display: flex; gap: 15px; align-items: center; flex-wrap: wrap;">
+                        <!-- Search -->
+                        <div style="flex: 1; min-width: 200px;">
+                            <input type="text" id="policySearchInput" placeholder="Search policies..." 
+                                   onkeyup="searchPolicies()"
+                                   style="width: 100%; padding: 12px 15px; border: 1px solid #ddd; border-radius: 6px; font-size: 14px;">
+                        </div>
+                        
+                        <!-- Bulk Actions -->
+                        <button onclick="selectAllPolicies()" style="padding: 12px 20px; background: #6c757d; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 14px;">
+                            <i class="fas fa-check-square"></i> Select All
+                        </button>
+                        <button onclick="bulkDeletePolicies()" id="bulkDeleteBtn" disabled 
+                                style="padding: 12px 20px; background: #dc3545; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 14px; opacity: 0.5; cursor: not-allowed;">
+                            <i class="fas fa-trash"></i> Delete Selected
+                        </button>
+                        
+                        <div id="selectedCount" style="padding: 12px 15px; color: #666; font-size: 14px; font-weight: 600;">
+                            0 selected
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Policy Cards Grid -->
+                <div style="padding: 20px; max-height: 600px; overflow-y: auto;">
+                    ${policies.length === 0 ? `
+                        <div style="text-align: center; padding: 60px 20px; color: #999;">
+                            <i class="fas fa-file-alt" style="font-size: 64px; margin-bottom: 20px; opacity: 0.3;"></i>
+                            <h3 style="margin: 0; color: #666;">No Policies Found</h3>
+                            <p style="margin: 10px 0 0 0;">No policies have been created yet.</p>
+                        </div>
+                    ` : `
+                        <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(350px, 1fr)); gap: 20px;">
+                            ${policies.map(policy => `
+                                <div class="policy-card" style="background: white; border: 1px solid #e0e0e0; border-radius: 12px; padding: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); transition: transform 0.2s, box-shadow 0.2s;" onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 4px 8px rgba(0,0,0,0.15)'" onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 2px 4px rgba(0,0,0,0.1)'">
+                                    <!-- Checkbox -->
+                                    <div style="margin-bottom: 15px;">
+                                        <input type="checkbox" class="policy-checkbox" data-policy-id="${policy.id}" onchange="updateSelectedCount()"
+                                               style="width: 18px; height: 18px; cursor: pointer; margin-right: 10px;">
+                                        <span style="font-size: 12px; color: #888;">Select to manage</span>
+                                    </div>
+                                    
+                                    <!-- Policy Title -->
+                                    <h3 style="margin: 0 0 12px 0; font-size: 18px; color: #333; font-weight: 600;">
+                                        ${policy.title || 'Untitled Policy'}
+                                    </h3>
+                                    
+                                    <!-- Policy Type Badge -->
+                                    <div style="margin-bottom: 15px;">
+                                        <span style="background: #e3f2fd; color: #1976d2; padding: 6px 12px; border-radius: 20px; font-size: 12px; font-weight: 600;">
+                                            ${getTypeLabel(policy.type) || 'N/A'}
+                                        </span>
+                                    </div>
+                                    
+                                    <!-- Policy Details -->
+                                    <div style="margin-bottom: 15px; padding: 12px; background: #f8f9fa; border-radius: 8px;">
+                                        <div style="font-size: 13px; color: #666; margin-bottom: 6px;">
+                                            <i class="fas fa-calendar"></i> <strong>Effective Date:</strong> ${policy.effectiveDate || 'Not set'}
+                                        </div>
+                                        <div style="font-size: 13px; color: #666; margin-bottom: 6px;">
+                                            <i class="fas fa-tag"></i> <strong>Version:</strong> ${policy.version || '1.0'}
+                                        </div>
+                                        <div style="font-size: 13px; color: #666;">
+                                            <i class="fas fa-building"></i> <strong>Organizations:</strong> ${(policy.clinicNames || policy.organizations || policy.clinics || 'All')}
+                                        </div>
+                                    </div>
+                                    
+                                    <!-- Action Buttons -->
+                                    <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                                        <button onclick="viewPolicyFromManage('${policy.id}')" 
+                                                style="flex: 1; padding: 10px; background: #0066cc; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 600;">
+                                            <i class="fas fa-eye"></i> View
+                                        </button>
+                                        <button onclick="editPolicy('${policy.id}')" 
+                                                style="flex: 1; padding: 10px; background: #ffc107; color: #000; border: none; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 600;">
+                                            <i class="fas fa-edit"></i> Edit
+                                        </button>
+                                        <button onclick="showPolicyAnalytics('${policy.id}')" 
+                                                style="flex: 1; padding: 10px; background: #17a2b8; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 600;">
+                                            <i class="fas fa-chart-bar"></i> Analytics
+                                        </button>
+                                        <button onclick="deletePolicy('${policy.id}')" 
+                                                style="flex: 1; padding: 10px; background: #dc3545; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 600;">
+                                            <i class="fas fa-trash"></i> Delete
+                                        </button>
+                                    </div>
+                                </div>
+                            `).join('')}
+                        </div>
+                    `}
+                </div>
+            </div>
+        </div>
+    `;
+    
+    // Create and show modal
+    const existingModal = document.getElementById('policiesModal');
+    if (existingModal) {
+        existingModal.remove();
+    }
+    
+    document.body.insertAdjacentHTML('beforeend', modalHtml);
+}
+
+// Helper function for viewing policy from manage modal
+function viewPolicyFromManage(policyId) {
+    closePoliciesModal();
+    viewPolicy(policyId);
+}
+
+// Policy Analytics Functions
+function showPolicyAnalytics(policyId) {
+    const policies = loadCompanyPolicies();
+    const policy = policies.find(p => p.id === policyId || p.id === String(policyId) || String(p.id) === policyId);
+    
+    if (!policy) {
+        showNotification('Policy not found', 'error');
+        return;
+    }
+    
+    // Get all company users
+    const allUsers = JSON.parse(localStorage.getItem('masterUsers') || '[]');
+    const companyUsers = allUsers.filter(u => u.company === currentCompany);
+    
+    if (companyUsers.length === 0) {
+        showNotification('No users found for this company', 'warning');
+        return;
+    }
+    
+    // Get viewers for this policy
+    const viewers = getPolicyViewers(policyId);
+    const viewerIds = new Set(viewers.map(v => v.userId));
+    
+    // Calculate percentage
+    const viewPercentage = Math.round((viewers.length / companyUsers.length) * 100);
+    
+    // Get users who haven't viewed
+    const notViewed = companyUsers.filter(u => !viewerIds.has(u.id)).map(u => ({
+        id: u.id,
+        username: u.username,
+        email: u.email,
+        role: u.role
+    }));
+    
+    // Create analytics modal
+    const modalHtml = `
+        <div id="policyAnalyticsModal" class="modal" style="display: block; z-index: 3500;">
+            <div class="modal-content" style="max-width: 700px;">
+                <div class="modal-header" style="background: linear-gradient(135deg, #17a2b8 0%, #138496 100%); color: white; padding: 20px;">
+                    <h3 style="margin: 0; color: white;">
+                        <i class="fas fa-chart-bar"></i> Policy Analytics: ${policy.title}
+                    </h3>
+                    <span class="close" onclick="closePolicyAnalyticsModal()" style="color: white;">&times;</span>
+                </div>
+                <div class="modal-body" style="padding: 25px;">
+                    <!-- View Percentage -->
+                    <div style="background: #f8f9fa; padding: 20px; border-radius: 8px; margin-bottom: 25px; text-align: center;">
+                        <h4 style="margin: 0 0 15px 0; color: #333;">View Rate</h4>
+                        <div style="font-size: 48px; font-weight: 700; color: #17a2b8; margin-bottom: 10px;">
+                            ${viewPercentage}%
+                        </div>
+                        <div style="color: #666; font-size: 14px;">
+                            ${viewers.length} of ${companyUsers.length} users have viewed this policy
+                        </div>
+                        <div style="margin-top: 15px; height: 12px; background: #e9ecef; border-radius: 10px; overflow: hidden;">
+                            <div style="height: 100%; width: ${viewPercentage}%; background: linear-gradient(90deg, #17a2b8 0%, #138496 100%); border-radius: 10px; transition: width 0.3s;"></div>
+                        </div>
+                    </div>
+                    
+                    <!-- Users Who Haven't Viewed -->
+                    <div style="margin-bottom: 20px;">
+                        <h4 style="margin: 0 0 15px 0; color: #333; display: flex; align-items: center; gap: 8px;">
+                            <i class="fas fa-user-times" style="color: #dc3545;"></i> 
+                            Users Who Haven't Viewed (${notViewed.length})
+                        </h4>
+                        ${notViewed.length > 0 ? `
+                            <div style="max-height: 300px; overflow-y: auto; border: 1px solid #e5e7eb; border-radius: 8px; padding: 10px;">
+                                ${notViewed.map(user => `
+                                    <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px; border-bottom: 1px solid #f0f0f0; transition: background 0.2s;" 
+                                         onmouseover="this.style.background='#f8f9fa'" 
+                                         onmouseout="this.style.background='transparent'">
+                                        <div>
+                                            <div style="font-weight: 600; color: #333;">${user.username}</div>
+                                            <div style="font-size: 12px; color: #666; margin-top: 2px;">${user.email}</div>
+                                        </div>
+                                        <span style="padding: 4px 10px; background: #fee; color: #dc3545; border-radius: 12px; font-size: 11px; font-weight: 600;">
+                                            ${user.role || 'User'}
+                                        </span>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        ` : `
+                            <div style="padding: 20px; text-align: center; color: #28a745; background: #d4edda; border-radius: 8px;">
+                                <i class="fas fa-check-circle" style="font-size: 24px; margin-bottom: 10px;"></i>
+                                <p style="margin: 0; font-weight: 600;">All users have viewed this policy!</p>
+                            </div>
+                        `}
+                    </div>
+                    
+                    <!-- Users Who Have Viewed -->
+                    ${viewers.length > 0 ? `
+                        <div>
+                            <h4 style="margin: 0 0 15px 0; color: #333; display: flex; align-items: center; gap: 8px;">
+                                <i class="fas fa-user-check" style="color: #28a745;"></i> 
+                                Users Who Have Viewed (${viewers.length})
+                            </h4>
+                            <div style="max-height: 200px; overflow-y: auto; border: 1px solid #e5e7eb; border-radius: 8px; padding: 10px;">
+                                ${viewers.map(view => {
+                                    const viewDate = new Date(view.viewedAt).toLocaleDateString();
+                                    return `
+                                    <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px; border-bottom: 1px solid #f0f0f0;">
+                                        <div>
+                                            <div style="font-weight: 600; color: #333;">${view.username}</div>
+                                            <div style="font-size: 11px; color: #999; margin-top: 2px;">Viewed: ${viewDate}</div>
+                                        </div>
+                                        <i class="fas fa-check-circle" style="color: #28a745;"></i>
+                                    </div>
+                                `;
+                                }).join('')}
+                            </div>
+                        </div>
+                    ` : ''}
+                    
+                    <div class="form-actions" style="margin-top: 25px; text-align: right;">
+                        <button onclick="closePolicyAnalyticsModal()" class="btn btn-secondary">
+                            Close
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    // Remove existing modal if any
+    const existingModal = document.getElementById('policyAnalyticsModal');
+    if (existingModal) {
+        existingModal.remove();
+    }
+    
+    document.body.insertAdjacentHTML('beforeend', modalHtml);
+}
+
+function closePolicyAnalyticsModal() {
+    const modal = document.getElementById('policyAnalyticsModal');
+    if (modal) {
+        modal.remove();
+    }
+}
+
+function searchPolicies() {
+    const searchTerm = document.getElementById('policySearchInput').value.toLowerCase();
+    const cards = document.querySelectorAll('.policy-card');
+    
+    cards.forEach(card => {
+        const text = card.textContent.toLowerCase();
+        card.style.display = text.includes(searchTerm) ? '' : 'none';
+    });
+}
+
+function toggleSelectAll(checkbox) {
+    const checkboxes = document.querySelectorAll('.policy-checkbox');
+    checkboxes.forEach(cb => {
+        cb.checked = checkbox.checked;
+        updateBulkActionButtons();
+    });
+}
+
+function updateSelectedCount() {
+    const checkboxes = document.querySelectorAll('.policy-checkbox:checked');
+    const count = checkboxes.length;
+    document.getElementById('selectedCount').textContent = `${count} selected`;
+    updateBulkActionButtons();
+}
+
+function updateBulkActionButtons() {
+    const checkboxes = document.querySelectorAll('.policy-checkbox:checked');
+    const count = checkboxes.length;
+    const bulkEditBtn = document.getElementById('bulkEditBtn');
+    const bulkDeleteBtn = document.getElementById('bulkDeleteBtn');
+    
+    if (bulkEditBtn) bulkEditBtn.disabled = count === 0;
+    if (bulkDeleteBtn) bulkDeleteBtn.disabled = count === 0;
+}
+
+function selectAllPolicies() {
+    const checkboxes = document.querySelectorAll('.policy-checkbox');
+    const selectAllCheckbox = document.getElementById('selectAllCheckbox');
+    
+    checkboxes.forEach(cb => cb.checked = true);
+    if (selectAllCheckbox) selectAllCheckbox.checked = true;
+    updateSelectedCount();
+}
+
+function bulkEditPolicies() {
+    const checkboxes = document.querySelectorAll('.policy-checkbox:checked');
+    if (checkboxes.length === 0) return;
+    
+    showNotification('Bulk edit functionality coming soon', 'info');
+}
+
+function bulkDeletePolicies() {
+    const checkboxes = document.querySelectorAll('.policy-checkbox:checked');
+    if (checkboxes.length === 0) return;
+    
+    if (!confirm(`Are you sure you want to delete ${checkboxes.length} policy/policies?`)) {
+        return;
+    }
+    
+    const policies = loadCompanyPolicies();
+    const idsToDelete = Array.from(checkboxes).map(cb => cb.dataset.policyId);
+    const filtered = policies.filter(p => !idsToDelete.includes(p.id));
+    
+    localStorage.setItem(`policies_${currentCompany}`, JSON.stringify(filtered));
+    
+    showNotification(`${checkboxes.length} policies deleted successfully`, 'success');
+    closePoliciesModal();
+    openPoliciesModal(); // Refresh modal
+}
+
+function closePoliciesModal() {
+    const modal = document.getElementById('policiesModal');
+    if (modal) {
+        modal.remove();
+    }
+}
+
+function openUsersModal() {
+    // Load users for current company
+    const allUsers = JSON.parse(localStorage.getItem('masterUsers') || '[]');
+    const users = allUsers.filter(u => u.company === currentCompany);
+    
+    // Create a completely redesigned modal
+    const modalHtml = `
+        <div id="usersModal" class="modal" style="display: block; z-index: 3000;">
+            <div class="modal-content" style="max-width: 1200px; padding: 0;">
+                <!-- Header with title and actions -->
+                <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; color: white; border-radius: 8px 8px 0 0;">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <div>
+                            <h2 style="margin: 0; color: white; font-size: 28px;">
+                                <i class="fas fa-users"></i> Manage Users
+                            </h2>
+                            <p style="margin: 5px 0 0 0; color: rgba(255,255,255,0.9);">${users.length} user(s) in ${currentCompany}</p>
+                        </div>
+                        <button onclick="closeUsersModal()" style="background: rgba(255,255,255,0.2); border: none; color: white; font-size: 28px; cursor: pointer; padding: 5px 15px; border-radius: 4px;">
+                            &times;
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- Toolbar -->
+                <div style="padding: 20px; background: #f8f9fa; border-bottom: 1px solid #dee2e6;">
+                    <div style="display: flex; gap: 15px; align-items: center; flex-wrap: wrap;">
+                        <!-- Search -->
+                        <div style="flex: 1; min-width: 200px;">
+                            <input type="text" id="userSearchInput" placeholder="Search users..." 
+                                   onkeyup="searchUsers()"
+                                   style="width: 100%; padding: 12px 15px; border: 1px solid #ddd; border-radius: 6px; font-size: 14px;">
+                        </div>
+                        
+                        <!-- Bulk Actions -->
+                        <button onclick="selectAllUsers()" style="padding: 12px 20px; background: #6c757d; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 14px;">
+                            <i class="fas fa-check-square"></i> Select All
+                        </button>
+                        <button onclick="bulkEditUsers()" id="bulkEditUserBtn" disabled 
+                                style="padding: 12px 20px; background: #ffc107; color: #000; border: none; border-radius: 6px; cursor: pointer; font-size: 14px; opacity: 0.5; cursor: not-allowed;">
+                            <i class="fas fa-edit"></i> Bulk Edit
+                        </button>
+                        <button onclick="bulkDeleteUsers()" id="bulkDeleteUserBtn" disabled 
+                                style="padding: 12px 20px; background: #dc3545; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 14px; opacity: 0.5; cursor: not-allowed;">
+                            <i class="fas fa-trash"></i> Delete Selected
+                        </button>
+                        
+                        <div id="selectedUserCount" style="padding: 12px 15px; color: #666; font-size: 14px; font-weight: 600;">
+                            0 selected
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- User Cards Grid -->
+                <div style="padding: 20px; max-height: 600px; overflow-y: auto;">
+                    ${users.length === 0 ? `
+                        <div style="text-align: center; padding: 60px 20px; color: #999;">
+                            <i class="fas fa-users" style="font-size: 64px; margin-bottom: 20px; opacity: 0.3;"></i>
+                            <h3 style="margin: 0; color: #666;">No Users Found</h3>
+                            <p style="margin: 10px 0 0 0;">No users have been created for this company yet.</p>
+                        </div>
+                    ` : `
+                        <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 20px;">
+                            ${users.map(user => {
+                                const viewPercentage = getUserPolicyViewPercentage(user.id);
+                                return `
+                                <div class="user-card" style="background: white; border: 1px solid #e0e0e0; border-radius: 12px; padding: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); transition: transform 0.2s, box-shadow 0.2s;">
+                                    <div style="display: flex; align-items: flex-start; gap: 15px;">
+                                        <!-- Checkbox -->
+                                        <input type="checkbox" class="user-checkbox" data-user-id="${user.id}" onchange="updateSelectedUserCount()"
+                                               style="margin-top: 5px; width: 18px; height: 18px; cursor: pointer;">
+                                        
+                                        <!-- User Info -->
+                                        <div style="flex: 1;">
+                                            <!-- Header -->
+                                            <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 12px;">
+                                                <div>
+                                                    <h3 style="margin: 0; font-size: 18px; color: #333;">${user.username || 'N/A'}</h3>
+                                                    <p style="margin: 4px 0 0 0; color: #666; font-size: 14px;">${user.email || 'No email'}</p>
+                                                </div>
+                                                <span class="policy-type-badge ${user.role === 'admin' ? 'admin' : 'user'}" 
+                                                      style="padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; white-space: nowrap;">
+                                                    ${user.role === 'admin' ? '<i class="fas fa-crown"></i> Admin' : '<i class="fas fa-user"></i> User'}
+                                                </span>
+                                            </div>
+                                            
+                                            <!-- Organizations -->
+                                            <div style="margin-bottom: 15px;">
+                                                <div style="font-size: 12px; color: #888; margin-bottom: 6px; font-weight: 600;">
+                                                    <i class="fas fa-building"></i> Organizations
+                                                </div>
+                                                <div style="display: flex; flex-wrap: wrap; gap: 6px;">
+                                                    ${(user.organizations && user.organizations.length > 0) ? 
+                                                        user.organizations.map(org => `
+                                                            <span style="background: #e3f2fd; color: #1976d2; padding: 4px 10px; border-radius: 12px; font-size: 12px; font-weight: 500;">
+                                                                ${org}
+                                                            </span>
+                                                        `).join('') : 
+                                                        '<span style="color: #999; font-size: 12px; font-style: italic;">No organizations assigned</span>'
+                                                    }
+                                                </div>
+                                            </div>
+                                            
+                                            <!-- Company & Created -->
+                                            <div style="display: flex; gap: 15px; font-size: 12px; color: #888; margin-bottom: 15px; padding-top: 12px; border-top: 1px solid #f0f0f0;">
+                                                <div><i class="fas fa-building"></i> ${user.company}</div>
+                                                <div><i class="fas fa-calendar"></i> ${user.created ? new Date(user.created).toLocaleDateString() : 'N/A'}</div>
+                                            </div>
+                                            
+                                            <!-- Policy View Percentage -->
+                                            <div style="margin-bottom: 15px; padding: 12px; background: #f8f9fa; border-radius: 8px;">
+                                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                                                    <span style="font-size: 12px; color: #666; font-weight: 600;">
+                                                        <i class="fas fa-eye"></i> Policies Viewed
+                                                    </span>
+                                                    <span style="font-weight: 700; color: #667eea; font-size: 14px;">${viewPercentage}%</span>
+                                                </div>
+                                                <div style="height: 8px; background: #e9ecef; border-radius: 10px; overflow: hidden;">
+                                                    <div style="height: 100%; width: ${viewPercentage}%; background: linear-gradient(90deg, #667eea 0%, #764ba2 100%); border-radius: 10px; transition: width 0.3s;"></div>
+                                                </div>
+                                            </div>
+                                            
+                                            <!-- Actions -->
+                                            <div style="display: flex; gap: 8px; margin-top: 12px;">
+                                                <button onclick="editUser('${user.id}')" 
+                                                        style="flex: 1; padding: 8px 12px; background: #ffc107; color: #000; border: none; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 600; transition: background 0.2s;">
+                                                    <i class="fas fa-edit"></i> Edit
+                                                </button>
+                                                <button onclick="deleteUser('${user.id}')" 
+                                                        style="flex: 1; padding: 8px 12px; background: #dc3545; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 600; transition: background 0.2s;">
+                                                    <i class="fas fa-trash"></i> Delete
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            `;
+                            }).join('')}
+                        </div>
+                    `}
+                </div>
+            </div>
+        </div>
+    `;
+    
+    // Create and show modal
+    const existingModal = document.getElementById('usersModal');
+    if (existingModal) {
+        existingModal.remove();
+    }
+    
+    document.body.insertAdjacentHTML('beforeend', modalHtml);
+}
+
+function closeUsersModal() {
+    const modal = document.getElementById('usersModal');
+    if (modal) {
+        modal.remove();
+    }
+}
+
+function searchUsers() {
+    const searchTerm = document.getElementById('userSearchInput').value.toLowerCase();
+    const cards = document.querySelectorAll('.user-card');
+    
+    cards.forEach(card => {
+        const text = card.textContent.toLowerCase();
+        card.style.display = text.includes(searchTerm) ? '' : 'none';
+    });
+}
+
+function toggleSelectAllUsers(checkbox) {
+    const checkboxes = document.querySelectorAll('.user-checkbox');
+    checkboxes.forEach(cb => {
+        cb.checked = checkbox.checked;
+        updateBulkUserActionButtons();
+    });
+}
+
+function updateSelectedUserCount() {
+    const checkboxes = document.querySelectorAll('.user-checkbox:checked');
+    const count = checkboxes.length;
+    document.getElementById('selectedUserCount').textContent = `${count} selected`;
+    updateBulkUserActionButtons();
+}
+
+function updateBulkUserActionButtons() {
+    const checkboxes = document.querySelectorAll('.user-checkbox:checked');
+    const count = checkboxes.length;
+    const bulkEditBtn = document.getElementById('bulkEditUserBtn');
+    const bulkDeleteBtn = document.getElementById('bulkDeleteUserBtn');
+    
+    if (bulkEditBtn) bulkEditBtn.disabled = count === 0;
+    if (bulkDeleteBtn) bulkDeleteBtn.disabled = count === 0;
+}
+
+function selectAllUsers() {
+    const checkboxes = document.querySelectorAll('.user-checkbox');
+    const selectAllCheckbox = document.getElementById('selectAllUserCheckbox');
+    
+    checkboxes.forEach(cb => cb.checked = true);
+    if (selectAllCheckbox) selectAllCheckbox.checked = true;
+    updateSelectedUserCount();
+}
+
+function bulkEditUsers() {
+    const checkboxes = document.querySelectorAll('.user-checkbox:checked');
+    if (checkboxes.length === 0) return;
+    
+    const allUsers = JSON.parse(localStorage.getItem('masterUsers') || '[]');
+    const selectedIds = Array.from(checkboxes).map(cb => cb.dataset.userId);
+    const selectedUsers = allUsers.filter(u => selectedIds.includes(u.id) || selectedIds.includes(String(u.id)));
+    
+    // Get organizations from the first selected user's company
+    const allOrganizations = JSON.parse(localStorage.getItem('organizations') || '{}');
+    const companyOrgs = selectedUsers.length > 0 ? (allOrganizations[selectedUsers[0].company] || []) : [];
+    
+    // Create bulk edit modal
+    const bulkEditModal = document.createElement('div');
+    bulkEditModal.className = 'modal';
+    bulkEditModal.id = 'bulkEditUserModal';
+    bulkEditModal.style.display = 'block';
+    bulkEditModal.style.zIndex = '3100';
+    bulkEditModal.innerHTML = `
+        <div class="modal-content" style="max-width: 600px;">
+            <div class="modal-header">
+                <h3>Bulk Edit ${selectedUsers.length} User(s)</h3>
+                <span class="close" onclick="document.getElementById('bulkEditUserModal').remove()">&times;</span>
+            </div>
+            <div class="modal-body">
+                <form id="bulkEditUserForm">
+                    <div class="form-group">
+                        <label for="bulkEditRole">Change Role To:</label>
+                        <select id="bulkEditRole" class="form-control">
+                            <option value="">-- Don't change --</option>
+                            <option value="user">User</option>
+                            <option value="admin">Admin</option>
+                        </select>
+                        <small style="color: #666;">Only selected users will be updated</small>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Update Organizations:</label>
+                        <div style="margin-top: 10px;">
+                            ${companyOrgs.length > 0 ? companyOrgs.map(org => `
+                                <label style="display: block; margin-bottom: 8px;">
+                                    <input type="checkbox" name="bulkOrganizations" value="${org}">
+                                    ${org}
+                                </label>
+                            `).join('') : '<p style="color: #666;">No organizations configured for this company.</p>'}
+                        </div>
+                        <small style="color: #666;">Checking an organization will ADD it to all selected users. Unchecked organizations will not be modified.</small>
+                    </div>
+                    
+                    <div class="form-actions">
+                        <button type="submit" class="btn btn-primary">Apply Changes to All Selected Users</button>
+                        <button type="button" class="btn btn-secondary" onclick="document.getElementById('bulkEditUserModal').remove()">Cancel</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    `;
+    
+    document.body.appendChild(bulkEditModal);
+    
+    // Handle form submission
+    document.getElementById('bulkEditUserForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        const newRole = document.getElementById('bulkEditRole').value;
+        const orgCheckboxes = document.querySelectorAll('input[name="bulkOrganizations"]:checked');
+        const orgsToAdd = Array.from(orgCheckboxes).map(cb => cb.value);
+        
+        // Update all selected users
+        selectedUsers.forEach(user => {
+            if (newRole) {
+                user.role = newRole;
+                
+                // CRITICAL: If we're editing the currently logged in user, update currentUser
+                if (currentUser && (currentUser.id === user.id || currentUser.username === user.username)) {
+                    console.log('Updating currentUser role from', currentUser.role, 'to', newRole);
+                    currentUser.role = newRole;
+                    persistAuthUser(currentUser, currentCompany);
+                }
+            }
+            
+            if (orgsToAdd.length > 0) {
+                if (!user.organizations) {
+                    user.organizations = [];
+                }
+                // Add organizations if they don't already exist
+                orgsToAdd.forEach(org => {
+                    if (!user.organizations.includes(org)) {
+                        user.organizations.push(org);
+                    }
+                });
+                
+                // CRITICAL: If we're editing the currently logged in user, update organizations
+                if (currentUser && (currentUser.id === user.id || currentUser.username === user.username)) {
+                    currentUser.organizations = user.organizations;
+                    persistAuthUser(currentUser, currentCompany);
+                }
+            }
+        });
+        
+        // Save to localStorage
+        localStorage.setItem('masterUsers', JSON.stringify(allUsers));
+        
+        // Dispatch master data updated event
+        window.dispatchEvent(new CustomEvent('masterDataUpdated', {
+            detail: {
+                users: allUsers
+            }
+        }));
+        
+        showNotification(`${selectedUsers.length} user(s) updated successfully`, 'success');
+        bulkEditModal.remove();
+        
+        // Refresh the users modal
+        closeUsersModal();
+        openUsersModal();
+    });
+}
+
+function bulkDeleteUsers() {
+    const checkboxes = document.querySelectorAll('.user-checkbox:checked');
+    if (checkboxes.length === 0) return;
+    
+    if (!confirm(`Are you sure you want to delete ${checkboxes.length} user(s)? This action cannot be undone.`)) {
+        return;
+    }
+    
+    const allUsers = JSON.parse(localStorage.getItem('masterUsers') || '[]');
+    const idsToDelete = Array.from(checkboxes).map(cb => cb.dataset.userId);
+    const filtered = allUsers.filter(p => !idsToDelete.includes(p.id));
+    
+    localStorage.setItem('masterUsers', JSON.stringify(filtered));
+    
+    showNotification(`${checkboxes.length} user(s) deleted successfully`, 'success');
+    closeUsersModal();
+    openUsersModal(); // Refresh modal
+}
+
+function viewUser(userId) {
+    console.log('viewUser called with userId:', userId);
+    const allUsers = JSON.parse(localStorage.getItem('masterUsers') || '[]');
+    const user = allUsers.find(u => u.id === userId || u.id === String(userId));
+    
+    if (!user) {
+        console.error('User not found. ID:', userId, 'Available IDs:', allUsers.map(u => u.id));
+        showNotification('User not found. Please try refreshing the page.', 'error');
+        return;
+    }
+    
+    alert(`User: ${user.username}\nEmail: ${user.email}\nRole: ${user.role}\nCompany: ${user.company}\nCreated: ${user.created ? new Date(user.created).toLocaleDateString() : 'N/A'}`);
+}
+function editUser(userId) {
+    console.log('editUser called with userId:', userId, typeof userId);
+    const allUsers = JSON.parse(localStorage.getItem('masterUsers') || '[]');
+    const allOrganizations = JSON.parse(localStorage.getItem('organizations') || '{}');
+    
+    console.log('Total users in storage:', allUsers.length);
+    console.log('User IDs in storage:', allUsers.map(u => ({ id: u.id, type: typeof u.id, username: u.username })));
+    
+    // Try multiple matching strategies
+    let user = allUsers.find(u => u.id === userId);
+    if (!user) user = allUsers.find(u => u.id == userId); // Loose equality
+    if (!user) user = allUsers.find(u => String(u.id) === String(userId)); // String comparison
+    if (!user) user = allUsers.find(u => u.id === parseInt(userId)); // Number comparison
+    
+    if (!user) {
+        console.error('User not found. Searched for:', userId, 'Type:', typeof userId);
+        console.error('Available IDs:', allUsers.map(u => ({ id: u.id, type: typeof u.id, username: u.username })));
+        showNotification('User not found. Please try refreshing the page.', 'error');
+        return;
+    }
+    
+    console.log('Found user:', user);
+    
+    // Get organizations for this company
+    const companyOrgs = allOrganizations[user.company] || [];
+    
+    // Get user's current organizations (if they exist)
+    const userOrgs = user.organizations || [];
+    
+    // Create modal for editing user
+    const editModal = document.createElement('div');
+    editModal.className = 'modal';
+    editModal.id = 'editUserModal';
+    editModal.style.display = 'block';
+    editModal.style.zIndex = '3100';
+    editModal.innerHTML = `
+        <div class="modal-content" style="max-width: 600px;">
+            <div class="modal-header">
+                <h3>Edit User - ${user.username}</h3>
+                <span class="close" onclick="document.getElementById('editUserModal').remove()">&times;</span>
+            </div>
+            <div class="modal-body">
+                <form id="editUserForm">
+                    <div class="form-group">
+                        <label for="editUserRole">Role:</label>
+                        <select id="editUserRole" class="form-control" required>
+                            <option value="user" ${user.role === 'user' ? 'selected' : ''}>User</option>
+                            <option value="admin" ${user.role === 'admin' ? 'selected' : ''}>Admin</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Organizations (select all that apply):</label>
+                        <div style="margin-top: 10px;">
+                            ${companyOrgs.length > 0 ? companyOrgs.map(org => `
+                                <label style="display: block; margin-bottom: 8px;">
+                                    <input type="checkbox" name="organizations" value="${org}" 
+                                           ${userOrgs.includes(org) ? 'checked' : ''}>
+                                    ${org}
+                                </label>
+                            `).join('') : '<p style="color: #666;">No organizations configured for this company.</p>'}
+                        </div>
+                    </div>
+                    
+                    <div class="form-actions">
+                        <button type="submit" class="btn btn-primary">Save Changes</button>
+                        <button type="button" class="btn btn-secondary" onclick="document.getElementById('editUserModal').remove()">Cancel</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    `;
+    
+    document.body.appendChild(editModal);
+    
+    // Handle form submission
+    document.getElementById('editUserForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        const newRole = document.getElementById('editUserRole').value;
+        const checkboxes = document.querySelectorAll('input[name="organizations"]:checked');
+        const selectedOrgs = Array.from(checkboxes).map(cb => cb.value);
+        
+        // Update user
+        user.role = newRole;
+        user.organizations = selectedOrgs;
+        
+        // CRITICAL: If we're editing the currently logged in user, update currentUser
+        if (currentUser && (currentUser.id === user.id || currentUser.username === user.username)) {
+            console.log('Updating currentUser role from', currentUser.role, 'to', newRole);
+            currentUser.role = newRole;
+            currentUser.organizations = selectedOrgs;
+            persistAuthUser(currentUser, currentCompany);
+        }
+        
+        // Save to localStorage
+        localStorage.setItem('masterUsers', JSON.stringify(allUsers));
+        
+        // Dispatch master data updated event
+        window.dispatchEvent(new CustomEvent('masterDataUpdated', {
+            detail: {
+                users: allUsers
+            }
+        }));
+        
+        showNotification('User updated successfully', 'success');
+        editModal.remove();
+        
+        // Refresh the users modal
+        closeUsersModal();
+        openUsersModal();
+    });
+}
+
+function deleteUser(userId) {
+    if (!confirm('Are you sure you want to delete this user?')) {
+        return;
+    }
+    
+    const allUsers = JSON.parse(localStorage.getItem('masterUsers') || '[]');
+    const filtered = allUsers.filter(u => u.id !== userId);
+    localStorage.setItem('masterUsers', JSON.stringify(filtered));
+    
+    showNotification('User deleted successfully', 'success');
+    closeUsersModal();
+    openUsersModal(); // Refresh modal
+}
+
+function viewPolicy(policyId) {
+    console.log('viewPolicy called with policyId:', policyId);
+    const policies = loadCompanyPolicies();
+    console.log('Available policies:', policies.map(p => ({ id: p.id, title: p.title })));
+    
+    // Handle both string and number IDs
+    const policy = policies.find(p => p.id === policyId || p.id === String(policyId) || String(p.id) === policyId);
+    
+    if (!policy) {
+        console.error('Policy not found with ID:', policyId);
+        showNotification('Policy not found', 'error');
+        return;
+    }
+    
+    console.log('Found policy:', policy);
+    
+    // Track policy view
+    if (currentUser && currentUser.id) {
+        trackPolicyView(policyId, currentUser.id);
+    }
+    
+    // Show the policy view modal
+    const modal = document.getElementById('policyViewModal');
+    const titleElement = document.getElementById('policyViewTitle');
+    const contentElement = document.getElementById('policyViewContent');
+    
+    if (!modal || !titleElement || !contentElement) {
+        console.error('Policy view modal elements not found');
+        return;
+    }
+    
+    // Set title
+    titleElement.textContent = policy.title || 'Policy Details';
+    
+    // Format the policy content
+    const formattedContent = formatPolicyContentForDisplay(policy.content);
+    
+    // Get viewers for this policy
+    const viewers = getPolicyViewers(policyId);
+    const viewersList = viewers.length > 0 ? viewers.map(v => {
+        const viewDate = new Date(v.viewedAt).toLocaleDateString();
+        return `<div style="display: flex; align-items: center; gap: 8px; padding: 6px 0;">
+                    <i class="fas fa-user-circle" style="color: #667eea;"></i>
+                    <span style="font-weight: 500;">${v.username}</span>
+                    <span style="color: #999; font-size: 0.85rem;">- ${viewDate}</span>
+                </div>`;
+    }).join('') : '<p style="color: #999; font-style: italic;">No viewers yet</p>';
+    
+    // Build the full policy HTML
+    const policyHTML = `
+        <div class="policy-view-header" style="background: #f8f9fa; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
+            <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 15px;">
+                <div>
+                    <h4 style="margin: 0 0 10px 0; color: #1f2937;">${policy.title}</h4>
+                    <span class="policy-type-badge" style="display: inline-block; padding: 4px 12px; background: #2563eb; color: white; border-radius: 4px; font-size: 0.875rem;">
+                        ${policy.type || 'Policy'}
+                    </span>
+                </div>
+            </div>
+        </div>
+        
+        <div class="policy-view-meta" style="margin-bottom: 25px; padding: 15px; background: #f8f9fa; border-radius: 8px;">
+            ${policy.effectiveDate ? `
+                <div style="margin-bottom: 8px;">
+                    <strong><i class="fas fa-calendar"></i> Effective Date:</strong> 
+                    <span>${policy.effectiveDate}</span>
+                </div>
+            ` : ''}
+            ${policy.version ? `
+                <div style="margin-bottom: 8px;">
+                    <strong><i class="fas fa-code-branch"></i> Version:</strong> 
+                    <span>${policy.version}</span>
+                </div>
+            ` : ''}
+            ${policy.approvedBy ? `
+                <div style="margin-bottom: 8px;">
+                    <strong><i class="fas fa-user-check"></i> Approved By:</strong> 
+                    <span>${policy.approvedBy}</span>
+                </div>
+            ` : ''}
+            ${policy.clinics ? `
+                <div style="margin-bottom: 8px;">
+                    <strong><i class="fas fa-building"></i> Applicable Organizations:</strong> 
+                    <span>${policy.clinics}</span>
+                </div>
+            ` : ''}
+        </div>
+        
+        <div style="background: #fff; border: 1px solid #e5e7eb; border-radius: 8px; padding: 15px; margin-bottom: 25px;">
+            <h5 style="margin: 0 0 12px 0; color: #333; display: flex; align-items: center; gap: 8px;">
+                <i class="fas fa-eye" style="color: #667eea;"></i> Viewers (${viewers.length})
+            </h5>
+            <div style="max-height: 150px; overflow-y: auto;">
+                ${viewersList}
+            </div>
+        </div>
+        
+        <div class="policy-view-content" style="line-height: 1.8;">
+            ${formattedContent}
+        </div>
+    `;
+    
+    contentElement.innerHTML = policyHTML;
+    
+    // Show the modal
+    modal.style.display = 'block';
+}
+
+// Track policy views
+function trackPolicyView(policyId, userId) {
+    if (!policyId || !userId) return;
+    
+    // Load existing views
+    const views = JSON.parse(localStorage.getItem('policyViews') || '{}');
+    
+    // Initialize policy views if needed
+    if (!views[policyId]) {
+        views[policyId] = [];
+    }
+    
+    // Check if user already viewed this policy
+    const existingView = views[policyId].find(v => v.userId === userId);
+    
+    if (!existingView) {
+        // Add new view
+        const user = loadFromLocalStorage('currentUser', null);
+        views[policyId].push({
+            userId: userId,
+            username: user?.username || 'Unknown',
+            viewedAt: new Date().toISOString()
+        });
+        
+        // Save to localStorage
+        localStorage.setItem('policyViews', JSON.stringify(views));
+    }
+}
+
+// Get viewers for a policy
+function getPolicyViewers(policyId) {
+    const views = JSON.parse(localStorage.getItem('policyViews') || '{}');
+    return views[policyId] || [];
+}
+
+// Calculate user's policy view percentage
+function getUserPolicyViewPercentage(userId) {
+    if (!userId) return 0;
+    
+    const policies = loadCompanyPolicies();
+    if (policies.length === 0) return 0;
+    
+    const views = JSON.parse(localStorage.getItem('policyViews') || '{}');
+    let viewedCount = 0;
+    
+    policies.forEach(policy => {
+        const policyViews = views[policy.id] || [];
+        if (policyViews.some(v => v.userId === userId)) {
+            viewedCount++;
+        }
+    });
+    
+    return Math.round((viewedCount / policies.length) * 100);
+}
+
+function closePolicyViewModal() {
+    const modal = document.getElementById('policyViewModal');
+    if (modal) {
+        modal.style.display = 'none';
+    }
+}
+
+function updatePolicyCode() {
+    const categoryId = document.getElementById('editPolicyCode')?.value;
+    const policyId = document.getElementById('editPolicyId')?.value;
+    const policyType = document.getElementById('editPolicyType')?.value;
+    const codeDisplay = document.getElementById('policyCodeDisplay');
+    const codeInput = document.getElementById('editPolicyCodeDisplay');
+    
+    if (categoryId && codeDisplay && codeInput) {
+        const code = generatePolicyCode(categoryId, policyId, policyType);
+        if (code) {
+            codeInput.value = code;
+            codeDisplay.style.display = 'block';
+        } else {
+            codeDisplay.style.display = 'none';
+        }
+    } else if (codeDisplay) {
+        codeDisplay.style.display = 'none';
+    }
+}
+
+function editPolicy(policyId) {
+    console.log('editPolicy called with policyId:', policyId);
+    const policies = loadCompanyPolicies();
+    
+    // Handle both string and number IDs
+    const policy = policies.find(p => p.id === policyId || p.id === String(policyId) || String(p.id) === policyId);
+    
+    if (!policy) {
+        console.error('Policy not found with ID:', policyId);
+        showNotification('Policy not found', 'error');
+        return;
+    }
+    
+    console.log('Found policy to edit:', policy);
+    
+    // Populate edit form with structured fields
+    document.getElementById('editPolicyId').value = policy.id;
+    document.getElementById('editPolicyTitle').value = policy.title || '';
+    document.getElementById('editPolicyType').value = policy.type || 'admin';
+    document.getElementById('editPolicyEffectiveDate').value = policy.effectiveDate || new Date().toISOString().split('T')[0];
+    document.getElementById('editPolicyVersion').value = policy.version || '1.0';
+    
+    // Populate structured policy sections
+    // If structured fields exist, use them
+    if (policy.purpose || policy.scope || policy.policyStatement) {
+        document.getElementById('editPolicyPurpose').value = policy.purpose || '';
+        document.getElementById('editPolicyScope').value = policy.scope || '';
+        document.getElementById('editPolicyStatement').value = policy.policyStatement || '';
+        document.getElementById('editPolicyProcedures').value = policy.procedures || '';
+        document.getElementById('editPolicyResponsibilities').value = policy.responsibilities || '';
+        document.getElementById('editPolicyConsequences').value = policy.consequences || policy.accountability || '';
+        document.getElementById('editPolicyContent').value = '';
+    } else {
+        // Legacy policies - put all content in appropriate structured fields
+        const content = policy.content || policy.description || '';
+        
+        // Try to split content by common section headers
+        const sections = parseLegacyPolicyContent(content);
+        
+        document.getElementById('editPolicyPurpose').value = sections.purpose || '';
+        document.getElementById('editPolicyScope').value = sections.scope || '';
+        document.getElementById('editPolicyStatement').value = sections.policyStatement || sections.statement || '';
+        document.getElementById('editPolicyProcedures').value = sections.procedures || '';
+        document.getElementById('editPolicyResponsibilities').value = sections.responsibilities || '';
+        document.getElementById('editPolicyConsequences').value = sections.consequences || sections.accountability || '';
+        
+        // Store any remaining content in additional content field
+        document.getElementById('editPolicyContent').value = sections.additional || '';
+    }
+    
+    // Populate organizations checkboxes
+    populateEditOrganizations(policy);
+    
+    // Populate related documents checkboxes
+    populateEditRelatedDocuments(policy);
+    
+    // Populate categories dropdown
+    populateCategoriesDropdown();
+    
+    // Set selected category if it exists
+    if (policy.categoryId) {
+        const categorySelect = document.getElementById('editPolicyCode');
+        if (categorySelect) {
+            categorySelect.value = policy.categoryId;
+        }
+        // Update policy code display
+        setTimeout(() => updatePolicyCode(), 100);
+    }
+    
+    // Show existing policy code if it exists
+    if (policy.policyCode) {
+        const codeDisplay = document.getElementById('policyCodeDisplay');
+        const codeInput = document.getElementById('editPolicyCodeDisplay');
+        if (codeDisplay && codeInput) {
+            codeInput.value = policy.policyCode;
+            codeDisplay.style.display = 'block';
+        }
+    }
+    
+    // Show modal
+    document.getElementById('policyEditModal').style.display = 'block';
+}
+
+function populateEditOrganizations(policy) {
+    const orgsList = document.getElementById('editOrganizationsList');
+    if (!orgsList) return;
+    
+    // Get organizations from localStorage
+    const organizations = JSON.parse(localStorage.getItem('organizations') || '{}');
+    const companyOrgs = organizations[currentCompany] || [];
+    
+    // Get organizations from policy (handle different formats)
+    const policyOrgs = policy.clinicNames || policy.organizations || policy.clinics || '';
+    const policyOrgArray = Array.isArray(policyOrgs) ? policyOrgs : policyOrgs.split(',').map(o => o.trim());
+    
+    if (companyOrgs.length === 0) {
+        orgsList.innerHTML = '<p style="color: #666;">No organizations configured. Add organizations in Settings.</p>';
+        return;
+    }
+    
+    orgsList.innerHTML = companyOrgs.map(org => {
+        const orgName = typeof org === 'object' ? org.name : org;
+        const isChecked = policyOrgArray.includes(orgName) || policyOrgArray.includes('All Organizations');
+        return `
+            <label style="display: flex; align-items: center; gap: 8px; padding: 8px 12px; background: #f8f9fa; border-radius: 4px; border: 1px solid #e0e0e0; cursor: pointer; margin-bottom: 8px;">
+                <input type="checkbox" name="editOrganizations" value="${orgName}" ${isChecked ? 'checked' : ''}>
+                <span>${orgName}</span>
+            </label>
+        `;
+    }).join('');
+}
+
+function parseLegacyPolicyContent(content) {
+    const sections = {
+        purpose: '',
+        scope: '',
+        policyStatement: '',
+        statement: '',
+        procedures: '',
+        responsibilities: '',
+        consequences: '',
+        accountability: '',
+        definitions: '',
+        relatedDocuments: '',
+        reviewApproval: '',
+        additional: ''
+    };
+
+    if (!content) return sections;
+
+    // Normalize line endings and split
+    const lines = content.replace(/\r\n?/g, '\n').split('\n');
+
+    // Map of header keywords to our canonical section keys
+    const headerMap = [
+        { re: /purpose/i, key: 'purpose' },
+        { re: /scope/i, key: 'scope' },
+        { re: /policy\s*statement|statement/i, key: 'policyStatement' },
+        { re: /procedure|implementation/i, key: 'procedures' },
+        { re: /responsibilit/i, key: 'responsibilities' },
+        { re: /consequence|non-?compliance|accountability/i, key: 'consequences' },
+        { re: /definition/i, key: 'definitions' },
+        { re: /related\s*documents?/i, key: 'relatedDocuments' },
+        { re: /review\s*&\s*approval|review\s*and\s*approval/i, key: 'reviewApproval' }
+    ];
+
+    // A header is considered if the line matches one of:
+    // - Markdown headers: 1-3 hashes + text
+    // - Numbered headers: "1.", "2)", etc. followed by text and optional colon
+    // - Plain uppercase word headers ending with a colon
+    const isHeader = (text) => {
+        const t = text.trim();
+        const candidates = [
+            /^#{1,3}\s*(.+)$/i,
+            /^(\d+\s*[\.)-]\s*)?(.+?):?$/i,
+        ];
+        for (const re of candidates) {
+            const m = t.match(re);
+            if (m) {
+                const label = (m[1] && !m[2]) ? m[1] : (m[2] || m[1] || t);
+                const clean = String(label).replace(/^[\d\s\.)-]+/, '').trim();
+                for (const { re: hre, key } of headerMap) {
+                    if (hre.test(clean)) return key;
+                }
+            }
+        }
+        return null;
+    };
+
+    let currentKey = 'additional';
+    const buckets = Object.keys(sections).reduce((acc, k) => { acc[k] = []; return acc; }, {});
+
+    for (const rawLine of lines) {
+        const line = rawLine.trimEnd();
+        if (!line.trim()) { // preserve blank lines inside a section
+            buckets[currentKey].push('');
+            continue;
+        }
+        const headerKey = isHeader(line);
+        if (headerKey) {
+            currentKey = headerKey;
+            continue; // do not include the header line itself
+        }
+        buckets[currentKey].push(rawLine);
+    }
+
+    // Commit buckets to sections (join and trim)
+    for (const key of Object.keys(sections)) {
+        const text = buckets[key].join('\n').trim();
+        if (text) sections[key] = text;
+    }
+
+    // Backfill: if we parsed generic 'statement', map it to policyStatement when that is empty
+    if (!sections.policyStatement && sections.statement) {
+        sections.policyStatement = sections.statement;
+    }
+
+    return sections;
+}
+
+async function savePolicyEdit(event) {
+    event.preventDefault();
+    
+    const policyId = document.getElementById('editPolicyId').value;
+    const policies = loadCompanyPolicies();
+    const policyIndex = policies.findIndex(p => p.id === policyId);
+    
+    if (policyIndex === -1) {
+        showNotification('Policy not found', 'error');
+        return;
+    }
+    
+    // Get selected organizations
+    const selectedOrgs = Array.from(document.querySelectorAll('input[name="editOrganizations"]:checked'))
+        .map(cb => cb.value);
+    
+    // Get selected related documents
+    const selectedDocs = Array.from(document.querySelectorAll('input[name="editRelatedDocuments"]:checked'))
+        .map(cb => parseInt(cb.value));
+    
+    // Get selected category
+    const categoryId = document.getElementById('editPolicyCode')?.value || null;
+    
+    // Get policy type
+    const policyType = document.getElementById('editPolicyType').value;
+    
+    // Generate policy code if category is selected
+    const policyCode = categoryId ? generatePolicyCode(categoryId, policyId, policyType) : null;
+    
+    // Collect all policy text content
+    const purpose = document.getElementById('editPolicyPurpose').value;
+    const scope = document.getElementById('editPolicyScope').value;
+    const policyStatement = document.getElementById('editPolicyStatement').value;
+    const procedures = document.getElementById('editPolicyProcedures').value;
+    const responsibilities = document.getElementById('editPolicyResponsibilities').value;
+    const consequences = document.getElementById('editPolicyConsequences').value;
+    const content = document.getElementById('editPolicyContent').value;
+    
+    // Combine all text into full policy text
+    const fullTextParts = [];
+    if (purpose) fullTextParts.push(`Purpose: ${purpose}`);
+    if (scope) fullTextParts.push(`Scope: ${scope}`);
+    if (policyStatement) fullTextParts.push(`Policy Statement: ${policyStatement}`);
+    if (procedures) fullTextParts.push(`Procedures: ${procedures}`);
+    if (responsibilities) fullTextParts.push(`Responsibilities: ${responsibilities}`);
+    if (consequences) fullTextParts.push(`Consequences: ${consequences}`);
+    if (content) fullTextParts.push(content);
+    const fullText = fullTextParts.join('\n\n');
+    
+    // Update policy with structured fields
+    policies[policyIndex] = {
+        ...policies[policyIndex],
+        // Basic fields
+        title: document.getElementById('editPolicyTitle').value,
+        name: document.getElementById('editPolicyTitle').value, // For backward compatibility
+        type: policyType,
+        clinicNames: selectedOrgs.join(', '),
+        effectiveDate: document.getElementById('editPolicyEffectiveDate').value,
+        version: document.getElementById('editPolicyVersion').value,
+        categoryId: categoryId,
+        policyCode: policyCode,
+        status: policies[policyIndex].status || 'active', // Ensure status is set
+        
+        // Structured policy sections
+        purpose: purpose,
+        scope: scope,
+        policyStatement: policyStatement,
+        procedures: procedures,
+        responsibilities: responsibilities,
+        consequences: consequences,
+        
+        // Additional/legacy content
+        content: fullText,
+        text: fullText, // Full policy text for webhook
+        
+        // Related documents
+        relatedDocuments: selectedDocs,
+        
+        // Metadata
+        lastModified: new Date().toISOString(),
+        modifiedBy: currentUser ? currentUser.username : 'Unknown'
+    };
+    
+    // Save to localStorage
+    localStorage.setItem(`policies_${currentCompany}`, JSON.stringify(policies));
+    
+    // Also save to global "all policies" list
+    let allPolicies = JSON.parse(localStorage.getItem('allPolicies') || '[]');
+    const globalIndex = allPolicies.findIndex(p => p.id === policies[policyIndex].id);
+    if (globalIndex >= 0) {
+        allPolicies[globalIndex] = policies[policyIndex];
+    } else {
+        allPolicies.push(policies[policyIndex]);
+    }
+    localStorage.setItem('allPolicies', JSON.stringify(allPolicies));
+    console.log('Policy saved to all policies list');
+    
+    // Trigger sync events
+    localStorage.setItem(`policies_${currentCompany}_updated`, new Date().toISOString());
+    window.dispatchEvent(new CustomEvent('companyPoliciesUpdated', {
+        detail: { company: currentCompany, policies: policies }
+    }));
+    
+    // Send policy data to webhook
+    try {
+        if (typeof window.sendPolicyToWebhook === 'function') {
+            await window.sendPolicyToWebhook(policies[policyIndex]);
+            console.log('Policy data sent to webhook successfully');
+        } else {
+            console.warn('sendPolicyToWebhook function not available');
+        }
+    } catch (error) {
+        console.error('Failed to send policy to webhook:', error);
+        // Don't block policy saving if webhook fails
+    }
+    
+    // Refresh displays
+    loadPoliciesFromStorage();
+    
+    // Close modal
+    closePolicyEditModal();
+    
+    showNotification('Policy updated successfully', 'success');
+}
+
+function closePolicyEditModal() {
+    document.getElementById('policyEditModal').style.display = 'none';
+    document.getElementById('policyEditForm').reset();
+}
+
+function deletePolicy(policyId) {
+    if (!confirm('Are you sure you want to delete this policy?')) {
+        return;
+    }
+    
+    const policies = loadCompanyPolicies();
+    const filtered = policies.filter(p => p.id !== policyId);
+    localStorage.setItem(`policies_${currentCompany}`, JSON.stringify(filtered));
+    
+    showNotification('Policy deleted successfully', 'success');
+    closePoliciesModal();
+    openPoliciesModal(); // Refresh modal
+}
+
+function loadCompanyPolicies() {
+    if (!currentCompany) {
+        return [];
+    }
+    
+    const stored = localStorage.getItem(`policies_${currentCompany}`);
+    if (stored) {
+        try {
+            return JSON.parse(stored);
+        } catch (error) {
+            console.error('Error parsing stored policies:', error);
+            return [];
+        }
+    }
+    return [];
+}
+
+function syncPoliciesToMasterAdmin(policies) {
+    // Safety check
+    if (!policies || !Array.isArray(policies)) {
+        console.error('syncPoliciesToMasterAdmin: policies is not an array:', policies);
+        return;
+    }
+    
+    // Load master admin data
+    const masterData = loadMasterAdminData();
+    
+    if (masterData && masterData.companies) {
+        // Find current company in master data
+        const companyIndex = masterData.companies.findIndex(c => c.name === currentCompany);
+        if (companyIndex >= 0) {
+            // Update company with policy count
+            masterData.companies[companyIndex].policies = policies.length;
+            masterData.companies[companyIndex].lastActive = new Date().toISOString();
+            
+            // Save updated master data
+            localStorage.setItem('masterAdminData', JSON.stringify(masterData));
+            
+            // Dispatch event to notify master admin dashboard
+            window.dispatchEvent(new CustomEvent('masterDataUpdated', {
+                detail: { type: 'policies', data: masterData }
+            }));
+        }
+    }
+}
+
+function loadPoliciesFromStorage() {
+    const companyPolicies = loadCompanyPolicies();
+    
+    // Filter policies based on user's organizations if user is not admin
+    let visiblePolicies = companyPolicies;
+    
+    if (currentUser && currentUser.role === 'user' && currentUser.organizations) {
+        // User is not an admin, filter policies by their assigned organizations
+        const userOrganizations = Array.isArray(currentUser.organizations) 
+            ? currentUser.organizations 
+            : currentUser.organizations.split(',').map(org => org.trim());
+        
+        console.log('Filtering policies for user organizations:', userOrganizations);
+        
+        visiblePolicies = companyPolicies.filter(policy => {
+            // Get the policy's applicable organizations
+            const policyOrganizations = policy.clinicNames || policy.organizations || policy.clinics || '';
+            const policyOrgArray = Array.isArray(policyOrganizations) 
+                ? policyOrganizations 
+                : policyOrganizations.split(',').map(org => org.trim());
+            
+            // Check if "All Organizations" is in the policy
+            if (policyOrgArray.includes('All Organizations') || policyOrgArray.length === 0) {
+                return true; // Show policies that apply to all organizations
+            }
+            
+            // Check if any of the user's organizations match the policy's organizations
+            const hasMatchingOrg = userOrganizations.some(userOrg => 
+                policyOrgArray.some(policyOrg => 
+                    policyOrg.includes(userOrg) || userOrg.includes(policyOrg)
+                )
+            );
+            
+            return hasMatchingOrg;
+        });
+        
+        console.log(`Filtered ${visiblePolicies.length} policies from ${companyPolicies.length} total policies`);
+    } else {
+        console.log('User is admin or has no organization restrictions');
+    }
+    
+    // Update the global policies array
+    policies.length = 0; // Clear existing policies
+    policies.push(...visiblePolicies);
+    
+    // Also update currentPolicies for the main view
+    currentPolicies.length = 0; // Clear existing currentPolicies
+    currentPolicies.push(...visiblePolicies);
+    
+    // Display policies
+    displayPolicies(visiblePolicies);
+    
+    console.log(`Loaded ${visiblePolicies.length} policies for company ${currentCompany}`);
+}
+
+// Setup signup form event listeners
+function setupSignupFormListeners() {
+    console.log('Setting up signup form listeners...');
+    
+    const signupFormIds = ['companyCodeSignupForm', 'signupForm'];
+    
+    signupFormIds.forEach(formId => {
+        const form = document.getElementById(formId);
+        if (!form) {
+            console.log(`Form ${formId} not found`);
+            return;
+        }
+        
+        if (form.dataset.signupListenerAttached === 'true') {
+            console.log(`Form ${formId} already has listener attached`);
+            return;
+        }
+        
+        // Remove any existing onclick handler that might interfere
+        const existingOnsubmit = form.getAttribute('onsubmit');
+        if (existingOnsubmit) {
+            console.log(`Form ${formId} has onsubmit: ${existingOnsubmit}`);
+        }
+        
+        // Add event listener with capture to ensure it runs
+        form.addEventListener('submit', function(e) {
+            console.log(`🔵 Signup form submit event triggered for ${formId}`);
+            e.preventDefault();
+            e.stopPropagation();
+            
+            // Call signupUser if available
+            if (typeof signupUser === 'function') {
+                console.log('Calling signupUser function...');
+            signupUser(e);
+            } else if (typeof window.signupUser === 'function') {
+                console.log('Calling window.signupUser function...');
+                window.signupUser(e);
+            } else {
+                console.error('signupUser function not available!');
+                alert('Signup function not available. Please refresh the page.');
+            }
+        }, true); // Use capture phase
+        
+        form.dataset.signupListenerAttached = 'true';
+        console.log(`✅ Signup form listener attached for ${formId}`);
+    });
+    
+    console.log('Signup form listeners setup complete');
+}
+
+// User Management Functions
+// showSignupModal, showLoginModal, and startDemo are now defined at the top of the file
+// These duplicate definitions are kept for backward compatibility but delegate to the top-level functions
+
+function closeSignupModal() {
+    closeAuthPortal('createAccountPortal');
+    
+    const signupForm = document.getElementById('signupForm');
+    if (signupForm) {
+        signupForm.reset();
+    }
+    
+    const errorMsg = document.getElementById('signup-error-message');
+    if (errorMsg) {
+        errorMsg.style.display = 'none';
+    }
+}
+
+// showLoginModal is now defined at the top - this is kept for backward compatibility
+
+function closeLoginModal() {
+    closeAuthPortal('loginPortal');
+    const form = document.getElementById('loginForm');
+    if (form) form.reset();
+    const error = document.getElementById('login-error-message');
+    if (error) error.style.display = 'none';
+}
+async function signupUser(event) {
+    if (event) {
+    event.preventDefault();
+        event.stopPropagation();
+    }
+    
+    console.log('🔵 signupUser function called');
+    console.log('Event:', event);
+    console.log('Event target:', event ? event.target : 'none');
+    
+    // Determine which form is being submitted
+    const form = event.target.closest('form');
+    const formId = form ? form.id : '';
+    console.log('Form ID:', formId);
+    
+    // Get the correct field IDs based on form type
+    let usernameField, emailField, passwordField, accessCodeField, errorField, signupButton;
+    
+    if (formId === 'companyCodeSignupForm') {
+        usernameField = 'companyCodeSignupUsername';
+        emailField = 'companyCodeSignupEmail';
+        passwordField = 'companyCodeSignupPassword';
+        accessCodeField = 'companyCodeSignupAccessCode';
+        errorField = 'company-code-signup-error-message';
+        signupButton = form.querySelector('button[type="submit"]');
+    } else {
+        // Default to original signup form IDs
+        usernameField = 'signupUsername';
+        emailField = 'signupEmail';
+        passwordField = 'signupPassword';
+        accessCodeField = 'signupAccessCode';
+        errorField = 'signup-error-message';
+        signupButton = document.querySelector('#signupForm button[type="submit"]');
+    }
+    
+    console.log('Signup button found:', !!signupButton);
+    console.log('Using field IDs:', { usernameField, emailField, passwordField, accessCodeField });
+    
+    try {
+        console.log('Step 1: Starting signup process');
+        
+        // Show loading state on button
+    if (signupButton) {
+        signupButton.textContent = 'Creating Account...';
+        signupButton.disabled = true;
+    }
+        console.log('Step 2: Button state updated');
+    
+        const usernameEl = document.getElementById(usernameField);
+        const emailEl = document.getElementById(emailField);
+        const passwordEl = document.getElementById(passwordField);
+        const accessCodeEl = document.getElementById(accessCodeField);
+        const fullNameEl = document.getElementById('signupFullName');
+        
+        if (!usernameEl || !emailEl || !passwordEl || !accessCodeEl) {
+            console.error('Form fields not found:', { usernameEl: !!usernameEl, emailEl: !!emailEl, passwordEl: !!passwordEl, accessCodeEl: !!accessCodeEl });
+            showSignupError('Form fields not found. Please refresh the page.', errorField);
+            if (signupButton) {
+                signupButton.textContent = 'Create Account';
+                signupButton.disabled = false;
+            }
+            return;
+        }
+        
+        const username = usernameEl.value.trim();
+        const email = emailEl.value.trim();
+        const password = passwordEl.value.trim();
+        const accessCode = accessCodeEl.value.trim();
+        const fullName = fullNameEl ? fullNameEl.value.trim() : '';
+    
+    console.log('Step 3: Form data extracted:', { username, email, password: '***', accessCode, fullName });
+    
+    // Validate required fields
+    if (!username || !email || !password || !accessCode || (fullNameEl && !fullName)) {
+        console.log('Step 4: Validation failed - missing fields');
+        showSignupError('Please fill in all required fields.', errorField);
+        // Reset button
+        if (signupButton) {
+            signupButton.textContent = 'Create Account';
+            signupButton.disabled = false;
+        }
+        return;
+    }
+    console.log('Step 5: Field validation passed');
+    
+    // Validate access code against Supabase
+    console.log('Step 6: Validating access code in Supabase...');
+    console.log('Step 6a: Searching for code:', accessCode);
+    
+    // Check localStorage directly for debugging
+    const allCodes = JSON.parse(localStorage.getItem('masterAccessCodes') || '[]');
+    console.log('Step 6b: All codes in localStorage:', allCodes.length);
+    console.log('Step 6c: Code list:', allCodes.map(c => ({ code: c.code, status: c.status })));
+    
+    const foundAccessCode = await SupabaseDB.findAccessCodeByCode(accessCode);
+    console.log('Step 6d: Found access code:', foundAccessCode ? 'YES' : 'NO', foundAccessCode);
+    
+        if (!foundAccessCode) {
+        console.log('Step 7: Access code not found or invalid');
+        showSignupError('Invalid access code. Please check with your administrator for a valid code.', errorField);
+        if (signupButton) {
+            signupButton.textContent = 'Create Account';
+            signupButton.disabled = false;
+        }
+        return;
+    }
+    
+    // Check if access code is expired
+    if (foundAccessCode.expiry_date && new Date(foundAccessCode.expiry_date) <= new Date()) {
+        console.log('Step 7: Access code expired');
+        showSignupError('Access code has expired. Please contact your administrator for a new code.', errorField);
+        if (signupButton) {
+            signupButton.textContent = 'Create Account';
+            signupButton.disabled = false;
+        }
+        return;
+    }
+    
+    console.log('Step 7: Access code validated successfully');
+    
+    // Check if username/email already exists
+    console.log('Step 8: Checking username/email uniqueness...');
+    const allUsers = await SupabaseDB.getUsers();
+    
+    if (allUsers.find(user => user.username === username)) {
+        console.log('Step 9: Username already exists');
+        showSignupError('Username already exists. Please choose a different username.', errorField);
+        if (signupButton) {
+            signupButton.textContent = 'Create Account';
+            signupButton.disabled = false;
+        }
+        return;
+    }
+    
+    if (allUsers.find(user => user.email === email)) {
+        console.log('Step 9: Email already exists');
+        showSignupError('Email already exists. Please use a different email.', errorField);
+        if (signupButton) {
+            signupButton.textContent = 'Create Account';
+            signupButton.disabled = false;
+        }
+        return;
+    }
+    
+    console.log('Step 9: Username and email are unique');
+    
+    // Get company name from access code
+    console.log('Step 10: Determining company...');
+    console.log('Step 10a: Access code details:', foundAccessCode);
+    
+    let companyName = 'Default Company';
+    if (foundAccessCode.description) {
+        companyName = foundAccessCode.description;
+    } else if (foundAccessCode.used_by && foundAccessCode.used_by.length > 0) {
+        companyName = Array.isArray(foundAccessCode.used_by) ? foundAccessCode.used_by[0] : foundAccessCode.used_by;
+    }
+    
+    console.log('Step 10b: Company name determined:', companyName);
+    
+    // Find or create company
+    console.log('Step 10c: Finding or creating company...');
+    let company = await SupabaseDB.findCompanyByName(companyName);
+    let companyId = null;
+    
+    if (!company) {
+        // Create new company
+        console.log('Step 10d: Creating new company:', companyName);
+        company = await SupabaseDB.createCompany({
+            name: companyName,
+            plan: 'free-trial',
+            created_at: new Date().toISOString()
+        });
+        
+        if (!company) {
+            console.error('Failed to create company');
+            showSignupError('Failed to create company. Please try again.', errorField);
+        if (signupButton) {
+            signupButton.textContent = 'Create Account';
+            signupButton.disabled = false;
+        }
+        return;
+    }
+        console.log('Step 10e: Company created:', company.id);
+    } else {
+        console.log('Step 10e: Company found:', company.id);
+    }
+    
+    companyId = company.id;
+    
+    // Create user via Supabase Auth (with localStorage fallback)
+    console.log('Step 11: Creating user via Supabase Auth...');
+    
+    // Check if Supabase is configured and working
+    const supabaseClient = window.supabaseClient || (typeof SupabaseDB !== 'undefined' && SupabaseDB.getClient ? SupabaseDB.getClient() : null);
+    const SUPABASE_URL = (typeof window !== 'undefined' && window.SUPABASE_URL) || 'YOUR_SUPABASE_URL';
+    const isSupabaseConfigured = supabaseClient && SUPABASE_URL !== 'YOUR_SUPABASE_URL';
+    
+    let authData = null;
+    let authError = null;
+    let useLocalStorageFallback = false;
+    
+    if (isSupabaseConfigured) {
+        try {
+            // Try Supabase Auth signup
+            const signupResult = await SupabaseDB.signUp(email, password, {
+                username: username,
+                full_name: fullName || username
+            });
+            
+            authData = signupResult.data;
+            authError = signupResult.error;
+            
+            if (authError) {
+                console.error('Step 11a: Auth signup error:', authError);
+                // If it's a 500 error or network error, fall back to localStorage
+                if (authError.message.includes('500') || authError.message.includes('network') || authError.status === 500) {
+                    console.log('Step 11b: Supabase Auth failed with 500 error, using localStorage fallback');
+                    useLocalStorageFallback = true;
+                } else if (authError.message.includes('already registered')) {
+                    showSignupError('Email already registered. Please use a different email or log in.', errorField);
+        if (signupButton) {
+            signupButton.textContent = 'Create Account';
+            signupButton.disabled = false;
+        }
+        return;
+        } else {
+                    // For other errors, try localStorage fallback
+                    console.log('Step 11c: Auth error, falling back to localStorage');
+                    useLocalStorageFallback = true;
+                }
+            } else if (!authData || !authData.user) {
+                console.log('Step 11d: No user returned from auth, using localStorage fallback');
+                useLocalStorageFallback = true;
+        } else {
+                console.log('Step 11e: Auth user created:', authData.user.id);
+            }
+        } catch (signupException) {
+            console.error('Step 11f: Exception during Supabase Auth signup:', signupException);
+            console.log('Step 11g: Using localStorage fallback due to exception');
+            useLocalStorageFallback = true;
+        }
+    } else {
+        console.log('Step 11h: Supabase not configured, using localStorage fallback');
+        useLocalStorageFallback = true;
+    }
+    
+    // Use localStorage fallback if Supabase failed or not configured
+    if (useLocalStorageFallback) {
+        console.log('Step 11i: Creating user in localStorage...');
+        
+        // Create normalized user object for app compatibility
+        const userData = {
+        username: username,
+        email: email,
+            password: password, // Store password for localStorage fallback login
+            company: companyName,
+            company_id: companyId,
+        role: 'user',
+            full_name: fullName || username,
+            fullName: fullName || username,
+            organizations: [],
+            created: new Date().toISOString().split('T')[0],
+            created_at: new Date().toISOString(),
+            status: 'active'
+        };
+        
+        // Use SupabaseDB.createUser() which will send to webhook and save to localStorage
+        let createdUserFinal = null;
+        if (typeof SupabaseDB !== 'undefined' && SupabaseDB.createUser) {
+            try {
+                createdUserFinal = await SupabaseDB.createUser(userData);
+                console.log('Step 11j: User created via SupabaseDB.createUser()');
+            } catch (error) {
+                console.error('Error creating user via SupabaseDB:', error);
+                // Fallback to direct localStorage if SupabaseDB fails
+                const userId = `user-${Date.now()}`;
+                createdUserFinal = {
+                    id: userId,
+                    ...userData
+                };
+                
+                // Still send to webhook even in fallback
+                if (typeof sendToWebhook === 'function') {
+                    try {
+                        console.log('Step 11j-fallback: Sending user to webhook...');
+                        await sendToWebhook(createdUserFinal, 'user');
+                        console.log('Step 11j-fallback: User sent to webhook successfully');
+                    } catch (webhookError) {
+                        console.error('Step 11j-fallback: Error sending to webhook:', webhookError);
+                        // Continue anyway
+                    }
+                }
+                
+        const masterUsers = JSON.parse(localStorage.getItem('masterUsers') || '[]');
+        masterUsers.push(createdUserFinal);
+        localStorage.setItem('masterUsers', JSON.stringify(masterUsers));
+                console.log('Step 11j: User saved directly to localStorage (fallback)');
+            }
+        } else {
+            // Direct localStorage fallback if SupabaseDB is not available
+            const userId = `user-${Date.now()}`;
+            createdUserFinal = {
+                id: userId,
+                ...userData
+            };
+            
+            // Still send to webhook even if SupabaseDB is not available
+            if (typeof sendToWebhook === 'function') {
+                try {
+                    console.log('Step 11j-no-supabase: Sending user to webhook...');
+                    await sendToWebhook(createdUserFinal, 'user');
+                    console.log('Step 11j-no-supabase: User sent to webhook successfully');
+                } catch (webhookError) {
+                    console.error('Step 11j-no-supabase: Error sending to webhook:', webhookError);
+                    // Continue anyway
+                }
+            }
+            
+            const masterUsers = JSON.parse(localStorage.getItem('masterUsers') || '[]');
+            masterUsers.push(createdUserFinal);
+            localStorage.setItem('masterUsers', JSON.stringify(masterUsers));
+            console.log('Step 11j: User saved directly to localStorage (SupabaseDB not available)');
+        }
+        
+        if (!createdUserFinal) {
+            showSignupError('Failed to create user account. Please try again.', errorField);
+            if (signupButton) {
+                signupButton.textContent = 'Create Account';
+                signupButton.disabled = false;
+            }
+            return;
+        }
+        
+        // Continue with the rest of the signup flow
+        currentUser = createdUserFinal;
+        currentCompany = companyName;
+        persistAuthUser(currentUser, currentCompany, true);
+        refreshCurrentWebhookSettings();
+    
+        // Update access code usage
+        console.log('Step 12: Updating access code usage...');
+        const usedBy = foundAccessCode.used_by || [];
+        const usedByArray = Array.isArray(usedBy) ? usedBy : [];
+        if (!usedByArray.includes(companyName)) {
+            usedByArray.push(companyName);
+            // Update in localStorage
+            const accessCodes = JSON.parse(localStorage.getItem('masterAccessCodes') || '[]');
+            const codeIndex = accessCodes.findIndex(c => c.id === foundAccessCode.id);
+            if (codeIndex !== -1) {
+                accessCodes[codeIndex].used_by = usedByArray;
+                localStorage.setItem('masterAccessCodes', JSON.stringify(accessCodes));
+            }
+            console.log('Step 12a: Access code usage updated in localStorage:', usedByArray);
+        }
+        
+        // Add user-logged-in class to body
+        document.body.classList.add('user-logged-in');
+        
+        // Close the correct modal FIRST before updating UI
+        if (formId === 'companyCodeSignupForm') {
+            closeCompanyCodeSignupModal();
+    } else {
+            closeSignupModal();
+        }
+        
+    // Update UI
+        try {
+    updateUserInterface();
+            loadPoliciesFromStorage();
+        } catch (uiError) {
+            console.error('Error updating UI:', uiError);
+        }
+    
+    if (signupButton) {
+        signupButton.textContent = 'Create Account';
+        signupButton.disabled = false;
+    }
+    
+        console.log('Step 13: Signup complete via localStorage fallback');
+        return;
+    }
+    
+    // Continue with Supabase flow if it succeeded
+    if (authData && authData.user) {
+        console.log('Step 11c: Auth user created:', authData.user.id);
+        
+        // Update profile with company_id and username
+        console.log('Step 12: Updating profile...');
+        const profileUpdate = {
+        username: username,
+            company_id: companyId,
+        role: 'user',
+            organizations: []
+        };
+        
+        const updatedProfile = await SupabaseDB.updateUser(authData.user.id, profileUpdate);
+        
+        if (!updatedProfile) {
+            console.warn('Step 12a: Profile update failed, but auth user created');
+            // Create profile manually if update failed
+            const profileData = {
+                id: authData.user.id,
+                username: username,
+                email: email,
+                full_name: username,
+                company_id: companyId,
+                role: 'user',
+                organizations: []
+            };
+            
+            // Get supabaseClient from supabase-config
+            const supabaseClient = window.supabaseClient || (typeof SupabaseDB !== 'undefined' && SupabaseDB.getClient ? SupabaseDB.getClient() : null);
+            if (supabaseClient) {
+                const { data: profile, error: profileError } = await supabaseClient
+                    .from('profiles')
+                    .upsert(profileData)
+                    .select()
+                    .single();
+            
+                if (profileError) {
+                    console.error('Step 12b: Failed to create profile:', profileError);
+                    // Continue anyway - profile might be created by trigger
+                }
+            }
+        }
+        
+        // Create normalized user object for app compatibility
+        const createdUserFinal = {
+            id: authData.user.id,
+            username: username,
+            email: email,
+            password: password, // Store password for localStorage fallback login
+            company: companyName,
+            company_id: companyId,
+            role: 'user',
+            full_name: username,
+            fullName: username,
+            organizations: [],
+            created: new Date().toISOString().split('T')[0],
+            created_at: new Date().toISOString(),
+            status: 'active'
+        };
+        
+        // Send user to webhook via SupabaseDB.createUser() (even if Supabase Auth was used)
+        // This ensures the webhook is notified of new user creation
+        if (typeof SupabaseDB !== 'undefined' && SupabaseDB.createUser) {
+            try {
+                // Use createUser to send to webhook, but it will also save to localStorage
+                await SupabaseDB.createUser(createdUserFinal);
+                console.log('Step 13a: User data sent to webhook via SupabaseDB.createUser()');
+            } catch (error) {
+                console.error('Error sending user to webhook:', error);
+                // Continue anyway - user is already created via Supabase Auth
+            }
+        }
+        
+        // If Supabase is not configured, also save user to localStorage masterUsers
+        const supabaseClient = window.supabaseClient || (typeof SupabaseDB !== 'undefined' && SupabaseDB.getClient ? SupabaseDB.getClient() : null);
+        const SUPABASE_URL = (typeof window !== 'undefined' && window.SUPABASE_URL) || 'YOUR_SUPABASE_URL';
+        if (!supabaseClient || SUPABASE_URL === 'YOUR_SUPABASE_URL') {
+            const masterUsers = JSON.parse(localStorage.getItem('masterUsers') || '[]');
+            // Check if user already exists (might have been added by createUser)
+            const existingIndex = masterUsers.findIndex(u => u.id === createdUserFinal.id || u.email === createdUserFinal.email);
+            if (existingIndex === -1) {
+            masterUsers.push(createdUserFinal);
+            localStorage.setItem('masterUsers', JSON.stringify(masterUsers));
+                console.log('Step 13b: User saved to localStorage masterUsers');
+            } else {
+                console.log('Step 13b: User already exists in localStorage, skipping duplicate');
+            }
+        }
+        
+        console.log('Step 13: User created successfully:', createdUserFinal);
+        
+        // Update access code usage
+        console.log('Step 14: Updating access code usage...');
+        const usedBy = foundAccessCode.used_by || [];
+        const usedByArray = Array.isArray(usedBy) ? usedBy : [];
+        if (!usedByArray.includes(companyName)) {
+            usedByArray.push(companyName);
+            await SupabaseDB.updateAccessCode(foundAccessCode.id, { used_by: usedByArray });
+            console.log('Step 14a: Access code usage updated:', usedByArray);
+        } else {
+            console.log('Step 14a: Company already in used_by list');
+        }
+        
+        console.log('Step 14: Access code updated');
+        
+    // Auto-login the new user
+        console.log('Step 15: Auto-logging in user...');
+        currentUser = createdUserFinal;
+        currentCompany = createdUserFinal.company || companyName;
+        persistAuthUser(currentUser, currentCompany, true);
+        refreshCurrentWebhookSettings();
+    
+        // Refresh users list
+        users = await SupabaseDB.getUsers();
+        if (currentCompany) {
+            users = users.filter(user => user.company === currentCompany);
+        }
+        
+        // Add user-logged-in class to body
+        document.body.classList.add('user-logged-in');
+        
+        // Close the correct modal FIRST before updating UI
+        if (formId === 'companyCodeSignupForm') {
+            closeCompanyCodeSignupModal();
+        } else {
+            closeSignupModal();
+        }
+        
+    // Update UI
+        try {
+    updateUserInterface();
+            loadPoliciesFromStorage();
+        } catch (uiError) {
+            console.error('Error updating UI:', uiError);
+        }
+    
+        if (signupButton) {
+            signupButton.textContent = 'Create Account';
+            signupButton.disabled = false;
+        }
+    
+        console.log('Step 15: Signup complete');
+        return;
+    }
+    } catch (error) {
+        console.error('Unexpected error during signup:', error);
+        showSignupError('An unexpected error occurred. Please try again.', errorField || 'signup-error-message');
+        if (signupButton) {
+            signupButton.textContent = 'Create Account';
+            signupButton.disabled = false;
+        }
+        return;
+    }
+    
+    // If we get here, something went wrong
+    console.error('Step 11: Signup failed - no user created');
+    showSignupError('Failed to create account. Please try again.', errorField);
+    if (signupButton) {
+        signupButton.textContent = 'Create Account';
+        signupButton.disabled = false;
+    }
+}
+
+// Send welcome email to new user
+async function sendWelcomeEmail(user) {
+    try {
+        console.log('Sending welcome email to:', user.email);
+        
+        // Get email webhook URL from settings
+        const emailWebhookUrl = getWebhookUrl('email');
+        
+        // Prepare email data
+        const emailData = {
+            to: user.email,
+            subject: 'Welcome to Policy Pro!',
+            html: `
+                <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+                    <h2 style="color: #2563eb;">Welcome to Policy Pro!</h2>
+                    <p>Hi ${user.username},</p>
+                    <p>Your account has been successfully created. Here are your account details:</p>
+                    <div style="background: #f0f8ff; padding: 15px; border-radius: 8px; margin: 20px 0;">
+                        <p style="margin: 5px 0;"><strong>Username:</strong> ${user.username}</p>
+                        <p style="margin: 5px 0;"><strong>Email:</strong> ${user.email}</p>
+                        <p style="margin: 5px 0;"><strong>Company:</strong> ${user.company}</p>
+                    </div>
+                    <p>You can now access all your company policies and documents.</p>
+                    <p style="margin-top: 30px;">Best regards,<br>The Policy Pro Team</p>
+                </div>
+            `,
+            text: `Welcome to Policy Pro!\n\nHi ${user.username},\n\nYour account has been successfully created.\n\nUsername: ${user.username}\nEmail: ${user.email}\nCompany: ${user.company}\n\nYou can now access all your company policies and documents.\n\nBest regards,\nThe Policy Pro Team`,
+            type: 'welcome_email',
+            recipient: user.email,
+            company: user.company,
+            timestamp: new Date().toISOString()
+        };
+        
+        // Send to webhook
+        const response = await fetch(emailWebhookUrl, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(emailData)
+        });
+        
+        if (response.ok) {
+            console.log('Welcome email sent successfully');
+        } else {
+            console.warn('Welcome email webhook failed:', response.status);
+        }
+    } catch (error) {
+        console.error('Error sending welcome email:', error);
+        // Don't block signup process if email fails
+    }
+}
+
+// Send new policy notification email to all company users
+async function sendNewPolicyNotificationEmail(policy) {
+    try {
+        console.log('Sending new policy notification emails for:', policy.title);
+        
+        // Get email webhook URL from settings
+        const emailWebhookUrl = getWebhookUrl('email');
+        
+        // Get all users for this company
+        const companyUsers = getCompanyUserEmails();
+        
+        if (companyUsers.length === 0) {
+            console.log('No users to notify for company:', currentCompany);
+            return;
+        }
+        
+        // Create user-friendly date format
+        const effectiveDate = policy.effectiveDate ? new Date(policy.effectiveDate).toLocaleDateString() : 'Not specified';
+        
+        // Prepare webhook data with FULL policy details and ALL company user emails
+        const webhookData = {
+            timestamp: new Date().toISOString(),
+            type: 'new_policy_notification',
+            company: currentCompany || 'Unknown',
+            
+            // Full policy data
+            policy: {
+                id: policy.id,
+                title: policy.title,
+                type: policy.type,
+                content: policy.content || policy.description || '',
+                organizations: policy.clinicNames || policy.organizationNames || '',
+                effectiveDate: policy.effectiveDate || '',
+                version: policy.version || '1.0',
+                approvedBy: policy.approvedBy || '',
+                createdBy: policy.modifiedBy || currentUser?.username || 'Unknown',
+                lastModified: policy.lastModified || new Date().toISOString(),
+                status: 'active',
+                generatedBy: policy.generatedBy || 'manual'
+            },
+            
+            // All company users with their emails
+            companyUsers: companyUsers,
+            
+            // Email configuration for webhook to send emails
+            emailConfig: {
+                to: companyUsers.map(user => user.email), // Array of email addresses
+                subject: `New Policy: ${policy.title}`,
+                recipients: companyUsers
+            }
+        };
+        
+        // Send to webhook with full policy and user data
+        const response = await fetch(emailWebhookUrl, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(webhookData)
+        });
+        
+        if (response.ok) {
+            console.log('New policy notification webhook sent successfully with full policy data to', companyUsers.length, 'users');
+        } else {
+            console.warn('New policy notification webhook failed:', response.status);
+        }
+    } catch (error) {
+        console.error('Error sending new policy notification emails:', error);
+        // Don't block policy saving if email sending fails
+    }
+}
+
+// Helper function to truncate text for email preview
+function truncateText(text, maxLength) {
+    if (!text) return '';
+    if (text.length <= maxLength) return text;
+    return text.substring(0, maxLength) + '...';
+}
+
+async function loginUser(event) {
+    event.preventDefault();
+    
+    // Show loading state on button
+    const loginButton = document.querySelector('#loginForm button[type="submit"]');
+    
+    // Helper function to reset button
+    const resetButton = () => {
+        if (loginButton) {
+            loginButton.textContent = 'Login';
+            loginButton.disabled = false;
+        }
+    };
+    
+    try {
+        if (loginButton) {
+            loginButton.textContent = 'Logging in...';
+            loginButton.disabled = true;
+            
+            // Failsafe timeout to reset button after 10 seconds
+            setTimeout(() => {
+                if (loginButton.disabled) {
+                    console.log('Login timeout - resetting button');
+                    resetButton();
+                }
+            }, 10000);
+        }
+        
+        const usernameInput = document.getElementById('loginUsername');
+        const passwordInput = document.getElementById('loginPassword');
+        const rememberDeviceInput = document.getElementById('rememberDevice');
+        
+        if (!usernameInput || !passwordInput) {
+            console.error('Login form fields not found!', { usernameInput: !!usernameInput, passwordInput: !!passwordInput });
+            showLoginError('Login form error. Please refresh the page and try again.');
+            resetButton();
+            return;
+        }
+        
+        const usernameOrEmail = usernameInput.value.trim();
+        const password = passwordInput.value.trim();
+        const rememberDevice = rememberDeviceInput ? rememberDeviceInput.checked : true;
+        
+        if (!usernameOrEmail || !password) {
+            showLoginError('Please fill in all required fields.');
+            resetButton();
+            return;
+        }
+        
+        // Try to find user by email first (Supabase Auth uses email)
+        console.log('Attempting login:', { usernameOrEmail, password: '***' });
+        
+        // Load all users to find email if username was provided
+        const allUsers = await SupabaseDB.getUsers();
+        console.log('📋 Loaded users for login:', allUsers.length);
+        console.log('📋 Users:', allUsers.map(u => ({ username: u.username, email: u.email })));
+        
+        // Check if Supabase is configured
+        // Get supabaseClient from window or SupabaseDB
+        const supabaseClient = window.supabaseClient || (typeof SupabaseDB !== 'undefined' && SupabaseDB.getClient ? SupabaseDB.getClient() : null);
+        const SUPABASE_URL = (typeof window !== 'undefined' && window.SUPABASE_URL) || 'YOUR_SUPABASE_URL';
+        const isSupabaseConfigured = supabaseClient && SUPABASE_URL !== 'YOUR_SUPABASE_URL';
+        
+        if (!isSupabaseConfigured) {
+            // LOCALSTORAGE FALLBACK: Check against stored users
+            console.log('📦 Using localStorage fallback for login');
+            
+            // Find user by username or email
+            const foundUser = allUsers.find(u => {
+                const matchesUsername = u.username && u.username.toLowerCase() === usernameOrEmail.toLowerCase();
+                const matchesEmail = u.email && u.email.toLowerCase() === usernameOrEmail.toLowerCase();
+                return matchesUsername || matchesEmail;
+            });
+            
+            if (!foundUser) {
+                console.log('❌ User not found:', usernameOrEmail);
+                showLoginError('Invalid email/username or password. Please try again.');
+                resetButton();
+                return;
+            }
+            
+            // Check password (in localStorage fallback, password is stored directly)
+            // If user doesn't have password stored, try to get it from company data
+            let userPassword = foundUser.password;
+            
+            console.log('🔍 Checking password for user:', foundUser.username);
+            console.log('🔍 User has password stored:', !!userPassword);
+            
+            if (!userPassword) {
+                // Try to find password from company admin data
+                const companies = JSON.parse(localStorage.getItem('masterCompanies') || '[]');
+                const userCompany = companies.find(c => c.name === foundUser.company);
+                if (userCompany && userCompany.adminEmail === foundUser.email && userCompany.adminPassword) {
+                    userPassword = userCompany.adminPassword;
+                    console.log('📦 Found password from company data');
+                } else {
+                    // Try master users password
+                    const masterUsers = JSON.parse(localStorage.getItem('masterUsers') || '[]');
+                    const masterUser = masterUsers.find(u => (u.id || u.username) === (foundUser.id || foundUser.username));
+                    if (masterUser && masterUser.password) {
+                        userPassword = masterUser.password;
+                        console.log('📦 Found password from master users');
+                    }
+                }
+            }
+            
+            // Trim passwords for comparison (remove any whitespace)
+            const trimmedUserPassword = userPassword ? String(userPassword).trim() : '';
+            const trimmedInputPassword = password ? String(password).trim() : '';
+            
+            console.log('🔍 Password comparison:', {
+                hasUserPassword: !!userPassword,
+                hasInputPassword: !!password,
+                passwordsMatch: trimmedUserPassword === trimmedInputPassword,
+                userPasswordLength: trimmedUserPassword.length,
+                inputPasswordLength: trimmedInputPassword.length,
+                userPasswordValue: trimmedUserPassword ? '***' + trimmedUserPassword.length + ' chars' : 'none',
+                inputPasswordValue: trimmedInputPassword ? '***' + trimmedInputPassword.length + ' chars' : 'none'
+            });
+            
+            if (!trimmedUserPassword || trimmedUserPassword !== trimmedInputPassword) {
+                console.log('❌ Password mismatch');
+                console.log('Expected password length:', trimmedUserPassword.length);
+                console.log('Input password length:', trimmedInputPassword.length);
+                showLoginError('Invalid email/username or password. Please try again.');
+                resetButton();
+                return;
+            }
+            
+            console.log('✅ Login successful (localStorage):', foundUser.username);
+            const user = foundUser;
+            
+            // Set current user and company
+            currentUser = user;
+            currentCompany = user.company || user.company_id;
+            persistAuthUser(currentUser, currentCompany, rememberDevice);
+            refreshCurrentWebhookSettings();
+            
+            // Add user-logged-in class to body
+            document.body.classList.add('user-logged-in');
+            
+            // Hide landing page
+            const landingPage = document.getElementById('landingPage');
+            if (landingPage) {
+                landingPage.style.display = 'none';
+            }
+            
+            // Close login modal
+            closeLoginModal();
+            
+            // Update UI
+            updateUserInterface();
+            
+            // Hide welcome modal
+            const welcomeModal = document.getElementById('welcomeModal');
+            if (welcomeModal) {
+                welcomeModal.style.display = 'none';
+            }
+            
+            // Show success message
+            showNotification('Login successful! Welcome back!', 'success');
+            
+            // Load policies from storage after successful login
+            if (currentCompany) {
+                loadPoliciesFromStorage();
+            }
+            
+            // Reset button after successful login
+            resetButton();
+            return;
+        }
+        
+        // SUPABASE AUTH: Use Supabase authentication
+        let loginEmail = usernameOrEmail;
+        
+        // If username was provided, find the email
+        const foundUser = allUsers.find(u => u.username === usernameOrEmail || u.email === usernameOrEmail);
+        if (foundUser && foundUser.email) {
+            loginEmail = foundUser.email;
+        }
+        
+        // Sign in via Supabase Auth
+        const { data: authData, error: authError } = await SupabaseDB.signIn(loginEmail, password);
+        
+        if (authError) {
+            console.log('Login error:', authError.message);
+            showLoginError('Invalid email/username or password. Please try again.');
+            resetButton();
+            return;
+        }
+        
+        if (!authData.user) {
+            console.log('No user returned from auth');
+            showLoginError('Login failed. Please try again.');
+            resetButton();
+            return;
+        }
+        
+        // Get user profile from Supabase (allUsers is already fetched from Supabase)
+        let user = allUsers.find(u => u.id === authData.user.id || u.email === authData.user.email);
+        
+        // If user not found in allUsers, try to fetch directly from Supabase
+        if (!user && supabaseClient) {
+            try {
+                const { data: profileData, error: profileError } = await supabaseClient
+                    .from('profiles')
+                    .select('*')
+                    .eq('id', authData.user.id)
+                    .single();
+                
+                if (!profileError && profileData) {
+                    const normalizeFn = window.normalizeProfileToUser || (typeof normalizeProfileToUser !== 'undefined' ? normalizeProfileToUser : null);
+                    user = normalizeFn ? normalizeFn(profileData) : profileData;
+                    console.log('✅ User profile fetched from Supabase');
+                }
+            } catch (error) {
+                console.warn('Error fetching user profile from Supabase:', error);
+            }
+        }
+        
+        // If still no user, create a basic user object from auth data
+        if (!user && authData.user) {
+            user = {
+                id: authData.user.id,
+                email: authData.user.email,
+                username: authData.user.email.split('@')[0],
+                full_name: authData.user.user_metadata?.full_name || authData.user.email.split('@')[0],
+                created_at: authData.user.created_at
+            };
+            console.log('⚠️ Using basic user object from auth data');
+        }
+        
+        // If user not found in allUsers, try to fetch directly from Supabase
+        if (!user && supabaseClient) {
+            try {
+                const { data: profileData, error: profileError } = await supabaseClient
+                    .from('profiles')
+                    .select('*')
+                    .eq('id', authData.user.id)
+                    .single();
+                
+                if (!profileError && profileData) {
+                    const normalizeFn = window.normalizeProfileToUser || (typeof normalizeProfileToUser !== 'undefined' ? normalizeProfileToUser : null);
+                    user = normalizeFn ? normalizeFn(profileData) : profileData;
+                    console.log('✅ User profile fetched from Supabase');
+                }
+            } catch (error) {
+                console.warn('Error fetching user profile from Supabase:', error);
+            }
+        }
+        
+        // If still no user, create a basic user object from auth data
+        if (!user && authData.user) {
+            user = {
+                id: authData.user.id,
+                email: authData.user.email,
+                username: authData.user.email.split('@')[0],
+                full_name: authData.user.user_metadata?.full_name || authData.user.email.split('@')[0],
+                created_at: authData.user.created_at
+            };
+            console.log('⚠️ Using basic user object from auth data');
+        }
+        
+        if (!user) {
+            console.log('User profile not found');
+            showLoginError('User profile not found. Please contact support.');
+            resetButton();
+            return;
+        }
+        
+        console.log('User logged in:', user.username);
+        
+        // Set current user and company
+        currentUser = user;
+        currentCompany = user.company;
+        persistAuthUser(currentUser, currentCompany, rememberDevice);
+        refreshCurrentWebhookSettings();
+        
+        // Add user-logged-in class to body
+        document.body.classList.add('user-logged-in');
+        
+        // Hide landing page
+        const landingPage = document.getElementById('landingPage');
+        if (landingPage) {
+            landingPage.style.display = 'none';
+        }
+        
+        // Close login modal
+        closeLoginModal();
+        
+        // Update UI
+        updateUserInterface();
+        
+        // Hide welcome modal
+        const welcomeModal = document.getElementById('welcomeModal');
+        if (welcomeModal) {
+            welcomeModal.style.display = 'none';
+        }
+        
+        // Show success message
+        showNotification('Login successful! Welcome back!', 'success');
+        
+        // Load policies from storage after successful login
+        if (currentCompany) {
+            loadPoliciesFromStorage();
+        }
+        
+        // Reset button after successful login
+        resetButton();
+        
+    } catch (error) {
+        console.error('Login error:', error);
+        showLoginError('An error occurred during login. Please try again.');
+        resetButton();
+    }
+}
+
+// Expose auth functions to window after they're defined
+if (typeof exposeAuthFunctions === 'function') {
+    exposeAuthFunctions();
+}
+
+// Feature Tour System
+let tourSteps = [
+    {
+        title: 'Welcome to Policy Pro! 🎉',
+        description: '🐧 This interactive tour will show you all the key features. Let\'s get started!',
+        icon: '🐧',
+        action: null
+    },
+    {
+        title: '1️⃣ View Policies',
+        description: '🐧 Scroll down to see your policy library. You can view, search, and filter all your policies here.',
+        icon: '🐧',
+        action: 'scroll-to-policies'
+    },
+    {
+        title: '2️⃣ Admin Dashboard',
+        description: '🐧 Welcome to your admin dashboard! Here you can manage all policies, users, and settings.',
+        icon: '🐧',
+        action: 'show-admin-dashboard'
+    },
+    {
+        title: '🎉 Admin Dashboard Open!',
+        description: '🐧 The admin dashboard is now open! Here are the key features you can explore. Click Next to see what each does.',
+        icon: '🐧',
+        action: null
+    },
+    {
+        title: 'Create Policies',
+        description: '🐧 Click "Create New Policy" to add policies manually, or use "AI Policy Generator" for AI-powered creation!',
+        icon: '🐧',
+        action: null
+    },
+    {
+        title: 'AI Policy Generator',
+        description: '🐧 Try the "AI Policy Generator" - describe what you need and AI will create a professional policy for you!',
+        icon: '🐧',
+        action: null
+    },
+    {
+        title: 'Upload Documents',
+        description: '🐧 Use "Upload Policy Documents" to import existing policies from files. The system processes them automatically!',
+        icon: '🐧',
+        action: null
+    },
+    {
+        title: 'Manage Your Team',
+        description: '🐧 Click "Manage Users" to add team members, assign roles, and control who can access what.',
+        icon: '🐧',
+        action: null
+    },
+    {
+        title: 'Customize Settings',
+        description: '🐧 Click "Settings" to set up organizations, categories, disciplinary actions, and webhooks.',
+        icon: '🐧',
+        action: null
+    },
+    {
+        title: 'Your Profile',
+        description: '🐧 Click your profile icon in the top navigation to view your account info and preferences.',
+        icon: '🐧',
+        action: null
+    },
+    {
+        title: '🤖 AI Policy Advisor',
+        description: '🐧 Check out the "Policy Advisor" in the navigation! Ask questions about situations and get AI-powered guidance based on your policies.',
+        icon: '🐧',
+        action: 'show-policy-advisor'
+    },
+    {
+        title: 'You\'re All Set! 🚀',
+        description: '🐧 You now know all the key features! Start creating policies, managing users, and exploring. Happy policy management!',
+        icon: '🐧',
+        action: null
+    }
+];
+
+let currentTourStep = 0;
+let tourTimer = null; // Store timer reference for clearing
+
+function startTour() {
+    console.log('🚀 Starting feature tour...');
+    currentTourStep = 0;
+    showTourStep(0);
+}
+
+// Manual trigger for testing
+function testTour() {
+    console.log('🧪 Test tour triggered manually');
+    localStorage.removeItem('tourCompleted'); // Clear completion status
+    currentTourStep = 0;
+    showTourStep(0);
+}
+
+// Make startTour globally accessible
+window.startTour = startTour;
+window.testTour = testTour;
+
+
+function nextTourStep() {
+    // Clear timer and countdown interval if user manually advances
+    if (tourTimer) {
+        clearTimeout(tourTimer);
+        tourTimer = null;
+    }
+    if (window.tourCountdownInterval) {
+        clearInterval(window.tourCountdownInterval);
+        window.tourCountdownInterval = null;
+    }
+    
+    currentTourStep++;
+    
+    if (currentTourStep >= tourSteps.length) {
+        endTour();
+        return;
+    }
+    
+    const step = tourSteps[currentTourStep];
+    
+    // Show the step first
+    showTourStep(currentTourStep);
+    
+    // Debug logging
+    console.log(`Tour step ${currentTourStep}: title="${step.title}", action="${step.action}"`);
+    
+    // Execute action AFTER showing the step (so user sees the message while action happens)
+    if (step.action) {
+        console.log(`Step ${currentTourStep} has action "${step.action}", executing...`);
+        setTimeout(() => {
+            executeTourAction(step.action);
+        }, 500);
+    } else {
+        console.log(`Step ${currentTourStep} has no action`);
+    }
+}
+
+function skipTour() {
+    console.log('⏭️ Tour skipped');
+    // Clear timer and countdown interval when skipping
+    if (tourTimer) {
+        clearTimeout(tourTimer);
+        tourTimer = null;
+    }
+    if (window.tourCountdownInterval) {
+        clearInterval(window.tourCountdownInterval);
+        window.tourCountdownInterval = null;
+    }
+    endTour();
+}
+
+function endTour() {
+    // Clear timer and countdown interval when ending tour
+    if (tourTimer) {
+        clearTimeout(tourTimer);
+        tourTimer = null;
+    }
+    if (window.tourCountdownInterval) {
+        clearInterval(window.tourCountdownInterval);
+        window.tourCountdownInterval = null;
+    }
+    
+    const modal = document.getElementById('tourModal');
+    const overlay = document.getElementById('tourOverlay');
+    
+    if (modal) modal.style.display = 'none';
+    if (overlay) overlay.style.display = 'none';
+    
+    // Mark tour as completed
+    localStorage.setItem('tourCompleted', 'true');
+}
+
+function showTourStep(stepIndex) {
+    console.log('Showing tour step:', stepIndex, 'of', tourSteps.length);
+    
+    // Clear any existing timer and countdown interval
+    if (tourTimer) {
+        clearTimeout(tourTimer);
+        tourTimer = null;
+    }
+    if (window.tourCountdownInterval) {
+        clearInterval(window.tourCountdownInterval);
+        window.tourCountdownInterval = null;
+    }
+    
+    if (stepIndex >= tourSteps.length) {
+        console.log('Tour complete, ending');
+        endTour();
+        return;
+    }
+    
+    const step = tourSteps[stepIndex];
+    const modal = document.getElementById('tourModal');
+    const overlay = document.getElementById('tourOverlay');
+    
+    console.log('Tour modal:', modal);
+    console.log('Tour overlay:', overlay);
+    
+    if (!modal || !overlay) {
+        console.error('Tour modal or overlay not found!');
+        return;
+    }
+    
+    // Update modal content
+    const iconEl = document.getElementById('tourIcon');
+    const titleEl = document.getElementById('tourTitle');
+    const descEl = document.getElementById('tourDescription');
+    
+    if (iconEl) {
+        // Keep the 3D animated structure but update the emoji
+        const innerDiv = iconEl.querySelector('div');
+        if (innerDiv) {
+            innerDiv.textContent = step.icon;
+        } else {
+            // If structure doesn't exist, create it
+            iconEl.innerHTML = `<div style="transform: perspective(500px) rotateY(-10deg) rotateX(-5deg) translateZ(20px); transition: transform 0.3s; animation: penguinWaddle 2s infinite ease-in-out;">${step.icon}</div>`;
+        }
+    }
+    if (titleEl) titleEl.textContent = step.title;
+    if (descEl) descEl.textContent = step.description;
+    
+    // Show modal and overlay (light overlay, non-blocking)
+    console.log('Showing tour modal and overlay');
+    modal.style.display = 'block';
+    if (overlay) overlay.style.display = 'block';
+    
+    // Add a subtle pulse animation
+    if (modal) {
+        modal.style.animation = 'none';
+        setTimeout(() => {
+            modal.style.animation = 'pulse 0.5s ease-in-out';
+        }, 10);
+    }
+    
+    // Update button text based on step
+    const nextBtn = document.getElementById('tourNext');
+    if (nextBtn) {
+        if (stepIndex === tourSteps.length - 1) {
+            nextBtn.textContent = 'Finish';
+            nextBtn.innerHTML = 'Finish <i class="fas fa-check"></i>';
+        } else {
+            nextBtn.textContent = 'Next';
+            nextBtn.innerHTML = 'Next <i class="fas fa-arrow-right"></i>';
+        }
+    }
+    
+    // Reset and start progress bar animation (20 seconds)
+    const progressBar = document.getElementById('tourProgressBar');
+    const countdownEl = document.getElementById('tourCountdown');
+    
+    if (progressBar) {
+        progressBar.style.width = '0%';
+        progressBar.style.transition = 'width 0.1s linear';
+    }
+    
+    // Start countdown and progress bar animation
+    let timeRemaining = 20;
+    if (countdownEl) {
+        countdownEl.textContent = `${timeRemaining}s`;
+    }
+    
+    // Store interval reference for clearing
+    const countdownInterval = setInterval(() => {
+        timeRemaining--;
+        if (countdownEl) {
+            countdownEl.textContent = `${timeRemaining}s`;
+            // Add pulse animation when under 5 seconds
+            if (timeRemaining <= 5 && timeRemaining > 0) {
+                countdownEl.style.animation = 'none';
+                setTimeout(() => {
+                    countdownEl.style.animation = 'pulse 1s ease-in-out';
+                }, 10);
+            }
+        }
+        
+        // Update progress bar
+        if (progressBar) {
+            const progress = ((20 - timeRemaining) / 20) * 100;
+            progressBar.style.width = `${progress}%`;
+        }
+        
+        if (timeRemaining <= 0) {
+            clearInterval(countdownInterval);
+            window.tourCountdownInterval = null;
+        }
+    }, 1000);
+    
+    // Store interval so we can clear it if needed
+    window.tourCountdownInterval = countdownInterval;
+    
+    // Auto-advance after 20 seconds
+    tourTimer = setTimeout(() => {
+        clearInterval(countdownInterval);
+        window.tourCountdownInterval = null;
+        nextTourStep();
+    }, 20000);
+    
+    console.log('Tour step displayed successfully');
+}
+
+function executeTourAction(action) {
+    console.log('🎯 Executing tour action:', action);
+    
+    switch(action) {
+        case 'scroll-to-policies':
+            setTimeout(() => {
+                document.getElementById('policies').scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }, 500);
+            break;
+            
+        case 'open-admin-dashboard':
+        case 'show-admin-dashboard':
+            // Open admin dashboard directly
+            console.log('Opening admin dashboard...');
+            openPasswordModal();
+            break;
+            
+        case 'show-create-policy':
+        case 'show-ai-assistant':
+        case 'show-manage-users':
+        case 'show-settings':
+        case 'show-profile':
+            // Don't end tour, just let them explore
+            console.log('User can explore the feature');
+            break;
+            
+        case 'show-policy-advisor':
+            // Open Policy Advisor modal
+            console.log('Opening Policy Advisor...');
+            setTimeout(() => {
+                if (typeof openPolicyAdvisor === 'function') {
+                    openPolicyAdvisor();
+                } else {
+                    console.warn('openPolicyAdvisor function not found');
+                }
+            }, 500);
+            break;
+    }
+}
+// Duplicate requireLogin function removed - using the one defined earlier
+function logoutUser() {
+    console.log('Logging out user...');
+    currentUser = null;
+    currentCompany = null;
+    clearAuthPersistence();
+    refreshCurrentWebhookSettings();
+    
+    // Clear admin session flag
+    localStorage.removeItem('adminSessionActive');
+    
+    // Remove user-logged-in class
+    document.body.classList.remove('user-logged-in');
+    
+    // Show landing page
+    const landingPage = document.getElementById('landingPage');
+    if (landingPage) {
+        landingPage.style.display = 'block';
+        landingPage.style.visibility = 'visible';
+    }
+    
+    // Update UI
+    updateUserInterface();
+    
+    // Reload page to clear all state
+    window.location.reload();
+}
+
+// Expose logout function to window for console access
+if (typeof window !== 'undefined') {
+    window.logoutUser = logoutUser;
+    // Also add a quick logout command
+    window.logout = function() {
+        console.log('Quick logout - clearing user data...');
+        localStorage.removeItem('currentUser');
+        localStorage.removeItem('currentCompany');
+        sessionStorage.removeItem('currentUser');
+        sessionStorage.removeItem('currentCompany');
+        window.location.reload();
+    };
+}
+
+function updateUserInterface() {
+    const navMenu = document.querySelector('.nav-menu');
+    const landingPage = document.getElementById('landingPage');
+    
+    if (currentUser) {
+        // User is logged in - hide landing page and login/signup buttons, show sign-out
+        document.body.classList.add('user-logged-in');
+        if (landingPage) {
+            landingPage.style.display = 'none';
+        }
+        
+        const authButtons = document.querySelectorAll('.auth-button');
+        const authDivider = document.querySelector('.auth-buttons-divider');
+        const signOutBtn = document.querySelector('.auth-signout');
+        
+        authButtons.forEach(btn => {
+            btn.style.display = 'none';
+        });
+        
+        if (authDivider) {
+            authDivider.style.display = 'none';
+        }
+        if (signOutBtn) {
+            signOutBtn.style.display = 'flex';
+        }
+        
+        // Update the notification badge
+        updateNotificationBadge();
+        
+        // Filter policies by company
+        filterPoliciesByCompany();
+        
+        // Ensure main content is visible
+        const mainContent = document.querySelector('.main-content, #mainContent, .dashboard');
+        if (mainContent) {
+            mainContent.style.display = 'block';
+        }
+    } else {
+        // User is not logged in - show landing page and login/signup buttons, hide sign-out
+        document.body.classList.remove('user-logged-in');
+        if (landingPage) {
+            landingPage.style.display = 'block';
+        }
+        
+        const authButtons = document.querySelectorAll('.auth-button');
+        const authDivider = document.querySelector('.auth-buttons-divider');
+        const signOutBtn = document.querySelector('.auth-signout');
+        
+        authButtons.forEach(btn => {
+            btn.style.display = 'flex';
+        });
+        
+        if (authDivider) {
+            authDivider.style.display = 'inline-block';
+        }
+        if (signOutBtn) {
+            signOutBtn.style.display = 'none';
+        }
+        
+        updateNotificationBadge();
+    }
+}
+
+function filterPoliciesByCompany() {
+    try {
+    if (currentCompany) {
+        const companyPolicies = currentPolicies.filter(policy => 
+            policy.company === currentCompany || !policy.company
+        );
+        displayPolicies(companyPolicies);
+    } else {
+        displayPolicies(currentPolicies);
+        }
+    } catch (error) {
+        console.warn('Error filtering policies by company (non-critical):', error);
+        // Don't throw - this is not critical for signup
+    }
+}
+
+function showSignupError(message, errorFieldId = 'signup-error-message') {
+    const errorElement = document.getElementById(errorFieldId);
+    if (errorElement) {
+    errorElement.textContent = message;
+    errorElement.style.display = 'block';
+    } else {
+        console.error('Error element not found:', errorFieldId);
+        alert(message); // Fallback to alert if element not found
+    }
+}
+
+function showLoginError(message) {
+    const errorElement = document.getElementById('login-error-message');
+    errorElement.textContent = message;
+    errorElement.style.display = 'block';
+}
+
+// User Management in Admin Settings
+function addUser() {
+    const username = document.getElementById('newUserName').value.trim();
+    const email = document.getElementById('newUserEmail').value.trim();
+    const company = document.getElementById('newUserCompany').value.trim();
+    const role = document.getElementById('newUserRole').value;
+    
+    if (!username || !email || !company) {
+        alert('Please fill in all fields.');
+        return;
+    }
+    
+    // Check if username already exists
+    if (users.find(user => user.username === username)) {
+        alert('Username already exists. Please choose a different username.');
+        return;
+    }
+    
+    // Check if email already exists
+    if (users.find(user => user.email === email)) {
+        alert('Email already exists. Please use a different email.');
+        return;
+    }
+    
+    const newUser = {
+        id: Date.now(),
+        username: username,
+        email: email,
+        company: company,
+        role: role,
+        accessCode: '123',
+        created: new Date().toISOString().split('T')[0]
+    };
+    
+    users.push(newUser);
+    saveToLocalStorage('users', users);
+    displayUsers();
+    
+    // Clear form
+    document.getElementById('newUserName').value = '';
+    document.getElementById('newUserEmail').value = '';
+    document.getElementById('newUserCompany').value = '';
+    document.getElementById('newUserRole').value = 'user';
+    
+    alert('User added successfully!');
+}
+
+function displayUsers() {
+    const usersList = document.getElementById('usersList');
+    if (!usersList) {
+        console.log('usersList element not found, skipping displayUsers');
+        return;
+    }
+    
+    if (users.length === 0) {
+        usersList.innerHTML = '<p class="no-items">No users found. Add your first user above.</p>';
+        return;
+    }
+    
+    usersList.innerHTML = users.map(user => {
+        const viewPercentage = getUserPolicyViewPercentage(user.id);
+        return `
+        <div class="user-card">
+            <div class="user-info">
+                <h4>${user.username} <span class="user-role ${user.role}">${user.role}</span></h4>
+                <p><strong>Email:</strong> ${user.email}</p>
+                <p><strong>Company:</strong> ${user.company}</p>
+                <p><strong>Created:</strong> ${user.created}</p>
+                <div style="margin-top: 10px; padding: 10px; background: #f8f9fa; border-radius: 6px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px;">
+                        <span style="font-size: 0.875rem; color: #666;">Policies Viewed:</span>
+                        <span style="font-weight: 600; color: #667eea;">${viewPercentage}%</span>
+                    </div>
+                    <div style="height: 6px; background: #e9ecef; border-radius: 10px; overflow: hidden;">
+                        <div style="height: 100%; width: ${viewPercentage}%; background: linear-gradient(90deg, #667eea 0%, #764ba2 100%); border-radius: 10px; transition: width 0.3s;"></div>
+                    </div>
+                </div>
+            </div>
+            <div class="user-actions">
+                <button onclick="deleteUser(${user.id})" class="btn btn-sm btn-danger">
+                    <i class="fas fa-trash"></i> Delete
+                </button>
+            </div>
+        </div>
+    `;
+    }).join('');
+}
+
+// Admin Dashboard Functions
+function openPasswordModal() {
+    console.log('openPasswordModal function called!');
+    console.log('Current user:', currentUser);
+    console.log('Current company:', currentCompany);
+    console.log('User role:', currentUser?.role);
+    console.log('Role type:', typeof currentUser?.role);
+    console.log('Full user object:', JSON.stringify(currentUser, null, 2));
+    
+    // Require login before proceeding
+    if (!currentUser || !currentCompany) {
+        showNotification('Please log in to your company account before accessing the admin dashboard.', 'warning');
+        showLoginModal();
+        return;
+    }
+    
+    // Check if user has admin privileges - check multiple possible role values
+    const isAdmin = currentUser && currentUser.role && 
+        (currentUser.role === 'admin' || 
+         currentUser.role === 'Admin' || 
+         currentUser.role.toLowerCase() === 'admin');
+    
+    console.log('Is admin check result:', isAdmin);
+    console.log('Admin bypass check details:', {
+        hasUser: !!currentUser,
+        hasRole: !!currentUser?.role,
+        roleValue: currentUser?.role,
+        roleLowercase: currentUser?.role?.toLowerCase(),
+        isExactAdmin: currentUser?.role === 'admin',
+        isCapitalAdmin: currentUser?.role === 'Admin',
+        isLowerCaseMatch: currentUser?.role?.toLowerCase() === 'admin'
+    });
+    
+    // If user has admin role, grant immediate access without password
+    if (isAdmin) {
+        console.log('✅ User has admin role, granting immediate access without password');
+        showNotification('Admin access granted!', 'success');
+        openAdminModal(); // Open admin dashboard directly
+        return;
+    }
+    
+    // User doesn't have admin privileges, show password modal
+    console.log('❌ User does not have admin role, showing password modal');
+    console.log('User role value:', currentUser?.role);
+    console.log('User role === "admin"?', currentUser?.role === 'admin');
+    console.log('User role === "user"?', currentUser?.role === 'user');
+    
+    const modal = document.getElementById('passwordModal');
+    console.log('Password modal element:', modal);
+    
+    if (modal) {
+        console.log('Modal found, opening...');
+        modal.style.display = 'block';
+        modal.classList.add('show');
+        
+        // Update company info in modal
+        const companyNameEl = document.getElementById('adminCompanyName');
+        const companyUserEl = document.getElementById('adminCompanyUser');
+        const passwordCompanyEl = document.getElementById('adminPasswordCompanyName');
+        
+        if (companyNameEl && currentCompany) {
+            companyNameEl.textContent = currentCompany;
+        }
+        if (companyUserEl && currentUser) {
+            companyUserEl.textContent = currentUser.username;
+        }
+        if (passwordCompanyEl && currentCompany) {
+            passwordCompanyEl.textContent = currentCompany;
+        }
+        
+        // Focus on password field
+            const passwordField = document.getElementById('adminPasswordModal');
+            if (passwordField) {
+                passwordField.focus();
+            }
+        
+        console.log('✅ Password modal opened successfully for non-admin user');
+    } else {
+        console.error('❌ Password modal not found!');
+        alert('Password modal not found! Please refresh the page and try again.');
+    }
+}
+
+function closePasswordModal() {
+    console.log('Closing password modal...');
+    const modal = document.getElementById('passwordModal');
+    
+    if (modal) {
+        modal.style.display = 'none';
+        modal.classList.remove('show');
+        
+        // Clear password field
+        const passwordField = document.getElementById('adminPasswordModal');
+        if (passwordField) {
+            passwordField.value = '';
+        }
+        
+        // Hide error messages
+        const errorMessage = document.getElementById('error-message');
+        if (errorMessage) {
+            errorMessage.style.display = 'none';
+        }
+        
+        console.log('Password modal closed');
+    }
+}
+
+async function checkAdminPassword(event) {
+    if (event) {
+        event.preventDefault();
+    }
+    
+    console.log('🔍 checkAdminPassword function called!');
+    console.log('Event:', event);
+    console.log('Checking admin password...');
+    console.log('Full currentUser object:', JSON.stringify(currentUser, null, 2));
+    console.log('🔍 About to check if user is admin...');
+    
+    // First, check if user is logged in with their company
+    if (!currentUser || !currentCompany) {
+        console.log('User not logged in with company');
+        showLoginModal();
+        return;
+    }
+    
+    // Check if user has admin role - bypass password completely
+    console.log('🔍 Checking user role:', currentUser.role);
+    console.log('Role comparison results:');
+    console.log('  currentUser.role === "admin":', currentUser.role === 'admin');
+    console.log('  currentUser.role === "Admin":', currentUser.role === 'Admin');
+    console.log('  currentUser.role.toLowerCase() === "admin":', currentUser.role && currentUser.role.toLowerCase() === 'admin');
+    
+    const isAdmin = currentUser.role === 'admin' || 
+                    currentUser.role === 'Admin' || 
+                    (currentUser.role && currentUser.role.toLowerCase() === 'admin');
+    
+    if (isAdmin) {
+        console.log('✅ User has admin role, granting access without password');
+        closePasswordModal();
+        openAdminModal();
+        showNotification('Admin access granted!', 'success');
+        return;
+    }
+    
+    // User doesn't have admin role, proceed with password check
+    console.log('❌ User does not have admin role, requiring password');
+    console.log('🔍 Proceeding to password validation...');
+    
+    const password = document.getElementById('adminPasswordModal').value;
+    console.log('Password entered:', password ? '***' : 'empty');
+    console.log('Current user:', currentUser);
+    console.log('Current company:', currentCompany);
+    
+    if (!password || password.trim() === '') {
+        showNotification('Please enter a password', 'error');
+        return;
+    }
+    
+    // Load master admin data to get company-specific passwords
+    let masterData = null;
+    try {
+        masterData = await loadMasterAdminData();
+    } catch (error) {
+        console.error('Failed to load master admin data for admin password check:', error);
+    }
+    
+    let passwordCorrect = false;
+    
+    // Check if current company has a specific admin password
+    if (currentCompany && masterData && Array.isArray(masterData.companies)) {
+        const company = masterData.companies.find(c => c.name === currentCompany);
+        if (company && company.adminPassword) {
+            console.log('Checking company-specific admin password');
+            if (password === company.adminPassword) {
+                console.log('Company admin password correct!');
+                passwordCorrect = true;
+            } else {
+                console.log('Company admin password incorrect');
+                showNotification('Incorrect admin password', 'error');
+                return;
+            }
+        }
+    }
+    
+    // Fallback to default admin password if not company-specific
+    if (!passwordCorrect) {
+    if (password === 'admin123') {
+        console.log('Default admin password correct!');
+            passwordCorrect = true;
+    } else {
+        console.log('Admin password incorrect');
+        showNotification('Incorrect admin password', 'error');
+            return;
+        }
+    }
+    
+    // If password is correct, open admin dashboard
+    if (passwordCorrect) {
+        console.log('Password correct - opening admin dashboard');
+        closePasswordModal();
+        openAdminModal();
+        showNotification('Admin access granted!', 'success');
+    }
+}
+
+function openAdminModal() {
+    console.log('Opening admin modal...');
+    const modal = document.getElementById('adminModal');
+    
+    if (modal) {
+        modal.style.display = 'block';
+        modal.classList.add('show');
+        
+        // Update admin stats
+        updateAdminStats();
+        
+        console.log('Admin modal opened');
+    } else {
+        alert('Admin modal not found!');
+    }
+}
+
+function closeAdminModal() {
+    console.log('Closing admin modal...');
+    const modal = document.getElementById('adminModal');
+    
+    if (modal) {
+        modal.style.display = 'none';
+        modal.classList.remove('show');
+        console.log('Admin modal closed');
+    }
+}
+
+function updateAdminStats() {
+    console.log('Updating admin stats...');
+    
+    try {
+        // Update policy counts - use currentPolicies instead of policies
+        const totalPolicies = (currentPolicies && currentPolicies.length) ? currentPolicies.length : 0;
+        const draftCount = (draftPolicies && draftPolicies.length) ? draftPolicies.length : 0;
+        const userCount = (users && users.length) ? users.length : 0;
+        
+        // Update DOM elements
+        const totalPoliciesEl = document.getElementById('adminTotalPolicies');
+        const draftCountEl = document.getElementById('adminDraftCount');
+        const userCountEl = document.getElementById('adminUserCount');
+        
+        if (totalPoliciesEl) totalPoliciesEl.textContent = totalPolicies;
+        if (draftCountEl) draftCountEl.textContent = draftCount; // Use draftCount variable
+        if (userCountEl) userCountEl.textContent = userCount;
+        
+        // Also update admin draft list
+        displayAdminDrafts();
+        displayDrafts(); // Display drafts in admin dashboard
+        
+        console.log('Admin stats updated:', { totalPolicies, draftCount, userCount });
+    } catch (error) {
+        console.error('Error updating admin stats:', error);
+        // Don't block modal opening if stats update fails
+    }
+}
+
+// API Key Management Functions
+function saveAPIKey() {
+    const apiKey = document.getElementById('apiKey').value.trim();
+    
+    if (!apiKey) {
+        showAPIStatus('Please enter an API key.', 'error');
+        return;
+    }
+    
+    setChatGPTAPIKey(apiKey);
+    showAPIStatus('API key saved successfully!', 'success');
+}
+
+function testAPIKey() {
+    const apiKey = document.getElementById('apiKey').value.trim();
+    
+    if (!apiKey) {
+        showAPIStatus('Please enter an API key first.', 'error');
+        return;
+    }
+    
+    // Temporarily set the API key for testing
+    const originalKey = getChatGPTAPIKey();
+    setChatGPTAPIKey(apiKey);
+    
+    showAPIStatus('Testing API connection...', 'info');
+    
+    // Test with a simple request
+    fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${apiKey}`
+        },
+        body: JSON.stringify({
+            model: 'gpt-3.5-turbo',
+            messages: [
+                {
+                    role: 'user',
+                    content: 'Hello, this is a test message.'
+                }
+            ],
+            max_tokens: 10
+        })
+    })
+    .then(response => {
+        if (response.ok) {
+            showAPIStatus('API connection successful! ChatGPT is ready to use.', 'success');
+        } else {
+            showAPIStatus(`API connection failed: ${response.status} ${response.statusText}`, 'error');
+        }
+    })
+    .catch(error => {
+        showAPIStatus(`API connection failed: ${error.message}`, 'error');
+    })
+    .finally(() => {
+        // Restore original API key
+        if (originalKey) {
+            setChatGPTAPIKey(originalKey);
+        }
+    });
+}
+
+function clearAPIKey() {
+    if (confirm('Are you sure you want to clear the API key?')) {
+        clearChatGPTAPIKey();
+        document.getElementById('apiKey').value = '';
+        showAPIStatus('API key cleared successfully.', 'success');
+    }
+}
+
+function showAPIStatus(message, type) {
+    const statusElement = document.getElementById('api-status');
+    statusElement.textContent = message;
+    statusElement.className = `api-status ${type}`;
+    statusElement.style.display = 'block';
+    
+    // Auto-hide success messages after 5 seconds
+    if (type === 'success') {
+        setTimeout(() => {
+            statusElement.style.display = 'none';
+        }, 5000);
+    }
+}
+
+// Duplicate openSettingsModal function removed - using the version defined earlier
+
+// Essential functions for basic functionality
+function getOrganizationName(orgId) {
+    const orgMap = {
+        'tudor-glen': 'Tudor Glen',
+        'river-valley': 'River Valley',
+        'rosslyn': 'Rosslyn',
+        'upc': 'UPC'
+    };
+    return orgMap[orgId] || orgId;
+}
+
+function getSelectedOrganizations() {
+    const orgCheckboxes = document.querySelectorAll('.organization-toggles input[type="checkbox"]:checked');
+    const selected = [];
+    
+    orgCheckboxes.forEach(cb => {
+        if (cb.id !== 'org-all' && cb.value) {
+            selected.push(cb.value);
+        } else if (cb.id === 'org-all' && cb.checked) {
+            return ['tudor-glen', 'river-valley', 'rosslyn', 'upc'];
+        }
+    });
+    
+    if (selected.length === 0 || document.getElementById('org-all')?.checked) {
+        return ['tudor-glen', 'river-valley', 'rosslyn', 'upc'];
+    }
+    
+    return selected;
+}
+
+function getSelectedRoles() {
+    const roleCheckboxes = document.querySelectorAll('input[name="responsibleRoles"]:checked');
+    const roles = [];
+    
+    roleCheckboxes.forEach(cb => {
+        if (cb.value && cb.checked) {
+            roles.push({ name: cb.value });
+        }
+    });
+    
+    if (roles.length === 0) {
+        return [
+            { name: 'Clinic Manager' },
+            { name: 'Medical Director' },
+            { name: 'Staff' }
+        ];
+    }
+    
+    return roles;
+}
+
+function getSelectedDisciplinaryActions() {
+    const actionCheckboxes = document.querySelectorAll('input[name="disciplinaryActions"]:checked');
+    const actions = [];
+    
+    actionCheckboxes.forEach(cb => {
+        if (cb.value && cb.checked) {
+            actions.push({ name: cb.value });
+        }
+    });
+    
+    if (actions.length === 0) {
+        return [
+            { name: 'Verbal Warning' },
+            { name: 'Written Warning' },
+            { name: 'Suspension' },
+            { name: 'Termination' }
+        ];
+    }
+    
+    return actions;
+}
+
+// Test function for policy generation
+function testPolicyGeneration() {
+    console.log('Testing policy generation...');
+    const testPrompt = 'Create a test policy for recheck exams vs office visits';
+    
+    // Test the policy generation function directly
+    generatePolicyFromPromptData(testPrompt)
+        .then(result => {
+            console.log('Test policy generation successful:', result);
+            alert('Policy generation test successful! Check console for details.');
+        })
+        .catch(error => {
+            console.error('Test policy generation failed:', error);
+            alert('Policy generation test failed: ' + error.message);
+        });
+}
+// Send follow-up prompt with conversation history
+async function sendFollowUpPrompt() {
+    const followUpInput = document.getElementById('followUpInput');
+    const followUpPrompt = followUpInput.value.trim();
+    
+    if (!followUpPrompt) {
+        showNotification('Please enter a follow-up message', 'error');
+        return;
+    }
+    
+    // Add current follow-up to conversation history
+    conversationHistory.push({ role: 'user', content: followUpPrompt });
+    
+    // Get the current policy content - extract only the text, not HTML
+    const aiGeneratedElement = document.getElementById('aiGeneratedContent');
+    let currentPolicyText = '';
+    if (aiGeneratedElement) {
+        // Extract text from the policy sections - but limit the size
+        const sections = aiGeneratedElement.querySelectorAll('.policy-section');
+        currentPolicyText = Array.from(sections).slice(0, 3).map(section => {
+            const title = section.querySelector('h5')?.textContent || '';
+            const content = section.querySelector('.policy-content')?.textContent || '';
+            // Truncate content to max 300 chars per section
+            return `${title}\n${content.substring(0, 300)}`;
+        }).join('\n\n');
+    }
+    
+    // Prepare the follow-up data with full conversation history
+    const followUpData = {
+        conversationHistory: conversationHistory,
+        currentPolicyText: currentPolicyText,
+        newPrompt: followUpPrompt,
+        company: currentCompany || 'Unknown',
+        username: currentUser?.username || 'Unknown'
+    };
+    
+    console.log('Sending follow-up prompt with full conversation history:', {
+        conversationLength: conversationHistory.length,
+        newPrompt: followUpPrompt,
+        company: currentCompany
+    });
+    
+    // Show loading state
+    document.getElementById('aiLoading').style.display = 'block';
+    document.getElementById('aiResult').style.display = 'none';
+    
+    try {
+        // Get webhook URL
+        const webhookUrl = getWebhookUrl('generator');
+        if (!webhookUrl) {
+            throw new Error('No generator webhook configured.');
+        }
+        
+        // Use GET method with URL parameters to avoid CORS preflight
+        // Truncate conversation history to last 3 messages to avoid URL length issues
+        const recentHistory = conversationHistory.slice(-3);
+        const params = new URLSearchParams({
+            conversationHistory: JSON.stringify(recentHistory),
+            currentPolicyText: currentPolicyText.substring(0, 500), // Truncate to avoid URL length issues
+            newPrompt: followUpPrompt,
+            company: currentCompany || 'Unknown',
+            username: currentUser?.username || 'Unknown'
+        });
+        
+        const response = await fetch(`${webhookUrl}?${params.toString()}`);
+        
+        if (response.ok) {
+            const webhookResponse = await response.text();
+            console.log('Follow-up webhook response:', webhookResponse);
+            
+            // Display the updated policy
+            document.getElementById('aiLoading').style.display = 'none';
+            document.getElementById('aiResult').style.display = 'block';
+            
+            // Parse and display the response
+            let responseData = null;
+            try {
+                responseData = JSON.parse(webhookResponse);
+            } catch (e) {
+                responseData = webhookResponse;
+            }
+            
+            if (responseData && Array.isArray(responseData) && responseData.length > 0 && responseData[0].markdown) {
+                const policy = responseData[0];
+                document.getElementById('aiGeneratedContent').innerHTML = `
+                    <div class="policy-preview professional">
+                        <div class="policy-header">
+                            <div class="form-group" style="margin-bottom: 15px;">
+                                <label for="policyTitleInput" style="display: block; margin-bottom: 5px; font-weight: 600; color: #333;">
+                                    <i class="fas fa-heading"></i> Policy Title <span style="color: red;">*</span>
+                                </label>
+                                <input type="text" id="policyTitleInput" value="${policy.policy_title || 'Updated Policy'}" required
+                                       style="width: 100%; padding: 12px; border: 2px solid #ddd; border-radius: 6px; font-size: 1.1rem; font-weight: 600;"
+                                       placeholder="Enter policy title..." 
+                                       oninput="this.style.borderColor='#ddd'" />
+                                <small style="color: #666; display: block; margin-top: 5px;">This title is required to save the policy</small>
+                            </div>
+                            <span class="policy-type-badge admin">${policy.policy_type || 'Policy'}</span>
+                        </div>
+                        <div class="policy-meta">
+                            ${policy.effective_date ? `<span>Effective Date: ${policy.effective_date}</span>` : ''}
+                            ${policy.version ? `<span>Version: ${policy.version}</span>` : ''}
+                        </div>
+                        <div class="policy-content-display" style="max-height: 600px; overflow-y: auto;">
+                            ${generateEditablePolicySections(parseWebhookPolicyMarkdown(policy.markdown))}
+                        </div>
+                        
+                        <div class="form-group" style="margin-top: 20px; margin-bottom: 20px;">
+                            <label for="aiPolicyCategory" style="display: block; margin-bottom: 5px; font-weight: 600; color: #333;">
+                                <i class="fas fa-tags"></i> Select Category (for policy code generation)
+                            </label>
+                            <select id="aiPolicyCategory" onchange="updateAIPolicyCode()" style="width: 100%; padding: 12px; border: 2px solid #ddd; border-radius: 6px; font-size: 1rem;">
+                                <option value="">No Category (optional)</option>
+                            </select>
+                            <small style="color: #666; display: block; margin-top: 5px;">Policy code will be generated in format: Category#.Policy#.Year</small>
+                            <div id="aiPolicyCodeDisplay" style="display: none; margin-top: 10px; padding: 10px; background: #f0f8ff; border-radius: 6px;">
+                                <strong>Policy Code:</strong> <span id="aiPolicyCodeText"></span>
+                            </div>
+                        </div>
+                        
+                        <div class="ai-result-actions" style="margin-top: 20px;">
+                            <button class="btn btn-success" onclick="saveWebhookPolicy()">
+                                <i class="fas fa-save"></i> Save Policy
+                            </button>
+                            <button class="btn btn-secondary" onclick="closeAIModal()">
+                                <i class="fas fa-times"></i> Close
+                            </button>
+                        </div>
+                    </div>
+                `;
+                
+                // Populate category dropdown after HTML is rendered
+                populateAICategoryDropdown();
+    } else {
+                document.getElementById('aiGeneratedContent').innerHTML = `<pre>${webhookResponse}</pre>`;
+            }
+            
+            // Add AI response to conversation history
+            if (responseData && Array.isArray(responseData) && responseData.length > 0 && responseData[0].markdown) {
+                conversationHistory.push({ role: 'assistant', content: 'Policy updated based on your request' });
+            }
+            
+            // Clear the follow-up input
+            followUpInput.value = '';
+            
+            showNotification('Policy updated successfully!', 'success');
+        } else {
+            throw new Error(`Webhook failed with status: ${response.status}`);
+        }
+    } catch (error) {
+        console.error('Follow-up prompt error:', error);
+            document.getElementById('aiLoading').style.display = 'none';
+            document.getElementById('aiResult').style.display = 'block';
+        document.getElementById('aiGeneratedContent').innerHTML = `
+            <div style="color: red;">
+                <p><strong>Error:</strong> Failed to process follow-up prompt</p>
+                    <p>${error.message}</p>
+                </div>
+            `;
+        showNotification('Failed to process follow-up prompt', 'error');
+    }
+}
+
+
+// Document Management Functions
+let documents = [];
+let categories = [];
+
+function loadDocuments() {
+    const stored = localStorage.getItem('documents');
+    documents = stored ? JSON.parse(stored) : [];
+    displayDocuments();
+}
+
+function saveDocuments() {
+    localStorage.setItem('documents', JSON.stringify(documents));
+}
+
+function displayDocuments() {
+    const documentsList = document.getElementById('documentsList');
+    if (!documentsList) return;
+    
+    if (documents.length === 0) {
+        documentsList.innerHTML = '<p style="color: #999; text-align: center; padding: 20px;">No documents added yet.</p>';
+        return;
+    }
+    
+    documentsList.innerHTML = documents.map((doc, index) => `
+        <div class="item-card" style="background: white; border: 1px solid #e0e0e0; border-radius: 8px; padding: 15px; margin-bottom: 10px;">
+            <div style="display: flex; justify-content: space-between; align-items: start;">
+                <div style="flex: 1;">
+                    <h4 style="margin: 0 0 5px 0; color: #333;">${doc.name}</h4>
+                    ${doc.description ? `<p style="margin: 0 0 10px 0; color: #666; font-size: 14px;">${doc.description}</p>` : ''}
+                    <p style="margin: 0; color: #0066cc; font-size: 14px;">${doc.url}</p>
+                </div>
+                <button onclick="deleteDocument(${index})" class="btn btn-small btn-danger">
+                    <i class="fas fa-trash"></i>
+                </button>
+            </div>
+        </div>
+    `).join('');
+}
+
+function addDocument() {
+    // Try modal inputs first, fallback to old inputs
+    const nameInput = document.getElementById('modalDocName');
+    const urlInput = document.getElementById('modalDocUrl');
+    const descInput = document.getElementById('modalDocDescription');
+    
+    const name = nameInput ? nameInput.value.trim() : (document.getElementById('newDocumentName')?.value.trim() || '');
+    const url = urlInput ? urlInput.value.trim() : (document.getElementById('newDocumentUrl')?.value.trim() || '');
+    const description = descInput ? descInput.value.trim() : (document.getElementById('newDocumentDescription')?.value.trim() || '');
+    
+    if (!name || !url) {
+        showNotification('Please fill in document name and URL', 'error');
+        return;
+    }
+    
+    const newDocument = {
+        id: Date.now(),
+        name: name,
+        url: url,
+        description: description,
+        created: new Date().toISOString()
+    };
+    
+    documents.push(newDocument);
+    saveDocuments();
+    displayDocuments();
+    
+    // Close modal
+    closeAddDocumentModal();
+    
+    // Show success message
+    showNotification(`Document "${name}" added successfully!`, 'success');
+    
+    // Clear form
+    document.getElementById('newDocumentName').value = '';
+    document.getElementById('newDocumentUrl').value = '';
+    document.getElementById('newDocumentDescription').value = '';
+    
+    showNotification('Document added successfully', 'success');
+}
+
+function deleteDocument(index) {
+    if (confirm('Are you sure you want to delete this document?')) {
+        documents.splice(index, 1);
+        saveDocuments();
+        displayDocuments();
+        showNotification('Document deleted successfully', 'success');
+    }
+}
+
+function populateEditRelatedDocuments(policy) {
+    const docsList = document.getElementById('editRelatedDocumentsList');
+    if (!docsList) return;
+    
+    if (documents.length === 0) {
+        docsList.innerHTML = '<p style="color: #666; padding: 10px; background: #f8f9fa; border-radius: 4px;">No documents available. Add documents in Settings.</p>';
+        return;
+    }
+    
+    const policyDocIds = policy.relatedDocuments || [];
+    const policyDocIdArray = Array.isArray(policyDocIds) ? policyDocIds : [];
+    
+    docsList.innerHTML = documents.map(doc => {
+        const isChecked = policyDocIdArray.includes(doc.id);
+        return `
+            <label style="display: flex; align-items: center; gap: 8px; padding: 12px; background: white; border-radius: 4px; border: 1px solid #e0e0e0; cursor: pointer; margin-bottom: 8px;">
+                <input type="checkbox" name="editRelatedDocuments" value="${doc.id}" ${isChecked ? 'checked' : ''}>
+                <div style="flex: 1;">
+                    <strong>${doc.name}</strong>
+                    ${doc.description ? `<p style="margin: 4px 0 0 0; font-size: 13px; color: #666;">${doc.description}</p>` : ''}
+                    <a href="${doc.url}" target="_blank" style="font-size: 12px; color: #0066cc;">
+                        <i class="fas fa-external-link-alt"></i> View Document
+                    </a>
+                </div>
+        </label>
+        `;
+    }).join('');
+}
+
+// Welcome Modal Functions
+function showWelcomeModal() {
+    const welcomeModal = document.getElementById('welcomeModal');
+    if (welcomeModal) {
+        welcomeModal.style.display = 'block';
+    }
+}
+
+function closeWelcomeModal() {
+    const welcomeModal = document.getElementById('welcomeModal');
+    if (welcomeModal) {
+        welcomeModal.style.display = 'none';
+    }
+}
+
+function showIndividualSignup() {
+    closeSignupModal();
+    setTimeout(() => {
+        const modal = document.getElementById('individualSignupModal');
+    if (modal) {
+            modal.classList.add('show');
+        }
+    }, 300);
+}
+
+function showCompanySignup() {
+    console.log('showCompanySignup called');
+    closeSignupModal();
+    
+    setTimeout(() => {
+        const modal = document.getElementById('pricingModal');
+        console.log('Pricing modal element:', modal);
+    if (modal) {
+        modal.style.display = 'block';
+        modal.classList.add('show');
+            console.log('Pricing modal opened');
+            } else {
+            console.error('Pricing modal not found');
+        }
+    }, 300);
+}
+
+function closePricingModal() {
+    const modal = document.getElementById('pricingModal');
+    if (modal) {
+        modal.style.display = 'none';
+        modal.classList.remove('show');
+    }
+}
+
+function selectPlan(plan) {
+    console.log('Selected plan:', plan);
+    
+    // Store the selected plan in localStorage
+    localStorage.setItem('selectedPlan', plan);
+    
+    // Map plan to display name
+    const planNames = {
+        'free-trial': 'Free Trial (2 Weeks)',
+        'basic': 'Basic ($29/month)',
+        'pro': 'Pro ($99/month)',
+        'enterprise': 'Enterprise (Custom)'
+    };
+    
+    // Update selected plan display if portal is open
+    const planDisplay = document.getElementById('selectedPlanDisplay');
+    if (planDisplay) {
+        planDisplay.textContent = planNames[plan] || plan;
+    }
+    
+    closePricingModal();
+    
+    setTimeout(() => {
+        showCreateAccountPortal();
+    }, 200);
+    
+    // Show notification about plan selection
+    showNotification('Selected ' + planNames[plan] + ' plan. Complete your account setup below.', 'success');
+}
+
+function closeCompanySignupModal() {
+    const modal = document.getElementById('companySignupModal');
+    if (modal) {
+        modal.style.display = 'none';
+        modal.classList.remove('show');
+    }
+    
+    const form = document.getElementById('companySignupForm');
+    if (form) {
+        form.reset();
+    }
+    
+    const errorMsg = document.getElementById('company-signup-error-message');
+    if (errorMsg) {
+        errorMsg.style.display = 'none';
+    }
+}
+
+// Tooltip functions
+function showTooltip(element) {
+    const tooltip = element.nextElementSibling;
+    if (tooltip) {
+        tooltip.style.opacity = '1';
+    }
+}
+
+function hideTooltip(element) {
+    const tooltip = element.nextElementSibling;
+    if (tooltip) {
+        tooltip.style.opacity = '0';
+    }
+}
+
+// Setup company signup form event listeners
+function setupCompanySignupFormListeners() {
+    const companySignupForm = document.getElementById('companySignupForm');
+    if (companySignupForm) {
+        companySignupForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            handleCompanySignup();
+        });
+    }
+}
+
+// Handle company signup form submission
+function handleCompanySignup() {
+    const companyName = document.getElementById('companyName').value;
+    const companyIndustry = document.getElementById('companyIndustry').value;
+    const companyPhone = document.getElementById('companyPhone').value;
+    const adminFullName = document.getElementById('adminFullName').value;
+    const adminEmail = document.getElementById('adminEmail').value;
+    const adminUsername = document.getElementById('adminUsername').value;
+    const adminPassword = document.getElementById('adminPassword').value;
+    const adminPasswordConfirm = document.getElementById('adminPasswordConfirm').value;
+    const companyAdminPassword = document.getElementById('companyAdminPassword').value;
+    
+    // Validate passwords match
+    if (adminPassword !== adminPasswordConfirm) {
+        const errorMsg = document.getElementById('company-signup-error-message');
+        if (errorMsg) {
+            errorMsg.textContent = 'Passwords do not match';
+            errorMsg.style.display = 'block';
+        }
+        return;
+    }
+    
+    // Get selected plan
+    const selectedPlan = localStorage.getItem('selectedPlan') || 'free-trial';
+    
+    console.log('Creating company:', companyName);
+    
+    // Load existing data
+    const masterCompanies = JSON.parse(localStorage.getItem('masterCompanies') || '[]');
+    const masterUsers = JSON.parse(localStorage.getItem('masterUsers') || '[]');
+    const accessCodes = JSON.parse(localStorage.getItem('masterAccessCodes') || '[]');
+    
+    // Create company
+    const newCompany = {
+        id: Date.now().toString(),
+        name: companyName,
+        industry: companyIndustry || '',
+        phone: companyPhone || '',
+        plan: selectedPlan,
+        adminPassword: companyAdminPassword,
+        created: new Date().toISOString().split('T')[0]
+    };
+    
+    masterCompanies.push(newCompany);
+    localStorage.setItem('masterCompanies', JSON.stringify(masterCompanies));
+    
+    // Create access code for the company
+    const newAccessCode = {
+        id: Date.now().toString() + '_code',
+        code: companyName.substring(0, 3).toUpperCase() + Date.now().toString().slice(-6),
+        description: companyName,
+        companyId: newCompany.id,
+        created: new Date().toISOString().split('T')[0]
+    };
+    
+    accessCodes.push(newAccessCode);
+    localStorage.setItem('masterAccessCodes', JSON.stringify(accessCodes));
+    
+    // Create admin user
+    const newUser = {
+        id: Date.now().toString() + '_user',
+        username: adminUsername,
+        email: adminEmail,
+        password: adminPassword,
+        fullName: adminFullName,
+        company: companyName,
+        role: 'admin',
+        created: new Date().toISOString().split('T')[0],
+        accessCode: newAccessCode.code
+    };
+    
+    masterUsers.push(newUser);
+    localStorage.setItem('masterUsers', JSON.stringify(masterUsers));
+    
+    // Add company to organizations
+    const organizations = JSON.parse(localStorage.getItem('organizations') || '{}');
+    if (!organizations[companyName]) {
+        organizations[companyName] = [companyName];
+        localStorage.setItem('organizations', JSON.stringify(organizations));
+    }
+    
+    console.log('Company created:', newCompany);
+    console.log('User created:', newUser);
+    console.log('Access code created:', newAccessCode);
+    
+    // 🔄 SYNC TO MASTER ADMIN - Dispatch event to notify master admin dashboard
+    window.dispatchEvent(new CustomEvent('masterDataUpdated', {
+        detail: {
+            companies: masterCompanies,
+            users: masterUsers,
+            accessCodes: accessCodes,
+            organizations: organizations,
+            timestamp: new Date().toISOString(),
+            source: 'main-site-signup'
+        }
+    }));
+    
+    console.log('✅ Dispatched masterDataUpdated event to sync with admin dashboard');
+    
+    // Show success message
+    showNotification('Company created successfully! Logging you in...', 'success');
+    
+    // Close modal and login
+    closeCompanySignupModal();
+    
+    // Set as current user and company
+    currentUser = newUser;
+    currentCompany = companyName;
+    
+    // Save session preference (default to remember device for new admins)
+    persistAuthUser(currentUser, currentCompany, true);
+    refreshCurrentWebhookSettings();
+    
+    // Add user-logged-in class to body
+    document.body.classList.add('user-logged-in');
+    
+    // Update UI
+    updateUserInterface();
+    
+    // Load policies
+    loadPoliciesFromStorage();
+    
+    showNotification(`Welcome ${adminFullName}! Your company "${companyName}" has been set up.`, 'success');
+}
+
+function showCompanyCodeSignup() {
+    console.log('showCompanyCodeSignup called');
+    closeSignupModal(); // Close the signup type selection modal
+    closePricingModal(); // Close pricing modal if open
+    setTimeout(() => {
+        const modal = document.getElementById('companyCodeSignupModal');
+        if (modal) {
+            modal.classList.add('show');
+            modal.style.display = 'flex';
+            modal.style.visibility = 'visible';
+            modal.style.opacity = '1';
+            modal.style.zIndex = '10000';
+            console.log('Company code signup modal shown');
+        } else {
+            console.error('Company code signup modal element not found');
+        }
+    }, 300);
+}
+
+function closeCompanyCodeSignupModal() {
+    const modal = document.getElementById('companyCodeSignupModal');
+    if (modal) {
+        modal.classList.remove('show');
+        modal.style.display = 'none';
+        modal.style.visibility = 'hidden';
+        modal.style.opacity = '0';
+        modal.style.zIndex = '-1';
+        
+        const form = document.getElementById('companyCodeSignupForm');
+        if (form) {
+            form.reset();
+        }
+        
+        const errorMsg = document.getElementById('company-code-signup-error-message');
+        if (errorMsg) {
+            errorMsg.style.display = 'none';
+            errorMsg.textContent = '';
+        }
+    }
+}
+
+// Attach to window immediately after definition
+if (typeof window !== 'undefined') {
+    window.showCompanyCodeSignup = showCompanyCodeSignup;
+    window.closeCompanyCodeSignupModal = closeCompanyCodeSignupModal;
+}
+
+function closeIndividualSignupModal() {
+    const modal = document.getElementById('individualSignupModal');
+    if (modal) {
+        modal.classList.remove('show');
+        document.getElementById('individualSignupForm').reset();
+        document.getElementById('individual-signup-error-message').style.display = 'none';
+    }
+}
+
+function showWelcomeLogin() {
+    closeSignupModal();
+    setTimeout(() => {
+        showLoginModal();
+    }, 300);
+}
+
+// Check if user should see welcome modal
+function checkWelcomeModal() {
+    if (!currentUser) {
+        showWelcomeModal();
+    }
+}
+
+// Categories Management Functions
+function loadCategories() {
+    const stored = localStorage.getItem('categories');
+    categories = stored ? JSON.parse(stored) : [];
+    displayCategories();
+}
+
+// Generate policy code in format: TYPE.categoryNumber.policyNumberInCategory.year
+function generatePolicyCode(categoryId, policyId, policyType) {
+    if (!categoryId) return null;
+    
+    // Map policy type to code
+    const typeCodes = {
+        'admin': 'ADMIN',
+        'sog': 'SOG',
+        'memo': 'MEMO',
+        'protocol': 'PROTO',
+        'proto': 'PROTO',
+        'training': 'TRAIN',
+        'governance': 'GOV'
+    };
+    
+    const typeCode = typeCodes[policyType?.toLowerCase()] || 'ADMIN';
+    
+    loadCategories(); // Ensure categories are loaded
+    const category = categories.find(cat => cat.id === parseInt(categoryId) || cat.id === categoryId);
+    if (!category) return null;
+    
+    // Get all policies in this category with the same type
+    const policies = loadCompanyPolicies();
+    const categoryIdNum = parseInt(categoryId);
+    const policiesInCategory = policies.filter(p => 
+        (p.categoryId === categoryIdNum || p.categoryId === categoryId) && 
+        p.policyCode && 
+        p.type === policyType
+    );
+    
+    // Find the policy's position in the category (or get next number if new)
+    let policyNumber;
+    if (policyId && policiesInCategory.length > 0) {
+        // Policy already exists - find its position
+        const sortedPolicies = policiesInCategory.sort((a, b) => {
+            const dateA = a.created ? new Date(a.created) : a.date ? new Date(a.date) : new Date(0);
+            const dateB = b.created ? new Date(b.created) : b.date ? new Date(b.date) : new Date(0);
+            return dateA - dateB;
+        });
+        policyNumber = sortedPolicies.findIndex(p => p.id === policyId) + 1;
+        if (policyNumber === 0) {
+            policyNumber = policiesInCategory.length + 1;
+        }
+    } else {
+        // New policy - get next number
+        policyNumber = policiesInCategory.length + 1;
+    }
+    
+    const currentYear = new Date().getFullYear();
+    return `${typeCode}.${category.number}.${policyNumber}.${currentYear}`;
+}
+
+function saveCategories() {
+    localStorage.setItem('categories', JSON.stringify(categories));
+}
+
+function displayCategories() {
+    const categoriesList = document.getElementById('categoriesList');
+    if (!categoriesList) return;
+    
+    if (categories.length === 0) {
+        categoriesList.innerHTML = '<p style="color: #999; text-align: center; padding: 20px;">No categories created yet. Add your first category above.</p>';
+        return;
+    }
+    
+    categoriesList.innerHTML = categories.map((category, index) => `
+        <div class="item-card" style="background: white; border: 1px solid #e0e0e0; border-radius: 8px; padding: 15px; margin-bottom: 10px;">
+            <div style="display: flex; justify-content: space-between; align-items: start;">
+                <div style="flex: 1;">
+                    <h4 style="margin: 0 0 5px 0; color: #333; display: flex; align-items: center; gap: 10px;">
+                        <span style="background: #667eea; color: white; padding: 6px 12px; border-radius: 4px; font-size: 14px; font-weight: bold;">${category.number || 'N/A'}</span>
+                        <span style="font-size: 16px;">${category.name || 'Untitled Category'}</span>
+                    </h4>
+            </div>
+                <button onclick="deleteCategory(${index})" class="btn btn-small btn-danger">
+                    <i class="fas fa-trash"></i>
+                </button>
+            </div>
+        </div>
+    `).join('');
+}
+
+function addCategory() {
+    const name = document.getElementById('newCategoryName')?.value.trim();
+    const number = document.getElementById('newCategoryNumber')?.value;
+    
+    if (!name || !number) {
+        showNotification('Please fill in category name and number', 'error');
+        return;
+    }
+    
+    const newCategory = {
+        id: Date.now(),
+        name: name,
+        number: parseInt(number),
+        created: new Date().toISOString()
+    };
+    
+    categories.push(newCategory);
+    saveCategories();
+    displayCategories();
+    
+    // Clear form
+    document.getElementById('newCategoryName').value = '';
+    document.getElementById('newCategoryNumber').value = '';
+    
+    showNotification('Category added successfully', 'success');
+}
+
+function deleteCategory(index) {
+    if (confirm('Are you sure you want to delete this category?')) {
+        categories.splice(index, 1);
+        saveCategories();
+        displayCategories();
+        showNotification('Category deleted successfully', 'success');
+    }
+}
+
+// Policy Advisor Functions - Redesigned
+let advisorConversation = [];
+
+function openPolicyAdvisor() {
+    if (!currentUser) {
+        showNotification('Please log in to use the Policy Advisor', 'error');
+        return;
+    }
+    
+    const modal = document.getElementById('policyAdvisorModal');
+    if (modal) {
+        modal.style.display = 'block';
+    }
+    
+    // Reset state
+    document.getElementById('advisorQuestion').value = '';
+    
+    // Show welcome screen if no conversation
+    if (advisorConversation.length === 0) {
+        document.getElementById('advisorWelcome').style.display = 'block';
+        document.getElementById('advisorChat').style.display = 'none';
+    } else {
+        document.getElementById('advisorWelcome').style.display = 'none';
+        document.getElementById('advisorChat').style.display = 'block';
+        renderAdvisorChat();
+    }
+}
+
+function closePolicyAdvisor() {
+    document.getElementById('policyAdvisorModal').style.display = 'none';
+}
+
+function useExampleQuestion(question) {
+    document.getElementById('advisorQuestion').value = question;
+    document.getElementById('advisorQuestion').focus();
+    // Auto-send after a moment
+    setTimeout(() => {
+        sendPolicyAdvisorRequest();
+    }, 300);
+}
+
+function showExampleQuestions() {
+    document.getElementById('advisorWelcome').style.display = 'block';
+    document.getElementById('advisorChat').style.display = 'none';
+}
+
+function clearAdvisorChat() {
+    if (confirm('Clear all conversation history?')) {
+        advisorConversation = [];
+        document.getElementById('advisorWelcome').style.display = 'block';
+        document.getElementById('advisorChat').style.display = 'none';
+        document.getElementById('advisorChatMessages').innerHTML = '';
+    }
+}
+
+function handleAdvisorKeydown(event) {
+    if (event.key === 'Enter' && !event.shiftKey) {
+        event.preventDefault();
+        sendPolicyAdvisorRequest();
+    }
+}
+
+function renderAdvisorChat() {
+    const messagesContainer = document.getElementById('advisorChatMessages');
+    if (!messagesContainer) return;
+    
+    messagesContainer.innerHTML = '';
+    
+    advisorConversation.forEach((msg, index) => {
+        const messageDiv = document.createElement('div');
+        messageDiv.className = `advisor-message ${msg.role}`;
+        
+        if (msg.role === 'user') {
+            messageDiv.innerHTML = `
+                <div class="message-avatar user-avatar">
+                    <i class="fas fa-user"></i>
+                </div>
+                <div class="message-content">
+                    <div class="message-text">${escapeHtml(msg.content)}</div>
+                    <div class="message-time">${formatMessageTime(msg.timestamp)}</div>
+                </div>
+            `;
+        } else {
+            messageDiv.innerHTML = `
+                <div class="message-avatar bot-avatar">
+                    <i class="fas fa-robot"></i>
+                </div>
+                <div class="message-content">
+                    <div class="message-text">${formatAdvisorResponse(msg.content)}</div>
+                    <div class="message-time">${formatMessageTime(msg.timestamp)}</div>
+                </div>
+            `;
+        }
+        
+        messagesContainer.appendChild(messageDiv);
+    });
+    
+    // Scroll to bottom
+    messagesContainer.scrollTop = messagesContainer.scrollHeight;
+}
+
+function addAdvisorMessage(role, content) {
+    advisorConversation.push({
+        role: role,
+        content: content,
+        timestamp: new Date()
+    });
+    
+    // Hide welcome, show chat
+    document.getElementById('advisorWelcome').style.display = 'none';
+    document.getElementById('advisorChat').style.display = 'block';
+    
+    renderAdvisorChat();
+}
+
+function formatAdvisorResponse(text) {
+    if (!text) return '';
+    
+    // Convert markdown-like formatting to HTML
+    let html = escapeHtml(text)
+        .replace(/\n\n/g, '</p><p>')
+        .replace(/\n/g, '<br>')
+        .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+        .replace(/\*(.*?)\*/g, '<em>$1</em>')
+        .replace(/^### (.*$)/gim, '<h3>$1</h3>')
+        .replace(/^## (.*$)/gim, '<h2>$1</h2>')
+        .replace(/^# (.*$)/gim, '<h1>$1</h1>');
+    
+    return `<p>${html}</p>`;
+}
+
+function formatMessageTime(date) {
+    if (!date) return '';
+    const d = new Date(date);
+    const now = new Date();
+    const diff = now - d;
+    
+    if (diff < 60000) return 'Just now';
+    if (diff < 3600000) return `${Math.floor(diff / 60000)}m ago`;
+    return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+}
+
+async function sendPolicyAdvisorRequest() {
+    const questionInput = document.getElementById('advisorQuestion');
+    const question = questionInput?.value.trim();
+    
+    if (!question) {
+        showNotification('Please enter a question', 'error');
+        return;
+    }
+    
+    // Add user message to conversation
+    addAdvisorMessage('user', question);
+    
+    // Clear input
+    if (questionInput) questionInput.value = '';
+    
+    // Show typing indicator
+    document.getElementById('advisorTyping').style.display = 'block';
+    const sendBtn = document.getElementById('advisorSendBtn');
+    if (sendBtn) sendBtn.disabled = true;
+    
+    // Scroll to bottom
+    const messagesContainer = document.getElementById('advisorChatMessages');
+    if (messagesContainer) {
+        messagesContainer.scrollTop = messagesContainer.scrollHeight;
+    }
+    
+    try {
+        // Get all policies
+        const allPolicies = loadCompanyPolicies();
+        
+        if (allPolicies.length === 0) {
+            document.getElementById('advisorTyping').style.display = 'none';
+            if (sendBtn) sendBtn.disabled = false;
+            addAdvisorMessage('assistant', 'I don\'t have access to any policies yet. Please create some policies first, then I can help answer your questions.');
+            showNotification('No policies found', 'warning');
+            return;
+        }
+        
+        // Format policies
+        let policiesText = '';
+        allPolicies.forEach((policy, index) => {
+            policiesText += `Policy #${index + 1}:\n`;
+            policiesText += `Title: ${policy.title || 'Untitled'}\n`;
+            policiesText += `Type: ${policy.type || 'N/A'}\n`;
+            if (policy.description) policiesText += `Description: ${policy.description}\n`;
+            if (policy.statement) {
+                policiesText += `Content: ${policy.statement}\n`;
+            } else if (policy.content) {
+                try {
+                    const parsed = JSON.parse(policy.content);
+                    policiesText += `Content: ${JSON.stringify(parsed)}\n`;
+                } catch {
+                    policiesText += `Content: ${policy.content}\n`;
+                }
+            }
+            policiesText += '\n';
+        });
+        
+        // Use Policy Advisor webhook URL
+        const webhookUrl = getWebhookUrl('advisor');
+        
+        // Use GET with URL params
+        const params = new URLSearchParams({
+            query: question,
+            policies: policiesText,
+            company: currentCompany || 'Unknown',
+            username: currentUser?.username || 'Unknown'
+        });
+        
+        const fullUrl = `${webhookUrl}?${params.toString()}`;
+        
+        const response = await fetch(fullUrl);
+        
+        if (response.ok) {
+            const result = await response.text();
+            
+            // Parse and clean up the response
+            let cleanedResult = result;
+            try {
+                const parsed = JSON.parse(result);
+                if (Array.isArray(parsed) && parsed.length > 0 && parsed[0].output) {
+                    cleanedResult = parsed[0].output;
+                } else if (Array.isArray(parsed) && parsed.length > 0 && typeof parsed[0] === 'string') {
+                    cleanedResult = parsed[0];
+                } else if (typeof parsed === 'object' && parsed.output) {
+                    cleanedResult = parsed.output;
+                }
+            } catch (e) {
+                // Not JSON, use as-is
+            }
+            
+            // Hide typing, add response
+            document.getElementById('advisorTyping').style.display = 'none';
+            if (sendBtn) sendBtn.disabled = false;
+            
+            addAdvisorMessage('assistant', cleanedResult);
+        } else {
+            throw new Error(`HTTP ${response.status}`);
+        }
+    } catch (error) {
+        console.error('Policy advisor error:', error);
+        document.getElementById('advisorTyping').style.display = 'none';
+        if (sendBtn) sendBtn.disabled = false;
+        
+        addAdvisorMessage('assistant', `I'm sorry, I encountered an error: ${error.message}. Please try again or contact support if the problem persists.`);
+        showNotification('Error getting response', 'error');
+    }
+}
+
+// Notification Center Functions
+function toggleNotificationCenter() {
+    const notificationCenter = document.getElementById('notificationCenter');
+    const badge = document.getElementById('notificationBadge');
+    
+    if (notificationCenter) {
+        if (notificationCenter.style.display === 'none' || notificationCenter.style.display === '') {
+            notificationCenter.style.display = 'block';
+            updateNotificationDisplay();
+        } else {
+            notificationCenter.style.display = 'none';
+        }
+    }
+}
+
+function addNotification(message, type = 'info', action = null) {
+    const notification = {
+        id: Date.now(),
+        message: message,
+        type: type,
+        action: action,
+        timestamp: new Date().toISOString(),
+        read: false
+    };
+    
+    notifications.unshift(notification);
+    
+    // Keep only last 50 notifications
+    if (notifications.length > 50) {
+        notifications = notifications.slice(0, 50);
+    }
+    
+    saveToLocalStorage('notifications', notifications);
+    updateNotificationBadge();
+    updateNotificationDisplay();
+}
+
+function updateNotificationBadge() {
+    const badge = document.getElementById('notificationBadge');
+    const unreadCount = notifications.filter(n => !n.read).length;
+    
+    if (badge) {
+        if (unreadCount > 0) {
+            badge.textContent = unreadCount;
+            badge.style.display = 'inline-block';
+        } else {
+            badge.style.display = 'none';
+        }
+    }
+}
+
+function updateNotificationDisplay() {
+    const notificationList = document.getElementById('notificationList');
+    
+    if (!notificationList) return;
+    
+    const unreadNotifications = notifications.filter(n => !n.read);
+    
+    if (unreadNotifications.length === 0 && notifications.length === 0) {
+        notificationList.innerHTML = '<div class="no-notifications">No notifications</div>';
+        return;
+    }
+    
+    // Show only unread notifications
+    notificationList.innerHTML = unreadNotifications.map(notif => `
+        <div class="notification-item" onclick="markNotificationRead(${notif.id})">
+            <i class="fas fa-circle" style="color: #667eea; font-size: 8px;"></i>
+            <div class="notification-content">
+                <p>${notif.message}</p>
+                <span class="notification-time">${formatNotificationTime(notif.timestamp)}</span>
+            </div>
+        </div>
+    `).join('');
+    
+    if (unreadNotifications.length === 0) {
+        notificationList.innerHTML = '<div class="no-notifications">No new notifications</div>';
+    }
+}
+
+function markNotificationRead(id) {
+    const notification = notifications.find(n => n.id === id);
+    if (notification) {
+        notification.read = true;
+        saveToLocalStorage('notifications', notifications);
+        updateNotificationBadge();
+        updateNotificationDisplay();
+    }
+}
+function clearAllNotifications() {
+    notifications = notifications.map(n => ({ ...n, read: true }));
+    saveToLocalStorage('notifications', notifications);
+    updateNotificationBadge();
+    updateNotificationDisplay();
+}
+
+function formatNotificationTime(timestamp) {
+    const now = new Date();
+    const time = new Date(timestamp);
+    const diff = Math.floor((now - time) / 1000);
+    
+    if (diff < 60) return 'Just now';
+    if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
+    if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
+    return `${Math.floor(diff / 86400)}d ago`;
+}
+
+function populateCategoriesDropdown() {
+    loadCategories();
+    const select = document.getElementById('editPolicyCode');
+    if (!select) return;
+    
+    select.innerHTML = '<option value="">Select a category (optional)</option>';
+    categories.forEach(category => {
+        const option = document.createElement('option');
+        option.value = category.id;
+        option.textContent = `${category.number} - ${category.name}`;
+        select.appendChild(option);
+    });
+}
+
+// Populate AI category dropdown
+function populateAICategoryDropdown() {
+    loadCategories();
+    const select = document.getElementById('aiPolicyCategory');
+    if (!select) return;
+    
+    select.innerHTML = '<option value="">No Category (optional)</option>';
+    categories.forEach(category => {
+        const option = document.createElement('option');
+        option.value = category.id;
+        option.textContent = `${category.number} - ${category.name}`;
+        select.appendChild(option);
+    });
+}
+
+// Update AI policy code display
+function updateAIPolicyCode() {
+    const categoryId = document.getElementById('aiPolicyCategory')?.value;
+    const codeDisplay = document.getElementById('aiPolicyCodeDisplay');
+    const codeText = document.getElementById('aiPolicyCodeText');
+    
+    // Get selected policy type from AI modal
+    const policyTypeEl = document.querySelector('#aiModal input[name="policyType"]:checked');
+    const policyType = policyTypeEl?.value || 'admin';
+    
+    if (categoryId && codeDisplay && codeText) {
+        // Generate a temporary code (we'll regenerate when saving)
+        loadCategories();
+        const category = categories.find(cat => cat.id === parseInt(categoryId) || cat.id === categoryId);
+        if (category) {
+            const policies = loadCompanyPolicies();
+            const categoryPolicies = policies.filter(p => (p.categoryId === parseInt(categoryId) || p.categoryId === categoryId) && p.policyCode && p.type === policyType);
+            const policyNumber = categoryPolicies.length + 1;
+            const currentYear = new Date().getFullYear();
+            
+            // Map policy type to code
+            const typeCodes = {
+                'admin': 'ADMIN',
+                'sog': 'SOG',
+                'memo': 'MEMO',
+                'protocol': 'PROTO',
+                'proto': 'PROTO',
+                'training': 'TRAIN',
+                'governance': 'GOV'
+            };
+            const typeCode = typeCodes[policyType?.toLowerCase()] || 'ADMIN';
+            
+            const code = `${typeCode}.${category.number}.${policyNumber}.${currentYear}`;
+            
+            codeText.textContent = code;
+            codeDisplay.style.display = 'block';
+        }
+    } else if (codeDisplay) {
+        codeDisplay.style.display = 'none';
+    }
+}
+
+// Populate manual category dropdown
+function populateManualCategoryDropdown() {
+    loadCategories();
+    const select = document.getElementById('manualPolicyCategory');
+    if (!select) return;
+    
+    select.innerHTML = '<option value="">No Category (optional)</option>';
+    categories.forEach(category => {
+        const option = document.createElement('option');
+        option.value = category.id;
+        option.textContent = `${category.number} - ${category.name}`;
+        select.appendChild(option);
+    });
+}
+
+// Update manual policy code display
+function updateManualPolicyCode() {
+    const categoryId = document.getElementById('manualPolicyCategory')?.value;
+    const codeDisplay = document.getElementById('manualPolicyCodeDisplay');
+    const codeText = document.getElementById('manualPolicyCodeText');
+    
+    // Get selected policy type from manual form (the ID is 'policyType', not 'manualPolicyType')
+    const policyType = document.getElementById('policyType')?.value || 'admin';
+    
+    if (categoryId && codeDisplay && codeText) {
+        // Generate a temporary code (we'll regenerate when saving)
+        loadCategories();
+        const category = categories.find(cat => cat.id === parseInt(categoryId) || cat.id === categoryId);
+        if (category) {
+            const policies = loadCompanyPolicies();
+            const categoryPolicies = policies.filter(p => (p.categoryId === parseInt(categoryId) || p.categoryId === categoryId) && p.policyCode && p.type === policyType);
+            const policyNumber = categoryPolicies.length + 1;
+            const currentYear = new Date().getFullYear();
+            
+            // Map policy type to code
+            const typeCodes = {
+                'admin': 'ADMIN',
+                'sog': 'SOG',
+                'memo': 'MEMO',
+                'protocol': 'PROTO',
+                'proto': 'PROTO',
+                'training': 'TRAIN',
+                'governance': 'GOV'
+            };
+            const typeCode = typeCodes[policyType?.toLowerCase()] || 'ADMIN';
+            
+            const code = `${typeCode}.${category.number}.${policyNumber}.${currentYear}`;
+            
+            codeText.textContent = code;
+            codeDisplay.style.display = 'block';
+        }
+    } else if (codeDisplay) {
+        codeDisplay.style.display = 'none';
+    }
+}

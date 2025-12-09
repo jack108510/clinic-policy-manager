@@ -358,6 +358,73 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
     
+    // Listen for localStorage changes to detect new users (works across tabs/windows)
+    let lastUserCount = 0;
+    let lastUserIds = new Set();
+    
+    function checkForNewUsers() {
+        try {
+            const currentUsers = JSON.parse(localStorage.getItem('masterUsers') || '[]');
+            const currentUserIds = new Set(currentUsers.map(u => u.id || u.email));
+            
+            // Check if there are new users
+            if (currentUsers.length > lastUserCount || 
+                (currentUsers.length > 0 && lastUserIds.size === 0)) {
+                // Find new users
+                const newUsers = currentUsers.filter(u => {
+                    const userId = u.id || u.email;
+                    return !lastUserIds.has(userId);
+                });
+                
+                if (newUsers.length > 0) {
+                    console.log('🆕 New users detected in localStorage:', newUsers.length);
+                    console.log('New users:', newUsers);
+                    
+                    // Update the users array
+                    users = currentUsers.map(user => ({
+                        id: user.id || `user-${Date.now()}-${Math.random()}`,
+                        username: user.username || '',
+                        email: user.email || '',
+                        company: user.company || '',
+                        role: user.role || 'user',
+                        created: user.created || user.created_at || user.createdDate || new Date().toISOString().split('T')[0],
+                        lastLogin: user.lastLogin || user.last_login_at || user.lastLoginDate || null,
+                        status: user.status || 'active',
+                        access_code: user.access_code || user.accessCode || null,
+                        password: user.password || null
+                    }));
+                    
+                    // Update display
+                    displayUsers();
+                    updateStats();
+                    
+                    // Show notification
+                    if (typeof showNotification === 'function') {
+                        newUsers.forEach(newUser => {
+                            showNotification(`New user registered: ${newUser.username || newUser.email} (${newUser.company || 'No company'})`, 'success');
+                        });
+                    }
+                }
+            }
+            
+            lastUserCount = currentUsers.length;
+            lastUserIds = currentUserIds;
+        } catch (error) {
+            console.error('Error checking for new users:', error);
+        }
+    }
+    
+    // Check for new users every 2 seconds
+    setInterval(checkForNewUsers, 2000);
+    
+    // Also check immediately on load
+    setTimeout(() => {
+        const initialUsers = JSON.parse(localStorage.getItem('masterUsers') || '[]');
+        lastUserCount = initialUsers.length;
+        lastUserIds = new Set(initialUsers.map(u => u.id || u.email));
+        console.log('👀 Monitoring for new users. Current count:', lastUserCount);
+    }, 3000);
+    
     console.log('Master Admin Dashboard initialized successfully');
 });
 
@@ -1006,7 +1073,16 @@ function displayUsers() {
                     </button>
                 </div>
             </td>
-            <td>${user.company || 'N/A'}</td>
+            <td>
+                <div class="company-assignment">
+                    ${user.company ? `<span class="company-badge">${user.company}</span>` : '<span class="text-danger"><i class="fas fa-exclamation-triangle"></i> No Company</span>'}
+                    <button onclick="assignUserToCompany('${user.id}')" 
+                            class="btn btn-small btn-primary"
+                            title="Assign/Change Company">
+                        <i class="fas fa-building"></i> ${user.company ? 'Change' : 'Assign'}
+                    </button>
+                </div>
+            </td>
             <td>${user.role || 'user'}</td>
             <td>${formatDate(user.created)}</td>
             <td>${formatDate(user.lastLogin || user.created)}</td>
@@ -1027,6 +1103,121 @@ function displayUsers() {
         `;
         usersList.appendChild(row);
     });
+}
+
+function assignUserToCompany(userId) {
+    console.log('assignUserToCompany called with userId:', userId);
+    
+    // Reload users and companies from localStorage
+    const currentUsers = JSON.parse(localStorage.getItem('masterUsers') || '[]');
+    const currentCompanies = JSON.parse(localStorage.getItem('masterCompanies') || '[]');
+    
+    // Find user with flexible ID matching
+    const user = currentUsers.find(u => {
+        const matches = [
+            u.id === userId,
+            u.id == userId,
+            String(u.id) === String(userId),
+            parseInt(u.id) === parseInt(userId),
+            u.id.toString() === userId.toString()
+        ];
+        return matches.some(m => m);
+    });
+    
+    if (!user) {
+        showAlert('User not found!', 'error');
+        return;
+    }
+    
+    // Create company selection dialog
+    const companyNames = currentCompanies.map(c => c.name || c.company).filter(Boolean);
+    
+    if (companyNames.length === 0) {
+        showAlert('No companies available. Please create a company first.', 'error');
+        return;
+    }
+    
+    // Show selection dialog
+    const selectedCompany = prompt(
+        `Assign user "${user.username}" (${user.email}) to a company:\n\n` +
+        `Current company: ${user.company || 'None'}\n\n` +
+        `Available companies:\n${companyNames.map((c, i) => `${i + 1}. ${c}`).join('\n')}\n\n` +
+        `Enter company name or number:`,
+        user.company || ''
+    );
+    
+    if (!selectedCompany || !selectedCompany.trim()) {
+        return; // User cancelled
+    }
+    
+    // Find company by name or number
+    let targetCompany = null;
+    const trimmedSelection = selectedCompany.trim();
+    
+    // Check if it's a number
+    const selectionNum = parseInt(trimmedSelection);
+    if (!isNaN(selectionNum) && selectionNum > 0 && selectionNum <= companyNames.length) {
+        targetCompany = companyNames[selectionNum - 1];
+    } else {
+        // Check if it matches a company name
+        targetCompany = companyNames.find(c => 
+            c.toLowerCase() === trimmedSelection.toLowerCase() ||
+            c.toLowerCase().includes(trimmedSelection.toLowerCase())
+        );
+    }
+    
+    if (!targetCompany) {
+        showAlert(`Company "${trimmedSelection}" not found. Please enter a valid company name.`, 'error');
+        return;
+    }
+    
+    // Update user's company
+    const userIndex = currentUsers.findIndex(u => {
+        const matches = [
+            u.id === userId,
+            u.id == userId,
+            String(u.id) === String(userId),
+            parseInt(u.id) === parseInt(userId),
+            u.id.toString() === userId.toString()
+        ];
+        return matches.some(m => m);
+    });
+    
+    if (userIndex !== -1) {
+        currentUsers[userIndex].company = targetCompany;
+        // Also update company_id if available
+        const companyObj = currentCompanies.find(c => (c.name || c.company) === targetCompany);
+        if (companyObj && companyObj.id) {
+            currentUsers[userIndex].company_id = companyObj.id;
+        }
+        
+        // Save to localStorage
+        localStorage.setItem('masterUsers', JSON.stringify(currentUsers));
+        
+        // Update local users array
+        users = currentUsers.map(u => ({
+            id: u.id || `user-${Date.now()}-${Math.random()}`,
+            username: u.username || '',
+            email: u.email || '',
+            company: u.company || '',
+            role: u.role || 'user',
+            created: u.created || u.created_at || u.createdDate || new Date().toISOString().split('T')[0],
+            lastLogin: u.lastLogin || u.last_login_at || u.lastLoginDate || null,
+            status: u.status || 'active',
+            access_code: u.access_code || u.accessCode || null,
+            password: u.password || null
+        }));
+        
+        // Refresh display
+        displayUsers();
+        updateStats();
+        
+        // Sync to main site
+        syncToMainSite();
+        
+        showAlert(`User "${user.username}" has been assigned to company "${targetCompany}"`, 'success');
+        addActivity(`Assigned user "${user.username}" to company "${targetCompany}"`);
+    }
 }
 
 function changeUserRole(userId, newRole) {
@@ -1354,23 +1545,25 @@ function deleteCompany(companyId) {
     
     if (userInput === company.name) {
         // Send deletion data to webhook BEFORE deleting
-        const webhookFn = typeof sendToWebhook !== 'undefined' ? sendToWebhook : (typeof window !== 'undefined' && window.sendToWebhook ? window.sendToWebhook : null);
-        
-        if (webhookFn) {
-            const deletionData = {
-                ...company,
-                deleted_at: new Date().toISOString(),
-                deleted_by: 'admin-master',
-                action: 'deleted'
-            };
-            webhookFn(deletionData, 'companydeleted').catch(error => {
-                console.error('Error sending company deletion to webhook:', error);
-                // Continue with deletion even if webhook fails
-            });
+        const deletionData = {
+            type: 'companydeleted',
+            ...company,
+            deleted_at: new Date().toISOString(),
+            deleted_by: 'admin-master',
+            action: 'deleted'
+        };
+        fetch('https://jackwilde.app.n8n.cloud/webhook/561e4d2b-3047-456b-acf0-fb22e460ed4a', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(deletionData)
+        }).then(() => {
             console.log('✅ Company deletion data sent to webhook:', company.name);
-        } else {
-            console.warn('⚠️ sendToWebhook function not available');
-        }
+        }).catch(error => {
+            console.error('Error sending company deletion to webhook:', error);
+            // Continue with deletion even if webhook fails
+        });
         
         // Delete from Supabase/localStorage via SupabaseDB if available
         if (typeof SupabaseDB !== 'undefined' && SupabaseDB.deleteCompany) {
@@ -1755,6 +1948,24 @@ async function createAccessCode(event) {
             return;
         }
         
+        // Send access code creation to webhook
+        try {
+            await fetch('https://jackwilde.app.n8n.cloud/webhook/561e4d2b-3047-456b-acf0-fb22e460ed4a', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    type: 'accesscode',
+                    ...createdCode
+                })
+            });
+            console.log('✅ Access code creation sent to webhook:', createdCode.code);
+        } catch (error) {
+            console.error('Error sending access code creation to webhook:', error);
+            // Continue anyway - don't block
+        }
+        
         // Normalize the code object for display (handle both formats)
         const normalizedCode = {
             id: createdCode.id || `code-${Date.now()}`,
@@ -1874,15 +2085,21 @@ async function deleteAccessCode(codeId) {
         const deletedCode = accessCodes.find(c => c.id === codeId);
         
         // Send deletion data to webhook BEFORE deleting
-        if (deletedCode && (typeof sendToWebhook === 'function' || (typeof window !== 'undefined' && window.sendToWebhook))) {
-            const webhookFn = sendToWebhook || window.sendToWebhook;
+        if (deletedCode) {
             const deletionData = {
+                type: 'accesscodedeleted',
                 ...deletedCode,
                 deleted_at: new Date().toISOString(),
                 deleted_by: 'admin-master'
             };
             try {
-                await webhookFn(deletionData, 'accesscodedeleted');
+                await fetch('https://jackwilde.app.n8n.cloud/webhook/561e4d2b-3047-456b-acf0-fb22e460ed4a', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(deletionData)
+                });
                 console.log('✅ Access code deletion sent to webhook:', deletedCode.code);
             } catch (error) {
                 console.error('Error sending access code deletion to webhook:', error);
@@ -5402,7 +5619,9 @@ document.addEventListener('DOMContentLoaded', function() {
             window.closeAIModal = closeAIModal;
             window.logout = logout;
             window.changeUserRole = changeUserRole;
+            window.assignUserToCompany = assignUserToCompany;
             window.deleteUser = deleteUser;
+            window.assignUserToCompany = assignUserToCompany;
             window.showSection = showSection;
             console.log('✅ Button functions re-attached on DOMContentLoaded');
         }

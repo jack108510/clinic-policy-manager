@@ -166,11 +166,12 @@ if (typeof window !== 'undefined') {
         
         // Extract key policy data
         const policyData = {
+            type: 'policysaved', // Webhook type for routing
             id: policy.id,
             title: policy.title || policy.name || 'Untitled Policy',
             name: policy.title || policy.name || 'Untitled Policy', // Keep for backward compatibility
             text: fullPolicyText, // Full policy text content
-            type: policy.type || 'admin', // Policy type
+            policyType: policy.type || 'admin', // Policy type (renamed to avoid conflict with webhook type)
             status: policy.status || 'active', // Policy status
             company: policy.company || null,
             clinicNames: policy.clinicNames || policy.organizations || policy.clinics || null,

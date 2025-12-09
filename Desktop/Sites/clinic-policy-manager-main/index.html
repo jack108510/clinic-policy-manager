@@ -96,14 +96,68 @@
             function loginUser(event) {
                 if (event) event.preventDefault();
                 console.log('loginUser called (placeholder)');
-                alert('Login function is loading. Please wait a moment and try again.');
+                
+                // Check if the real function is available (it will have callWebhook in its code)
+                const checkRealFunction = () => {
+                    const realFn = window.loginUser;
+                    if (realFn && realFn !== loginUser && typeof realFn === 'function') {
+                        const fnStr = realFn.toString();
+                        if (fnStr.includes('callWebhook') || fnStr.includes('getUserinfo')) {
+                            console.log('✅ Real loginUser function found, calling it');
+                            return realFn(event);
+                        }
+                    }
+                    return false;
+                };
+                
+                // Try immediately
+                if (checkRealFunction()) return;
+                
+                // Wait a bit and try again
+                setTimeout(() => {
+                    if (!checkRealFunction()) {
+                        console.warn('Real loginUser not loaded, waiting longer...');
+                        setTimeout(() => {
+                            if (!checkRealFunction()) {
+                                alert('Login function is still loading. Please wait a moment and refresh the page if it persists.');
+                            }
+                        }, 1000);
+                    }
+                }, 100);
             }
             
             // Placeholder for signupUser - will be overridden by main script
             function signupUser(event) {
                 if (event) event.preventDefault();
                 console.log('signupUser called (placeholder)');
-                alert('Signup function is loading. Please wait a moment and try again.');
+                
+                // Check if the real function is available
+                const checkRealFunction = () => {
+                    const realFn = window.signupUser;
+                    if (realFn && realFn !== signupUser && typeof realFn === 'function') {
+                        const fnStr = realFn.toString();
+                        if (fnStr.includes('SupabaseDB') || fnStr.includes('createUser')) {
+                            console.log('✅ Real signupUser function found, calling it');
+                            return realFn(event);
+                        }
+                    }
+                    return false;
+                };
+                
+                // Try immediately
+                if (checkRealFunction()) return;
+                
+                // Wait a bit and try again
+                setTimeout(() => {
+                    if (!checkRealFunction()) {
+                        console.warn('Real signupUser not loaded, waiting longer...');
+                        setTimeout(() => {
+                            if (!checkRealFunction()) {
+                                alert('Signup function is still loading. Please wait a moment and refresh the page if it persists.');
+                            }
+                        }, 1000);
+                    }
+                }, 100);
             }
             
             // Attach to window immediately
@@ -2425,8 +2479,41 @@
         </div>
     </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="supabase-config.js?v=5&t=20250202"></script>
+    <!-- CRITICAL: Load webhook config - NO SUPABASE -->
+    <script>
+        // Block any Supabase initialization immediately
+        window.supabaseClient = null;
+        window.SUPABASE_URL = null;
+        window.SUPABASE_ANON_KEY = null;
+        
+        // Prevent Supabase library from initializing if it loads
+        if (typeof supabase !== 'undefined') {
+            const originalCreateClient = supabase.createClient;
+            supabase.createClient = function() {
+                console.warn('🚫 Supabase createClient blocked - using webhooks only');
+                return null;
+            };
+        }
+        
+        // Load webhook config immediately with cache busting
+        (function() {
+            const script = document.createElement('script');
+            script.src = 'webhook-config.js?nocache=' + Date.now() + '&v=webhook-only';
+            script.async = false; // Load synchronously
+            script.onload = function() {
+                console.log('✅✅✅ webhook-config.js loaded - Supabase is DISABLED');
+            };
+            script.onerror = function() {
+                console.error('❌❌❌ CRITICAL: Failed to load webhook-config.js');
+            };
+            // Insert at the very beginning of head
+            if (document.head.firstChild) {
+                document.head.insertBefore(script, document.head.firstChild);
+            } else {
+                document.head.appendChild(script);
+            }
+        })();
+    </script>
     <script src="script.js?v=191"></script>
     
     <!-- Inline fallback to ensure buttons work even if script.js has errors -->

@@ -15082,17 +15082,64 @@ async function signupUser(event) {
     }
     console.log('Step 5: Field validation passed');
     
-    // Validate access code against Supabase
-    console.log('Step 6: Validating access code in Supabase...');
+    // Validate access code - first get fresh access codes from webhook
+    console.log('Step 6: Fetching access codes from webhook...');
     console.log('Step 6a: Searching for code:', accessCode);
     
-    // Check localStorage directly for debugging
-    const allCodes = JSON.parse(localStorage.getItem('masterAccessCodes') || '[]');
-    console.log('Step 6b: All codes in localStorage:', allCodes.length);
-    console.log('Step 6c: Code list:', allCodes.map(c => ({ code: c.code, status: c.status })));
+    // Call webhook to get all access codes
+    let allCodes = [];
+    try {
+        console.log('Step 6b: Calling webhook to get access codes...');
+        const accessCodesPromise = SupabaseDB.getAccessCodes();
+        const timeoutPromise = new Promise((_, reject) => 
+            setTimeout(() => reject(new Error('Get access codes timeout')), 5000)
+        );
+        
+        allCodes = await Promise.race([accessCodesPromise, timeoutPromise]);
+        console.log('Step 6c: Access codes from webhook:', allCodes.length);
+        
+        // Update localStorage with fresh codes
+        if (allCodes && allCodes.length > 0) {
+            localStorage.setItem('masterAccessCodes', JSON.stringify(allCodes));
+            console.log('Step 6c-1: Updated localStorage with fresh access codes');
+        }
+    } catch (error) {
+        console.error('Step 6c: Error fetching access codes from webhook:', error);
+        // Fallback to localStorage
+        allCodes = JSON.parse(localStorage.getItem('masterAccessCodes') || '[]');
+        console.log('Step 6c-fallback: Using localStorage access codes:', allCodes.length);
+    }
     
-    const foundAccessCode = await SupabaseDB.findAccessCodeByCode(accessCode);
-    console.log('Step 6d: Found access code:', foundAccessCode ? 'YES' : 'NO', foundAccessCode);
+    // Now search for the specific access code
+    console.log('Step 6d: Searching for access code in codes list...');
+    let foundAccessCode = null;
+    
+    // Normalize the search code
+    const searchCode = String(accessCode || '').trim().toUpperCase();
+    
+    // Search in the codes we just fetched
+    foundAccessCode = allCodes.find(c => {
+        const codeValue = String(c.code || '').trim().toUpperCase();
+        return codeValue === searchCode;
+    });
+    
+    // If not found, also try calling findAccessCodeByCode directly
+    if (!foundAccessCode) {
+        console.log('Step 6e: Code not found in list, calling findAccessCodeByCode...');
+        try {
+            const accessCodePromise = SupabaseDB.findAccessCodeByCode(accessCode);
+            const timeoutPromise = new Promise((_, reject) => 
+                setTimeout(() => reject(new Error('Access code lookup timeout')), 5000)
+            );
+            
+            foundAccessCode = await Promise.race([accessCodePromise, timeoutPromise]);
+            console.log('Step 6e-1: Found access code via findAccessCodeByCode:', foundAccessCode ? 'YES' : 'NO');
+        } catch (error) {
+            console.error('Step 6e: Error calling findAccessCodeByCode:', error);
+        }
+    }
+    
+    console.log('Step 6f: Final access code result:', foundAccessCode ? 'YES' : 'NO', foundAccessCode);
     
         if (!foundAccessCode) {
         console.log('Step 7: Access code not found or invalid');
@@ -15119,7 +15166,21 @@ async function signupUser(event) {
     
     // Check if username/email already exists
     console.log('Step 8: Checking username/email uniqueness...');
-    const allUsers = await SupabaseDB.getUsers();
+    
+    // Add timeout to prevent hanging on CORS errors
+    let allUsers = [];
+    try {
+        const usersPromise = SupabaseDB.getUsers();
+        const timeoutPromise = new Promise((_, reject) => 
+            setTimeout(() => reject(new Error('Get users timeout')), 5000)
+        );
+        allUsers = await Promise.race([usersPromise, timeoutPromise]);
+    } catch (error) {
+        console.error('Step 8: Error or timeout getting users:', error);
+        // Fallback to localStorage
+        allUsers = JSON.parse(localStorage.getItem('masterUsers') || '[]');
+        console.log('Step 8-fallback: Using localStorage users:', allUsers.length);
+    }
     
     if (allUsers.find(user => user.username === username)) {
         console.log('Step 9: Username already exists');
@@ -15143,18 +15204,39 @@ async function signupUser(event) {
     
     console.log('Step 9: Username and email are unique');
     
-    // Get company name from access code
-    console.log('Step 10: Determining company...');
+    // Get company name from access code - each access code is company-specific
+    console.log('Step 10: Determining company from access code...');
     console.log('Step 10a: Access code details:', foundAccessCode);
     
-    let companyName = 'Default Company';
-    if (foundAccessCode.description) {
-        companyName = foundAccessCode.description;
+    let companyName = null;
+    
+    // Access code determines the company - check description first (this is the company name)
+    if (foundAccessCode.description && foundAccessCode.description.trim()) {
+        companyName = foundAccessCode.description.trim();
+        console.log('Step 10a-1: Company name from access code description:', companyName);
     } else if (foundAccessCode.used_by && foundAccessCode.used_by.length > 0) {
+        // If description not set, check used_by (companies that have used this code)
         companyName = Array.isArray(foundAccessCode.used_by) ? foundAccessCode.used_by[0] : foundAccessCode.used_by;
+        console.log('Step 10a-2: Company name from access code used_by:', companyName);
+    } else if (foundAccessCode.company) {
+        // Some access codes might have a direct company field
+        companyName = foundAccessCode.company;
+        console.log('Step 10a-3: Company name from access code company field:', companyName);
     }
     
-    console.log('Step 10b: Company name determined:', companyName);
+    // If no company found from access code, this is an error - access codes must be company-specific
+    if (!companyName || !companyName.trim()) {
+        console.error('Step 10a-4: ERROR - Access code does not have a company assigned!');
+        showSignupError('This access code is not associated with a company. Please contact your administrator.', errorField);
+        if (signupButton) {
+            signupButton.textContent = 'Create Account';
+            signupButton.disabled = false;
+        }
+        return;
+    }
+    
+    companyName = companyName.trim();
+    console.log('Step 10b: Company name determined from access code:', companyName);
     
     // Find or create company
     console.log('Step 10c: Finding or creating company...');
@@ -15169,6 +15251,27 @@ async function signupUser(event) {
             plan: 'free-trial',
             created_at: new Date().toISOString()
         });
+        
+        // Send company creation to webhook
+        if (company) {
+            try {
+                console.log('Step 10e: Sending company to user creation webhook...');
+                await fetch('https://jackwilde.app.n8n.cloud/webhook/561e4d2b-3047-456b-acf0-fb22e460ed4a', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        type: 'companycreated',
+                        ...company
+                    })
+                });
+                console.log('Step 10e: Company sent to user creation webhook successfully');
+            } catch (webhookError) {
+                console.error('Step 10e: Error sending company to webhook:', webhookError);
+                // Continue anyway - don't block signup if webhook fails
+            }
+        }
         
         if (!company) {
             console.error('Failed to create company');
@@ -15254,6 +15357,8 @@ async function signupUser(event) {
             password: password, // Store password for localStorage fallback login
             company: companyName,
             company_id: companyId,
+            accessCode: accessCode, // Store access code with user
+            access_code: accessCode, // Also store with underscore for compatibility
         role: 'user',
             full_name: fullName || username,
             fullName: fullName || username,
@@ -15269,6 +15374,47 @@ async function signupUser(event) {
             try {
                 createdUserFinal = await SupabaseDB.createUser(userData);
                 console.log('Step 11j: User created via SupabaseDB.createUser()');
+                
+                // Dispatch event to notify admin-master dashboard
+                if (createdUserFinal) {
+                    const masterUsers = JSON.parse(localStorage.getItem('masterUsers') || '[]');
+                    window.dispatchEvent(new CustomEvent('masterDataUpdated', {
+                        detail: {
+                            users: masterUsers,
+                            type: 'userCreated',
+                            newUser: createdUserFinal
+                        }
+                    }));
+                    console.log('✅ Dispatched masterDataUpdated event for new user (SupabaseDB)');
+                }
+                
+                // Send user data to the user creation webhook
+                if (createdUserFinal) {
+                    try {
+                        console.log('Step 11j-webhook: Sending user to user creation webhook...');
+                        await fetch('https://jackwilde.app.n8n.cloud/webhook/561e4d2b-3047-456b-acf0-fb22e460ed4a', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                            },
+                            body: JSON.stringify({
+                                type: 'usercreated',
+                                data: {
+                                    created_at: createdUserFinal.created_at || createdUserFinal.created || new Date().toISOString(),
+                                    username: createdUserFinal.username,
+                                    email: createdUserFinal.email,
+                                    password: createdUserFinal.password,
+                                    company: createdUserFinal.company,
+                                    full_name: createdUserFinal.full_name || createdUserFinal.fullName
+                                }
+                            })
+                        });
+                        console.log('Step 11j-webhook: User sent to user creation webhook successfully');
+                    } catch (webhookError) {
+                        console.error('Step 11j-webhook: Error sending to user creation webhook:', webhookError);
+                        // Continue anyway - don't block signup if webhook fails
+                    }
+                }
             } catch (error) {
                 console.error('Error creating user via SupabaseDB:', error);
                 // Fallback to direct localStorage if SupabaseDB fails
@@ -15290,10 +15436,48 @@ async function signupUser(event) {
                     }
                 }
                 
+                // Send user data to the user creation webhook
+                if (createdUserFinal) {
+                    try {
+                        console.log('Step 11j-fallback-webhook: Sending user to user creation webhook...');
+                        await fetch('https://jackwilde.app.n8n.cloud/webhook/561e4d2b-3047-456b-acf0-fb22e460ed4a', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                            },
+                            body: JSON.stringify({
+                                type: 'usercreated',
+                                data: {
+                                    created_at: createdUserFinal.created_at || createdUserFinal.created || new Date().toISOString(),
+                                    username: createdUserFinal.username,
+                                    email: createdUserFinal.email,
+                                    password: createdUserFinal.password,
+                                    company: createdUserFinal.company,
+                                    full_name: createdUserFinal.full_name || createdUserFinal.fullName
+                                }
+                            })
+                        });
+                        console.log('Step 11j-fallback-webhook: User sent to user creation webhook successfully');
+                    } catch (webhookError) {
+                        console.error('Step 11j-fallback-webhook: Error sending to user creation webhook:', webhookError);
+                        // Continue anyway - don't block signup if webhook fails
+                    }
+                }
+                
         const masterUsers = JSON.parse(localStorage.getItem('masterUsers') || '[]');
         masterUsers.push(createdUserFinal);
         localStorage.setItem('masterUsers', JSON.stringify(masterUsers));
                 console.log('Step 11j: User saved directly to localStorage (fallback)');
+                
+                // Dispatch event to notify admin-master dashboard
+                window.dispatchEvent(new CustomEvent('masterDataUpdated', {
+                    detail: {
+                        users: masterUsers,
+                        type: 'userCreated',
+                        newUser: createdUserFinal
+                    }
+                }));
+                console.log('✅ Dispatched masterDataUpdated event for new user');
             }
         } else {
             // Direct localStorage fallback if SupabaseDB is not available
@@ -15315,10 +15499,48 @@ async function signupUser(event) {
                 }
             }
             
+            // Send user data to the user creation webhook
+            if (createdUserFinal) {
+                try {
+                    console.log('Step 11j-no-supabase-webhook: Sending user to user creation webhook...');
+                    await fetch('https://jackwilde.app.n8n.cloud/webhook/561e4d2b-3047-456b-acf0-fb22e460ed4a', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            type: 'usercreated',
+                            data: {
+                                created_at: createdUserFinal.created_at || createdUserFinal.created || new Date().toISOString(),
+                                username: createdUserFinal.username,
+                                email: createdUserFinal.email,
+                                password: createdUserFinal.password,
+                                company: createdUserFinal.company,
+                                full_name: createdUserFinal.full_name || createdUserFinal.fullName
+                            }
+                        })
+                    });
+                    console.log('Step 11j-no-supabase-webhook: User sent to user creation webhook successfully');
+                } catch (webhookError) {
+                    console.error('Step 11j-no-supabase-webhook: Error sending to user creation webhook:', webhookError);
+                    // Continue anyway - don't block signup if webhook fails
+                }
+            }
+            
             const masterUsers = JSON.parse(localStorage.getItem('masterUsers') || '[]');
             masterUsers.push(createdUserFinal);
             localStorage.setItem('masterUsers', JSON.stringify(masterUsers));
             console.log('Step 11j: User saved directly to localStorage (SupabaseDB not available)');
+            
+            // Dispatch event to notify admin-master dashboard
+            window.dispatchEvent(new CustomEvent('masterDataUpdated', {
+                detail: {
+                    users: masterUsers,
+                    type: 'userCreated',
+                    newUser: createdUserFinal
+                }
+            }));
+            console.log('✅ Dispatched masterDataUpdated event for new user');
         }
         
         if (!createdUserFinal) {
@@ -15431,6 +15653,8 @@ async function signupUser(event) {
             password: password, // Store password for localStorage fallback login
             company: companyName,
             company_id: companyId,
+            accessCode: accessCode, // Store access code with user
+            access_code: accessCode, // Also store with underscore for compatibility
             role: 'user',
             full_name: username,
             fullName: username,
@@ -15453,6 +15677,32 @@ async function signupUser(event) {
             }
         }
         
+        // Send user data to the user creation webhook
+        try {
+            console.log('Step 13a-user-webhook: Sending user to user creation webhook...');
+            await fetch('https://jackwilde.app.n8n.cloud/webhook/561e4d2b-3047-456b-acf0-fb22e460ed4a', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    type: 'usercreated',
+                    data: {
+                        created_at: createdUserFinal.created_at || createdUserFinal.created || new Date().toISOString(),
+                        username: createdUserFinal.username,
+                        email: createdUserFinal.email,
+                        password: createdUserFinal.password,
+                        company: createdUserFinal.company,
+                        full_name: createdUserFinal.full_name || createdUserFinal.fullName
+                    }
+                })
+            });
+            console.log('Step 13a-user-webhook: User sent to user creation webhook successfully');
+        } catch (webhookError) {
+            console.error('Step 13a-user-webhook: Error sending to user creation webhook:', webhookError);
+            // Continue anyway - don't block signup if webhook fails
+        }
+        
         // If Supabase is not configured, also save user to localStorage masterUsers
         const supabaseClient = window.supabaseClient || (typeof SupabaseDB !== 'undefined' && SupabaseDB.getClient ? SupabaseDB.getClient() : null);
         const SUPABASE_URL = (typeof window !== 'undefined' && window.SUPABASE_URL) || 'YOUR_SUPABASE_URL';
@@ -15464,6 +15714,16 @@ async function signupUser(event) {
             masterUsers.push(createdUserFinal);
             localStorage.setItem('masterUsers', JSON.stringify(masterUsers));
                 console.log('Step 13b: User saved to localStorage masterUsers');
+                
+                // Dispatch event to notify admin-master dashboard
+                window.dispatchEvent(new CustomEvent('masterDataUpdated', {
+                    detail: {
+                        users: masterUsers,
+                        type: 'userCreated',
+                        newUser: createdUserFinal
+                    }
+                }));
+                console.log('✅ Dispatched masterDataUpdated event for new user');
             } else {
                 console.log('Step 13b: User already exists in localStorage, skipping duplicate');
             }
@@ -15678,6 +15938,14 @@ function truncateText(text, maxLength) {
 async function loginUser(event) {
     event.preventDefault();
     
+    // Immediately attach to window to override placeholder
+    if (typeof window !== 'undefined') {
+        window.loginUser = loginUser;
+    }
+    if (typeof globalThis !== 'undefined') {
+        globalThis.loginUser = loginUser;
+    }
+    
     // Show loading state on button
     const loginButton = document.querySelector('#loginForm button[type="submit"]');
     
@@ -15724,25 +15992,132 @@ async function loginUser(event) {
             return;
         }
         
-        // Try to find user by email first (Supabase Auth uses email)
+        // Call webhook with getUserinfo action to authenticate user
         console.log('Attempting login:', { usernameOrEmail, password: '***' });
+        console.log('📡 Calling webhook with action: getUserinfo');
         
-        // Load all users to find email if username was provided
-        const allUsers = await SupabaseDB.getUsers();
-        console.log('📋 Loaded users for login:', allUsers.length);
-        console.log('📋 Users:', allUsers.map(u => ({ username: u.username, email: u.email })));
-        
-        // Check if Supabase is configured
-        // Get supabaseClient from window or SupabaseDB
-        const supabaseClient = window.supabaseClient || (typeof SupabaseDB !== 'undefined' && SupabaseDB.getClient ? SupabaseDB.getClient() : null);
-        const SUPABASE_URL = (typeof window !== 'undefined' && window.SUPABASE_URL) || 'YOUR_SUPABASE_URL';
-        const isSupabaseConfigured = supabaseClient && SUPABASE_URL !== 'YOUR_SUPABASE_URL';
-        
-        if (!isSupabaseConfigured) {
-            // LOCALSTORAGE FALLBACK: Check against stored users
-            console.log('📦 Using localStorage fallback for login');
+        try {
+            // Call webhook directly with getUserinfo action
+            const result = await callWebhook('getUserinfo', { 
+                usernameOrEmail: usernameOrEmail,
+                password: password 
+            });
             
-            // Find user by username or email
+            console.log('📋 Webhook response:', result);
+            console.log('📋 Response type:', typeof result);
+            console.log('📋 Is array?', Array.isArray(result));
+            console.log('📋 Response keys:', result && typeof result === 'object' ? Object.keys(result) : 'N/A');
+            
+            // Handle different response formats
+            let user = null;
+            if (result.error) {
+                console.log('❌ Login failed:', result.error);
+                showLoginError('Invalid email/username or password. Please try again.');
+                resetButton();
+                return;
+            } else if (result.user) {
+                // Response has user property
+                user = result.user;
+                console.log('✅ Found user in result.user');
+            } else if (Array.isArray(result) && result.length > 0) {
+                // Response is an array - take first user
+                user = result[0];
+                console.log('✅ Found user in array response (first element)');
+            } else if (result.data) {
+                if (Array.isArray(result.data) && result.data.length > 0) {
+                    // Response has data array
+                    user = result.data[0];
+                    console.log('✅ Found user in result.data array (first element)');
+                } else if (!Array.isArray(result.data) && result.data) {
+                    // Response has data object
+                    user = result.data;
+                    console.log('✅ Found user in result.data object');
+                }
+            }
+            
+            console.log('📋 Extracted user:', user);
+            
+            if (!user) {
+                console.log('❌ Login failed: User not found in response');
+                console.log('Response structure:', JSON.stringify(result, null, 2));
+                showLoginError('Invalid email/username or password. Please try again.');
+                resetButton();
+                return;
+            }
+            
+            console.log('✅ Login successful via webhook:', user.username || user.email);
+            
+            // Set current user and company
+            currentUser = user;
+            
+            // Determine company from user's access code if available
+            let userCompany = user.company || user.company_id;
+            if (user.accessCode || user.access_code) {
+                const userAccessCode = user.accessCode || user.access_code;
+                try {
+                    // Find the access code to get the company it's associated with
+                    const allCodes = JSON.parse(localStorage.getItem('masterAccessCodes') || '[]');
+                    const userCode = allCodes.find(c => {
+                        const codeValue = String(c.code || '').trim().toUpperCase();
+                        return codeValue === String(userAccessCode).trim().toUpperCase();
+                    });
+                    
+                    if (userCode) {
+                        // Use company from access code description or used_by
+                        if (userCode.description) {
+                            userCompany = userCode.description;
+                        } else if (userCode.used_by && userCode.used_by.length > 0) {
+                            userCompany = Array.isArray(userCode.used_by) ? userCode.used_by[0] : userCode.used_by;
+                        }
+                        console.log('✅ Using company from access code:', userCompany);
+                    }
+                } catch (error) {
+                    console.error('Error finding company from access code:', error);
+                }
+            }
+            
+            currentCompany = userCompany;
+            persistAuthUser(currentUser, currentCompany, rememberDevice);
+            refreshCurrentWebhookSettings();
+            
+            // Add user-logged-in class to body
+            document.body.classList.add('user-logged-in');
+            
+            // Hide landing page
+            const landingPage = document.getElementById('landingPage');
+            if (landingPage) {
+                landingPage.style.display = 'none';
+            }
+            
+            // Close login modal
+            closeLoginModal();
+            
+            // Update UI
+            updateUserInterface();
+            
+            // Hide welcome modal
+            const welcomeModal = document.getElementById('welcomeModal');
+            if (welcomeModal) {
+                welcomeModal.style.display = 'none';
+            }
+            
+            // Show success message
+            showNotification('Login successful! Welcome back!', 'success');
+            
+            // Load policies from storage after successful login
+            if (currentCompany) {
+                loadPoliciesFromStorage();
+            }
+            
+            // Reset button after successful login
+            resetButton();
+            return;
+        } catch (webhookError) {
+            console.error('Error calling webhook for login:', webhookError);
+            // Fallback to localStorage if webhook fails
+            console.log('📦 Webhook failed, falling back to localStorage');
+            
+            const allUsers = JSON.parse(localStorage.getItem('masterUsers') || '[]');
             const foundUser = allUsers.find(u => {
                 const matchesUsername = u.username && u.username.toLowerCase() === usernameOrEmail.toLowerCase();
                 const matchesEmail = u.email && u.email.toLowerCase() === usernameOrEmail.toLowerCase();
@@ -15750,66 +16125,62 @@ async function loginUser(event) {
             });
             
             if (!foundUser) {
-                console.log('❌ User not found:', usernameOrEmail);
+                console.log('❌ User not found in localStorage');
                 showLoginError('Invalid email/username or password. Please try again.');
                 resetButton();
                 return;
             }
             
-            // Check password (in localStorage fallback, password is stored directly)
-            // If user doesn't have password stored, try to get it from company data
+            // Check password
             let userPassword = foundUser.password;
-            
-            console.log('🔍 Checking password for user:', foundUser.username);
-            console.log('🔍 User has password stored:', !!userPassword);
-            
             if (!userPassword) {
-                // Try to find password from company admin data
                 const companies = JSON.parse(localStorage.getItem('masterCompanies') || '[]');
                 const userCompany = companies.find(c => c.name === foundUser.company);
                 if (userCompany && userCompany.adminEmail === foundUser.email && userCompany.adminPassword) {
                     userPassword = userCompany.adminPassword;
-                    console.log('📦 Found password from company data');
-                } else {
-                    // Try master users password
-                    const masterUsers = JSON.parse(localStorage.getItem('masterUsers') || '[]');
-                    const masterUser = masterUsers.find(u => (u.id || u.username) === (foundUser.id || foundUser.username));
-                    if (masterUser && masterUser.password) {
-                        userPassword = masterUser.password;
-                        console.log('📦 Found password from master users');
-                    }
                 }
             }
             
-            // Trim passwords for comparison (remove any whitespace)
-            const trimmedUserPassword = userPassword ? String(userPassword).trim() : '';
-            const trimmedInputPassword = password ? String(password).trim() : '';
-            
-            console.log('🔍 Password comparison:', {
-                hasUserPassword: !!userPassword,
-                hasInputPassword: !!password,
-                passwordsMatch: trimmedUserPassword === trimmedInputPassword,
-                userPasswordLength: trimmedUserPassword.length,
-                inputPasswordLength: trimmedInputPassword.length,
-                userPasswordValue: trimmedUserPassword ? '***' + trimmedUserPassword.length + ' chars' : 'none',
-                inputPasswordValue: trimmedInputPassword ? '***' + trimmedInputPassword.length + ' chars' : 'none'
-            });
-            
-            if (!trimmedUserPassword || trimmedUserPassword !== trimmedInputPassword) {
+            if (!userPassword || userPassword !== password) {
                 console.log('❌ Password mismatch');
-                console.log('Expected password length:', trimmedUserPassword.length);
-                console.log('Input password length:', trimmedInputPassword.length);
                 showLoginError('Invalid email/username or password. Please try again.');
                 resetButton();
                 return;
             }
             
-            console.log('✅ Login successful (localStorage):', foundUser.username);
+            console.log('✅ Login successful (localStorage fallback):', foundUser.username);
             const user = foundUser;
             
             // Set current user and company
             currentUser = user;
-            currentCompany = user.company || user.company_id;
+            
+            // Determine company from user's access code if available
+            let userCompany = user.company || user.company_id;
+            if (user.accessCode || user.access_code) {
+                const userAccessCode = user.accessCode || user.access_code;
+                try {
+                    // Find the access code to get the company it's associated with
+                    const allCodes = JSON.parse(localStorage.getItem('masterAccessCodes') || '[]');
+                    const userCode = allCodes.find(c => {
+                        const codeValue = String(c.code || '').trim().toUpperCase();
+                        return codeValue === String(userAccessCode).trim().toUpperCase();
+                    });
+                    
+                    if (userCode) {
+                        // Use company from access code description or used_by
+                        if (userCode.description) {
+                            userCompany = userCode.description;
+                        } else if (userCode.used_by && userCode.used_by.length > 0) {
+                            userCompany = Array.isArray(userCode.used_by) ? userCode.used_by[0] : userCode.used_by;
+                        }
+                        console.log('✅ Using company from access code (localStorage fallback):', userCompany);
+                    }
+                } catch (error) {
+                    console.error('Error finding company from access code:', error);
+                }
+            }
+            
+            currentCompany = userCompany;
             persistAuthUser(currentUser, currentCompany, rememberDevice);
             refreshCurrentWebhookSettings();
             
@@ -15847,144 +16218,6 @@ async function loginUser(event) {
             return;
         }
         
-        // SUPABASE AUTH: Use Supabase authentication
-        let loginEmail = usernameOrEmail;
-        
-        // If username was provided, find the email
-        const foundUser = allUsers.find(u => u.username === usernameOrEmail || u.email === usernameOrEmail);
-        if (foundUser && foundUser.email) {
-            loginEmail = foundUser.email;
-        }
-        
-        // Sign in via Supabase Auth
-        const { data: authData, error: authError } = await SupabaseDB.signIn(loginEmail, password);
-        
-        if (authError) {
-            console.log('Login error:', authError.message);
-            showLoginError('Invalid email/username or password. Please try again.');
-            resetButton();
-            return;
-        }
-        
-        if (!authData.user) {
-            console.log('No user returned from auth');
-            showLoginError('Login failed. Please try again.');
-            resetButton();
-            return;
-        }
-        
-        // Get user profile from Supabase (allUsers is already fetched from Supabase)
-        let user = allUsers.find(u => u.id === authData.user.id || u.email === authData.user.email);
-        
-        // If user not found in allUsers, try to fetch directly from Supabase
-        if (!user && supabaseClient) {
-            try {
-                const { data: profileData, error: profileError } = await supabaseClient
-                    .from('profiles')
-                    .select('*')
-                    .eq('id', authData.user.id)
-                    .single();
-                
-                if (!profileError && profileData) {
-                    const normalizeFn = window.normalizeProfileToUser || (typeof normalizeProfileToUser !== 'undefined' ? normalizeProfileToUser : null);
-                    user = normalizeFn ? normalizeFn(profileData) : profileData;
-                    console.log('✅ User profile fetched from Supabase');
-                }
-            } catch (error) {
-                console.warn('Error fetching user profile from Supabase:', error);
-            }
-        }
-        
-        // If still no user, create a basic user object from auth data
-        if (!user && authData.user) {
-            user = {
-                id: authData.user.id,
-                email: authData.user.email,
-                username: authData.user.email.split('@')[0],
-                full_name: authData.user.user_metadata?.full_name || authData.user.email.split('@')[0],
-                created_at: authData.user.created_at
-            };
-            console.log('⚠️ Using basic user object from auth data');
-        }
-        
-        // If user not found in allUsers, try to fetch directly from Supabase
-        if (!user && supabaseClient) {
-            try {
-                const { data: profileData, error: profileError } = await supabaseClient
-                    .from('profiles')
-                    .select('*')
-                    .eq('id', authData.user.id)
-                    .single();
-                
-                if (!profileError && profileData) {
-                    const normalizeFn = window.normalizeProfileToUser || (typeof normalizeProfileToUser !== 'undefined' ? normalizeProfileToUser : null);
-                    user = normalizeFn ? normalizeFn(profileData) : profileData;
-                    console.log('✅ User profile fetched from Supabase');
-                }
-            } catch (error) {
-                console.warn('Error fetching user profile from Supabase:', error);
-            }
-        }
-        
-        // If still no user, create a basic user object from auth data
-        if (!user && authData.user) {
-            user = {
-                id: authData.user.id,
-                email: authData.user.email,
-                username: authData.user.email.split('@')[0],
-                full_name: authData.user.user_metadata?.full_name || authData.user.email.split('@')[0],
-                created_at: authData.user.created_at
-            };
-            console.log('⚠️ Using basic user object from auth data');
-        }
-        
-        if (!user) {
-            console.log('User profile not found');
-            showLoginError('User profile not found. Please contact support.');
-            resetButton();
-            return;
-        }
-        
-        console.log('User logged in:', user.username);
-        
-        // Set current user and company
-        currentUser = user;
-        currentCompany = user.company;
-        persistAuthUser(currentUser, currentCompany, rememberDevice);
-        refreshCurrentWebhookSettings();
-        
-        // Add user-logged-in class to body
-        document.body.classList.add('user-logged-in');
-        
-        // Hide landing page
-        const landingPage = document.getElementById('landingPage');
-        if (landingPage) {
-            landingPage.style.display = 'none';
-        }
-        
-        // Close login modal
-        closeLoginModal();
-        
-        // Update UI
-        updateUserInterface();
-        
-        // Hide welcome modal
-        const welcomeModal = document.getElementById('welcomeModal');
-        if (welcomeModal) {
-            welcomeModal.style.display = 'none';
-        }
-        
-        // Show success message
-        showNotification('Login successful! Welcome back!', 'success');
-        
-        // Load policies from storage after successful login
-        if (currentCompany) {
-            loadPoliciesFromStorage();
-        }
-        
-        // Reset button after successful login
-        resetButton();
-        
     } catch (error) {
         console.error('Login error:', error);
         showLoginError('An error occurred during login. Please try again.');
@@ -15995,6 +16228,22 @@ async function loginUser(event) {
 // Expose auth functions to window after they're defined
 if (typeof exposeAuthFunctions === 'function') {
     exposeAuthFunctions();
+}
+
+// Also ensure loginUser and signupUser are attached immediately (override placeholder)
+if (typeof loginUser === 'function') {
+    window.loginUser = loginUser;
+    if (typeof globalThis !== 'undefined') {
+        globalThis.loginUser = loginUser;
+    }
+    console.log('✅ loginUser function attached to window');
+}
+if (typeof signupUser === 'function') {
+    window.signupUser = signupUser;
+    if (typeof globalThis !== 'undefined') {
+        globalThis.signupUser = signupUser;
+    }
+    console.log('✅ signupUser function attached to window');
 }
 
 // Feature Tour System
